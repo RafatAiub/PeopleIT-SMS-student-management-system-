@@ -1,0 +1,147 @@
+import bcrypt from 'bcryptjs';
+import { UserRepository } from './user.repository';
+import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppError';
+import { UserRole } from '@prisma/client';
+import { env } from '../../config/env';
+
+export class UserService {
+  static async createUser(tenantId: string, data: {
+    email: string;
+    password: UserPassword;
+    role: UserRole;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  } & any) {
+    const existing = await UserRepository.getUserByEmail(data.email);
+    if (existing) {
+      throw new ConflictError('Email already in use');
+    }
+
+    const rounds = env.BCRYPT_ROUNDS ?? 12;
+    const passwordHash = await bcrypt.hash(data.password, rounds);
+
+    const user = await UserRepository.createUser(tenantId, {
+      email: data.email,
+      passwordHash,
+      role: data.role,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+    });
+
+    if (data.role === 'STUDENT') {
+      const { prisma } = require('../../config/prisma');
+      await prisma.student.create({
+        data: {
+          institutionId: tenantId,
+          userId: user.id,
+          studentId: `STU-${Date.now()}`,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          phone: data.phone,
+        }
+      });
+    }
+
+    if (data.role === 'TEACHER') {
+      const { prisma } = require('../../config/prisma');
+      await prisma.teacher.create({
+        data: {
+          userId: user.id,
+          employeeId: `TCH-${Date.now()}`,
+        }
+      });
+    }
+
+    return user;
+  }
+
+  static async getUser(tenantId: string, id: string) {
+    const user = await UserRepository.getUserById(tenantId, id);
+    if (!user) throw new NotFoundError('User not found');
+    
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, ...userWithoutPassword } = user;
+    return userWithoutPassword;
+  }
+
+  static async listUsers(
+    tenantId: string,
+    filters: {
+      role?: UserRole;
+      page?: number;
+      pageSize?: number;
+    }
+  ) {
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 10;
+    return UserRepository.listUsers(tenantId, {
+      ...filters,
+      page,
+      pageSize,
+    });
+  }
+
+  static async updateUser(tenantId: string, id: string, data: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    avatarUrl?: string;
+    isActive?: boolean;
+    role?: UserRole;
+  }) {
+    const user = await UserRepository.getUserById(tenantId, id);
+    if (!user) throw new NotFoundError('User not found');
+    return UserRepository.updateUser(tenantId, id, data);
+  }
+
+  static async changePassword(
+    tenantId: string,
+    userId: string,
+    data: {
+      oldPassword: UserPassword;
+      newPassword: UserPassword;
+    } & any
+  ) {
+    const user = await UserRepository.getUserById(tenantId, userId);
+    if (!user) throw new NotFoundError('User not found');
+
+    const isValid = await bcrypt.compare(data.oldPassword, user.passwordHash);
+    if (!isValid) {
+      throw new BadRequestError('Invalid old password');
+    }
+
+    const rounds = env.BCRYPT_ROUNDS ?? 12;
+    const passwordHash = await bcrypt.hash(data.newPassword, rounds);
+
+    await UserRepository.updatePasswordHash(tenantId, userId, passwordHash);
+  }
+
+  static async deleteUser(tenantId: string, id: string) {
+    const user = await UserRepository.getUserById(tenantId, id);
+    if (!user) throw new NotFoundError('User not found');
+
+    if (user.role === 'STUDENT') {
+      const { prisma } = require('../../config/prisma');
+      const student = await prisma.student.findFirst({ where: { userId: id } });
+      if (student) {
+        await prisma.attendance.deleteMany({ where: { studentId: student.id } });
+        await prisma.examResult.deleteMany({ where: { studentId: student.id } });
+        await prisma.invoiceItem.deleteMany({ where: { invoice: { studentId: student.id } } });
+        await prisma.payment.deleteMany({ where: { invoice: { studentId: student.id } } });
+        await prisma.invoice.deleteMany({ where: { studentId: student.id } });
+        await prisma.studentDocument.deleteMany({ where: { studentId: student.id } });
+        await prisma.guardianStudent.deleteMany({ where: { studentId: student.id } });
+        await prisma.libraryIssue.deleteMany({ where: { studentId: student.id } });
+        await prisma.transportAssignment.deleteMany({ where: { studentId: student.id } });
+        await prisma.student.delete({ where: { id: student.id } });
+      }
+    }
+
+    return UserRepository.deleteUser(tenantId, id);
+  }
+}
+
+type UserPassword = string;
