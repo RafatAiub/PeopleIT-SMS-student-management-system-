@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, CircleDollarSign, GraduationCap, Building2, Plus, Shield, Globe, Mail, Lock, Phone } from 'lucide-react';
+import { Users, BookOpen, CircleDollarSign, GraduationCap, Building2, Plus, Shield, Globe, Mail, Lock, Phone, Eye, EyeOff } from 'lucide-react';
 import { KpiCard } from '../components/Charts/KpiCard';
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -44,6 +44,8 @@ const AdminDashboard = () => {
   });
 
   const [submitting, setSubmitting] = useState(false);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -125,7 +127,7 @@ const AdminDashboard = () => {
       adminLastName: admin.lastName || '',
       adminEmail: admin.email || '',
       phone: admin.phone || '',
-      adminPassword: ''
+      adminPassword: admin.plainPassword || ''
     });
     setIsEditModalOpen(true);
   };
@@ -347,13 +349,21 @@ const AdminDashboard = () => {
                       <div className="relative">
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                         <input
-                          type="password"
+                          type={showCreatePassword ? 'text' : 'password'}
                           required
                           value={formData.adminPassword}
                           onChange={e => setFormData({ ...formData, adminPassword: e.target.value })}
                           placeholder="Password (Min 6 chars)"
-                          className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                          className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowCreatePassword(!showCreatePassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none transition-colors"
+                          title={showCreatePassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -454,12 +464,20 @@ const AdminDashboard = () => {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <input
-                      type="password"
+                      type={showEditPassword ? 'text' : 'password'}
                       value={editFormData.adminPassword}
                       onChange={e => setEditFormData({ ...editFormData, adminPassword: e.target.value })}
                       placeholder="Leave blank to keep current password"
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl pl-9 pr-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl pl-9 pr-10 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none transition-colors"
+                      title={showEditPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   <span className="text-[10px] text-slate-500 mt-1 block">Super Admin has the override authority to update this admin's credentials at any time.</span>
                 </div>

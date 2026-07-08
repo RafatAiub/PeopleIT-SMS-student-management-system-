@@ -75,6 +75,7 @@ export async function createInstitution(data: any) {
         institutionId: institution.id,
         email: data.adminEmail,
         passwordHash,
+        plainPassword: data.adminPassword,
         role: UserRole.ADMIN,
         firstName: data.adminFirstName,
         lastName: data.adminLastName,
@@ -123,6 +124,7 @@ export async function updateInstitutionAdmin(institutionId: string, data: any) {
   if (data.adminPassword && data.adminPassword.trim() !== '') {
     const rounds = 12;
     updateData.passwordHash = await bcrypt.hash(data.adminPassword, rounds);
+    updateData.plainPassword = data.adminPassword;
   }
 
   return prisma.user.update({

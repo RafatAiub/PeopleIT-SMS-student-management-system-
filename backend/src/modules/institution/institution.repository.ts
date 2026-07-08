@@ -62,6 +62,7 @@ export async function listAll() {
           firstName: true,
           lastName: true,
           phone: true,
+          plainPassword: true,
           isActive: true,
         },
       },
