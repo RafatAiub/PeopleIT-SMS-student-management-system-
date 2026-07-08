@@ -3,6 +3,8 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Toaster } from 'react-hot-toast';
+import { Menu, X } from 'lucide-react';
+import { useUiStore } from './store/uiStore';
 
 // Lazy load pages for performance
 const Login = React.lazy(() => import('./pages/Login'));
@@ -42,13 +44,43 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
 // Layout Wrapper
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen } = useUiStore();
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#0F172A] text-slate-200">
-      <Sidebar />
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex md:flex-shrink-0 h-full">
+        <Sidebar />
+      </div>
+
+      {/* Mobile Sidebar overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex animate-in fade-in duration-200">
+          {/* Backdrop overlay */}
+          <div 
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Sidebar drawer content */}
+          <div className="relative w-64 bg-slate-900 animate-in slide-in-from-left duration-300 h-full shadow-2xl">
+            <Sidebar isMobile={true} />
+          </div>
+        </div>
+      )}
+
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         {/* Simple Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8 glass shadow-sm border-b border-white/5">
           <div className="flex items-center">
+            {/* Mobile Hamburger toggle */}
+            <button
+              id="mobile-menu-toggle"
+              onClick={toggleMobileMenu}
+              className="p-2 -ml-2 mr-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl md:hidden transition-colors"
+              title="Open menu"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
             <h1 className="text-xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
               PeopleIT SMS
             </h1>

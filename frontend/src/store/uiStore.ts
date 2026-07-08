@@ -13,6 +13,9 @@ interface UiState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (val: boolean) => void;
+  mobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
+  setMobileMenuOpen: (val: boolean) => void;
   notifications: Notification[];
   addNotification: (n: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
   markNotificationRead: (id: string) => void;
@@ -24,6 +27,10 @@ export const useUiStore = create<UiState>()((set) => ({
   toggleSidebar: () =>
     set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
   setSidebarCollapsed: (val) => set({ sidebarCollapsed: val }),
+  mobileMenuOpen: false,
+  toggleMobileMenu: () =>
+    set((state) => ({ mobileMenuOpen: !state.mobileMenuOpen })),
+  setMobileMenuOpen: (val) => set({ mobileMenuOpen: val }),
   notifications: [
     {
       id: '1',

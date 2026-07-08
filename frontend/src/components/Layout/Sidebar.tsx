@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
   MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
   LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
-  Megaphone, ShieldCheck, Library, Bus, Brain, Globe
+  Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
@@ -75,15 +75,18 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export const Sidebar: React.FC = () => {
-  const { sidebarCollapsed, toggleSidebar } = useUiStore();
+export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
+  const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
   const { user } = useAuthStore();
   const { logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout.mutate(undefined, {
-      onSettled: () => navigate('/login'),
+      onSettled: () => {
+        if (isMobile) setMobileMenuOpen(false);
+        navigate('/login');
+      },
     });
   };
 
@@ -102,27 +105,38 @@ export const Sidebar: React.FC = () => {
   return (
     <aside
       className={`flex flex-col h-full bg-slate-900/95 border-r border-white/10 transition-all duration-300 ease-in-out flex-shrink-0 ${
-        sidebarCollapsed ? 'w-16' : 'w-60'
+        isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-60'
       }`}
       style={{ backdropFilter: 'blur(16px)' }}
     >
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/5 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center flex-shrink-0 glow-indigo">
-          <GraduationCap className="w-4.5 h-4.5 text-white" />
-        </div>
-        {!sidebarCollapsed && (
-          <div>
-            <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
-            <span className="text-slate-500 text-xs">
-              {user?.institutionName || 'School Management'}
-            </span>
+      <div className={`flex items-center justify-between px-4 py-5 border-b border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center flex-shrink-0 glow-indigo">
+            <GraduationCap className="w-4.5 h-4.5 text-white" />
           </div>
+          {(!sidebarCollapsed || isMobile) && (
+            <div>
+              <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
+              <span className="text-slate-500 text-xs">
+                {user?.institutionName || 'School Management'}
+              </span>
+            </div>
+          )}
+        </div>
+        {isMobile && (
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+            title="Close menu"
+          >
+            <X className="w-4.5 h-4.5" />
+          </button>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (user?.role === 'SUPER_ADMIN') {
@@ -139,7 +153,7 @@ export const Sidebar: React.FC = () => {
           if (visibleItems.length === 0) return null;
           return (
             <div key={group.label} className="mb-2">
-              {!sidebarCollapsed && (
+              {(!sidebarCollapsed || isMobile) && (
                 <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-3 py-2">
                   {group.label}
                 </p>
@@ -153,16 +167,17 @@ export const Sidebar: React.FC = () => {
                     to={item.to}
                     id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                     className={({ isActive }) =>
-                      `sidebar-link ${isActive ? 'active' : ''} ${sidebarCollapsed ? 'justify-center' : ''}`
+                      `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`
                     }
-                    title={sidebarCollapsed ? label : undefined}
+                    title={(sidebarCollapsed && !isMobile) ? label : undefined}
+                    onClick={() => isMobile && setMobileMenuOpen(false)}
                   >
                     <span className="flex-shrink-0">{item.icon}</span>
-                    {!sidebarCollapsed && <span className="truncate">{label}</span>}
+                    {(!sidebarCollapsed || isMobile) && <span className="truncate">{label}</span>}
                   </NavLink>
                 );
               })}
-              {sidebarCollapsed && group.label !== 'Administration' && (
+              {sidebarCollapsed && !isMobile && group.label !== 'Administration' && (
                 <div className="my-2 border-t border-white/5" />
               )}
             </div>
@@ -172,7 +187,7 @@ export const Sidebar: React.FC = () => {
 
       {/* User Profile */}
       <div className="border-t border-white/5 p-3">
-        {!sidebarCollapsed ? (
+        {!sidebarCollapsed || isMobile ? (
           <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
               {initials}
@@ -187,7 +202,7 @@ export const Sidebar: React.FC = () => {
               id="sidebar-logout-btn"
               onClick={handleLogout}
               title="Logout"
-              className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+              className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors md:opacity-0 md:group-hover:opacity-100"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -204,16 +219,18 @@ export const Sidebar: React.FC = () => {
         )}
 
         {/* Collapse Toggle */}
-        <button
-          id="sidebar-collapse-btn"
-          onClick={toggleSidebar}
-          className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-600 hover:text-white hover:bg-white/5 transition-colors"
-          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {sidebarCollapsed
-            ? <ChevronRight className="w-4 h-4" />
-            : <ChevronLeft className="w-4 h-4" />}
-        </button>
+        {!isMobile && (
+          <button
+            id="sidebar-collapse-btn"
+            onClick={toggleSidebar}
+            className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-600 hover:text-white hover:bg-white/5 transition-colors"
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed
+              ? <ChevronRight className="w-4 h-4" />
+              : <ChevronLeft className="w-4 h-4" />}
+          </button>
+        )}
       </div>
     </aside>
   );
