@@ -6,26 +6,217 @@ This document serves as the master guide for any developer joining the project.
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ System Diagrams & Platform Architecture
 
-PeopleIT SMS is built on a split Client-Server monorepo architecture:
+To help developers understand the core mechanics, data flows, and lifecycles of PeopleIT SMS, we document the system using standard architecture diagrams below.
+
+### 1. System Context & C4 Container Diagram
+This container diagram illustrates the full high-level deployment stack of the SaaS application:
+
+```mermaid
+flowchart TB
+    user[User: Super Admin, School Admin, Teacher, Student, Guardian]
+    
+    subgraph ClientContainer [Client Container - User's Browser]
+        spa[React Single Page Application / Tailwind CSS]
+    end
+    
+    subgraph ServerContainer [Server Container - Render.com Cloud Platform]
+        api[Express REST API: Node.js / TypeScript App]
+    end
+    
+    subgraph DataStorageContainer [Database & Caching Layer]
+        db[(PostgreSQL: Neon Serverless Database)]
+        redis[(Redis Cache: Upstash Redis Server)]
+    end
+    
+    user -->|Interacts with UI| spa
+    spa -->|JSON REST HTTPS requests| api
+    api -->|Session token validation & rate limiting| redis
+    api -->|Multi-tenant SQL queries via Prisma| db
+```
+
+---
+
+### 2. Sequence Diagram (Authentication & Tenant Verification Flow)
+This diagram illustrates the sequence of actions that occur when a user signs in, verifying their credentials and tenant constraints:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User/Client
+    participant FE as React Frontend
+    participant BE as Express Backend
+    participant Redis as Redis Cache
+    participant DB as PostgreSQL (Prisma)
+
+    User->>FE: Input credentials & submit Login Form
+    Note over FE: Email/password trimmed. If Super Admin,<br/>Institution Code is omitted.
+    FE->>BE: POST /api/v1/auth/login
+    
+    Note over BE: Rate Limit Middleware checks IP
+    BE->>Redis: Check request limit rate
+    Redis-->>BE: Limit OK
+
+    Note over BE: Validate request body via Zod LoginDto
+    BE->>DB: Query User (filter by email & role / institution)
+    DB-->>BE: Return User (hash, plainPassword, active status)
+    
+    Note over BE: Bcrypt verifies password hash
+    BE->>DB: Store hashed Refresh Token
+    DB-->>BE: Token stored
+    
+    BE-->>FE: 200 OK (JWT Access Token + Refresh Token Cookie)
+    FE-->>User: Redirect to Role-based Dashboard
+```
+
+---
+
+### 3. Entity-Relationship Diagram (Database ERD & Tenant Isolation)
+The database is structured to support multi-tenancy. Every transaction and core record is isolated via `institutionId` to ensure total data containment:
+
+```mermaid
+erDiagram
+    Institution {
+        String id PK
+        String name
+        String slug UK "EIIN Code"
+        Boolean isActive
+        DateTime createdAt
+    }
+    Branch {
+        String id PK
+        String institutionId FK
+        String name
+        Boolean isActive
+    }
+    User {
+        String id PK
+        String institutionId FK "Optional"
+        String email UK
+        String passwordHash
+        String plainPassword "Optional"
+        UserRole role
+        String firstName
+        String lastName
+        Boolean isActive
+    }
+    Student {
+        String id PK
+        String institutionId FK
+        String branchId FK
+        String classId FK
+        String sectionId FK
+        String userId FK "Optional"
+        String studentId "Admissions No"
+        String rollNumber
+        String firstName
+        String lastName
+        String status "ACTIVE, INACTIVE..."
+    }
+    Teacher {
+        String id PK
+        String userId FK
+        String qualification
+        String subjectExpertise
+    }
+    Invoice {
+        String id PK
+        String institutionId FK
+        String studentId FK
+        String invoiceNo UK
+        Decimal totalAmount
+        Decimal paidAmount
+        Decimal dueAmount
+        String status "UNPAID, PAID, PARTIAL..."
+    }
+
+    Institution ||--o{ Branch : "has"
+    Institution ||--o{ User : "contains"
+    Institution ||--o{ Student : "contains"
+    Institution ||--o{ Invoice : "issues"
+
+    Branch ||--o{ Class : "has"
+    Class ||--o{ Section : "has"
+
+    User ||--o| Student : "links to"
+    User ||--o| Teacher : "links to"
+    Student ||--o{ Invoice : "bills"
+```
+
+---
+
+### 4. Role Permission Access Matrix
+PeopleIT SMS enforces a strict role hierarchy to control API endpoints and view scopes:
 
 ```mermaid
 graph TD
-    Client[React/Vite Frontend]
-    Server[NodeJS/Express Backend]
-    DB[(PostgreSQL Database)]
-    Cache[(Redis Cache)]
-
-    Client <-->|HTTP / REST API| Server
-    Server <-->|ORM: Prisma| DB
-    Server <-->|Session / Rate Limit| Cache
+    SuperAdmin[Global Super Admin] -->|Manages| Institutions[Institutions / Tenants]
+    Institutions -->|Administered by| SchoolAdmin[School Admin]
+    SchoolAdmin -->|Manages| Users[Users & Academics]
+    
+    subgraph Roles [Tenant Roles]
+        SchoolAdmin --> Teacher[Teacher]
+        SchoolAdmin --> Accountant[Accountant]
+        SchoolAdmin --> Librarian[Librarian]
+        SchoolAdmin --> Transport[Transport Officer]
+        
+        Teacher --> Student[Student]
+        Teacher --> Guardian[Guardian]
+    end
 ```
 
-- **Frontend:** React, Vite, TailwindCSS (Vanilla CSS styling inside glassmorphism theme), Zustand (State), React Query (Data Fetching), Axios.
-- **Backend:** Node.js, Express, TypeScript, Zod (Request Validation), Winston (Logging).
-- **Database:** PostgreSQL managed via Prisma ORM.
-- **Caching & Sessions:** Redis (Tokens, Rate-limiting, performance acceleration).
+| Resource | Global Super Admin | School Admin | Teacher | Accountant | Student / Guardian |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Institutions (Tenants)** | Read / Write / Delete | Read Only | No Access | No Access | No Access |
+| **Branches & Classes** | No Access | Read / Write / Delete | Read Only | Read Only | Read Only |
+| **User Accounts** | Read / Write (Admin Only) | Read / Write / Delete | Read Only | Read Only | No Access |
+| **Student Profiles** | No Access | Read / Write / Delete | Read / Write | Read Only | Read (Own Only) |
+| **Attendance Records** | No Access | Read / Write / Delete | Read / Write | Read Only | Read (Own Only) |
+| **Exam Marks & Grades** | No Access | Read / Write / Delete | Read / Write | No Access | Read (Own Only) |
+| **Invoices & Payments** | No Access | Read / Write / Delete | No Access | Read / Write | Read / Pay (Own Only) |
+| **SaaS Billing & Logs** | Read / Write | No Access | No Access | No Access | No Access |
+
+---
+
+### 5. Status & Transition State Diagrams
+Understanding entity transitions is critical for features like payment processing and student registration lifecycle:
+
+```mermaid
+stateDiagram-v2
+    state "Invoice Lifecycle" as IL {
+        [*] --> UNPAID : Invoice Generated
+        UNPAID --> PARTIAL : Partial Payment Received
+        UNPAID --> PAID : Full Payment Received
+        UNPAID --> OVERDUE : Due Date Passed
+        
+        PARTIAL --> PAID : Remaining Balance Paid
+        PARTIAL --> OVERDUE : Due Date Passed (Underpaid)
+        
+        OVERDUE --> PAID : Late Payment Received
+        OVERDUE --> CANCELLED : Voided by Admin
+        UNPAID --> CANCELLED : Voided by Admin
+        
+        PAID --> [*]
+        CANCELLED --> [*]
+    }
+    
+    state "Student Enrollment Lifecycle" as SL {
+        [*] --> ADMITTED : Registration
+        ADMITTED --> ACTIVE : Fees Cleared & Enrolled
+        ACTIVE --> SUSPENDED : Violation / Fees Unpaid
+        SUSPENDED --> ACTIVE : Re-instated
+        ACTIVE --> GRADUATED : Academic Term Completed
+        ACTIVE --> TRANSFERRED : Left Institution
+        
+        GRADUATED --> [*]
+        TRANSFERRED --> [*]
+    }
+```
+
+---
+
+## 🏛️ Technology Stack Summary
 
 ---
 
