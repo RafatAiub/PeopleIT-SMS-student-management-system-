@@ -130,18 +130,55 @@ erDiagram
         Decimal dueAmount
         String status "UNPAID, PAID, PARTIAL..."
     }
+    AcademicClass {
+        String id PK
+        String branchId FK
+        String name
+        Int level
+    }
+    Section {
+        String id PK
+        String classId FK
+        String name
+        String classTeacherId FK
+    }
+    Attendance {
+        String id PK
+        String studentId FK
+        DateTime date
+        String status "PRESENT, ABSENT, LATE..."
+    }
+    ExamResult {
+        String id PK
+        String studentId FK
+        String examId FK
+        String subject
+        Decimal marksObtained
+    }
+    Notice {
+        String id PK
+        String title
+        String content
+        String audience
+    }
 
     Institution ||--o{ Branch : "has"
     Institution ||--o{ User : "contains"
     Institution ||--o{ Student : "contains"
     Institution ||--o{ Invoice : "issues"
+    Institution ||--o{ Notice : "publishes"
 
-    Branch ||--o{ Class : "has"
-    Class ||--o{ Section : "has"
+    Branch ||--o{ AcademicClass : "has"
+    AcademicClass ||--o{ Section : "has"
 
     User ||--o| Student : "links to"
     User ||--o| Teacher : "links to"
-    Student ||--o{ Invoice : "bills"
+    
+    Student ||--o{ Invoice : "billed for"
+    Student ||--o{ Attendance : "logs"
+    Student ||--o{ ExamResult : "scores"
+    
+    Teacher ||--o{ Section : "manages"
 ```
 
 ---
