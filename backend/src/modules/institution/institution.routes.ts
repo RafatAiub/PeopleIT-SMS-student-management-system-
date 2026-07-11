@@ -10,6 +10,9 @@ import * as institutionController from './institution.controller';
 
 const router = Router();
 
+// Public list for dropdown login
+router.get('/public/list', institutionController.listPublicInstitutions);
+
 // Create new institution and its admin (Super Admin only, no tenant set yet)
 router.post(
   '/',

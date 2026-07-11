@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Mail, Lock, Building2 } from 'lucide-react';
+import apiClient from '../api/client';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -9,9 +10,22 @@ const Login = () => {
   const [institutionCode, setInstitutionCode] = useState('102030');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [institutions, setInstitutions] = useState<any[]>([]);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const fetchInstitutions = async () => {
+      try {
+        const response = await apiClient.get('/institution/public/list');
+        setInstitutions(response.data.data || []);
+      } catch (err) {
+        console.error('Failed to load institutions list', err);
+      }
+    };
+    fetchInstitutions();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,47 +61,42 @@ const Login = () => {
         <div className="glass p-8 rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden bg-slate-900/40">
           <form onSubmit={handleLogin} className="space-y-5">
             
-            {/* Super Admin Login Toggle */}
-            <div className="flex items-center justify-between bg-slate-950/40 p-3 rounded-2xl border border-white/5 transition-all">
-              <div>
-                <span className="text-xs font-bold text-slate-200 block">Global Super Admin</span>
-                <span className="text-[10px] text-slate-500 block">Toggle for system management</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsSuperAdmin(!isSuperAdmin);
-                  if (!isSuperAdmin) setInstitutionCode('');
-                  else setInstitutionCode('102030');
-                }}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isSuperAdmin ? 'bg-blue-500' : 'bg-slate-800'}`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isSuperAdmin ? 'translate-x-5' : 'translate-x-0'}`}
-                />
-              </button>
-            </div>
-
-            {/* Institution Code (EIIN) */}
-            {!isSuperAdmin && (
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                  Institution Code / EIIN
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input
-                    type="text"
-                    pattern="[0-9]*"
-                    required
-                    value={institutionCode}
-                    onChange={(e) => setInstitutionCode(e.target.value.replace(/\D/g, ''))}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl pl-11 pr-4 py-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono text-sm"
-                    placeholder="102030"
-                  />
+            {/* Institution Select Dropdown */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                Select Institution / Portal
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <select
+                  value={isSuperAdmin ? 'global-admin' : institutionCode}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'global-admin') {
+                      setIsSuperAdmin(true);
+                      setInstitutionCode('');
+                    } else {
+                      setIsSuperAdmin(false);
+                      setInstitutionCode(val);
+                    }
+                  }}
+                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl pl-11 pr-10 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm font-medium appearance-none cursor-pointer"
+                >
+                  <option value="102030" className="bg-slate-900 text-slate-200">Dhaka City School (102030)</option>
+                  <option value="global-admin" className="bg-slate-900 text-slate-200">Global Admin</option>
+                  {institutions.filter(inst => inst.slug !== '102030').map((inst) => (
+                    <option key={inst.slug} value={inst.slug} className="bg-slate-900 text-slate-200">
+                      {inst.name} ({inst.slug})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Email Address */}
             <div className="space-y-1.5">
@@ -158,13 +167,13 @@ const Login = () => {
                 <span className="text-[10px] font-bold text-blue-400 block">Super Admin (Global)</span>
                 <span className="text-[11px] text-slate-400 block mt-1">Email: <span className="text-slate-300 font-mono">admin@peopleit.com</span></span>
                 <span className="text-[11px] text-slate-400 block">Pass: <span className="text-slate-300 font-mono">admin123</span></span>
-                <span className="text-[9px] text-slate-500 block mt-1 italic">*Toggle switch ON</span>
+                <span className="text-[9px] text-slate-500 block mt-1 italic">*Select 'Global Admin'</span>
               </div>
               <div className="bg-slate-950/20 p-2.5 rounded-xl border border-white/5">
                 <span className="text-[10px] font-bold text-emerald-400 block">Teacher (School-based)</span>
                 <span className="text-[11px] text-slate-400 block mt-1">Email: <span className="text-slate-300 font-mono">teacher@peopleit.com</span></span>
                 <span className="text-[11px] text-slate-400 block">Pass: <span className="text-slate-300 font-mono">admin123</span></span>
-                <span className="text-[9px] text-slate-500 block mt-1 italic">*School code: 102030</span>
+                <span className="text-[9px] text-slate-500 block mt-1 italic">*Select school from dropdown</span>
               </div>
             </div>
           </div>
@@ -176,3 +185,4 @@ const Login = () => {
 };
 
 export default Login;
+

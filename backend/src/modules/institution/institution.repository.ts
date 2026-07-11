@@ -76,3 +76,14 @@ export async function listAll() {
     orderBy: { createdAt: 'desc' },
   });
 }
+
+export async function listPublic() {
+  return prisma.institution.findMany({
+    where: { isActive: true },
+    select: {
+      name: true,
+      slug: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+}

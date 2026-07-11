@@ -67,3 +67,16 @@ export async function updateInstitutionAdmin(
     next(error);
   }
 }
+
+export async function listPublicInstitutions(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const list = await institutionService.listPublicInstitutions();
+    successResponse(res, list);
+  } catch (error) {
+    next(error);
+  }
+}

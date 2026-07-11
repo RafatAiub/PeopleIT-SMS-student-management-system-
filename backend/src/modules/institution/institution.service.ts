@@ -139,3 +139,8 @@ export async function updateInstitutionAdmin(institutionId: string, data: any) {
     },
   });
 }
+
+export async function listPublicInstitutions() {
+  return institutionRepository.listPublic();
+}
+
