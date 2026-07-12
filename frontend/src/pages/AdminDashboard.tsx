@@ -156,7 +156,7 @@ const AdminDashboard = () => {
     return (
       <div className="space-y-8 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass p-6 rounded-3xl border border-white/5 bg-slate-900/40 relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 relative overflow-hidden bg-slate-900/40 animate-fadeIn" style={{ animationDelay: '0ms' }}>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-emerald-500 opacity-50"></div>
           <div>
             <h2 className="text-3xl font-black text-white tracking-tight">SaaS Super Admin Panel</h2>
@@ -202,7 +202,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Institutions Table */}
-        <div className="glass rounded-3xl border border-white/5 overflow-hidden shadow-xl bg-slate-900/20">
+        <div className="glass-card overflow-hidden bg-slate-900/20 animate-fadeIn" style={{ animationDelay: '120ms' }}>
           <div className="p-6 border-b border-white/5 flex items-center justify-between">
             <h3 className="text-lg font-bold text-white">Registered Institutions</h3>
           </div>
@@ -226,7 +226,7 @@ const AdminDashboard = () => {
                   </tr>
                 ) : (
                   institutions.map(inst => (
-                    <tr key={inst.id} className="hover:bg-white/[0.01] transition-colors">
+                    <tr key={inst.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
                       <td className="p-4 pl-6 font-semibold text-white">{inst.name}</td>
                       <td className="p-4 font-mono text-xs text-blue-400">{inst.slug}</td>
                       <td className="p-4">{inst._count?.users || 0}</td>
@@ -257,8 +257,9 @@ const AdminDashboard = () => {
 
         {/* Register Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <div className="w-full max-w-2xl bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+            <div className="relative glass-card w-full max-w-2xl p-8 bg-slate-900/95 shadow-2xl animate-fadeIn max-h-[95vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
                 <h3 className="text-2xl font-bold text-white flex items-center gap-3">
                   <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
@@ -284,7 +285,7 @@ const AdminDashboard = () => {
                       value={formData.name}
                       onChange={e => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Mirpur Cadet School"
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl px-5 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-medium text-sm"
+                      className="input-field"
                     />
                   </div>
                   <div>
@@ -296,7 +297,7 @@ const AdminDashboard = () => {
                       value={formData.slug}
                       onChange={e => setFormData({ ...formData, slug: e.target.value.replace(/\D/g, '') })}
                       placeholder="e.g. 102030"
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl px-5 py-3.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono text-sm"
+                      className="input-field font-mono"
                     />
                   </div>
                 </div>
@@ -509,14 +510,14 @@ const AdminDashboard = () => {
   // ── STANDARD ADMIN DASHBOARD VIEW ──────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fadeIn" style={{ animationDelay: '0ms' }}>
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Admin Dashboard</h2>
           <p className="text-slate-400 mt-1">Welcome back. Here is today's overview.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn" style={{ animationDelay: '60ms' }}>
         <KpiCard
           title="Total Students"
           value={stats.totalStudents}
@@ -553,24 +554,24 @@ const AdminDashboard = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div className="glass p-6 rounded-2xl">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 animate-fadeIn" style={{ animationDelay: '120ms' }}>
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Recent Admissions</h3>
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-             <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-               <Users className="w-8 h-8 text-slate-600" />
+             <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+               <Users className="w-8 h-8 text-slate-500" />
              </div>
-             <p>No recent admission data to display.</p>
+             <p className="text-sm text-slate-400">No recent admission data to display.</p>
           </div>
         </div>
         
-        <div className="glass p-6 rounded-2xl">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Upcoming Fee Deadlines</h3>
           <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-             <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-               <CircleDollarSign className="w-8 h-8 text-slate-600" />
+             <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+               <CircleDollarSign className="w-8 h-8 text-slate-500" />
              </div>
-             <p>All fees are up to date.</p>
+             <p className="text-sm text-slate-400">All fees are up to date.</p>
           </div>
         </div>
       </div>

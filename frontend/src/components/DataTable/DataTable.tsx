@@ -163,22 +163,22 @@ export function DataTable<T extends { id: string }>({
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-slate-500">Show</span>
+          <span className="text-xs text-slate-400">Show</span>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm text-white appearance-none"
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
-            {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-slate-800">{s}</option>)}
+            {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
           </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="overflow-x-auto rounded-xl border border-white/5">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10 bg-white/3">
+            <tr className="border-b border-white/5 bg-white/3">
               {selectable && (
                 <th className="px-4 py-3 w-10">
                   <input
@@ -223,12 +223,12 @@ export function DataTable<T extends { id: string }>({
                 </td>
               </tr>
             ) : (
-              paginated.map((row, rowIdx) => (
+              paginated.map((row) => (
                 <tr
                   key={row.id}
                   className={`border-b border-white/5 transition-colors hover:bg-white/3 ${
-                    rowIdx % 2 === 1 ? 'bg-white/[0.02]' : ''
-                  } ${selected.has(row.id) ? 'bg-indigo-500/5' : ''}`}
+                    selected.has(row.id) ? 'bg-indigo-500/5' : ''
+                  }`}
                 >
                   {selectable && (
                     <td className="px-4 py-3">

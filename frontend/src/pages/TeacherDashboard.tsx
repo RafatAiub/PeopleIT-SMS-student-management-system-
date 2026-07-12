@@ -43,14 +43,14 @@ const TeacherDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fadeIn" style={{ animationDelay: '0ms' }}>
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Teacher Dashboard</h2>
           <p className="text-slate-400 mt-1">Your class overview for today.</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fadeIn" style={{ animationDelay: '60ms' }}>
         <KpiCard
           title="My Students"
           value={stats.myStudents}

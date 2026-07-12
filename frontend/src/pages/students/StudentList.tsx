@@ -70,7 +70,7 @@ const StudentList = () => {
     fetchClasses();
   }, [isStudent]);
 
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditFormData(prev => {
       const updated = { ...prev, [name]: value };

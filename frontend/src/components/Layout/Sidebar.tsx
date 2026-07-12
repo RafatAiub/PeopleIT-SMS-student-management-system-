@@ -104,7 +104,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
   return (
     <aside
-      className={`flex flex-col h-full bg-slate-900/95 border-r border-white/10 transition-all duration-300 ease-in-out flex-shrink-0 ${
+      className={`flex flex-col h-full bg-[#0B0F19]/95 border-r border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
         isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-60'
       }`}
       style={{ backdropFilter: 'blur(16px)' }}
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       {/* Logo */}
       <div className={`flex items-center justify-between px-4 py-5 border-b border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center flex-shrink-0 glow-indigo">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo">
             <GraduationCap className="w-4.5 h-4.5 text-white" />
           </div>
           {(!sidebarCollapsed || isMobile) && (

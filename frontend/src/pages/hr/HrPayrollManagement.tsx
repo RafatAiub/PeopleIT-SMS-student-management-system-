@@ -92,7 +92,7 @@ export default function HrPayrollManagement() {
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaff.name || !newStaff.email || !newStaff.phone) {
-      toast.error(error.response?.data?.message || 'Please fill in all required fields.');
+      toast.error('Please fill in all required fields.');
       return;
     }
     
@@ -114,7 +114,7 @@ export default function HrPayrollManagement() {
         deductions: 1000,
         status: 'Active',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding staff:', error);
       toast.error(error.response?.data?.message || 'Failed to create staff profile.');
     }
@@ -161,7 +161,7 @@ export default function HrPayrollManagement() {
       setIsPayrollModalOpen(false);
       toast.success(`Payroll processed and marked as Paid for ${selectedStaffForPayroll.name}.`);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing payroll:', error);
       toast.error(error.response?.data?.message || 'Failed to process payroll.');
     }

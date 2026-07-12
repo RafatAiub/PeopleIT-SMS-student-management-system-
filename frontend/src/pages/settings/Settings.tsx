@@ -42,7 +42,7 @@ const Settings = () => {
     try {
       await apiClient.put('/institution/website', settings);
       toast.success('Settings updated successfully');
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update settings');
     } finally {
       setSaving(false);

@@ -58,16 +58,16 @@ const Login = () => {
           <p className="text-slate-400 text-sm font-medium">Sign in to your dashboard</p>
         </div>
 
-        <div className="glass p-8 rounded-3xl shadow-2xl border border-white/10 relative overflow-hidden bg-slate-900/40">
+        <div className="glass-card p-8 shadow-2xl relative overflow-hidden bg-slate-900/40 animate-fadeIn">
           <form onSubmit={handleLogin} className="space-y-5">
             
             {/* Institution Select Dropdown */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <div className="space-y-1.5 animate-fadeIn" style={{ animationDelay: '50ms' }}>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Select Institution / Portal
               </label>
               <div className="relative">
-                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <select
                   value={isSuperAdmin ? 'global-admin' : institutionCode}
                   onChange={(e) => {
@@ -80,7 +80,7 @@ const Login = () => {
                       setInstitutionCode(val);
                     }
                   }}
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl pl-11 pr-10 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm font-medium appearance-none cursor-pointer"
+                  className="input-field pl-11 pr-10 py-3 text-sm font-medium appearance-none cursor-pointer"
                 >
                   <option value="102030" className="bg-slate-900 text-slate-200">Dhaka City School (102030)</option>
                   <option value="global-admin" className="bg-slate-900 text-slate-200">Global Admin</option>
@@ -90,7 +90,7 @@ const Login = () => {
                     </option>
                   ))}
                 </select>
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                   </svg>
@@ -99,42 +99,42 @@ const Login = () => {
             </div>
 
             {/* Email Address */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <div className="space-y-1.5 animate-fadeIn" style={{ animationDelay: '100ms' }}>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl pl-11 pr-4 py-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm font-medium"
+                  className="input-field pl-11 py-3 text-sm font-medium"
                   placeholder="admin@peopleit.com"
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <div className="space-y-1.5 animate-fadeIn" style={{ animationDelay: '150ms' }}>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-2xl pl-11 pr-12 py-3 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm font-medium"
+                  className="input-field pl-11 pr-12 py-3 text-sm font-medium"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 focus:outline-none transition-colors"
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
@@ -146,7 +146,8 @@ const Login = () => {
             <button
               type="submit"
               disabled={login.isPending}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-2xl shadow-xl shadow-blue-500/20 transition-all transform active:scale-[0.98] disabled:opacity-75 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+              className="btn-primary w-full justify-center py-3 text-sm animate-fadeIn"
+              style={{ animationDelay: '200ms' }}
             >
               {login.isPending ? (
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -160,17 +161,17 @@ const Login = () => {
           </form>
           
           {/* Demo Accounts - Cleared from Confusion */}
-          <div className="mt-8 pt-6 border-t border-white/5 space-y-3">
+          <div className="mt-8 pt-6 border-t border-white/5 space-y-3 animate-fadeIn" style={{ animationDelay: '250ms' }}>
             <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Demo Accounts</h4>
             <div className="grid grid-cols-2 gap-2 text-left">
-              <div className="bg-slate-950/20 p-2.5 rounded-xl border border-white/5">
-                <span className="text-[10px] font-bold text-blue-400 block">Super Admin (Global)</span>
+              <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                <span className="text-[10px] font-bold text-indigo-400 block">Super Admin (Global)</span>
                 <span className="text-[11px] text-slate-400 block mt-1">Email: <span className="text-slate-300 font-mono">admin@peopleit.com</span></span>
                 <span className="text-[11px] text-slate-400 block">Pass: <span className="text-slate-300 font-mono">admin123</span></span>
                 <span className="text-[9px] text-slate-500 block mt-1 italic">*Select 'Global Admin'</span>
               </div>
-              <div className="bg-slate-950/20 p-2.5 rounded-xl border border-white/5">
-                <span className="text-[10px] font-bold text-emerald-400 block">Teacher (School-based)</span>
+              <div className="bg-white/5 p-2.5 rounded-xl border border-white/5">
+                <span className="text-[10px] font-bold text-teal-400 block">Teacher (School-based)</span>
                 <span className="text-[11px] text-slate-400 block mt-1">Email: <span className="text-slate-300 font-mono">teacher@peopleit.com</span></span>
                 <span className="text-[11px] text-slate-400 block">Pass: <span className="text-slate-300 font-mono">admin123</span></span>
                 <span className="text-[9px] text-slate-500 block mt-1 italic">*Select school from dropdown</span>

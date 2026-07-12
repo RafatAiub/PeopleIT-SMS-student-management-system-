@@ -71,7 +71,7 @@ export default function TransportManagement() {
       setIsAddRouteModalOpen(false);
       setNewRoute({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add route');
     }
   };
@@ -84,7 +84,7 @@ export default function TransportManagement() {
       setIsAddVehicleModalOpen(false);
       setNewVehicle({ registrationNumber: '', capacity: 40, driverName: '' });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add vehicle');
     }
   };

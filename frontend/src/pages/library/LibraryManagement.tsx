@@ -67,7 +67,7 @@ export default function LibraryManagement() {
       setIsAddBookModalOpen(false);
       setNewBook({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to add book');
     }
   };
@@ -80,7 +80,7 @@ export default function LibraryManagement() {
       setIsIssueBookModalOpen(false);
       setIssueData({ bookId: '', studentId: '', dueDate: '' });
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to issue book');
     }
   };
@@ -90,7 +90,7 @@ export default function LibraryManagement() {
       await apiClient.put(`/library/issues/${issueId}/return`);
       toast.success('Book returned successfully');
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to return book');
     }
   };
