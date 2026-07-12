@@ -70,21 +70,31 @@ const StudentList = () => {
     fetchClasses();
   }, [isStudent]);
 
+  const fetchSectionsForEdit = async (classId: string, selectFirst: boolean = false) => {
+    if (!classId) {
+      setAvailableSections([]);
+      setEditFormData(prev => ({ ...prev, sectionId: '' }));
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/students/meta/sections?classId=${classId}`);
+      const sections = res.data.data || [];
+      setAvailableSections(sections);
+      if (selectFirst) {
+        setEditFormData(prev => ({ ...prev, sectionId: sections.length > 0 ? sections[0].id : '' }));
+      }
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      
-      // If class changes, update the available sections dynamically
-      if (name === 'classId') {
-        const selectedClass = classes.find(c => c.id === value);
-        const sections = selectedClass ? selectedClass.sections : [];
-        setAvailableSections(sections);
-        updated.sectionId = sections.length > 0 ? sections[0].id : '';
-      }
-      
-      return updated;
-    });
+    setEditFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'classId') {
+      fetchSectionsForEdit(value, true);
+    }
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -114,12 +124,11 @@ const StudentList = () => {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
-          } else {
-            resolve(event.target?.result as string);
-          }
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Get base64 string compressed
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(dataUrl);
         };
         img.onerror = () => {
           resolve(event.target?.result as string);
@@ -144,11 +153,13 @@ const StudentList = () => {
   const handleOpenEditModal = (student: any) => {
     setSelectedStudent(student);
     
-    if (!isStudent) {
-      const studentClassId = student.class?.id || '';
-      const selectedClass = classes.find(c => c.id === studentClassId);
-      const sections = selectedClass ? selectedClass.sections : [];
-      setAvailableSections(sections);
+    const studentClassId = student.class?.id || '';
+    if (studentClassId) {
+      fetchSectionsForEdit(studentClassId, false).then(() => {
+        setEditFormData(prev => ({ ...prev, sectionId: student.section?.id || '' }));
+      });
+    } else {
+      setAvailableSections([]);
     }
 
     setEditFormData({
@@ -157,7 +168,7 @@ const StudentList = () => {
       email: student.email || '',
       phone: student.phone || '',
       gender: student.gender || 'MALE',
-      classId: student.class?.id || '',
+      classId: studentClassId,
       sectionId: student.section?.id || '',
       rollNumber: student.rollNumber || '',
       status: student.status || 'ACTIVE',

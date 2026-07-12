@@ -125,24 +125,7 @@ export async function listClasses(
   try {
     const { prisma } = require('../../config/prisma');
     let classes = await prisma.class.findMany({
-      where: { branch: { institutionId: req.tenantId! } },
-      include: {
-        sections: {
-          include: {
-            classTeacher: {
-              include: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
-                    email: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+      where: { branch: { institutionId: req.tenantId! } }
     });
 
     // Self-healing: if no classes exist, auto-seed default ones
@@ -183,7 +166,7 @@ export async function listClasses(
         'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 
         'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
       ];
-      const sectionsToSeed = ['A', 'B', 'C'];
+      const sectionsToSeed = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
       for (let i = 0; i < classesToSeed.length; i++) {
         const clsName = classesToSeed[i];
@@ -207,28 +190,48 @@ export async function listClasses(
 
       // Query classes again
       classes = await prisma.class.findMany({
-        where: { branch: { institutionId: req.tenantId! } },
-        include: {
-          sections: {
-            include: {
-              classTeacher: {
-                include: {
-                  user: {
-                    select: {
-                      firstName: true,
-                      lastName: true,
-                      email: true
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+        where: { branch: { institutionId: req.tenantId! } }
       });
     }
 
     successResponse(res, classes);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listSections(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { prisma } = require('../../config/prisma');
+    const { classId } = req.query;
+
+    if (!classId) {
+      res.status(400).json({ success: false, message: 'classId query parameter is required' });
+      return;
+    }
+
+    const sections = await prisma.section.findMany({
+      where: { classId: classId as string },
+      include: {
+        classTeacher: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    successResponse(res, sections);
   } catch (error) {
     next(error);
   }

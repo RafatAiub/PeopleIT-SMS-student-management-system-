@@ -149,7 +149,13 @@ const AttendanceEntry = () => {
       const metaRes = await apiClient.get('/students/meta/classes');
       const classesMeta = metaRes.data.data || [];
       const cls = classesMeta.find((c: any) => c.name === assignForm.class);
-      const sec = cls?.sections.find((s: any) => s.name === assignForm.section);
+      
+      let sec = null;
+      if (cls) {
+        const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
+        const sectionsList = sectionsRes.data.data || [];
+        sec = sectionsList.find((s: any) => s.name === assignForm.section);
+      }
 
       if (!sec) {
         throw new Error(`Section ${assignForm.section} under class ${assignForm.class} does not exist. Please seed classes first.`);

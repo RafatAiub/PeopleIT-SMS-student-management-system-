@@ -33,6 +33,7 @@ router.get('/', validate({ query: StudentQueryDto }), studentController.listStud
 router.get('/me', studentController.getMe);
 
 router.get('/meta/classes', studentController.listClasses);
+router.get('/meta/sections', studentController.listSections);
 
 router.post(
   '/',

@@ -152,33 +152,55 @@ const Users = () => {
     }
   };
 
+  const fetchSectionsForAdd = async (classId: string) => {
+    if (!classId) {
+      setAvailableAddSections([]);
+      setFormData(prev => ({ ...prev, sectionId: '' }));
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/students/meta/sections?classId=${classId}`);
+      const sections = res.data.data || [];
+      setAvailableAddSections(sections);
+      setFormData(prev => ({ ...prev, sectionId: sections.length > 0 ? sections[0].id : '' }));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      if (name === 'classId') {
-        const selectedClass = classes.find(c => c.id === value);
-        const sections = selectedClass ? selectedClass.sections : [];
-        setAvailableAddSections(sections);
-        updated.sectionId = sections.length > 0 ? sections[0].id : '';
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'classId') {
+      fetchSectionsForAdd(value);
+    }
+  };
+
+  const fetchSectionsForEdit = async (classId: string, selectFirst: boolean = false) => {
+    if (!classId) {
+      setAvailableEditSections([]);
+      setEditFormData(prev => ({ ...prev, sectionId: '' }));
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/students/meta/sections?classId=${classId}`);
+      const sections = res.data.data || [];
+      setAvailableEditSections(sections);
+      if (selectFirst) {
+        setEditFormData(prev => ({ ...prev, sectionId: sections.length > 0 ? sections[0].id : '' }));
       }
-      return updated;
-    });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     const val = name === 'isActive' ? value === 'true' : value;
-    setEditFormData(prev => {
-      const updated = { ...prev, [name]: val };
-      if (name === 'classId') {
-        const selectedClass = classes.find(c => c.id === value);
-        const sections = selectedClass ? selectedClass.sections : [];
-        setAvailableEditSections(sections);
-        updated.sectionId = sections.length > 0 ? sections[0].id : '';
-      }
-      return updated;
-    });
+    setEditFormData(prev => ({ ...prev, [name]: val }));
+    if (name === 'classId') {
+      fetchSectionsForEdit(value, true);
+    }
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -211,9 +233,13 @@ const Users = () => {
     const teacher = user.teacherProfile || {};
 
     const classId = student.classId || '';
-    const selectedClass = classes.find(c => c.id === classId);
-    const sections = selectedClass ? selectedClass.sections : [];
-    setAvailableEditSections(sections);
+    if (classId) {
+      fetchSectionsForEdit(classId, false).then(() => {
+        setEditFormData(prev => ({ ...prev, sectionId: student.sectionId || '' }));
+      });
+    } else {
+      setAvailableEditSections([]);
+    }
 
     setEditFormData({
       firstName: user.firstName || '',
@@ -231,7 +257,7 @@ const Users = () => {
       religion: student.religion || 'Islam',
       nationality: student.nationality || 'Bangladeshi',
       address: student.address || '',
-      classId: student.classId || '',
+      classId: classId,
       sectionId: student.sectionId || '',
       // Teacher specifics
       qualification: teacher.qualification || '',

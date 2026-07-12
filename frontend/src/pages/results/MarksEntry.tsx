@@ -156,7 +156,16 @@ const MarksEntry = () => {
     if (!selectedExam) return;
     
     const cls = classesMeta.find((c: any) => c.name === selectedClass);
-    const sec = cls?.sections.find((s: any) => s.name === selectedSection);
+    let sec = null;
+    if (cls) {
+      try {
+        const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
+        const sectionsList = sectionsRes.data.data || [];
+        sec = sectionsList.find((s: any) => s.name === selectedSection);
+      } catch (err) {
+        console.error(err);
+      }
+    }
     
     if (sec) {
       if (sec.classTeacher?.user) {
