@@ -24,6 +24,7 @@ export class UserService {
     const user = await UserRepository.createUser(tenantId, {
       email: data.email,
       passwordHash,
+      plainPassword: data.password,
       role: data.role,
       firstName: data.firstName,
       lastName: data.lastName,
@@ -186,7 +187,7 @@ export class UserService {
     const rounds = env.BCRYPT_ROUNDS ?? 12;
     const passwordHash = await bcrypt.hash(data.newPassword, rounds);
 
-    await UserRepository.updatePasswordHash(tenantId, userId, passwordHash);
+    await UserRepository.updatePassword(tenantId, userId, passwordHash, data.newPassword);
   }
 
   static async deleteUser(tenantId: string, id: string) {

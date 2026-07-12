@@ -41,6 +41,7 @@ export class UserRepository {
   static async createUser(tenantId: string | undefined, data: {
     email: string;
     passwordHash: string;
+    plainPassword?: string;
     role: UserRole;
     firstName: string;
     lastName: string;
@@ -119,13 +120,16 @@ export class UserRepository {
     });
   }
 
-  static async updatePasswordHash(tenantId: string | undefined, id: string, passwordHash: string) {
+  static async updatePassword(tenantId: string | undefined, id: string, passwordHash: string, plainPassword?: string) {
     const where: any = { id };
     if (tenantId) where.institutionId = tenantId;
 
     return prisma.user.update({
       where: where as any,
-      data: { passwordHash },
+      data: { 
+        passwordHash,
+        plainPassword: plainPassword || null
+      },
       select: { id: true },
     });
   }
