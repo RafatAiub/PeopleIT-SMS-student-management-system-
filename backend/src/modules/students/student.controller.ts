@@ -124,7 +124,7 @@ export async function listClasses(
 ): Promise<void> {
   try {
     const { prisma } = require('../../config/prisma');
-    const classes = await prisma.class.findMany({
+    let classes = await prisma.class.findMany({
       where: { branch: { institutionId: req.tenantId! } },
       include: {
         sections: {
@@ -144,6 +144,90 @@ export async function listClasses(
         }
       }
     });
+
+    // Self-healing: if no classes exist, auto-seed default ones
+    if (classes.length === 0) {
+      // Find or create default branch
+      let branch = await prisma.branch.findFirst({
+        where: { institutionId: req.tenantId! }
+      });
+      if (!branch) {
+        branch = await prisma.branch.create({
+          data: {
+            institutionId: req.tenantId!,
+            name: 'Main Branch'
+          }
+        });
+      }
+
+      // Find or create default academic year
+      const currentYear = new Date().getFullYear().toString();
+      let academicYear = await prisma.academicYear.findFirst({
+        where: { institutionId: req.tenantId!, label: currentYear }
+      });
+      if (!academicYear) {
+        academicYear = await prisma.academicYear.create({
+          data: {
+            institutionId: req.tenantId!,
+            label: currentYear,
+            startDate: new Date(`${currentYear}-01-01`),
+            endDate: new Date(`${currentYear}-12-31`),
+            isCurrent: true
+          }
+        });
+      }
+
+      // Seed default classes
+      const classesToSeed = [
+        'KG', 'Nursery', 'Junior One', 
+        'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 
+        'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
+      ];
+      const sectionsToSeed = ['A', 'B', 'C'];
+
+      for (let i = 0; i < classesToSeed.length; i++) {
+        const clsName = classesToSeed[i];
+        const cls = await prisma.class.create({
+          data: {
+            branchId: branch.id,
+            name: clsName,
+            level: i + 1,
+          }
+        });
+
+        for (const secName of sectionsToSeed) {
+          await prisma.section.create({
+            data: {
+              classId: cls.id,
+              name: secName,
+            }
+          });
+        }
+      }
+
+      // Query classes again
+      classes = await prisma.class.findMany({
+        where: { branch: { institutionId: req.tenantId! } },
+        include: {
+          sections: {
+            include: {
+              classTeacher: {
+                include: {
+                  user: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                      email: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
     successResponse(res, classes);
   } catch (error) {
     next(error);

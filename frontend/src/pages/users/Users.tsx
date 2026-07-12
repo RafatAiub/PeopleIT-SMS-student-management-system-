@@ -411,19 +411,19 @@ const Users = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
-                      <input type="text" name="firstName" required value={formData.firstName} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="firstName" required placeholder="e.g. John" value={formData.firstName} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
-                      <input type="text" name="lastName" required value={formData.lastName} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={formData.lastName} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
-                      <input type="email" name="email" required value={formData.email} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="email" name="email" required placeholder="e.g. john.doe@school.edu" value={formData.email} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Password</label>
-                      <input type="password" name="password" required minLength={8} value={formData.password} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="password" name="password" required minLength={8} placeholder="••••••••" value={formData.password} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
@@ -436,7 +436,7 @@ const Users = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
-                      <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="phone" placeholder="e.g. +8801700000000" value={formData.phone} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-slate-300 mb-1">
@@ -485,7 +485,7 @@ const Users = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Roll Number</label>
-                        <input type="text" name="rollNumber" value={formData.rollNumber} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="rollNumber" placeholder="e.g. 15" value={formData.rollNumber} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Admission Date</label>
@@ -528,11 +528,11 @@ const Users = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Nationality</label>
-                        <input type="text" name="nationality" value={formData.nationality} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="nationality" placeholder="e.g. Bangladeshi" value={formData.nationality} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-300 mb-1">Address</label>
-                        <textarea name="address" rows={2} value={formData.address} onChange={handleChange as any} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
+                        <textarea name="address" rows={2} placeholder="e.g. 385 Goran Road, Dhaka" value={formData.address} onChange={handleChange as any} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
                       </div>
                     </div>
                   </div>
@@ -545,7 +545,7 @@ const Users = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Qualification</label>
-                        <input type="text" name="qualification" value={formData.qualification} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="qualification" placeholder="e.g. MSc in Mathematics, BEd" value={formData.qualification} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Subject Expertise</label>
@@ -608,11 +608,11 @@ const Users = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
-                      <input type="text" name="firstName" required value={editFormData.firstName} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="firstName" required placeholder="e.g. John" value={editFormData.firstName} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
-                      <input type="text" name="lastName" required value={editFormData.lastName} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={editFormData.lastName} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Role</label>
@@ -625,7 +625,7 @@ const Users = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
-                      <input type="text" name="phone" value={editFormData.phone} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                      <input type="text" name="phone" placeholder="e.g. +8801700000000" value={editFormData.phone} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
@@ -680,7 +680,7 @@ const Users = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Roll Number</label>
-                        <input type="text" name="rollNumber" value={editFormData.rollNumber} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="rollNumber" placeholder="e.g. 15" value={editFormData.rollNumber} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Admission Date</label>
@@ -723,11 +723,11 @@ const Users = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Nationality</label>
-                        <input type="text" name="nationality" value={editFormData.nationality} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="nationality" placeholder="e.g. Bangladeshi" value={editFormData.nationality} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-slate-300 mb-1">Address</label>
-                        <textarea name="address" rows={2} value={editFormData.address} onChange={handleEditChange as any} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
+                        <textarea name="address" rows={2} placeholder="e.g. 385 Goran Road, Dhaka" value={editFormData.address} onChange={handleEditChange as any} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
                       </div>
                     </div>
                   </div>
@@ -740,7 +740,7 @@ const Users = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Qualification</label>
-                        <input type="text" name="qualification" value={editFormData.qualification} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
+                        <input type="text" name="qualification" placeholder="e.g. MSc in Mathematics, BEd" value={editFormData.qualification} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Subject Expertise</label>
