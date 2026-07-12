@@ -214,7 +214,7 @@ export async function listSections(
       return;
     }
 
-    const sections = await prisma.section.findMany({
+    let sections = await prisma.section.findMany({
       where: { classId: classId as string },
       include: {
         classTeacher: {
@@ -230,6 +230,40 @@ export async function listSections(
         }
       }
     });
+
+    // Self-healing: Ensure sections A to G exist for this class
+    const requiredSections = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    const existingSectionNames = sections.map((s: any) => s.name);
+    const missingSections = requiredSections.filter(name => !existingSectionNames.includes(name));
+
+    if (missingSections.length > 0) {
+      for (const secName of missingSections) {
+        await prisma.section.create({
+          data: {
+            classId: classId as string,
+            name: secName
+          }
+        });
+      }
+
+      // Re-fetch updated list
+      sections = await prisma.section.findMany({
+        where: { classId: classId as string },
+        include: {
+          classTeacher: {
+            include: {
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      });
+    }
 
     successResponse(res, sections);
   } catch (error) {
