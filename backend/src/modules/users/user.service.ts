@@ -36,11 +36,19 @@ export class UserService {
         data: {
           institutionId: tenantId,
           userId: user.id,
-          studentId: `STU-${Date.now()}`,
+          studentId: data.rollNumber || `STU-${Date.now()}`,
+          rollNumber: data.rollNumber,
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
           phone: data.phone,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+          gender: data.gender,
+          bloodGroup: data.bloodGroup,
+          religion: data.religion,
+          nationality: data.nationality || 'Bangladeshi',
+          address: data.address,
+          admissionDate: data.admissionDate ? new Date(data.admissionDate) : new Date(),
         }
       });
     }
@@ -51,6 +59,9 @@ export class UserService {
         data: {
           userId: user.id,
           employeeId: `TCH-${Date.now()}`,
+          qualification: data.qualification,
+          subjectExpertise: data.subjectExpertise,
+          joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date(),
         }
       });
     }
