@@ -95,17 +95,69 @@ export class UserService {
     });
   }
 
-  static async updateUser(tenantId: string, id: string, data: {
-    firstName?: string;
-    lastName?: string;
-    phone?: string;
-    avatarUrl?: string;
-    isActive?: boolean;
-    role?: UserRole;
-  }) {
+  static async updateUser(tenantId: string, id: string, data: any) {
     const user = await UserRepository.getUserById(tenantId, id);
     if (!user) throw new NotFoundError('User not found');
-    return UserRepository.updateUser(tenantId, id, data);
+
+    const userFields = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      avatarUrl: data.avatarUrl,
+      isActive: data.isActive,
+      role: data.role,
+    };
+
+    const updatedUser = await UserRepository.updateUser(tenantId, id, userFields);
+
+    const { prisma } = require('../../config/prisma');
+
+    if (updatedUser.role === 'STUDENT') {
+      const studentData = {
+        firstName: data.firstName || updatedUser.firstName,
+        lastName: data.lastName || updatedUser.lastName,
+        phone: data.phone || updatedUser.phone,
+        rollNumber: data.rollNumber,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+        gender: data.gender,
+        bloodGroup: data.bloodGroup,
+        religion: data.religion,
+        nationality: data.nationality,
+        address: data.address,
+        admissionDate: data.admissionDate ? new Date(data.admissionDate) : undefined,
+      };
+
+      await prisma.student.upsert({
+        where: { userId: id },
+        update: studentData,
+        create: {
+          ...studentData,
+          institutionId: tenantId,
+          userId: id,
+          studentId: data.rollNumber || `STU-${Date.now()}`,
+        }
+      });
+    }
+
+    if (updatedUser.role === 'TEACHER') {
+      const teacherData = {
+        qualification: data.qualification,
+        subjectExpertise: data.subjectExpertise,
+        joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
+      };
+
+      await prisma.teacher.upsert({
+        where: { userId: id },
+        update: teacherData,
+        create: {
+          ...teacherData,
+          userId: id,
+          employeeId: `TCH-${Date.now()}`,
+        }
+      });
+    }
+
+    return UserRepository.getUserById(tenantId, id);
   }
 
   static async changePassword(

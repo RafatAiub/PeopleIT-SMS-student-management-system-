@@ -12,6 +12,27 @@ const userSelect = {
   isActive: true,
   lastLoginAt: true,
   createdAt: true,
+  studentProfile: {
+    select: {
+      id: true,
+      rollNumber: true,
+      admissionDate: true,
+      dateOfBirth: true,
+      gender: true,
+      bloodGroup: true,
+      religion: true,
+      nationality: true,
+      address: true,
+    }
+  },
+  teacherProfile: {
+    select: {
+      id: true,
+      qualification: true,
+      subjectExpertise: true,
+      joiningDate: true,
+    }
+  }
 } as const;
 
 export class UserRepository {
