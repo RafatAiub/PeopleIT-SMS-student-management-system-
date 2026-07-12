@@ -129,7 +129,7 @@ erDiagram
         Boolean  isCurrent
     }
 
-    Class {
+    AcademicClass {
         String id       PK
         String branchId FK
         String name        "e.g. Grade 5 / Class 8"
@@ -145,8 +145,8 @@ erDiagram
 
     Institution ||--o{ Branch        : "has campuses"
     Institution ||--o{ AcademicYear  : "defines"
-    Branch      ||--o{ Class         : "contains"
-    Class       ||--o{ Section       : "split into"
+    Branch      ||--o{ AcademicClass : "contains"
+    AcademicClass ||--o{ Section    : "split into"
 ```
 
 ---
@@ -565,8 +565,8 @@ erDiagram
     Institution ||--o{ Message             : "hosts"
     Institution ||--o{ AuditLog            : "logs"
 
-    Branch   ||--o{ Class           : "contains"
-    Class    ||--o{ Section         : "split into"
+    Branch        ||--o{ AcademicClass : "contains"
+    AcademicClass ||--o{ Section       : "split into"
     Section  }o--o| Teacher         : "managed by"
 
     User     ||--o| Student         : "linked to"
