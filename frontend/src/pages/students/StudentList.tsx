@@ -87,14 +87,57 @@ const StudentList = () => {
     });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditFormData(prev => ({ ...prev, avatarUrl: reader.result as string }));
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          } else {
+            resolve(event.target?.result as string);
+          }
+        };
+        img.onerror = () => {
+          resolve(event.target?.result as string);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve('');
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressed = await compressImage(file);
+      setEditFormData(prev => ({ ...prev, avatarUrl: compressed }));
     }
   };
 
@@ -122,7 +165,7 @@ const StudentList = () => {
       bloodGroup: student.bloodGroup || '',
       religion: student.religion || '',
       nationality: student.nationality || 'Bangladeshi',
-      avatarUrl: student.avatarUrl || ''
+      avatarUrl: student.avatarUrl || student.user?.avatarUrl || ''
     });
     setIsEditModalOpen(true);
   };
@@ -223,9 +266,9 @@ const StudentList = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Avatar and Key Info */}
           <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col items-center text-center space-y-4">
-            {selectedStudent.avatarUrl ? (
+            {selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl ? (
               <img 
-                src={selectedStudent.avatarUrl} 
+                src={selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl} 
                 alt="Avatar" 
                 className="w-24 h-24 rounded-full object-cover border border-white/10 shadow-lg"
               />
@@ -517,9 +560,9 @@ const StudentList = () => {
                   <tr key={student.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        {student.avatarUrl ? (
+                        {student.avatarUrl || student.user?.avatarUrl ? (
                           <img 
-                            src={student.avatarUrl} 
+                            src={student.avatarUrl || student.user?.avatarUrl} 
                             alt="Avatar" 
                             className="w-8 h-8 rounded-full object-cover border border-white/10"
                           />

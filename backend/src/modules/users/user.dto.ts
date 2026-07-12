@@ -7,7 +7,25 @@ export const CreateUserSchema = z.object({
   role: z.nativeEnum(UserRole),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  phone: z.string().optional(),
+  phone: z.string().optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+  
+  // Student specifics
+  rollNumber: z.string().optional().nullable(),
+  admissionDate: z.string().optional().nullable(),
+  dateOfBirth: z.string().optional().nullable(),
+  gender: z.string().optional().nullable(),
+  bloodGroup: z.string().optional().nullable(),
+  religion: z.string().optional().nullable(),
+  nationality: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  classId: z.string().optional().nullable(),
+  sectionId: z.string().optional().nullable(),
+
+  // Teacher specifics
+  qualification: z.string().optional().nullable(),
+  subjectExpertise: z.string().optional().nullable(),
+  joiningDate: z.string().optional().nullable(),
 });
 
 export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true });

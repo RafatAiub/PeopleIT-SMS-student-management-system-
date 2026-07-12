@@ -23,6 +23,8 @@ const userSelect = {
       religion: true,
       nationality: true,
       address: true,
+      classId: true,
+      sectionId: true,
     }
   },
   teacherProfile: {
@@ -43,6 +45,7 @@ export class UserRepository {
     firstName: string;
     lastName: string;
     phone?: string;
+    avatarUrl?: string;
   }) {
     return prisma.user.create({
       data: {

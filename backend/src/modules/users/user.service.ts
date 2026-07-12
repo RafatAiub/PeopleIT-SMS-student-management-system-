@@ -28,6 +28,7 @@ export class UserService {
       firstName: data.firstName,
       lastName: data.lastName,
       phone: data.phone,
+      avatarUrl: data.avatarUrl,
     });
 
     if (data.role === 'STUDENT') {
@@ -42,6 +43,9 @@ export class UserService {
           lastName: data.lastName,
           email: data.email,
           phone: data.phone,
+          avatarUrl: data.avatarUrl || null,
+          classId: data.classId || null,
+          sectionId: data.sectionId || null,
           dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
           gender: data.gender,
           bloodGroup: data.bloodGroup,
@@ -118,6 +122,9 @@ export class UserService {
         lastName: data.lastName || updatedUser.lastName,
         phone: data.phone || updatedUser.phone,
         rollNumber: data.rollNumber,
+        avatarUrl: data.avatarUrl || updatedUser.avatarUrl || null,
+        classId: data.classId || null,
+        sectionId: data.sectionId || null,
         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
         gender: data.gender,
         bloodGroup: data.bloodGroup,
@@ -200,6 +207,22 @@ export class UserService {
         await prisma.libraryIssue.deleteMany({ where: { studentId: student.id } });
         await prisma.transportAssignment.deleteMany({ where: { studentId: student.id } });
         await prisma.student.delete({ where: { id: student.id } });
+      }
+    }
+
+    if (user.role === 'TEACHER') {
+      const { prisma } = require('../../config/prisma');
+      const teacher = await prisma.teacher.findFirst({ where: { userId: id } });
+      if (teacher) {
+        await prisma.section.updateMany({
+          where: { classTeacherId: teacher.id },
+          data: { classTeacherId: null }
+        });
+        await prisma.timetableSlot.updateMany({
+          where: { teacherId: teacher.id },
+          data: { teacherId: null }
+        });
+        await prisma.teacher.delete({ where: { id: teacher.id } });
       }
     }
 

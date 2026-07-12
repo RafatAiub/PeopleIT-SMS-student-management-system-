@@ -7,6 +7,11 @@ const Users = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Classes Metadata State
+  const [classes, setClasses] = useState<any[]>([]);
+  const [availableAddSections, setAvailableAddSections] = useState<any[]>([]);
+  const [availableEditSections, setAvailableEditSections] = useState<any[]>([]);
+
   // Add User Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,6 +22,7 @@ const Users = () => {
     firstName: '',
     lastName: '',
     phone: '',
+    avatarUrl: '',
     // Student specifics
     dateOfBirth: '',
     gender: 'Male',
@@ -26,6 +32,8 @@ const Users = () => {
     address: '',
     admissionDate: new Date().toISOString().split('T')[0],
     rollNumber: '',
+    classId: '',
+    sectionId: '',
     // Teacher specifics
     qualification: '',
     subjectExpertise: '',
@@ -41,6 +49,7 @@ const Users = () => {
     phone: '',
     role: 'TEACHER',
     isActive: true,
+    avatarUrl: '',
     // Student specifics
     dateOfBirth: '',
     gender: 'Male',
@@ -50,6 +59,8 @@ const Users = () => {
     address: '',
     admissionDate: new Date().toISOString().split('T')[0],
     rollNumber: '',
+    classId: '',
+    sectionId: '',
     // Teacher specifics
     qualification: '',
     subjectExpertise: '',
@@ -69,17 +80,105 @@ const Users = () => {
     }
   };
 
+  const fetchClasses = async () => {
+    try {
+      const response = await apiClient.get('/students/meta/classes');
+      setClasses(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch classes metadata', error);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchClasses();
   }, []);
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+          } else {
+            resolve(event.target?.result as string);
+          }
+        };
+        img.onerror = () => {
+          resolve(event.target?.result as string);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve('');
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressed = await compressImage(file);
+      if (isEdit) {
+        setEditFormData(prev => ({ ...prev, avatarUrl: compressed }));
+      } else {
+        setFormData(prev => ({ ...prev, avatarUrl: compressed }));
+      }
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'classId') {
+        const selectedClass = classes.find(c => c.id === value);
+        const sections = selectedClass ? selectedClass.sections : [];
+        setAvailableAddSections(sections);
+        updated.sectionId = sections.length > 0 ? sections[0].id : '';
+      }
+      return updated;
+    });
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const val = e.target.name === 'isActive' ? e.target.value === 'true' : e.target.value;
-    setEditFormData({ ...editFormData, [e.target.name]: val });
+    const { name, value } = e.target;
+    const val = name === 'isActive' ? value === 'true' : value;
+    setEditFormData(prev => {
+      const updated = { ...prev, [name]: val };
+      if (name === 'classId') {
+        const selectedClass = classes.find(c => c.id === value);
+        const sections = selectedClass ? selectedClass.sections : [];
+        setAvailableEditSections(sections);
+        updated.sectionId = sections.length > 0 ? sections[0].id : '';
+      }
+      return updated;
+    });
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -91,8 +190,10 @@ const Users = () => {
       setIsAddModalOpen(false);
       setFormData({ 
         email: '', password: '', role: 'TEACHER', firstName: '', lastName: '', phone: '',
+        avatarUrl: '',
         dateOfBirth: '', gender: 'Male', bloodGroup: 'A+', religion: 'Islam', nationality: 'Bangladeshi',
         address: '', admissionDate: new Date().toISOString().split('T')[0], rollNumber: '',
+        classId: '', sectionId: '',
         qualification: '', subjectExpertise: '', joiningDate: new Date().toISOString().split('T')[0]
       });
       fetchUsers();
@@ -108,12 +209,19 @@ const Users = () => {
     setSelectedUser(user);
     const student = user.studentProfile || {};
     const teacher = user.teacherProfile || {};
+
+    const classId = student.classId || '';
+    const selectedClass = classes.find(c => c.id === classId);
+    const sections = selectedClass ? selectedClass.sections : [];
+    setAvailableEditSections(sections);
+
     setEditFormData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
       phone: user.phone || '',
       role: user.role || 'TEACHER',
       isActive: user.isActive !== false,
+      avatarUrl: user.avatarUrl || '',
       // Student specifics
       rollNumber: student.rollNumber || '',
       admissionDate: student.admissionDate ? new Date(student.admissionDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
@@ -123,6 +231,8 @@ const Users = () => {
       religion: student.religion || 'Islam',
       nationality: student.nationality || 'Bangladeshi',
       address: student.address || '',
+      classId: student.classId || '',
+      sectionId: student.sectionId || '',
       // Teacher specifics
       qualification: teacher.qualification || '',
       subjectExpertise: teacher.subjectExpertise || '',
@@ -223,9 +333,17 @@ const Users = () => {
                   <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold">
-                          {user.firstName?.charAt(0) || user.username?.charAt(0) || 'U'}
-                        </div>
+                        {user.avatarUrl ? (
+                          <img 
+                            src={user.avatarUrl} 
+                            alt="Avatar" 
+                            className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold">
+                            {user.firstName?.charAt(0) || user.username?.charAt(0) || 'U'}
+                          </div>
+                        )}
                         <div>
                           <div className="font-medium text-white">{user.firstName} {user.lastName}</div>
                           <div className="text-xs text-slate-500">{user.email || user.username}</div>
@@ -320,6 +438,25 @@ const Users = () => {
                       <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
                       <input type="text" name="phone" value={formData.phone} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
                     </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
+                        Profile Photo <span className="text-rose-400">*</span>
+                      </label>
+                      <div className="flex items-center gap-4 bg-slate-950/20 border border-slate-800 rounded-xl p-3">
+                        {formData.avatarUrl ? (
+                          <img src={formData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-white/10" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-[10px] text-blue-400 font-semibold">No Photo</div>
+                        )}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          required
+                          onChange={(e) => handleFileChange(e, false)} 
+                          className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600/25 file:text-blue-400 hover:file:bg-blue-600/35 cursor-pointer file:transition-colors"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -328,6 +465,24 @@ const Users = () => {
                   <div className="animate-fadeIn">
                     <h4 className="text-sm font-semibold text-emerald-400 mb-4 uppercase tracking-wider">Student Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Class</label>
+                        <select name="classId" value={formData.classId} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+                          <option value="">Select Class</option>
+                          {classes.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
+                        <select name="sectionId" value={formData.sectionId} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+                          <option value="">Select Section</option>
+                          {availableAddSections.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Roll Number</label>
                         <input type="text" name="rollNumber" value={formData.rollNumber} onChange={handleChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
@@ -479,6 +634,24 @@ const Users = () => {
                         <option value="false">Inactive</option>
                       </select>
                     </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
+                        Profile Photo
+                      </label>
+                      <div className="flex items-center gap-4 bg-slate-950/20 border border-slate-800 rounded-xl p-3">
+                        {editFormData.avatarUrl ? (
+                          <img src={editFormData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-white/10" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-[10px] text-blue-400 font-semibold">No Photo</div>
+                        )}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => handleFileChange(e, true)} 
+                          className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-600/25 file:text-blue-400 hover:file:bg-blue-600/35 cursor-pointer file:transition-colors"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -487,6 +660,24 @@ const Users = () => {
                   <div className="animate-fadeIn">
                     <h4 className="text-sm font-semibold text-emerald-400 mb-4 uppercase tracking-wider">Student Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Class</label>
+                        <select name="classId" value={editFormData.classId} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+                          <option value="">Select Class</option>
+                          {classes.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
+                        <select name="sectionId" value={editFormData.sectionId} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none">
+                          <option value="">Select Section</option>
+                          {availableEditSections.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-1">Roll Number</label>
                         <input type="text" name="rollNumber" value={editFormData.rollNumber} onChange={handleEditChange} className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />

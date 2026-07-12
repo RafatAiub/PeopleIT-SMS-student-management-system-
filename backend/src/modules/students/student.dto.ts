@@ -5,24 +5,24 @@ import { z } from 'zod';
 // =============================================================================
 
 export const CreateStudentDto = z.object({
-  branchId: z.string().cuid().optional(),
-  classId: z.string().cuid().optional(),
-  sectionId: z.string().cuid().optional(),
-  academicYearId: z.string().cuid().optional(),
+  branchId: z.string().optional().nullable(),
+  classId: z.string().optional().nullable(),
+  sectionId: z.string().optional().nullable(),
+  academicYearId: z.string().optional().nullable(),
   studentId: z.string().min(1, 'Student ID is required'),
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  dateOfBirth: z.coerce.date().optional(),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
-  phone: z.string().max(20).optional(),
-  email: z.string().email().optional(),
-  address: z.string().max(500).optional(),
-  bloodGroup: z.string().max(5).optional(),
-  religion: z.string().max(50).optional(),
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  gender: z.preprocess((val) => typeof val === 'string' ? val.toUpperCase() : val, z.enum(['MALE', 'FEMALE', 'OTHER'])).optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  bloodGroup: z.string().max(5).optional().nullable(),
+  religion: z.string().max(50).optional().nullable(),
   nationality: z.string().max(100).default('Bangladeshi'),
   admissionDate: z.coerce.date().optional(),
-  rollNumber: z.string().max(50).optional(),
-  avatarUrl: z.string().optional(),
+  rollNumber: z.string().max(50).optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
 });
 
 export const UpdateStudentDto = CreateStudentDto.partial().extend({
