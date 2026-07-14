@@ -124,7 +124,7 @@ erDiagram
         DateTime endDate
         Boolean isCurrent
     }
-    Class {
+    AcademicClass {
         String id PK
         String branchId FK
         String name
@@ -456,8 +456,8 @@ erDiagram
     Institution ||--o{ PayrollRecord : "processes"
     Institution ||--o{ Message : "hosts"
 
-    Branch ||--o{ Class : "contains"
-    Class ||--o{ Section : "split into"
+    Branch ||--o{ AcademicClass : "contains"
+    AcademicClass ||--o{ Section : "split into"
     Section }o--o| Teacher : "managed by"
 
     User ||--o| Student : "linked to"
