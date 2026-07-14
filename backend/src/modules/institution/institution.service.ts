@@ -114,6 +114,13 @@ export async function updateInstitutionAdmin(institutionId: string, data: any) {
     throw new NotFoundError('Administrator for this institution was not found');
   }
 
+  if (data.institutionName && data.institutionName.trim() !== '') {
+    await prisma.institution.update({
+      where: { id: institutionId },
+      data: { name: data.institutionName }
+    });
+  }
+
   const updateData: any = {
     email: data.adminEmail,
     firstName: data.adminFirstName,

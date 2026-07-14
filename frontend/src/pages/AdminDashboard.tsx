@@ -36,6 +36,7 @@ const AdminDashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedInst, setSelectedInst] = useState<any>(null);
   const [editFormData, setEditFormData] = useState({
+    institutionName: '',
     adminFirstName: '',
     adminLastName: '',
     adminEmail: '',
@@ -123,6 +124,7 @@ const AdminDashboard = () => {
     setSelectedInst(inst);
     const admin = inst.users?.[0] || {};
     setEditFormData({
+      institutionName: inst.name || '',
       adminFirstName: admin.firstName || '',
       adminLastName: admin.lastName || '',
       adminEmail: admin.email || '',
@@ -409,6 +411,18 @@ const AdminDashboard = () => {
               </div>
 
               <form onSubmit={handleEditAdmin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Institution Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editFormData.institutionName}
+                    onChange={e => setEditFormData({ ...editFormData, institutionName: e.target.value })}
+                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                    placeholder="e.g. Government Science College School"
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-300 mb-1.5">First Name</label>
