@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, CheckCircle, Clock } from 'lucide-react';
 import { KpiCard } from '../components/Charts/KpiCard';
 import apiClient from '../api/client';
+import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 
 const TeacherDashboard = () => {
   const [stats, setStats] = useState({
@@ -38,15 +39,15 @@ const TeacherDashboard = () => {
   }, []);
 
   if (loading) {
-    return <div className="text-slate-400 p-8 text-center">Loading dashboard...</div>;
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-fadeIn" style={{ animationDelay: '0ms' }}>
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Teacher Dashboard</h2>
-          <p className="text-slate-400 mt-1">Your class overview for today.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Teacher Dashboard</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Your class overview for today.</p>
         </div>
       </div>
 

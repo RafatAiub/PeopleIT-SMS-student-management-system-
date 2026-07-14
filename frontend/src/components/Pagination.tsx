@@ -43,14 +43,14 @@ export const Pagination: React.FC<PaginationProps> = ({
   if (total === 0) return null;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-slate-900/40 border-t border-white/5 gap-4">
-      <div className="flex items-center gap-4 text-sm text-slate-400">
+    <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white dark:bg-slate-900/40 border-t border-slate-200 dark:border-white/5 gap-4 transition-colors">
+      <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-2">
           <span>Show</span>
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-200"
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-slate-900 dark:text-slate-200 transition-colors"
           >
             {[10, 25, 50, 100].map((size) => (
               <option key={size} value={size}>
@@ -61,7 +61,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <span>entries</span>
         </div>
         <div className="hidden sm:block">
-          Showing <span className="font-medium text-white">{startItem}</span> to <span className="font-medium text-white">{endItem}</span> of <span className="font-medium text-white">{total}</span> results
+          Showing <span className="font-medium text-slate-900 dark:text-white">{startItem}</span> to <span className="font-medium text-slate-900 dark:text-white">{endItem}</span> of <span className="font-medium text-slate-900 dark:text-white">{total}</span> results
         </div>
       </div>
 
@@ -69,7 +69,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
-          className="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
@@ -78,10 +78,10 @@ export const Pagination: React.FC<PaginationProps> = ({
           <button
             key={pageNum}
             onClick={() => onPageChange(pageNum)}
-            className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition-colors ${
+            className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition-all duration-200 ${
               page === pageNum
                 ? 'bg-blue-600 text-white border border-blue-500 shadow-lg shadow-blue-500/20'
-                : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700'
+                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             {pageNum}
@@ -91,7 +91,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="p-1.5 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           <ChevronRight className="w-4 h-4" />
         </button>

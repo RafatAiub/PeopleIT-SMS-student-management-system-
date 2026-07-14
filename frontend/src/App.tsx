@@ -3,8 +3,9 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Toaster } from 'react-hot-toast';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Bell } from 'lucide-react';
 import { useUiStore } from './store/uiStore';
+import { useEffect } from 'react';
 
 // Lazy load pages for performance
 const Login = React.lazy(() => import('./pages/Login'));
@@ -44,10 +45,14 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
 // Layout Wrapper
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen } = useUiStore();
+  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, notifications } = useUiStore();
+  const { user } = useAuthStore();
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'U';
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0F172A] text-slate-200">
+    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0F172A] text-slate-900 dark:text-slate-200 transition-colors duration-300">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex md:flex-shrink-0 h-full">
         <Sidebar />
@@ -70,7 +75,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         {/* Simple Header */}
-        <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8 glass shadow-sm border-b border-white/5">
+        <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md shadow-sm border-b border-slate-200 dark:border-white/5 transition-colors duration-300">
           <div className="flex items-center">
             {/* Mobile Hamburger toggle */}
             <button
@@ -86,9 +91,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-             <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/50 flex items-center justify-center text-sm font-semibold text-blue-400">
-               A
-             </div>
+            <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
+              )}
+            </button>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-white/10">
+              {initials}
+            </div>
           </div>
         </header>
         
@@ -114,17 +125,43 @@ const DashboardRouter = () => {
 
 // Route Configuration
 const App = () => {
+  const { theme } = useUiStore();
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const isDark = 
+        theme === 'dark' || 
+        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    applyTheme();
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', applyTheme);
+      return () => mediaQuery.removeEventListener('change', applyTheme);
+    }
+  }, [theme]);
+
   return (
-    <React.Suspense fallback={<div className="h-screen w-screen flex items-center justify-center bg-[#0F172A] text-slate-400">Loading PeopleIT SMS...</div>}>
+    <React.Suspense fallback={<div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-[#0F172A] text-slate-500 dark:text-slate-400">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+      Loading PeopleIT SMS...
+    </div>}>
       <Toaster 
         position="top-right" 
         toastOptions={{ 
-          style: { 
-            background: '#1e293b', 
-            color: '#fff', 
-            border: '1px solid rgba(255,255,255,0.1)',
+          className: 'dark:bg-slate-800 dark:text-white dark:border-white/10 bg-white text-slate-900 border-slate-200 shadow-xl',
+          style: {
+            border: '1px solid',
             borderRadius: '12px'
-          } 
+          }
         }} 
       />
       <Routes>

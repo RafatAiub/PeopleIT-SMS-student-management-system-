@@ -4,6 +4,8 @@ import { KpiCard } from '../components/Charts/KpiCard';
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
+import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
+import { EmptyState } from '../components/common/EmptyState';
 
 const AdminDashboard = () => {
   const { user } = useAuthStore();
@@ -150,7 +152,7 @@ const AdminDashboard = () => {
   };
 
   if (loading) {
-    return <div className="text-slate-400 p-8 text-center">Loading dashboard...</div>;
+    return <DashboardSkeleton />;
   }
 
   // ── SUPER ADMIN DASHBOARD VIEW ─────────────────────────────────────────────
@@ -158,11 +160,11 @@ const AdminDashboard = () => {
     return (
       <div className="space-y-8 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 relative overflow-hidden bg-slate-900/40 animate-fadeIn" style={{ animationDelay: '0ms' }}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 relative overflow-hidden bg-white/40 dark:bg-slate-900/40 animate-fadeIn" style={{ animationDelay: '0ms' }}>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-emerald-500 opacity-50"></div>
           <div>
-            <h2 className="text-3xl font-black text-white tracking-tight">SaaS Super Admin Panel</h2>
-            <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-lg">
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">SaaS Super Admin Panel</h2>
+            <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm leading-relaxed max-w-lg">
               Manage institutions, view overall status, and create new sub-institutions with dedicated administrators.
             </p>
           </div>
@@ -204,14 +206,14 @@ const AdminDashboard = () => {
         </div>
 
         {/* Institutions Table */}
-        <div className="glass-card overflow-hidden bg-slate-900/20 animate-fadeIn" style={{ animationDelay: '120ms' }}>
-          <div className="p-6 border-b border-white/5 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-white">Registered Institutions</h3>
+        <div className="glass-card overflow-hidden bg-slate-50 dark:bg-slate-900/20 animate-fadeIn" style={{ animationDelay: '120ms' }}>
+          <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Registered Institutions</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-white/5 bg-slate-900/40 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 dark:border-white/5 bg-slate-100 dark:bg-slate-900/40 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                   <th className="p-4 pl-6">Institution Name</th>
                   <th className="p-4">Institution Code (Slug / EIIN)</th>
                   <th className="p-4">Users Count</th>
@@ -221,30 +223,30 @@ const AdminDashboard = () => {
                   <th className="p-4 pr-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 text-sm text-slate-300">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/5 text-sm text-slate-700 dark:text-slate-300">
                 {institutions.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500 italic">No institutions found. Click "Register Institution" to add one.</td>
                   </tr>
                 ) : (
                   institutions.map(inst => (
-                    <tr key={inst.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
-                      <td className="p-4 pl-6 font-semibold text-white">{inst.name}</td>
-                      <td className="p-4 font-mono text-xs text-blue-400">{inst.slug}</td>
+                    <tr key={inst.id} className="border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                      <td className="p-4 pl-6 font-semibold text-slate-900 dark:text-white">{inst.name}</td>
+                      <td className="p-4 font-mono text-xs text-blue-600 dark:text-blue-400">{inst.slug}</td>
                       <td className="p-4">{inst._count?.users || 0}</td>
                       <td className="p-4">{inst._count?.students || 0}</td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${inst.isActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${inst.isActive ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'}`}>
                           {inst.isActive ? 'Active' : 'Suspended'}
                         </span>
                       </td>
-                      <td className="p-4 text-xs text-slate-500">
+                      <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
                         {new Date(inst.createdAt).toLocaleDateString()}
                       </td>
                       <td className="p-4 pr-6 text-right">
                         <button
                           onClick={() => handleOpenEditModal(inst)}
-                          className="text-xs font-bold text-blue-400 hover:text-white bg-blue-500/10 hover:bg-blue-600 border border-blue-500/20 hover:border-transparent px-3 py-1.5 rounded-xl transition-all shadow-sm"
+                          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-white bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-600 border border-blue-200 dark:border-blue-500/20 hover:border-transparent px-3 py-1.5 rounded-xl transition-all shadow-sm"
                         >
                           View/Edit Admin
                         </button>
@@ -260,18 +262,18 @@ const AdminDashboard = () => {
         {/* Register Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-            <div className="relative glass-card w-full max-w-2xl p-8 bg-slate-900/95 shadow-2xl animate-fadeIn max-h-[95vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
-                <h3 className="text-2xl font-bold text-white flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl">
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+            <div className="relative glass-card w-full max-w-2xl p-8 bg-white dark:bg-slate-900/95 shadow-2xl animate-fadeIn max-h-[95vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200 dark:border-white/5">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl">
                     <Building2 className="w-6 h-6" />
                   </div>
                   Register Sub-Institution
                 </h3>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
                 >
                   <Plus className="w-6 h-6 rotate-45" />
                 </button>
@@ -280,7 +282,7 @@ const AdminDashboard = () => {
               <form onSubmit={handleCreateInstitution} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-300 mb-2">Institution Name</label>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Institution Name</label>
                     <input
                       type="text"
                       required
@@ -291,7 +293,7 @@ const AdminDashboard = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-300 mb-2">Institution Code (EIIN / Slug)</label>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Institution Code (EIIN / Slug)</label>
                     <input
                       type="text"
                       required
@@ -304,65 +306,65 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="p-5 bg-slate-950/40 rounded-2xl border border-white/5 space-y-4">
-                  <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider">Sub-Institution Administrator Account</h4>
+                <div className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
+                  <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Sub-Institution Administrator Account</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">First Name</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">First Name</label>
                       <input
                         type="text"
                         required
                         value={formData.adminFirstName}
                         onChange={e => setFormData({ ...formData, adminFirstName: e.target.value })}
                         placeholder="Admin First Name"
-                        className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                        className="input-field"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Last Name</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">Last Name</label>
                       <input
                         type="text"
                         required
                         value={formData.adminLastName}
                         onChange={e => setFormData({ ...formData, adminLastName: e.target.value })}
                         placeholder="Admin Last Name"
-                        className="w-full bg-slate-950/70 border border-slate-800 rounded-xl px-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                        className="input-field"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Email Address</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">Email Address</label>
                       <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                           type="email"
                           required
                           value={formData.adminEmail}
                           onChange={e => setFormData({ ...formData, adminEmail: e.target.value })}
                           placeholder="admin@school.com"
-                          className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                          className="input-field pl-10"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5">Password</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">Password</label>
                       <div className="relative">
-                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                           type={showCreatePassword ? 'text' : 'password'}
                           required
                           value={formData.adminPassword}
                           onChange={e => setFormData({ ...formData, adminPassword: e.target.value })}
                           placeholder="Password (Min 6 chars)"
-                          className="w-full bg-slate-950/70 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                          className="input-field pl-10 pr-10"
                         />
                         <button
                           type="button"
                           onClick={() => setShowCreatePassword(!showCreatePassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none transition-colors"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 focus:outline-none transition-colors"
                           title={showCreatePassword ? 'Hide password' : 'Show password'}
                         >
                           {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -372,11 +374,11 @@ const AdminDashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
+                <div className="flex justify-end gap-4 pt-4 border-t border-slate-200 dark:border-white/5">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-6 py-3 rounded-2xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all text-sm font-bold"
+                    className="px-6 py-3 rounded-2xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-sm font-bold"
                   >
                     Cancel
                   </button>
@@ -395,16 +397,16 @@ const AdminDashboard = () => {
 
         {/* Edit Admin Modal */}
         {isEditModalOpen && selectedInst && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-            <div className="w-full max-w-lg bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/5">
-                <h3 className="text-xl font-bold text-white flex flex-col">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="w-full max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-200 dark:border-white/5">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white flex flex-col">
                   <span>View / Edit Administrator</span>
-                  <span className="text-xs text-slate-400 font-medium mt-1 font-mono">Institution: {selectedInst.name} ({selectedInst.slug})</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-1 font-mono">Institution: {selectedInst.name} ({selectedInst.slug})</span>
                 </h3>
                 <button
                   onClick={() => setIsEditModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                  className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
                 >
                   <Plus className="w-6 h-6 rotate-45" />
                 </button>
@@ -412,83 +414,83 @@ const AdminDashboard = () => {
 
               <form onSubmit={handleEditAdmin} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Institution Name</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Institution Name</label>
                   <input
                     type="text"
                     required
                     value={editFormData.institutionName}
                     onChange={e => setEditFormData({ ...editFormData, institutionName: e.target.value })}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                    className="input-field"
                     placeholder="e.g. Government Science College School"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">First Name</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">First Name</label>
                     <input
                       type="text"
                       required
                       value={editFormData.adminFirstName}
                       onChange={e => setEditFormData({ ...editFormData, adminFirstName: e.target.value })}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="input-field"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1.5">Last Name</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Last Name</label>
                     <input
                       type="text"
                       required
                       value={editFormData.adminLastName}
                       onChange={e => setEditFormData({ ...editFormData, adminLastName: e.target.value })}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="input-field"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Email Address</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Email Address</label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="email"
                       required
                       value={editFormData.adminEmail}
                       onChange={e => setEditFormData({ ...editFormData, adminEmail: e.target.value })}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl pl-9 pr-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="input-field pl-9"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Phone Number</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Phone Number</label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="text"
                       value={editFormData.phone}
                       onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl pl-9 pr-4 py-2.5 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="input-field pl-9"
                       placeholder="e.g. 017000000"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">Upgrade Password</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Upgrade Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type={showEditPassword ? 'text' : 'password'}
                       value={editFormData.adminPassword}
                       onChange={e => setEditFormData({ ...editFormData, adminPassword: e.target.value })}
                       placeholder="Leave blank to keep current password"
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl pl-9 pr-10 py-2.5 text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm font-medium"
+                      className="input-field pl-9 pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowEditPassword(!showEditPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 focus:outline-none transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 hover:dark:text-slate-300 focus:outline-none transition-colors"
                       title={showEditPassword ? 'Hide password' : 'Show password'}
                     >
                       {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -497,11 +499,11 @@ const AdminDashboard = () => {
                   <span className="text-[10px] text-slate-500 mt-1 block">Super Admin has the override authority to update this admin's credentials at any time.</span>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4 border-t border-white/5">
+                <div className="flex justify-end gap-4 pt-4 border-t border-slate-200 dark:border-white/5">
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all text-xs font-bold"
+                    className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs font-bold"
                   >
                     Cancel
                   </button>
@@ -526,8 +528,8 @@ const AdminDashboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-fadeIn" style={{ animationDelay: '0ms' }}>
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Admin Dashboard</h2>
-          <p className="text-slate-400 mt-1">Welcome back. Here is today's overview.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Admin Dashboard</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Welcome back. Here is today's overview.</p>
         </div>
       </div>
 
@@ -570,23 +572,21 @@ const AdminDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 animate-fadeIn" style={{ animationDelay: '120ms' }}>
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Recent Admissions</h3>
-          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-             <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-               <Users className="w-8 h-8 text-slate-500" />
-             </div>
-             <p className="text-sm text-slate-400">No recent admission data to display.</p>
-          </div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Recent Admissions</h3>
+          <EmptyState 
+            title="No recent admissions" 
+            description="No recent admission data to display." 
+            icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />} 
+          />
         </div>
         
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Upcoming Fee Deadlines</h3>
-          <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-             <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-               <CircleDollarSign className="w-8 h-8 text-slate-500" />
-             </div>
-             <p className="text-sm text-slate-400">All fees are up to date.</p>
-          </div>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Upcoming Fee Deadlines</h3>
+          <EmptyState 
+            title="Up to date" 
+            description="All fees are up to date." 
+            icon={<CircleDollarSign className="w-10 h-10 text-slate-400 dark:text-slate-500" />} 
+          />
         </div>
       </div>
     </div>

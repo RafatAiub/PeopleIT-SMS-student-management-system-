@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Notification {
   id: string;
@@ -9,7 +10,11 @@ export interface Notification {
   createdAt: string;
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 interface UiState {
+  theme: ThemeMode;
+  setTheme: (theme: ThemeMode) => void;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (val: boolean) => void;
@@ -22,58 +27,71 @@ interface UiState {
   clearNotifications: () => void;
 }
 
-export const useUiStore = create<UiState>()((set) => ({
-  sidebarCollapsed: false,
-  toggleSidebar: () =>
-    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  setSidebarCollapsed: (val) => set({ sidebarCollapsed: val }),
-  mobileMenuOpen: false,
-  toggleMobileMenu: () =>
-    set((state) => ({ mobileMenuOpen: !state.mobileMenuOpen })),
-  setMobileMenuOpen: (val) => set({ mobileMenuOpen: val }),
-  notifications: [
-    {
-      id: '1',
-      title: 'New Admission',
-      message: 'Mohammad Rahim has been admitted to Class 8-A',
-      type: 'success',
-      read: false,
-      createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    },
-    {
-      id: '2',
-      title: 'Fee Overdue',
-      message: '23 students have overdue fees for June 2026',
-      type: 'warning',
-      read: false,
-      createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    },
-    {
-      id: '3',
-      title: 'Attendance Alert',
-      message: 'Class 10-B attendance below 75% threshold',
-      type: 'error',
-      read: true,
-      createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    },
-  ],
-  addNotification: (n) =>
-    set((state) => ({
+export const useUiStore = create<UiState>()(
+  persist(
+    (set) => ({
+      theme: 'system',
+      setTheme: (theme) => set({ theme }),
+      sidebarCollapsed: false,
+      toggleSidebar: () =>
+        set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      setSidebarCollapsed: (val) => set({ sidebarCollapsed: val }),
+      mobileMenuOpen: false,
+      toggleMobileMenu: () =>
+        set((state) => ({ mobileMenuOpen: !state.mobileMenuOpen })),
+      setMobileMenuOpen: (val) => set({ mobileMenuOpen: val }),
       notifications: [
         {
-          ...n,
-          id: Date.now().toString(),
+          id: '1',
+          title: 'New Admission',
+          message: 'Mohammad Rahim has been admitted to Class 8-A',
+          type: 'success',
           read: false,
-          createdAt: new Date().toISOString(),
+          createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
         },
-        ...state.notifications,
+        {
+          id: '2',
+          title: 'Fee Overdue',
+          message: '23 students have overdue fees for June 2026',
+          type: 'warning',
+          read: false,
+          createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        },
+        {
+          id: '3',
+          title: 'Attendance Alert',
+          message: 'Class 10-B attendance below 75% threshold',
+          type: 'error',
+          read: true,
+          createdAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+        },
       ],
-    })),
-  markNotificationRead: (id) =>
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
-    })),
-  clearNotifications: () => set({ notifications: [] }),
-}));
+      addNotification: (n) =>
+        set((state) => ({
+          notifications: [
+            {
+              ...n,
+              id: Date.now().toString(),
+              read: false,
+              createdAt: new Date().toISOString(),
+            },
+            ...state.notifications,
+          ],
+        })),
+      markNotificationRead: (id) =>
+        set((state) => ({
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, read: true } : n
+          ),
+        })),
+      clearNotifications: () => set({ notifications: [] }),
+    }),
+    {
+      name: 'ui-storage',
+      partialize: (state) => ({
+        theme: state.theme,
+        sidebarCollapsed: state.sidebarCollapsed,
+      }),
+    }
+  )
+);

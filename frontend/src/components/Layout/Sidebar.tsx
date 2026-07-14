@@ -104,21 +104,21 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
   return (
     <aside
-      className={`flex flex-col h-full bg-[#0B0F19]/95 border-r border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
+      className={`flex flex-col h-full bg-white/95 dark:bg-[#0B0F19]/95 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
         isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-60'
       }`}
       style={{ backdropFilter: 'blur(16px)' }}
     >
       {/* Logo */}
-      <div className={`flex items-center justify-between px-4 py-5 border-b border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
+      <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo shadow-md">
             <GraduationCap className="w-4.5 h-4.5 text-white" />
           </div>
           {(!sidebarCollapsed || isMobile) && (
             <div>
               <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
-              <span className="text-slate-500 text-xs">
+              <span className="text-slate-600 dark:text-slate-500 text-xs">
                 {user?.institutionName || 'School Management'}
               </span>
             </div>
@@ -127,7 +127,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         {isMobile && (
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             title="Close menu"
           >
             <X className="w-4.5 h-4.5" />
@@ -154,7 +154,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
           return (
             <div key={group.label} className="mb-2">
               {(!sidebarCollapsed || isMobile) && (
-                <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider px-3 py-2">
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-2">
                   {group.label}
                 </p>
               )}
@@ -178,7 +178,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                 );
               })}
               {sidebarCollapsed && !isMobile && group.label !== 'Administration' && (
-                <div className="my-2 border-t border-white/5" />
+                <div className="my-2 border-t border-slate-200 dark:border-white/5" />
               )}
             </div>
           );
@@ -186,23 +186,23 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       </nav>
 
       {/* User Profile */}
-      <div className="border-t border-white/5 p-3">
+      <div className="border-t border-slate-200 dark:border-white/5 p-3">
         {!sidebarCollapsed || isMobile ? (
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-slate-500 truncate">{roleLabel}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{roleLabel}</p>
             </div>
             <button
               id="sidebar-logout-btn"
               onClick={handleLogout}
               title="Logout"
-              className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors md:opacity-0 md:group-hover:opacity-100"
+              className="p-1 rounded-lg text-slate-500 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors md:opacity-0 md:group-hover:opacity-100"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -212,7 +212,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
             id="sidebar-logout-collapsed-btn"
             onClick={handleLogout}
             title="Logout"
-            className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
@@ -223,7 +223,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
           <button
             id="sidebar-collapse-btn"
             onClick={toggleSidebar}
-            className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-600 hover:text-white hover:bg-white/5 transition-colors"
+            className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-500 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed

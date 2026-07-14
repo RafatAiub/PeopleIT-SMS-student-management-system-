@@ -43,10 +43,10 @@ const SKELETON_ROWS = 5;
 
 function SkeletonRow({ cols }: { cols: number }) {
   return (
-    <tr className="border-b border-white/5">
+    <tr className="border-b border-slate-100 dark:border-white/5">
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-4 py-3">
-          <div className="h-4 rounded shimmer-bg" style={{ width: `${60 + Math.random() * 30}%` }} />
+          <div className="h-4 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" style={{ width: `${60 + Math.random() * 30}%` }} />
         </td>
       ))}
     </tr>
@@ -133,9 +133,9 @@ export function DataTable<T extends { id: string }>({
   };
 
   const getSortIcon = (key: string) => {
-    if (sortKey !== key) return <ChevronsUpDown className="w-3.5 h-3.5 text-slate-600" />;
-    if (sortDir === 'asc') return <ChevronUp className="w-3.5 h-3.5 text-indigo-400" />;
-    return <ChevronDown className="w-3.5 h-3.5 text-indigo-400" />;
+    if (sortKey !== key) return <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />;
+    if (sortDir === 'asc') return <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />;
+    return <ChevronDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />;
   };
 
   const getActionIcon = (icon?: 'view' | 'edit' | 'delete') => {
@@ -163,29 +163,29 @@ export function DataTable<T extends { id: string }>({
           />
         </div>
         <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-slate-400">Show</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">Show</span>
           <select
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
-            {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-slate-900">{s}</option>)}
+            {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s}</option>)}
           </select>
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-white/5">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-transparent shadow-sm dark:shadow-none">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/5 bg-white/3">
+            <tr className="border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
               {selectable && (
                 <th className="px-4 py-3 w-10">
                   <input
                     type="checkbox"
                     checked={paginated.length > 0 && paginated.every((r) => selected.has(r.id))}
                     onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-indigo-500"
+                    className="w-4 h-4 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-indigo-500 cursor-pointer"
                   />
                 </th>
               )}
@@ -214,7 +214,7 @@ export function DataTable<T extends { id: string }>({
               ))
             ) : paginated.length === 0 ? (
               <tr>
-                <td colSpan={allCols}>
+                <td colSpan={allCols} className="bg-slate-50 dark:bg-transparent">
                   <EmptyState
                     title={emptyTitle || 'No results found'}
                     description={emptyDescription || 'Try adjusting your search or filters.'}
@@ -226,8 +226,8 @@ export function DataTable<T extends { id: string }>({
               paginated.map((row) => (
                 <tr
                   key={row.id}
-                  className={`border-b border-white/5 transition-colors hover:bg-white/3 ${
-                    selected.has(row.id) ? 'bg-indigo-500/5' : ''
+                  className={`border-b border-slate-100 dark:border-white/5 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-white/5 ${
+                    selected.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-500/10' : ''
                   }`}
                 >
                   {selectable && (
@@ -236,7 +236,7 @@ export function DataTable<T extends { id: string }>({
                         type="checkbox"
                         checked={selected.has(row.id)}
                         onChange={(e) => handleSelectRow(row.id, e.target.checked)}
-                        className="w-4 h-4 rounded border-white/20 bg-white/5 accent-indigo-500"
+                        className="w-4 h-4 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-indigo-500 cursor-pointer"
                       />
                     </td>
                   )}
@@ -260,8 +260,8 @@ export function DataTable<T extends { id: string }>({
                             title={action.label}
                             className={`p-1.5 rounded-lg transition-colors ${
                               action.variant === 'danger'
-                                ? 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
-                                : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10'
+                                : 'text-slate-400 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
                             }`}
                           >
                             {getActionIcon(action.icon)}
@@ -280,15 +280,15 @@ export function DataTable<T extends { id: string }>({
       {/* Pagination */}
       {!isLoading && paginated.length > 0 && (
         <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-500">
-            Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, sorted.length)} of {sorted.length} results
+          <span className="text-slate-500 dark:text-slate-500 font-medium">
+            Showing <span className="text-slate-900 dark:text-slate-300">{((page - 1) * pageSize) + 1}</span> to <span className="text-slate-900 dark:text-slate-300">{Math.min(page * pageSize, sorted.length)}</span> of <span className="text-slate-900 dark:text-slate-300">{sorted.length}</span> results
           </span>
           <div className="flex items-center gap-1">
             <button
               id="datatable-prev"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -304,10 +304,10 @@ export function DataTable<T extends { id: string }>({
                   key={p}
                   id={`datatable-page-${p}`}
                   onClick={() => setPage(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-medium transition-colors ${
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200 ${
                     page === p
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-white/10'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
                   }`}
                 >
                   {p}
@@ -318,7 +318,7 @@ export function DataTable<T extends { id: string }>({
               id="datatable-next"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

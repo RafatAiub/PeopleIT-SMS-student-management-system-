@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Building, Palette, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { useUiStore } from '../../store/uiStore';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'academic' | 'branding'>('profile');
@@ -19,6 +20,7 @@ const Settings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { theme, setTheme } = useUiStore();
 
   useEffect(() => {
     fetchSettings();
@@ -50,14 +52,14 @@ const Settings = () => {
   };
 
   if (loading) {
-    return <div className="text-slate-400">Loading settings...</div>;
+    return <div className="text-slate-500 dark:text-slate-400">Loading settings...</div>;
   }
 
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">System Settings</h2>
-        <p className="text-slate-400 mt-1">Manage institution profile, branding, and academic configurations.</p>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">System Settings</h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Manage institution profile, branding, and academic configurations.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -67,8 +69,8 @@ const Settings = () => {
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'profile' 
-                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
             <Building className="w-5 h-5" />
@@ -78,8 +80,8 @@ const Settings = () => {
             onClick={() => setActiveTab('academic')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'academic' 
-                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
             <Calendar className="w-5 h-5" />
@@ -89,8 +91,8 @@ const Settings = () => {
             onClick={() => setActiveTab('branding')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'branding' 
-                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent'
+                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
             <Palette className="w-5 h-5" />
@@ -100,64 +102,64 @@ const Settings = () => {
 
         {/* Settings Form */}
         <div className="md:col-span-2 space-y-6">
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200 dark:border-white/5 space-y-6">
             
             {activeTab === 'profile' && (
               <>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Building className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Building className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   Institution Profile
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Institution Name</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Institution Name</label>
                       <input
                         type="text"
                         value={settings.institutionName || ''}
                         onChange={(e) => setSettings({ ...settings, institutionName: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Email Address</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Email Address</label>
                       <input
                         type="email"
                         value={settings.email || ''}
                         onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Phone Number</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Phone Number</label>
                       <input
                         type="text"
                         value={settings.phone || ''}
                         onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Current Academic Year</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Current Academic Year</label>
                       <input
                         type="text"
                         value={settings.academicYear || ''}
                         onChange={(e) => setSettings({ ...settings, academicYear: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-400">Address</label>
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Address</label>
                     <textarea
                       value={settings.address || ''}
                       onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                       rows={3}
-                      className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                      className="input-field resize-none"
                     />
                   </div>
                 </div>
@@ -166,18 +168,18 @@ const Settings = () => {
 
             {activeTab === 'academic' && (
               <>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   Academic Setup
                 </h3>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Grading System</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Grading System</label>
                       <select
                         value={settings.gradingSystem || 'GPA'}
                         onChange={(e) => setSettings({ ...settings, gradingSystem: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       >
                         <option value="GPA">GPA (4.0 / 5.0)</option>
                         <option value="Percentage">Percentage (%)</option>
@@ -185,11 +187,11 @@ const Settings = () => {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Term Structure</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Term Structure</label>
                       <select
                         value={settings.termStructure || 'Semesters'}
                         onChange={(e) => setSettings({ ...settings, termStructure: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        className="input-field"
                       >
                         <option value="Semesters">Semesters (2 Terms)</option>
                         <option value="Trimesters">Trimesters (3 Terms)</option>
@@ -204,25 +206,25 @@ const Settings = () => {
 
             {activeTab === 'branding' && (
               <>
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-blue-400" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   Branding
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-400">Logo URL</label>
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Logo URL</label>
                     <input
                       type="url"
                       placeholder="https://example.com/logo.png"
                       value={settings.logoUrl || ''}
                       onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     />
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Primary Color</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Primary Color</label>
                       <div className="flex items-center gap-3">
                         <input
                           type="color"
@@ -234,18 +236,22 @@ const Settings = () => {
                           type="text"
                           value={settings.primaryColor || '#3b82f6'}
                           onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="flex-1 bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 uppercase"
+                          className="flex-1 input-field uppercase"
                         />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-400">Theme Mode</label>
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>
                       <select
-                        value={settings.theme || 'dark'}
-                        onChange={(e) => setSettings({ ...settings, theme: e.target.value })}
-                        className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        value={theme}
+                        onChange={(e) => {
+                          const newTheme = e.target.value as 'dark' | 'light' | 'system';
+                          setTheme(newTheme);
+                          setSettings({ ...settings, theme: newTheme });
+                        }}
+                        className="input-field"
                       >
-                        <option value="dark">Dark Theme (Default)</option>
+                        <option value="dark">Dark Theme</option>
                         <option value="light">Light Theme</option>
                         <option value="system">System Default</option>
                       </select>
