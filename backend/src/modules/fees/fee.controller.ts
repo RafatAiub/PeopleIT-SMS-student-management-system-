@@ -52,9 +52,11 @@ export class FeeController {
     try {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
+      const search = req.query.search as string;
       const { total, invoices } = await FeeService.listInvoices(req.tenantId!, {
         studentId: req.query.studentId as string,
         status: req.query.status as string,
+        search,
         page,
         pageSize,
       });

@@ -85,520 +85,410 @@ sequenceDiagram
 
 ## 🗄️ Entity-Relationship Diagram (Full ERD)
 
-> This ERD is generated directly from the Prisma schema and covers **all 27 models** in the system. Every table scoped to a tenant includes an `institutionId` foreign key for strict multi-tenant data isolation.
-
-### Part 1 — Core Tenant & Academic Structure
+> This ERD is generated directly from the Prisma schema and covers **all 31 models** in the system. Every table scoped to a tenant includes an `institutionId` foreign key for strict multi-tenant data isolation.
 
 ```mermaid
 erDiagram
     Institution {
-        String  id           PK
-        String  name
-        String  slug         UK  "EIIN / Tenant code"
-        String  logoUrl
-        String  address
-        String  phone
-        String  email
-        String  country         "Default: BD"
+        String id PK
+        String name
+        String slug UK
+        String logoUrl
+        String address
+        String phone
+        String email
+        String country
         Boolean isActive
-        String  themeColor
-        String  heroTitle
-        String  heroSubtitle
-        String  aboutText
-        String  contactEmail
-        String  contactPhone
+        String themeColor
+        String heroTitle
+        String heroSubtitle
+        String aboutText
+        String contactEmail
+        String contactPhone
         DateTime createdAt
         DateTime updatedAt
     }
-
     Branch {
-        String  id            PK
-        String  institutionId FK
-        String  name
-        String  address
+        String id PK
+        String institutionId FK
+        String name
+        String address
         Boolean isActive
         DateTime createdAt
     }
-
     AcademicYear {
-        String   id            PK
-        String   institutionId FK
-        String   label            "e.g. 2024-2025"
+        String id PK
+        String institutionId FK
+        String label
         DateTime startDate
         DateTime endDate
-        Boolean  isCurrent
+        Boolean isCurrent
     }
-
-    AcademicClass {
-        String id       PK
+    Class {
+        String id PK
         String branchId FK
-        String name        "e.g. Grade 5 / Class 8"
-        Int    level
+        String name
+        Int level
     }
-
     Section {
-        String  id             PK
-        String  classId        FK
-        String  name              "A, B, C … G"
-        String  classTeacherId FK "nullable"
+        String id PK
+        String classId FK
+        String name
+        String classTeacherId FK
     }
-
-    Institution ||--o{ Branch        : "has campuses"
-    Institution ||--o{ AcademicYear  : "defines"
-    Branch      ||--o{ AcademicClass : "contains"
-    AcademicClass ||--o{ Section    : "split into"
-```
-
----
-
-### Part 2 — User, Role & Auth
-
-```mermaid
-erDiagram
     User {
-        String   id            PK
-        String   institutionId FK  "nullable — SUPER_ADMIN has none"
-        String   email         UK
-        String   passwordHash
-        String   plainPassword    "Super Admin visibility only"
-        UserRole role             "SUPER_ADMIN | ADMIN | TEACHER | ACCOUNTANT | LIBRARIAN | TRANSPORT_OFFICER | GUARDIAN | STUDENT | MANAGEMENT"
-        String   firstName
-        String   lastName
-        String   phone
-        String   avatarUrl
-        Boolean  isActive
+        String id PK
+        String institutionId FK
+        String email UK
+        String passwordHash
+        String plainPassword
+        UserRole role
+        String firstName
+        String lastName
+        String phone
+        String avatarUrl
+        Boolean isActive
         DateTime lastLoginAt
         DateTime createdAt
         DateTime updatedAt
     }
-
     Permission {
-        String  id            PK
-        String  institutionId FK
+        String id PK
+        String institutionId FK
         UserRole role
-        String  resource         "e.g. student / invoice"
-        String  action           "read | write | delete"
+        String resource
+        String action
         Boolean granted
     }
-
     RefreshToken {
-        String   id        PK
-        String   token     UK
-        String   userId    FK
-        Boolean  isRevoked
+        String id PK
+        String token UK
+        Boolean isRevoked
+        String userId FK
         DateTime expiresAt
         DateTime createdAt
     }
-
-    User ||--o{ RefreshToken  : "owns"
-    User ||--o{ Permission    : "governed by"
-```
-
----
-
-### Part 3 — Student, Guardian & Documents
-
-```mermaid
-erDiagram
     Student {
-        String   id             PK
-        String   institutionId  FK
-        String   branchId       FK  "nullable"
-        String   classId        FK  "nullable"
-        String   sectionId      FK  "nullable"
-        String   academicYearId FK  "nullable"
-        String   userId         FK  "nullable — linked User account"
-        String   studentId         "Admission / Registration No"
-        String   rollNumber
-        String   firstName
-        String   lastName
+        String id PK
+        String institutionId FK
+        String branchId FK
+        String classId FK
+        String sectionId FK
+        String academicYearId FK
+        String userId FK
+        String studentId
+        String rollNumber
+        String firstName
+        String lastName
         DateTime dateOfBirth
-        String   gender
-        String   email
-        String   phone
-        String   address
-        String   bloodGroup
-        String   religion
-        String   nationality       "Default: Bangladeshi"
-        String   avatarUrl
+        String gender
+        String email
+        String phone
+        String address
+        String bloodGroup
+        String religion
+        String nationality
+        String avatarUrl
         DateTime admissionDate
-        String   status            "ACTIVE | INACTIVE | GRADUATED | TRANSFERRED"
+        String status
         DateTime createdAt
         DateTime updatedAt
     }
-
+    StudentDocument {
+        String id PK
+        String institutionId FK
+        String studentId FK
+        String name
+        String type
+        String fileUrl
+        Int fileSize
+        String mimeType
+        DateTime uploadedAt
+    }
     Guardian {
-        String id             PK
-        String institutionId  FK
-        String userId         FK   "nullable — linked User account"
+        String id PK
+        String institutionId FK
+        String userId FK
+        String relationship
+        String occupation
+        String nidNumber
+        String emergencyPhone
         String firstName
         String lastName
         String phone
         String email
-        String relationship       "FATHER | MOTHER | GUARDIAN"
-        String occupation
-        String nidNumber
-        String emergencyPhone
         DateTime createdAt
     }
-
     GuardianStudent {
-        String  guardianId   PK_FK
-        String  studentId    PK_FK
+        String guardianId PK_FK
+        String studentId PK_FK
         Boolean isPrimary
-        String  relationship    "Default: GUARDIAN"
+        String relationship
     }
-
-    StudentDocument {
-        String   id            PK
-        String   institutionId FK
-        String   studentId     FK
-        String   name
-        String   type             "BIRTH_CERT | NID | PHOTO"
-        String   fileUrl
-        Int      fileSize
-        String   mimeType
-        DateTime uploadedAt
-    }
-
-    Student      ||--o{ GuardianStudent  : "has"
-    Guardian     ||--o{ GuardianStudent  : "linked to"
-    Student      ||--o{ StudentDocument  : "has docs"
-```
-
----
-
-### Part 4 — Teacher & Staff
-
-```mermaid
-erDiagram
     Teacher {
-        String   id               PK
-        String   userId           FK  "1-to-1 with User"
-        String   qualification
-        String   subjectExpertise
-        String   employeeId
+        String id PK
+        String userId FK
+        String qualification
+        String subjectExpertise
         DateTime joiningDate
+        String employeeId
         DateTime createdAt
     }
-
-    StaffProfile {
-        String   id            PK
-        String   institutionId FK
-        String   userId        FK   "1-to-1 with User"
-        String   employeeId
-        String   department
-        String   designation
-        DateTime joiningDate
-        Decimal  baseSalary
-        String   status           "ACTIVE | INACTIVE | SUSPENDED"
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    PayrollRecord {
-        String   id            PK
-        String   institutionId FK
-        String   staffId       FK
-        String   payPeriod        "e.g. June 2026"
-        Decimal  baseSalary
-        Decimal  allowances
-        Decimal  deductions
-        Decimal  netAmount
-        String   status           "PAID | UNPAID | PENDING"
-        DateTime paidAt
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    Teacher      ||--o{ Section       : "class teacher of"
-    StaffProfile ||--o{ PayrollRecord : "receives"
-```
-
----
-
-### Part 5 — Fee, Billing & Payments
-
-```mermaid
-erDiagram
     FeeCategory {
-        String  id            PK
-        String  institutionId FK
-        String  name             "Tuition Fee | Transport Fee | etc."
-        String  description
+        String id PK
+        String institutionId FK
+        String name
+        String description
         Decimal amount
-        String  frequency        "MONTHLY | TERM | ONE_TIME | ANNUAL"
+        String frequency
         Boolean isActive
         DateTime createdAt
     }
-
     Invoice {
-        String   id            PK
-        String   institutionId FK
-        String   studentId     FK
-        String   invoiceNo     UK
-        Decimal  totalAmount
-        Decimal  paidAmount
-        Decimal  dueAmount
+        String id PK
+        String institutionId FK
+        String studentId FK
+        String invoiceNo UK
+        Decimal totalAmount
+        Decimal paidAmount
+        Decimal dueAmount
         DateTime dueDate
-        String   status           "UNPAID | PARTIAL | PAID | OVERDUE | CANCELLED"
-        String   notes
+        String status
+        String notes
         DateTime createdAt
         DateTime updatedAt
     }
-
     InvoiceItem {
-        String  id            PK
-        String  invoiceId     FK
-        String  feeCategoryId FK
-        String  description
+        String id PK
+        String invoiceId FK
+        String feeCategoryId FK
+        String description
         Decimal amount
         Decimal discount
         Decimal netAmount
     }
-
     Payment {
-        String   id             PK
-        String   invoiceId      FK
-        Decimal  amount
-        String   method            "BKASH | NAGAD | SSLCOMMERZ | CASH | BANK_TRANSFER"
-        String   transactionRef
+        String id PK
+        String invoiceId FK
+        Decimal amount
+        String method
+        String transactionRef
         DateTime paidAt
-        String   recordedBy        "userId"
-        String   notes
-        String   status            "COMPLETED | PENDING | FAILED | REFUNDED"
+        String recordedBy
+        String notes
+        String status
     }
-
-    FeeCategory ||--o{ InvoiceItem : "included in"
-    Invoice     ||--o{ InvoiceItem : "contains"
-    Invoice     ||--o{ Payment     : "settled by"
-```
-
----
-
-### Part 6 — Attendance, Exams & Timetable
-
-```mermaid
-erDiagram
+    AuditLog {
+        String id PK
+        String institutionId FK
+        String userId FK
+        String action
+        String resource
+        String resourceId
+        Json metadata
+        String ipAddress
+        String userAgent
+        DateTime createdAt
+    }
     Attendance {
-        String   id            PK
-        String   institutionId FK
-        String   studentId     FK
+        String id PK
+        String institutionId FK
+        String studentId FK
         DateTime date
-        String   status           "PRESENT | ABSENT | LATE | HALF_DAY"
-        String   notes
+        String status
+        String notes
         DateTime createdAt
         DateTime updatedAt
     }
-
     Exam {
-        String   id            PK
-        String   institutionId FK
-        String   name             "Term 1 | Final Exam"
+        String id PK
+        String institutionId FK
+        String name
         DateTime startDate
         DateTime endDate
-        Boolean  isActive
+        Boolean isActive
     }
-
     ExamResult {
-        String   id            PK
-        String   institutionId FK
-        String   examId        FK
-        String   studentId     FK
-        String   subject
-        Decimal  marksObtained
-        Decimal  maxMarks         "Default: 100"
-        String   grade            "A+ | B | etc."
-        String   remarks
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    TimetableSlot {
-        String id            PK
+        String id PK
         String institutionId FK
-        String branchId      FK
-        String teacherId     FK  "nullable"
-        String dayOfWeek        "MONDAY … SUNDAY"
-        String startTime        "e.g. 09:00"
-        String endTime          "e.g. 09:45"
-        String className        "e.g. Class 8"
-        String sectionName      "e.g. A"
-        String subject          "e.g. Mathematics"
-    }
-
-    Exam         ||--o{ ExamResult    : "produces"
-    Teacher      ||--o{ TimetableSlot : "assigned to"
-```
-
----
-
-### Part 7 — Library, Transport & Communication
-
-```mermaid
-erDiagram
-    LibraryBook {
-        String   id              PK
-        String   institutionId   FK
-        String   title
-        String   author
-        String   isbn
-        String   publisher
-        Int      totalCopies
-        Int      availableCopies
+        String examId FK
+        String studentId FK
+        String subject
+        Decimal marksObtained
+        Decimal maxMarks
+        String grade
+        String remarks
         DateTime createdAt
         DateTime updatedAt
     }
-
-    LibraryIssue {
-        String   id            PK
-        String   institutionId FK
-        String   bookId        FK
-        String   studentId     FK
-        DateTime issueDate
-        DateTime dueDate
-        DateTime returnDate       "nullable"
-        String   status           "ISSUED | RETURNED | OVERDUE"
-        Decimal  fineAmount
-        DateTime createdAt
-        DateTime updatedAt
+    TimetableSlot {
+        String id PK
+        String institutionId FK
+        String branchId FK
+        String dayOfWeek
+        String startTime
+        String endTime
+        String className
+        String sectionName
+        String subject
+        String teacherId FK
     }
-
-    TransportVehicle {
-        String   id                 PK
-        String   institutionId      FK
-        String   registrationNumber
-        Int      capacity
-        String   driverName
-        String   driverPhone
-        Boolean  isActive
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    TransportRoute {
-        String   id            PK
-        String   institutionId FK
-        String   name             "Route A — City Center"
-        String   stops            "Comma-separated stop names"
-        Decimal  routeFare
-        Boolean  isActive
-        DateTime createdAt
-        DateTime updatedAt
-    }
-
-    TransportAssignment {
-        String   id            PK
-        String   institutionId FK
-        String   studentId     FK
-        String   routeId       FK
-        String   vehicleId     FK
-        String   pickupPoint
-        DateTime assignedAt
-    }
-
     Notice {
-        String   id            PK
-        String   institutionId FK
-        String   title
-        String   content
-        String   audience         "ALL | TEACHERS | GUARDIANS | STUDENTS"
-        Boolean  isActive
+        String id PK
+        String institutionId FK
+        String title
+        String content
+        String audience
+        Boolean isActive
         DateTime publishedAt
         DateTime createdAt
     }
-
+    LibraryBook {
+        String id PK
+        String institutionId FK
+        String title
+        String author
+        String isbn
+        String publisher
+        Int totalCopies
+        Int availableCopies
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    LibraryIssue {
+        String id PK
+        String institutionId FK
+        String bookId FK
+        String studentId FK
+        DateTime issueDate
+        DateTime dueDate
+        DateTime returnDate
+        String status
+        Decimal fineAmount
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    TransportVehicle {
+        String id PK
+        String institutionId FK
+        String registrationNumber
+        Int capacity
+        String driverName
+        String driverPhone
+        Boolean isActive
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    TransportRoute {
+        String id PK
+        String institutionId FK
+        String name
+        String stops
+        Decimal routeFare
+        Boolean isActive
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    TransportAssignment {
+        String id PK
+        String institutionId FK
+        String studentId FK
+        String routeId FK
+        String vehicleId FK
+        String pickupPoint
+        DateTime assignedAt
+    }
+    StaffProfile {
+        String id PK
+        String institutionId FK
+        String userId FK
+        String employeeId
+        String department
+        String designation
+        DateTime joiningDate
+        Decimal baseSalary
+        String status
+        DateTime createdAt
+        DateTime updatedAt
+    }
+    PayrollRecord {
+        String id PK
+        String institutionId FK
+        String staffId FK
+        String payPeriod
+        Decimal baseSalary
+        Decimal allowances
+        Decimal deductions
+        Decimal netAmount
+        String status
+        DateTime paidAt
+        DateTime createdAt
+        DateTime updatedAt
+    }
     Message {
-        String   id            PK
-        String   institutionId FK
-        String   senderId      FK
-        String   receiverId    FK
-        String   content
-        Boolean  read
+        String id PK
+        String institutionId FK
+        String senderId FK
+        String receiverId FK
+        String content
+        Boolean read
         DateTime createdAt
     }
 
-    AuditLog {
-        String   id            PK
-        String   institutionId FK
-        String   userId        FK
-        String   action           "CREATE | UPDATE | DELETE | LOGIN | LOGOUT | PAYMENT"
-        String   resource         "Student | Invoice | etc."
-        String   resourceId
-        Json     metadata
-        String   ipAddress
-        String   userAgent
-        DateTime createdAt
-    }
-
-    LibraryBook       ||--o{ LibraryIssue         : "issued via"
-    TransportRoute    ||--o{ TransportAssignment   : "serves"
-    TransportVehicle  ||--o{ TransportAssignment   : "used in"
-    User              ||--o{ Message               : "sends"
-    User              ||--o{ AuditLog              : "generates"
-```
-
----
-
-### Part 8 — Full Cross-Table Relationship Summary
-
-```mermaid
-erDiagram
-    Institution ||--o{ Branch              : "has"
-    Institution ||--o{ User                : "contains"
-    Institution ||--o{ Student             : "enrolls"
-    Institution ||--o{ Guardian            : "registers"
-    Institution ||--o{ FeeCategory         : "defines"
-    Institution ||--o{ Invoice             : "issues"
-    Institution ||--o{ Attendance          : "records"
-    Institution ||--o{ Exam               : "conducts"
-    Institution ||--o{ ExamResult          : "stores"
-    Institution ||--o{ TimetableSlot       : "schedules"
-    Institution ||--o{ Notice              : "publishes"
-    Institution ||--o{ LibraryBook         : "owns"
-    Institution ||--o{ LibraryIssue        : "tracks"
-    Institution ||--o{ TransportVehicle    : "operates"
-    Institution ||--o{ TransportRoute      : "defines"
+    Institution ||--o{ Branch : "has"
+    Institution ||--o{ User : "contains"
+    Institution ||--o{ Student : "enrolls"
+    Institution ||--o{ FeeCategory : "defines"
+    Institution ||--o{ Invoice : "issues"
+    Institution ||--o{ AuditLog : "logs"
+    Institution ||--o{ Guardian : "registers"
+    Institution ||--o{ Attendance : "records"
+    Institution ||--o{ Exam : "conducts"
+    Institution ||--o{ ExamResult : "stores"
+    Institution ||--o{ TimetableSlot : "schedules"
+    Institution ||--o{ Notice : "publishes"
+    Institution ||--o{ LibraryBook : "owns"
+    Institution ||--o{ LibraryIssue : "tracks"
+    Institution ||--o{ TransportVehicle : "operates"
+    Institution ||--o{ TransportRoute : "defines"
     Institution ||--o{ TransportAssignment : "manages"
-    Institution ||--o{ StaffProfile        : "employs"
-    Institution ||--o{ PayrollRecord       : "processes"
-    Institution ||--o{ Message             : "hosts"
-    Institution ||--o{ AuditLog            : "logs"
+    Institution ||--o{ StaffProfile : "employs"
+    Institution ||--o{ PayrollRecord : "processes"
+    Institution ||--o{ Message : "hosts"
 
-    Branch        ||--o{ AcademicClass : "contains"
-    AcademicClass ||--o{ Section       : "split into"
-    Section  }o--o| Teacher         : "managed by"
+    Branch ||--o{ Class : "contains"
+    Class ||--o{ Section : "split into"
+    Section }o--o| Teacher : "managed by"
 
-    User     ||--o| Student         : "linked to"
-    User     ||--o| Teacher         : "linked to"
-    User     ||--o| Guardian        : "linked to"
-    User     ||--o| StaffProfile    : "linked to"
-    User     ||--o{ RefreshToken    : "owns"
-    User     ||--o{ AuditLog        : "generates"
-    User     ||--o{ Message         : "sends/receives"
+    User ||--o| Student : "linked to"
+    User ||--o| Teacher : "linked to"
+    User ||--o| Guardian : "linked to"
+    User ||--o| StaffProfile : "linked to"
+    User ||--o{ RefreshToken : "owns"
+    User ||--o{ AuditLog : "generates"
+    User ||--o{ Message : "sends/receives"
 
-    Student  ||--o{ GuardianStudent    : "linked to"
-    Guardian ||--o{ GuardianStudent    : "linked to"
-    Student  ||--o{ StudentDocument    : "has"
-    Student  ||--o{ Attendance         : "logs"
-    Student  ||--o{ Invoice            : "billed for"
-    Student  ||--o{ ExamResult         : "receives"
-    Student  ||--o{ LibraryIssue       : "borrows"
-    Student  ||--o{ TransportAssignment: "assigned to"
-    Student  }o--o{ AcademicYear       : "enrolled in"
+    Student ||--o{ GuardianStudent : "linked to"
+    Guardian ||--o{ GuardianStudent : "linked to"
+    Student ||--o{ StudentDocument : "has"
+    Student ||--o{ Attendance : "logs"
+    Student ||--o{ Invoice : "billed for"
+    Student ||--o{ ExamResult : "receives"
+    Student ||--o{ LibraryIssue : "borrows"
+    Student ||--o{ TransportAssignment : "assigned to"
 
-    Invoice  ||--o{ InvoiceItem    : "contains"
-    Invoice  ||--o{ Payment        : "settled by"
+    Invoice ||--o{ InvoiceItem : "contains"
+    Invoice ||--o{ Payment : "settled by"
     FeeCategory ||--o{ InvoiceItem : "referenced by"
 
-    Exam      ||--o{ ExamResult    : "produces"
+    Exam ||--o{ ExamResult : "produces"
 
-    LibraryBook      ||--o{ LibraryIssue        : "issued via"
-    TransportRoute   ||--o{ TransportAssignment : "used by"
+    LibraryBook ||--o{ LibraryIssue : "issued via"
+    TransportRoute ||--o{ TransportAssignment : "used by"
     TransportVehicle ||--o{ TransportAssignment : "assigned in"
 
     StaffProfile ||--o{ PayrollRecord : "receives"
-    Teacher      ||--o{ TimetableSlot : "assigned to"
+    Teacher ||--o{ TimetableSlot : "assigned to"
 ```
 
 ---

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as libraryService from './library.service';
-import { successResponse } from '../../utils/response';
+import { successResponse, paginatedResponse } from '../../utils/response';
 
 export async function createBook(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -13,8 +13,10 @@ export async function createBook(req: Request, res: Response, next: NextFunction
 
 export async function getBooks(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await libraryService.getBooks(req.tenantId!);
-    successResponse(res, result, 'Books fetched successfully', 200);
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { books, total } = await libraryService.getBooks(req.tenantId!, req.query);
+    paginatedResponse(res, books, total, page, pageSize, 'Books fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -41,8 +43,10 @@ export async function returnBook(req: Request, res: Response, next: NextFunction
 
 export async function getIssues(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await libraryService.getIssues(req.tenantId!);
-    successResponse(res, result, 'Issues fetched successfully', 200);
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { issues, total } = await libraryService.getIssues(req.tenantId!, req.query);
+    paginatedResponse(res, issues, total, page, pageSize, 'Issues fetched successfully');
   } catch (error) {
     next(error);
   }

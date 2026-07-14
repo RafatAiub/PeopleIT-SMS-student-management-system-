@@ -15,10 +15,38 @@ export async function createBook(institutionId: string, data: CreateLibraryBookI
   });
 }
 
-export async function findBooks(institutionId: string) {
-  return prisma.libraryBook.findMany({
-    where: { institutionId },
-  });
+export async function findBooks(
+  institutionId: string,
+  query: { page?: number; pageSize?: number; search?: string }
+) {
+  const page = Number(query.page) || 1;
+  const pageSize = Number(query.pageSize) || 20;
+  const skip = (page - 1) * pageSize;
+
+  const where = {
+    institutionId,
+    ...(query.search
+      ? {
+          OR: [
+            { title: { contains: query.search, mode: 'insensitive' as const } },
+            { author: { contains: query.search, mode: 'insensitive' as const } },
+            { isbn: { contains: query.search, mode: 'insensitive' as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [books, total] = await prisma.$transaction([
+    prisma.libraryBook.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.libraryBook.count({ where }),
+  ]);
+
+  return { books, total };
 }
 
 export async function findBookById(institutionId: string, bookId: string) {
@@ -76,12 +104,51 @@ export async function returnBook(institutionId: string, issueId: string, data: R
   });
 }
 
-export async function getIssues(institutionId: string) {
-  return prisma.libraryIssue.findMany({
-    where: { institutionId },
-    include: {
-      book: true,
-      student: true,
-    }
-  });
+export async function getIssues(
+  institutionId: string,
+  query: { page?: number; pageSize?: number; search?: string; status?: string }
+) {
+  const page = Number(query.page) || 1;
+  const pageSize = Number(query.pageSize) || 20;
+  const skip = (page - 1) * pageSize;
+
+  const where = {
+    institutionId,
+    ...(query.status ? { status: query.status as any } : {}),
+    ...(query.search
+      ? {
+          OR: [
+            {
+              book: {
+                title: { contains: query.search, mode: 'insensitive' as const },
+              },
+            },
+            {
+              student: {
+                OR: [
+                  { firstName: { contains: query.search, mode: 'insensitive' as const } },
+                  { lastName: { contains: query.search, mode: 'insensitive' as const } },
+                ],
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [issues, total] = await prisma.$transaction([
+    prisma.libraryIssue.findMany({
+      where,
+      skip,
+      take: pageSize,
+      include: {
+        book: true,
+        student: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.libraryIssue.count({ where }),
+  ]);
+
+  return { issues, total };
 }

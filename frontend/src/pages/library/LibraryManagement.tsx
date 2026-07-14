@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Book, Search, Plus, Filter, MoreVertical, Edit2, Trash2, ArrowRightLeft, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { useTableParams } from '../../hooks/useTableParams';
+import { Pagination } from '../../components/Pagination';
 
 interface BookType {
   id: string;
@@ -21,14 +23,19 @@ interface IssueType {
   issueDate: string;
   dueDate: string;
   status: string;
+  book?: { title: string };
+  student?: { firstName: string; lastName: string };
 }
 
 export default function LibraryManagement() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'issues'>('catalog');
-  const [searchQuery, setSearchQuery] = useState('');
   const [books, setBooks] = useState<BookType[]>([]);
+  const [totalBooks, setTotalBooks] = useState(0);
   const [issues, setIssues] = useState<IssueType[]>([]);
+  const [totalIssues, setTotalIssues] = useState(0);
   const [loading, setLoading] = useState(false);
+  
+  const { params, debouncedSearch, setPage, setPageSize, setSearch, setFilter } = useTableParams();
   const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
   const [isIssueBookModalOpen, setIsIssueBookModalOpen] = useState(false);
   const [newBook, setNewBook] = useState({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
@@ -36,21 +43,27 @@ export default function LibraryManagement() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeTab, params.page, params.pageSize, debouncedSearch]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Use GET /api/v1/library/books
-      const booksRes = await apiClient.get('/library/books');
-      setBooks(booksRes.data.data || []);
-      
-      // We will try fetching issues via GET /api/v1/library/issues, though instructions focus on POST.
-      try {
-        const issuesRes = await apiClient.get('/library/issues');
-        setIssues(issuesRes.data.data || []);
-      } catch (err) {
-        console.error("Failed to fetch issues", err);
+      const queryParams = new URLSearchParams({
+        page: params.page.toString(),
+        pageSize: params.pageSize.toString(),
+      });
+      if (debouncedSearch) {
+        queryParams.append('search', debouncedSearch);
+      }
+
+      if (activeTab === 'catalog') {
+        const booksRes = await apiClient.get(`/library/books?${queryParams.toString()}`);
+        setBooks(booksRes.data.data?.books || booksRes.data.data || []);
+        setTotalBooks(booksRes.data.data?.total || booksRes.data.meta?.total || 0);
+      } else {
+        const issuesRes = await apiClient.get(`/library/issues?${queryParams.toString()}`);
+        setIssues(issuesRes.data.data?.issues || issuesRes.data.data || []);
+        setTotalIssues(issuesRes.data.data?.total || issuesRes.data.meta?.total || 0);
       }
     } catch (error) {
       console.error('Failed to fetch library data:', error);
@@ -113,13 +126,13 @@ export default function LibraryManagement() {
 
       <div className="glass rounded-2xl border border-white/10 flex overflow-hidden">
         <button
-          onClick={() => setActiveTab('catalog')}
+          onClick={() => { setActiveTab('catalog'); setSearch(''); }}
           className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'catalog' ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
         >
           Book Catalog
         </button>
         <button
-          onClick={() => setActiveTab('issues')}
+          onClick={() => { setActiveTab('issues'); setSearch(''); }}
           className={`flex-1 py-3 text-sm font-medium transition-colors ${activeTab === 'issues' ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
         >
           Issue Tracking
@@ -133,8 +146,8 @@ export default function LibraryManagement() {
             type="text"
             placeholder={activeTab === 'catalog' ? "Search books by title, author, or ISBN..." : "Search issues by student or book..."}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={params.search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <button className="px-4 py-2 bg-slate-800 border border-white/10 hover:bg-slate-700 text-white rounded-xl flex items-center gap-2 transition-colors">
@@ -146,8 +159,9 @@ export default function LibraryManagement() {
       {loading ? (
         <div className="text-center text-slate-400 py-10">Loading...</div>
       ) : activeTab === 'catalog' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {books.filter(b => b.title.toLowerCase().includes(searchQuery.toLowerCase())).map((book) => (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {books.map((book) => (
             <div key={book.id} className="glass p-5 rounded-2xl border border-white/10 hover:border-blue-500/50 transition-colors group">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
@@ -186,10 +200,19 @@ export default function LibraryManagement() {
             </div>
           ))}
         </div>
+          <Pagination
+            page={params.page}
+            pageSize={params.pageSize}
+            total={totalBooks}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </div>
       ) : (
-        <div className="glass rounded-2xl border border-white/10 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+        <div className="space-y-4">
+          <div className="glass rounded-2xl border border-white/10 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 bg-white/5">
                   <th className="p-4 text-sm font-semibold text-slate-300">Book</th>
@@ -200,18 +223,18 @@ export default function LibraryManagement() {
                   <th className="p-4 text-sm font-semibold text-slate-300">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
-                {issues.filter(i => i.bookTitle.toLowerCase().includes(searchQuery.toLowerCase()) || i.studentName.toLowerCase().includes(searchQuery.toLowerCase())).map((issue) => (
-                  <tr key={issue.id} className="hover:bg-white/5 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                          <Book className="w-4 h-4" />
+                <tbody className="divide-y divide-white/10">
+                  {issues.map((issue) => (
+                    <tr key={issue.id} className="hover:bg-white/5 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                            <Book className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm font-medium text-white">{issue.bookTitle || issue.book?.title}</span>
                         </div>
-                        <span className="text-sm font-medium text-white">{issue.bookTitle}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-sm text-slate-300">{issue.studentName}</td>
+                      </td>
+                      <td className="p-4 text-sm text-slate-300">{issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim()}</td>
                     <td className="p-4 text-sm text-slate-400">{issue.issueDate}</td>
                     <td className="p-4 text-sm text-slate-400">{issue.dueDate}</td>
                     <td className="p-4">
@@ -227,8 +250,16 @@ export default function LibraryManagement() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
+          <Pagination
+            page={params.page}
+            pageSize={params.pageSize}
+            total={totalIssues}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
       {/* Add Book Modal */}

@@ -80,6 +80,7 @@ export class UserRepository {
     tenantId: string | undefined,
     filters: {
       role?: UserRole;
+      search?: string;
       page: number;
       pageSize: number;
     }
@@ -87,6 +88,13 @@ export class UserRepository {
     const where: any = {};
     if (tenantId) where.institutionId = tenantId;
     if (filters.role) where.role = filters.role;
+    if (filters.search) {
+      where.OR = [
+        { firstName: { contains: filters.search, mode: 'insensitive' } },
+        { lastName: { contains: filters.search, mode: 'insensitive' } },
+        { email: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
 
     const [total, users] = await prisma.$transaction([
       prisma.user.count({ where }),

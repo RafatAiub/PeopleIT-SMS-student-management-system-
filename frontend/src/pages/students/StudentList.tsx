@@ -3,15 +3,20 @@ import { Users, Search, X, Edit2, Trash2 } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
+import { useTableParams } from '../../hooks/useTableParams';
+import { Pagination } from '../../components/Pagination';
 
 const StudentList = () => {
   const { user } = useAuthStore();
   const isStudent = user?.role === 'STUDENT';
 
   const [students, setStudents] = useState<any[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
   const [classes, setClasses] = useState<any[]>([]);
   const [availableSections, setAvailableSections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const { params, debouncedSearch, setPage, setPageSize, setSearch, setFilter } = useTableParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Edit Student Modal State
@@ -44,8 +49,17 @@ const StudentList = () => {
         setSelectedStudent(response.data.data);
       } else {
         // Fetch student list for Admins/Teachers
-        const response = await apiClient.get('/students');
+        const queryParams = new URLSearchParams({
+          page: params.page.toString(),
+          pageSize: params.pageSize.toString(),
+        });
+        if (debouncedSearch) queryParams.append('search', debouncedSearch);
+        if (params.filters.classId) queryParams.append('classId', params.filters.classId);
+        if (params.filters.status) queryParams.append('status', params.filters.status);
+
+        const response = await apiClient.get(`/students?${queryParams.toString()}`);
         setStudents(response.data.data || []);
+        setTotalStudents(response.data.meta?.total || 0);
       }
     } catch (error: any) {
       console.error('Failed to fetch students data', error);
@@ -68,7 +82,7 @@ const StudentList = () => {
   useEffect(() => {
     fetchStudents();
     fetchClasses();
-  }, [isStudent]);
+  }, [isStudent, params.page, params.pageSize, debouncedSearch, params.filters.classId, params.filters.status]);
 
   const fetchSectionsForEdit = async (classId: string, selectFirst: boolean = false) => {
     if (!classId) {
@@ -531,14 +545,39 @@ const StudentList = () => {
       </div>
 
       <div className="glass rounded-2xl overflow-hidden border border-white/5">
-        <div className="p-4 border-b border-white/5 flex items-center justify-between">
-          <div className="relative max-w-sm w-full">
+        <div className="p-4 border-b border-white/5 flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
               type="text" 
+              value={params.search}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search students by name or ID..." 
               className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
             />
+          </div>
+          <div className="flex items-center gap-3">
+            <select
+              value={params.filters.classId || ''}
+              onChange={(e) => setFilter('classId', e.target.value)}
+              className="bg-slate-800 text-slate-300 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+            >
+              <option value="">All Classes</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <select
+              value={params.filters.status || ''}
+              onChange={(e) => setFilter('status', e.target.value)}
+              className="bg-slate-800 text-slate-300 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+            >
+              <option value="">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="GRADUATED">Graduated</option>
+              <option value="TRANSFERRED">Transferred</option>
+            </select>
           </div>
         </div>
         
@@ -624,6 +663,15 @@ const StudentList = () => {
             </tbody>
           </table>
         </div>
+        {!isStudent && (
+          <Pagination
+            page={params.page}
+            pageSize={params.pageSize}
+            total={totalStudents}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        )}
       </div>
 
       {/* Edit Student Modal */}

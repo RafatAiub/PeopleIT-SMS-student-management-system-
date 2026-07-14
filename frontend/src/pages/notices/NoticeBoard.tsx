@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, Plus, Calendar, Users, X, Clock, BookOpen, UserCheck, Shield } from 'lucide-react';
+import { Megaphone, Plus, Calendar, Users, X, Clock, BookOpen, UserCheck, Shield, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { useTableParams } from '../../hooks/useTableParams';
+import { Pagination } from '../../components/Pagination';
 
 interface NoticeItem {
   id: string;
@@ -15,6 +17,8 @@ interface NoticeItem {
 const NoticeBoard = () => {
   const { user } = useAuthStore();
   const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const [totalNotices, setTotalNotices] = useState(0);
+  const { params, debouncedSearch, setPage, setPageSize, setSearch, setFilter } = useTableParams();
   const [showAddForm, setShowAddForm] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -25,8 +29,16 @@ const NoticeBoard = () => {
   useEffect(() => {
     const fetchNotices = async () => {
       try {
-        const response = await apiClient.get('/notices');
-        setNotices(response.data.data);
+        const queryParams = new URLSearchParams({
+          page: params.page.toString(),
+          pageSize: params.pageSize.toString(),
+        });
+        if (debouncedSearch) queryParams.append('search', debouncedSearch);
+        if (params.filters.audience) queryParams.append('audience', params.filters.audience);
+
+        const response = await apiClient.get(`/notices?${queryParams.toString()}`);
+        setNotices(response.data.data?.notices || response.data.data || []);
+        setTotalNotices(response.data.data?.total || response.data.meta?.total || 0);
       } catch (error) {
         console.error('Failed to fetch notices', error);
       } finally {
@@ -34,7 +46,7 @@ const NoticeBoard = () => {
       }
     };
     fetchNotices();
-  }, []);
+  }, [params.page, params.pageSize, debouncedSearch, params.filters.audience]);
 
   const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +146,34 @@ const NoticeBoard = () => {
         )}
       </div>
 
+      {/* Filters Toolbar */}
+      <div className="glass p-4 rounded-3xl border border-white/5 flex flex-wrap gap-4 items-center">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search notices by title or content..."
+            value={params.search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-900/50 border border-slate-700/50 rounded-2xl pl-11 pr-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+        </div>
+        <div className="relative">
+          <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <select
+            value={params.filters.audience || ''}
+            onChange={(e) => setFilter('audience', e.target.value)}
+            className="bg-slate-900/50 border border-slate-700/50 rounded-2xl pl-11 pr-8 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none cursor-pointer"
+          >
+            <option value="">All Audiences</option>
+            <option value="ALL">Public (All)</option>
+            <option value="TEACHERS">Teachers</option>
+            <option value="GUARDIANS">Guardians</option>
+            <option value="STUDENTS">Students</option>
+          </select>
+        </div>
+      </div>
+
       {/* Notices Feed List */}
       <div className="relative">
         {/* Vertical Timeline Line */}
@@ -187,6 +227,16 @@ const NoticeBoard = () => {
             })
           )}
         </div>
+      </div>
+
+      <div className="pt-4">
+        <Pagination
+          page={params.page}
+          pageSize={params.pageSize}
+          total={totalNotices}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Create Notice Modal */}

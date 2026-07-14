@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as transportService from './transport.service';
-import { successResponse } from '../../utils/response';
+import { successResponse, paginatedResponse } from '../../utils/response';
 
 export async function createVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -13,8 +13,10 @@ export async function createVehicle(req: Request, res: Response, next: NextFunct
 
 export async function getVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await transportService.getVehicles(req.tenantId!);
-    successResponse(res, result, 'Vehicles fetched successfully', 200);
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { vehicles, total } = await transportService.getVehicles(req.tenantId!, req.query);
+    paginatedResponse(res, vehicles, total, page, pageSize, 'Vehicles fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -31,8 +33,10 @@ export async function createRoute(req: Request, res: Response, next: NextFunctio
 
 export async function getRoutes(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await transportService.getRoutes(req.tenantId!);
-    successResponse(res, result, 'Routes fetched successfully', 200);
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { routes, total } = await transportService.getRoutes(req.tenantId!, req.query);
+    paginatedResponse(res, routes, total, page, pageSize, 'Routes fetched successfully');
   } catch (error) {
     next(error);
   }
@@ -49,8 +53,10 @@ export async function createAssignment(req: Request, res: Response, next: NextFu
 
 export async function getAssignments(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await transportService.getAssignments(req.tenantId!);
-    successResponse(res, result, 'Assignments fetched successfully', 200);
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { assignments, total } = await transportService.getAssignments(req.tenantId!, req.query);
+    paginatedResponse(res, assignments, total, page, pageSize, 'Assignments fetched successfully');
   } catch (error) {
     next(error);
   }

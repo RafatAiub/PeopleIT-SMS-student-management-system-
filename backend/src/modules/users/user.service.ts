@@ -87,6 +87,7 @@ export class UserService {
     tenantId: string,
     filters: {
       role?: UserRole;
+      search?: string;
       page?: number;
       pageSize?: number;
     }

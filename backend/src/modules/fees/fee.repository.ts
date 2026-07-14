@@ -145,6 +145,7 @@ export class FeeRepository {
     filters: {
       studentId?: string;
       status?: string;
+      search?: string;
       page: number;
       pageSize: number;
     }
@@ -152,6 +153,20 @@ export class FeeRepository {
     const where: any = { institutionId: tenantId };
     if (filters.studentId) where.studentId = filters.studentId;
     if (filters.status) where.status = filters.status;
+    if (filters.search) {
+      where.OR = [
+        { invoiceNo: { contains: filters.search, mode: 'insensitive' } },
+        {
+          student: {
+            OR: [
+              { firstName: { contains: filters.search, mode: 'insensitive' } },
+              { lastName: { contains: filters.search, mode: 'insensitive' } },
+              { studentId: { contains: filters.search, mode: 'insensitive' } }
+            ]
+          }
+        }
+      ];
+    }
 
     const [total, invoices] = await prisma.$transaction([
       prisma.invoice.count({ where }),

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Search, DollarSign, Landmark, CheckCircle, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { useTableParams } from '../../hooks/useTableParams';
+import { Pagination } from '../../components/Pagination';
 
 interface StaffProfile {
   id: string;
@@ -34,11 +36,12 @@ interface PayrollRecord {
 export default function HrPayrollManagement() {
   const [activeTab, setActiveTab] = useState<'directory' | 'payroll'>('directory');
   const [staffList, setStaffList] = useState<StaffProfile[]>([]);
+  const [totalStaff, setTotalStaff] = useState(0);
   const [payrollList, setPayrollList] = useState<PayrollRecord[]>([]);
+  const [totalPayroll, setTotalPayroll] = useState(0);
   const [loading, setLoading] = useState(false);
   
-  // Search state
-  const [searchTerm, setSearchTerm] = useState('');
+  const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
 
   // Modals state
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -70,17 +73,36 @@ export default function HrPayrollManagement() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [activeTab, params.page, params.pageSize, debouncedSearch]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [staffRes, payrollRes] = await Promise.all([
-        apiClient.get('/hr/staff'),
-        apiClient.get('/hr/payroll')
-      ]);
-      setStaffList(staffRes.data.data || []);
-      setPayrollList(payrollRes.data.data || []);
+      const queryParams = new URLSearchParams({
+        page: params.page.toString(),
+        pageSize: params.pageSize.toString(),
+      });
+      if (debouncedSearch && activeTab === 'directory') {
+        queryParams.append('search', debouncedSearch);
+      }
+
+      if (activeTab === 'directory') {
+        const [staffRes, payrollRes] = await Promise.all([
+          apiClient.get(`/hr/staff?${queryParams.toString()}`),
+          apiClient.get(`/hr/payroll`)
+        ]);
+        setStaffList(staffRes.data.data?.staff || staffRes.data.data || []);
+        setTotalStaff(staffRes.data.data?.total || staffRes.data.meta?.total || 0);
+        setPayrollList(payrollRes.data.data?.payrolls || payrollRes.data.data || []);
+      } else {
+        const [staffRes, payrollRes] = await Promise.all([
+          apiClient.get(`/hr/staff`),
+          apiClient.get(`/hr/payroll?${queryParams.toString()}`)
+        ]);
+        setStaffList(staffRes.data.data?.staff || staffRes.data.data || []);
+        setPayrollList(payrollRes.data.data?.payrolls || payrollRes.data.data || []);
+        setTotalPayroll(payrollRes.data.data?.total || payrollRes.data.meta?.total || 0);
+      }
     } catch (error) {
       console.error('Failed to fetch HR data:', error);
     } finally {
@@ -167,12 +189,7 @@ export default function HrPayrollManagement() {
     }
   };
 
-  // Filter staff based on search term
-  const filteredStaff = staffList.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.department.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Removed client-side search logic
 
   return (
     <div className="space-y-6">
@@ -195,7 +212,7 @@ export default function HrPayrollManagement() {
       {/* Tabs */}
       <div className="flex border-b border-white/10 gap-2">
         <button
-          onClick={() => setActiveTab('directory')}
+          onClick={() => { setActiveTab('directory'); setSearch(''); }}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
             activeTab === 'directory'
               ? 'border-blue-500 text-blue-400 font-bold'
@@ -208,7 +225,7 @@ export default function HrPayrollManagement() {
           </div>
         </button>
         <button
-          onClick={() => setActiveTab('payroll')}
+          onClick={() => { setActiveTab('payroll'); setSearch(''); }}
           className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
             activeTab === 'payroll'
               ? 'border-blue-500 text-blue-400 font-bold'
@@ -233,8 +250,8 @@ export default function HrPayrollManagement() {
               <input
                 type="text"
                 placeholder="Search by ID, name or department..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                value={params.search}
+                onChange={e => setSearch(e.target.value)}
                 className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
               />
             </div>
@@ -255,7 +272,7 @@ export default function HrPayrollManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredStaff.map(staff => (
+                  {staffList.map(staff => (
                     <tr key={staff.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -300,7 +317,7 @@ export default function HrPayrollManagement() {
                       </td>
                     </tr>
                   ))}
-                  {filteredStaff.length === 0 && (
+                  {staffList.length === 0 && (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                         No staff members found matching search parameters.
@@ -311,6 +328,13 @@ export default function HrPayrollManagement() {
               </table>
             </div>
           </div>
+          <Pagination
+            page={params.page}
+            pageSize={params.pageSize}
+            total={totalStaff}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       ) : (
         <div className="space-y-4">
@@ -408,6 +432,13 @@ export default function HrPayrollManagement() {
               </table>
             </div>
           </div>
+          <Pagination
+            page={params.page}
+            pageSize={params.pageSize}
+            total={totalPayroll}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       )}
 

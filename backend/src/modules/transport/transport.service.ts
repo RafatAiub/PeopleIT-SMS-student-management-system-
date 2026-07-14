@@ -6,16 +6,16 @@ export async function createVehicle(institutionId: string, data: CreateVehicleIn
   return transportRepository.createVehicle(institutionId, data);
 }
 
-export async function getVehicles(institutionId: string) {
-  return transportRepository.getVehicles(institutionId);
+export async function getVehicles(institutionId: string, query: any = {}) {
+  return transportRepository.getVehicles(institutionId, query);
 }
 
 export async function createRoute(institutionId: string, data: CreateRouteInput) {
   return transportRepository.createRoute(institutionId, data);
 }
 
-export async function getRoutes(institutionId: string) {
-  return transportRepository.getRoutes(institutionId);
+export async function getRoutes(institutionId: string, query: any = {}) {
+  return transportRepository.getRoutes(institutionId, query);
 }
 
 export async function createAssignment(institutionId: string, data: CreateAssignmentInput) {
@@ -29,6 +29,6 @@ export async function createAssignment(institutionId: string, data: CreateAssign
   }
 }
 
-export async function getAssignments(institutionId: string) {
-  return transportRepository.getAssignments(institutionId);
+export async function getAssignments(institutionId: string, query: any = {}) {
+  return transportRepository.getAssignments(institutionId, query);
 }

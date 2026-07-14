@@ -82,6 +82,7 @@ export class FeeService {
     filters: {
       studentId?: string;
       status?: string;
+      search?: string;
       page?: number;
       pageSize?: number;
     }

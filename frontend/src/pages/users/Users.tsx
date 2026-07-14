@@ -2,10 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Users as UsersIcon, Plus, Edit2, Trash2, Search, Filter, X } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
+import { useTableParams } from '../../hooks/useTableParams';
+import { Pagination } from '../../components/Pagination';
 
 const Users = () => {
   const [users, setUsers] = useState<any[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  const { params, debouncedSearch, setPage, setPageSize, setSearch, setFilter } = useTableParams();
   
   // Classes Metadata State
   const [classes, setClasses] = useState<any[]>([]);
@@ -70,8 +75,16 @@ const Users = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await apiClient.get('/users');
+      const queryParams = new URLSearchParams({
+        page: params.page.toString(),
+        pageSize: params.pageSize.toString(),
+      });
+      if (debouncedSearch) queryParams.append('search', debouncedSearch);
+      if (params.filters.role) queryParams.append('role', params.filters.role);
+
+      const res = await apiClient.get(`/users?${queryParams.toString()}`);
       setUsers(res.data.data || []);
+      setTotalUsers(res.data.meta?.total || 0);
     } catch (err: any) {
       console.error('Failed to fetch users', err);
       toast.error(err.response?.data?.message || 'Failed to fetch users');
@@ -92,7 +105,7 @@ const Users = () => {
   useEffect(() => {
     fetchUsers();
     fetchClasses();
-  }, []);
+  }, [params.page, params.pageSize, debouncedSearch, params.filters.role]);
 
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -318,14 +331,26 @@ const Users = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search users by name, email, or role..."
+            value={params.search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search users by name, email..."
             className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 transition-colors">
-          <Filter className="w-4 h-4" />
-          Filter by Role
-        </button>
+        <div className="relative">
+          <select 
+            value={params.filters.role || ''}
+            onChange={(e) => setFilter('role', e.target.value)}
+            className="appearance-none bg-slate-800 text-slate-300 border border-slate-700 rounded-xl pl-10 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+          >
+            <option value="">All Roles</option>
+            <option value="ADMIN">Admin</option>
+            <option value="TEACHER">Teacher</option>
+            <option value="STUDENT">Student</option>
+            <option value="GUARDIAN">Guardian</option>
+          </select>
+          <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        </div>
       </div>
 
       {/* Users Table */}
@@ -412,6 +437,13 @@ const Users = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={params.page}
+          pageSize={params.pageSize}
+          total={totalUsers}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
 
       {/* Add User Modal */}

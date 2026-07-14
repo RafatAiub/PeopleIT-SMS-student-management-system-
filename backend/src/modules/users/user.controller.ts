@@ -26,8 +26,10 @@ export class UserController {
     try {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
+      const search = req.query.search as string;
       const { total, users } = await UserService.listUsers(req.tenantId!, {
         role: req.query.role as UserRole,
+        search,
         page,
         pageSize,
       });

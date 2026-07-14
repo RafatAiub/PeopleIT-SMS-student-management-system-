@@ -6,8 +6,8 @@ export async function createBook(institutionId: string, data: CreateLibraryBookI
   return libraryRepository.createBook(institutionId, data);
 }
 
-export async function getBooks(institutionId: string) {
-  return libraryRepository.findBooks(institutionId);
+export async function getBooks(institutionId: string, query: any = {}) {
+  return libraryRepository.findBooks(institutionId, query);
 }
 
 export async function issueBook(institutionId: string, data: IssueBookInput) {
@@ -26,6 +26,6 @@ export async function returnBook(institutionId: string, issueId: string, data: R
   }
 }
 
-export async function getIssues(institutionId: string) {
-  return libraryRepository.getIssues(institutionId);
+export async function getIssues(institutionId: string, query: any = {}) {
+  return libraryRepository.getIssues(institutionId, query);
 }
