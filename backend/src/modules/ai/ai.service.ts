@@ -124,6 +124,28 @@ export async function getDashboardInsights(institutionId: string) {
     where: { institutionId, isActive: true },
   });
 
+  // Attendance rate over the last 30 days (PRESENT + LATE count as attended).
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [totalAttendanceRecords, presentAttendanceRecords] = await Promise.all([
+    prisma.attendance.count({
+      where: { institutionId, date: { gte: thirtyDaysAgo } },
+    }),
+    prisma.attendance.count({
+      where: {
+        institutionId,
+        date: { gte: thirtyDaysAgo },
+        status: { in: ['PRESENT', 'LATE'] },
+      },
+    }),
+  ]);
+
+  const attendanceAvg =
+    totalAttendanceRecords > 0
+      ? Math.round((presentAttendanceRecords / totalAttendanceRecords) * 1000) / 10
+      : 0;
+
   const summary = `AI Executive Summary for Institution:
 - Enrolled Active Students: ${studentCount}
 - Active Staff Members: ${staffCount}
@@ -140,5 +162,8 @@ AI Recommendations:
     totalOutstandingDue,
     summary,
     generatedAt: new Date(),
+    statistics: {
+      attendanceAvg,
+    },
   };
 }

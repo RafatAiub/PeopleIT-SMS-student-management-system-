@@ -58,32 +58,31 @@ const AdminDashboard = () => {
         const res = await apiClient.get('/institution');
         setInstitutions(res.data.data || []);
       } else {
-        // Fetch standard dashboard stats for regular Admin
-        const [studentsRes, usersRes, invoicesRes, insightsRes] = await Promise.all([
-          apiClient.get('/students').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/users').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/fees/invoices').catch(() => ({ data: { data: [] } })),
+        // Fetch standard dashboard stats for regular Admin.
+        // Use meta.total (not array length) for counts — the students/users
+        // endpoints are paginated, so a fetched page's length undercounts
+        // once an institution has more records than the default page size.
+        const [studentsRes, teachersRes, paidInvoicesRes, insightsRes] = await Promise.all([
+          apiClient.get('/students', { params: { pageSize: 1 } }).catch(() => ({ data: { meta: { total: 0 } } })),
+          apiClient.get('/users', { params: { role: 'TEACHER', pageSize: 1 } }).catch(() => ({ data: { meta: { total: 0 } } })),
+          apiClient.get('/fees/invoices', { params: { status: 'PAID', pageSize: 500 } }).catch(() => ({ data: { data: [] } })),
           apiClient.get('/ai/dashboard-insights').catch(() => ({ data: { data: { statistics: { attendanceAvg: 0 } } } }))
         ]);
 
-        const students = studentsRes.data?.data || [];
-        const users = usersRes.data?.data || [];
-        const invoices = invoicesRes.data?.data || [];
-        
-        const teachers = users.filter((u: any) => u.role === 'TEACHER');
-        
-        let totalFees = 0;
-        invoices.forEach((inv: any) => {
-          if (inv.status === 'PAID') {
-            totalFees += inv.totalAmount;
-          }
-        });
+        const paidInvoices = paidInvoicesRes.data?.data || [];
+
+        // Prisma Decimal fields serialize as strings over JSON — Number()
+        // them before summing, or `+=` silently does string concatenation.
+        const totalFees = paidInvoices.reduce(
+          (sum: number, inv: any) => sum + Number(inv.totalAmount || 0),
+          0
+        );
 
         const attendanceAvg = insightsRes.data?.data?.statistics?.attendanceAvg || 0;
 
         setStats({
-          totalStudents: students.length,
-          totalTeachers: teachers.length,
+          totalStudents: studentsRes.data?.meta?.total ?? 0,
+          totalTeachers: teachersRes.data?.meta?.total ?? 0,
           feeCollections: totalFees,
           attendanceAvg: attendanceAvg
         });
