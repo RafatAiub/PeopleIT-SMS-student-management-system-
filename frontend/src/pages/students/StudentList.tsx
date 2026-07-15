@@ -257,7 +257,7 @@ const StudentList = () => {
   };
 
   if (loading) {
-    return <div className="text-slate-400 p-8 text-center">Loading Student Portal...</div>;
+    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading Student Portal...</div>;
   }
 
   // =============================================================================
@@ -266,7 +266,7 @@ const StudentList = () => {
   if (isStudent) {
     if (!selectedStudent) {
       return (
-        <div className="glass p-8 text-center text-slate-400 rounded-2xl border border-white/5">
+        <div className="glass-card p-8 text-center text-slate-600 dark:text-slate-400 rounded-2xl border border-slate-200/50 dark:border-white/5">
           Your student profile record could not be found. Please contact the administrator.
         </div>
       );
@@ -276,8 +276,8 @@ const StudentList = () => {
       <div className="space-y-6 max-w-4xl">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">My Profile</h2>
-            <p className="text-slate-400 mt-1">View and manage your personal student profile.</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Profile</h2>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">View and manage your personal student profile.</p>
           </div>
           <button 
             onClick={() => handleOpenEditModal(selectedStudent)}
@@ -290,12 +290,12 @@ const StudentList = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Avatar and Key Info */}
-          <div className="glass p-6 rounded-2xl border border-white/5 flex flex-col items-center text-center space-y-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col items-center text-center space-y-4">
             {selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl ? (
               <img 
                 src={selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl} 
                 alt="Avatar" 
-                className="w-24 h-24 rounded-full object-cover border border-white/10 shadow-lg"
+                className="w-24 h-24 rounded-full object-cover border border-slate-200/50 dark:border-white/10 shadow-lg"
               />
             ) : (
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center text-3xl font-bold text-white glow-indigo shadow-lg">
@@ -303,67 +303,67 @@ const StudentList = () => {
               </div>
             )}
             <div>
-              <h3 className="text-lg font-bold text-white">{selectedStudent.firstName} {selectedStudent.lastName}</h3>
-              <p className="text-sm text-slate-400 mt-1">ID: {selectedStudent.studentId}</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedStudent.firstName} {selectedStudent.lastName}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {selectedStudent.studentId}</p>
             </div>
-            <div className="w-full pt-4 border-t border-white/5 text-left space-y-2.5">
+            <div className="w-full pt-4 border-t border-slate-200/50 dark:border-white/5 text-left space-y-2.5">
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Status</span>
-                <span className="text-emerald-400 font-semibold uppercase">{selectedStudent.status || 'ACTIVE'}</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold uppercase">{selectedStudent.status || 'ACTIVE'}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Class</span>
-                <span className="text-white font-medium">{selectedStudent.class?.name || 'N/A'}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.class?.name || 'N/A'}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Section</span>
-                <span className="text-white font-medium">{selectedStudent.section?.name || 'N/A'}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.section?.name || 'N/A'}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Roll Number</span>
-                <span className="text-white font-medium">{selectedStudent.rollNumber || 'N/A'}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.rollNumber || 'N/A'}</span>
               </div>
             </div>
           </div>
 
           {/* Complete Profile Details */}
-          <div className="md:col-span-2 glass p-6 rounded-2xl border border-white/5 space-y-6">
-            <h3 className="text-lg font-bold text-white border-b border-white/5 pb-3">Personal & Academic Details</h3>
+          <div className="md:col-span-2 glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 space-y-6">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-200/50 dark:border-white/5 pb-3">Personal & Academic Details</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 text-sm">
               <div>
                 <span className="text-xs text-slate-500 block">First Name</span>
-                <span className="text-white font-medium mt-1 block">{selectedStudent.firstName}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.firstName}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Last Name</span>
-                <span className="text-white font-medium mt-1 block">{selectedStudent.lastName}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.lastName}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Email Address</span>
-                <span className="text-white font-medium mt-1 block">{selectedStudent.email || 'N/A'}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.email || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Phone Number</span>
-                <span className="text-white font-medium mt-1 block">{selectedStudent.phone || 'N/A'}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.phone || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Gender</span>
-                <span className="text-white font-medium mt-1 block capitalize">{selectedStudent.gender?.toLowerCase() || 'N/A'}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block capitalize">{selectedStudent.gender?.toLowerCase() || 'N/A'}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Admission Date</span>
-                <span className="text-white font-medium mt-1 block">
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">
                   {selectedStudent.admissionDate ? new Date(selectedStudent.admissionDate).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Branch</span>
-                <span className="text-white font-medium mt-1 block">{selectedStudent.branch?.name || 'Main Branch'}</span>
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.branch?.name || 'Main Branch'}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Academic Year</span>
-                <span className="text-white font-medium mt-1 block">
+                <span className="text-slate-800 dark:text-white font-medium mt-1 block">
                   {selectedStudent.academicYear?.label || new Date().getFullYear().toString()}
                 </span>
               </div>
@@ -374,12 +374,12 @@ const StudentList = () => {
         {/* Edit Student Modal (Student Version - Personal Data Only) */}
         {isEditModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
-            <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
+            <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-white">Edit Personal Data</h3>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Personal Data</h3>
                 <button 
                   onClick={() => setIsEditModalOpen(false)}
-                  className="text-slate-400 hover:text-white transition-colors"
+                  className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -388,47 +388,47 @@ const StudentList = () => {
               <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
                     <input
                       type="text"
                       name="firstName"
                       required
                       value={editFormData.firstName}
                       onChange={handleEditChange}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
                     <input
                       type="text"
                       name="lastName"
                       required
                       value={editFormData.lastName}
                       onChange={handleEditChange}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
                   <input
                     type="text"
                     name="phone"
                     value={editFormData.phone}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Gender</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
                   <select
                     name="gender"
                     value={editFormData.gender}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
+                    className="input-field appearance-none"
                   >
                     <option value="MALE">Male</option>
                     <option value="FEMALE">Female</option>
@@ -438,12 +438,12 @@ const StudentList = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Blood Group</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Blood Group</label>
                     <select
                       name="bloodGroup"
                       value={editFormData.bloodGroup}
                       onChange={handleEditChange}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     >
                       <option value="">Select Blood Group</option>
                       <option value="A+">A+</option>
@@ -457,12 +457,12 @@ const StudentList = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Religion</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Religion</label>
                     <select
                       name="religion"
                       value={editFormData.religion}
                       onChange={handleEditChange}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     >
                       <option value="">Select Religion</option>
                       <option value="Islam">Islam</option>
@@ -476,35 +476,35 @@ const StudentList = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Nationality</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
                     <input
                       type="text"
                       name="nationality"
                       value={editFormData.nationality}
                       onChange={handleEditChange}
-                      className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      className="input-field"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Profile Photo</label>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Profile Photo</label>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleFileChange}
-                      className="w-full text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-400 hover:file:bg-blue-600/20"
+                      className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Address</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
                   <textarea
                     name="address"
                     rows={2}
                     value={editFormData.address}
                     onChange={handleEditChange}
                     placeholder="Enter permanent address"
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                    className="input-field resize-none"
                   />
                 </div>
 
@@ -512,7 +512,7 @@ const StudentList = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors text-sm font-medium"
+                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
                   >
                     Cancel
                   </button>
@@ -539,13 +539,13 @@ const StudentList = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Students</h2>
-          <p className="text-slate-400 mt-1">Manage student enrollments and profiles.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Students</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage student enrollments and profiles.</p>
         </div>
       </div>
 
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
-        <div className="p-4 border-b border-white/5 flex flex-wrap items-center gap-4">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
+        <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex flex-wrap items-center gap-4">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -553,37 +553,37 @@ const StudentList = () => {
               value={params.search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search students by name or ID..." 
-              className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+              className="input-field pl-10 text-sm"
             />
           </div>
           <div className="flex items-center gap-3">
             <select
               value={params.filters.classId || ''}
               onChange={(e) => setFilter('classId', e.target.value)}
-              className="bg-slate-800 text-slate-300 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
             >
-              <option value="">All Classes</option>
+              <option value="" className="bg-white dark:bg-slate-900">All Classes</option>
               {classes.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
+                <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900">{c.name}</option>
               ))}
             </select>
             <select
               value={params.filters.status || ''}
               onChange={(e) => setFilter('status', e.target.value)}
-              className="bg-slate-800 text-slate-300 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
+              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
             >
-              <option value="">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
-              <option value="GRADUATED">Graduated</option>
-              <option value="TRANSFERRED">Transferred</option>
+              <option value="" className="bg-white dark:bg-slate-900">All Statuses</option>
+              <option value="ACTIVE" className="bg-white dark:bg-slate-900">Active</option>
+              <option value="INACTIVE" className="bg-white dark:bg-slate-900">Inactive</option>
+              <option value="GRADUATED" className="bg-white dark:bg-slate-900">Graduated</option>
+              <option value="TRANSFERRED" className="bg-white dark:bg-slate-900">Transferred</option>
             </select>
           </div>
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-900/40 text-xs uppercase text-slate-400">
+          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+            <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="px-6 py-4 font-medium">Student Name</th>
                 <th className="px-6 py-4 font-medium">Admission No</th>
@@ -592,7 +592,7 @@ const StudentList = () => {
                 <th className="px-6 py-4 text-right font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
@@ -607,36 +607,36 @@ const StudentList = () => {
                 </tr>
               ) : (
                 students.map((student: any) => (
-                  <tr key={student.id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {student.avatarUrl || student.user?.avatarUrl ? (
                           <img 
                             src={student.avatarUrl || student.user?.avatarUrl} 
                             alt="Avatar" 
-                            className="w-8 h-8 rounded-full object-cover border border-white/10"
+                            className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+                          <div className="w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
                             {student.firstName?.[0] || '?'}
                           </div>
                         )}
                         <div>
-                          <div className="font-medium text-white">{student.firstName} {student.lastName}</div>
+                          <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
                           <div className="text-xs text-slate-500">{student.email}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">{student.studentId}</td>
                     <td className="px-6 py-4">
-                      <span className="font-medium text-white">{student.class?.name || 'N/A'}</span>
+                      <span className="font-medium text-slate-900 dark:text-white">{student.class?.name || 'N/A'}</span>
                       <span className="text-slate-500"> (Roll: {student.rollNumber || 'N/A'})</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         student.status === 'ACTIVE' 
-                          ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' 
-                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                          ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' 
+                          : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
                       }`}>
                         {student.status || 'ACTIVE'}
                       </span>
@@ -645,13 +645,13 @@ const StudentList = () => {
                       <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => handleOpenEditModal(student)}
-                          className="p-1.5 text-slate-400 hover:text-blue-400 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                         >
                           <Edit2 className="w-4.5 h-4.5" />
                         </button>
                         <button 
                           onClick={() => handleDeleteStudent(student.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                         >
                           <Trash2 className="w-4.5 h-4.5" />
                         </button>
@@ -677,12 +677,12 @@ const StudentList = () => {
       {/* Edit Student Modal */}
       {isEditModalOpen && selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
+          <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-white">Edit Student Profile</h3>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Student Profile</h3>
               <button 
                 onClick={() => setIsEditModalOpen(false)}
-                className="text-slate-400 hover:text-white transition-colors"
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -691,7 +691,7 @@ const StudentList = () => {
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
                   <input
                     type="text"
                     name="firstName"
@@ -699,11 +699,11 @@ const StudentList = () => {
                     placeholder="e.g. John"
                     value={editFormData.firstName}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
                   <input
                     type="text"
                     name="lastName"
@@ -711,19 +711,19 @@ const StudentList = () => {
                     placeholder="e.g. Doe"
                     value={editFormData.lastName}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Class</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Class</label>
                   <select
                     name="classId"
                     value={editFormData.classId}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
                     <option value="">-- No Class Assigned --</option>
                     {classes.map(c => (
@@ -732,13 +732,13 @@ const StudentList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Section</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Section</label>
                   <select
                     name="sectionId"
                     value={editFormData.sectionId}
                     onChange={handleEditChange}
                     disabled={!editFormData.classId}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+                    className="input-field disabled:opacity-50"
                   >
                     <option value="">-- Select Section --</option>
                     {availableSections.map(s => (
@@ -750,23 +750,23 @@ const StudentList = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Roll Number</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Roll Number</label>
                   <input
                     type="text"
                     name="rollNumber"
                     value={editFormData.rollNumber}
                     onChange={handleEditChange}
                     placeholder="e.g. 15"
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Status</label>
                   <select
                     name="status"
                     value={editFormData.status}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
                     <option value="ACTIVE">Active</option>
                     <option value="INACTIVE">Inactive</option>
@@ -778,12 +778,12 @@ const StudentList = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Gender</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
                   <select
                     name="gender"
                     value={editFormData.gender}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
+                    className="input-field appearance-none"
                   >
                     <option value="MALE">Male</option>
                     <option value="FEMALE">Female</option>
@@ -791,38 +791,38 @@ const StudentList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
                   <input
                     type="text"
                     name="phone"
                     placeholder="e.g. +8801700000000"
                     value={editFormData.phone}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
                 <input
                   type="email"
                   name="email"
                   placeholder="e.g. john.doe@school.edu"
                   value={editFormData.email}
                   onChange={handleEditChange}
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Blood Group</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Blood Group</label>
                   <select
                     name="bloodGroup"
                     value={editFormData.bloodGroup}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
                     <option value="">Select Blood Group</option>
                     <option value="A+">A+</option>
@@ -836,12 +836,12 @@ const StudentList = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Religion</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Religion</label>
                   <select
                     name="religion"
                     value={editFormData.religion}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
                     <option value="">Select Religion</option>
                     <option value="Islam">Islam</option>
@@ -855,36 +855,36 @@ const StudentList = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Nationality</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
                   <input
                     type="text"
                     name="nationality"
                     placeholder="e.g. Bangladeshi"
                     value={editFormData.nationality}
                     onChange={handleEditChange}
-                    className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Profile Photo</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Profile Photo</label>
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="w-full text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-400 hover:file:bg-blue-600/20"
+                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Address</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
                 <textarea
                   name="address"
                   rows={2}
                   value={editFormData.address}
                   onChange={handleEditChange}
                   placeholder="Enter permanent address"
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                  className="input-field resize-none"
                 />
               </div>
 
@@ -892,7 +892,7 @@ const StudentList = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors text-sm font-medium"
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>

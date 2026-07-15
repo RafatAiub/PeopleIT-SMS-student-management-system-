@@ -174,8 +174,8 @@ const InvoiceList = () => {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Fees & Billing</h2>
-          <p className="text-slate-400 mt-1">Manage invoice collections, payments, and fee structures.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Fees & Billing</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage invoice collections, payments, and fee structures.</p>
         </div>
         
         <div className="flex items-center gap-2">
@@ -200,13 +200,13 @@ const InvoiceList = () => {
       </div>
 
       {/* Tabs list */}
-      <div className="flex gap-1 border-b border-white/5">
+      <div className="flex gap-1 border-b border-slate-200 dark:border-white/5">
         <button
           onClick={() => { setActiveTab('invoices'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2.5 border-b-2 font-semibold text-sm transition-all ${
             activeTab === 'invoices'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-blue-500 text-blue-500 dark:text-blue-400'
+              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <FileText className="w-4 h-4" />
@@ -216,8 +216,8 @@ const InvoiceList = () => {
           onClick={() => { setActiveTab('categories'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2.5 border-b-2 font-semibold text-sm transition-all ${
             activeTab === 'categories'
-              ? 'border-blue-500 text-blue-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-blue-500 text-blue-500 dark:text-blue-400'
+              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <Layers className="w-4 h-4" />
@@ -226,8 +226,8 @@ const InvoiceList = () => {
       </div>
 
       {/* Main card panel */}
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
-        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
+        <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex items-center justify-between">
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input 
@@ -235,15 +235,15 @@ const InvoiceList = () => {
               value={params.search}
               onChange={e => setSearch(e.target.value)}
               placeholder={activeTab === 'invoices' ? "Search by invoice number or student..." : "Search categories..."}
-              className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+              className="input-field pl-10 text-sm"
             />
           </div>
         </div>
         
         {activeTab === 'invoices' ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/40 text-xs uppercase text-slate-400">
+            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Invoice No</th>
                   <th className="px-6 py-4 font-semibold">Student Info</th>
@@ -253,7 +253,7 @@ const InvoiceList = () => {
                   <th className="px-6 py-4 text-right font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {loading ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
@@ -268,24 +268,24 @@ const InvoiceList = () => {
                   </tr>
                 ) : (
                   invoices.map((invoice: any) => (
-                    <tr key={invoice.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-semibold text-white">{invoice.invoiceNo || invoice.invoiceNumber}</td>
+                    <tr key={invoice.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">{invoice.invoiceNo || invoice.invoiceNumber}</td>
                       <td className="px-6 py-4">
-                        <div className="text-white font-medium">{invoice.student?.firstName} {invoice.student?.lastName}</div>
+                        <div className="text-slate-850 dark:text-white font-medium">{invoice.student?.firstName} {invoice.student?.lastName}</div>
                         <div className="text-xs text-slate-500">ID: {invoice.student?.studentId}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-white">৳ {invoice.totalAmount}</div>
-                        {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-400">Due: ৳ {invoice.dueAmount}</div>}
+                        <div className="font-semibold text-slate-900 dark:text-white">৳ {invoice.totalAmount}</div>
+                        {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400">Due: ৳ {invoice.dueAmount}</div>}
                       </td>
-                      <td className="px-6 py-4 text-slate-300">
+                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                         {new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          invoice.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 
-                          invoice.status === 'OVERDUE' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 
-                          'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          invoice.status === 'PAID' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 
+                          invoice.status === 'OVERDUE' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20' : 
+                          'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
                         }`}>
                           {invoice.status}
                         </span>
@@ -295,7 +295,7 @@ const InvoiceList = () => {
                           {invoice.status !== 'PAID' && (
                             <button 
                               onClick={() => openPaymentModal(invoice)}
-                              className="inline-flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                              className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                             >
                               <DollarSign className="w-3.5 h-3.5" /> Record Payment
                             </button>
@@ -310,8 +310,8 @@ const InvoiceList = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-300">
-              <thead className="bg-slate-900/40 text-xs uppercase text-slate-400">
+            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+              <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
                 <tr>
                   <th className="px-6 py-4 font-semibold">Category Name</th>
                   <th className="px-6 py-4 font-semibold">Description</th>
@@ -320,7 +320,7 @@ const InvoiceList = () => {
                   <th className="px-6 py-4 font-semibold">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {filteredCategories.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
@@ -329,21 +329,21 @@ const InvoiceList = () => {
                   </tr>
                 ) : (
                   filteredCategories.map((cat: any) => (
-                    <tr key={cat.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-semibold text-white flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-slate-500" />
+                    <tr key={cat.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-slate-450 dark:text-slate-500" />
                         {cat.name}
                       </td>
-                      <td className="px-6 py-4 text-slate-400 max-w-xs truncate">{cat.description || 'N/A'}</td>
+                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">{cat.description || 'N/A'}</td>
                       <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-xs font-semibold">
+                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-transparent">
                           {cat.frequency}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-semibold text-white">৳ {cat.amount}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">৳ {cat.amount}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          cat.isActive !== false ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          cat.isActive !== false ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
                         }`}>
                           {cat.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
                         </span>
@@ -369,10 +369,10 @@ const InvoiceList = () => {
       {/* Modal: Generate Invoice */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="glass border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-900/50">
-              <h3 className="text-lg font-semibold text-white">Generate Student Invoice</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Generate Student Invoice</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -380,21 +380,21 @@ const InvoiceList = () => {
             <form onSubmit={handleGenerateInvoice} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Select Student *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Select Student *</label>
                   <select
                     required
                     value={newInvoice.studentId}
                     onChange={e => setNewInvoice(prev => ({ ...prev, studentId: e.target.value }))}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
-                    <option value="">-- Choose Student --</option>
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-950 dark:text-white">-- Choose Student --</option>
                     {students.map(st => (
-                      <option key={st.id} value={st.id}>{st.firstName} {st.lastName} (ID: {st.studentId})</option>
+                      <option key={st.id} value={st.id} className="bg-white dark:bg-slate-900 text-slate-950 dark:text-white">{st.firstName} {st.lastName} (ID: {st.studentId})</option>
                     ))}
                   </select>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Fee Category *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Fee Category *</label>
                   <select
                     required
                     value={newInvoice.feeCategoryId}
@@ -402,41 +402,41 @@ const InvoiceList = () => {
                       const cat = categories.find(c => c.id === e.target.value);
                       setNewInvoice(prev => ({ ...prev, feeCategoryId: e.target.value, totalAmount: cat ? Number(cat.amount) : 0 }));
                     }}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
-                    <option value="">-- Choose Fee Category --</option>
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-955 dark:text-white">-- Choose Fee Category --</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name} (৳ {cat.amount})</option>
+                      <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900 text-slate-955 dark:text-white">{cat.name} (৳ {cat.amount})</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Total Amount (৳) *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Total Amount (৳) *</label>
                   <input
                     type="number"
                     required
                     value={newInvoice.totalAmount}
                     onChange={e => setNewInvoice(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Due Date *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Due Date *</label>
                   <input
                     type="date"
                     required
                     value={newInvoice.dueDate}
                     onChange={e => setNewInvoice(prev => ({ ...prev, dueDate: e.target.value }))}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>
@@ -455,68 +455,68 @@ const InvoiceList = () => {
       {/* Modal: Add Fee Category */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="glass border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-900/50">
-              <h3 className="text-lg font-semibold text-white">Create Fee Category</h3>
-              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Create Fee Category</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form onSubmit={handleCreateCategory} className="p-6 space-y-4">
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1 block">Category Name *</label>
+                <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Category Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Tuition Fee Q1, Exam Fee"
                   value={newCategory.name}
                   onChange={e => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1 block">Description</label>
+                <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Description</label>
                 <textarea
                   placeholder="Optional brief description..."
                   value={newCategory.description}
                   onChange={e => setNewCategory(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 h-20 resize-none"
+                  className="input-field h-20 resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Amount (৳) *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Amount (৳) *</label>
                   <input
                     type="number"
                     required
                     value={newCategory.amount}
                     onChange={e => setNewCategory(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 font-medium mb-1 block">Billing Frequency *</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Billing Frequency *</label>
                   <select
                     value={newCategory.frequency}
                     onChange={e => setNewCategory(prev => ({ ...prev, frequency: e.target.value as any }))}
-                    className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    className="input-field"
                   >
-                    <option value="MONTHLY">Monthly</option>
-                    <option value="TERM">Term-based</option>
-                    <option value="ONE_TIME">One Time</option>
-                    <option value="ANNUAL">Annual</option>
+                    <option value="MONTHLY" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Monthly</option>
+                    <option value="TERM" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Term-based</option>
+                    <option value="ONE_TIME" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">One Time</option>
+                    <option value="ANNUAL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Annual</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => setIsCategoryModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>
@@ -535,38 +535,38 @@ const InvoiceList = () => {
       {/* Modal: Record Payment */}
       {isPaymentModalOpen && selectedInvoice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="glass border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-slate-900/50">
-              <h3 className="text-lg font-semibold text-white">Record Offline Payment</h3>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Record Offline Payment</h3>
+              <button onClick={() => setIsPaymentModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
               <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
-                <div className="text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
-                <div className="text-xs text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
+                <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
+                <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
               </div>
 
-              <div className="border-t border-white/5 pt-4">
-                <label className="text-xs text-slate-400 font-medium mb-1 block">Payment Amount (৳)</label>
+              <div className="border-t border-slate-100 dark:border-white/5 pt-4">
+                <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Payment Amount (৳)</label>
                 <input
                   type="number"
                   required
                   max={selectedInvoice.dueAmount}
                   value={paymentAmount}
                   onChange={e => setPaymentAmount(Number(e.target.value) || 0)}
-                  className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/5">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
                 <button
                   type="button"
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>

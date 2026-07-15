@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import * as XLSX from 'xlsx';
+
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
   'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
@@ -509,26 +510,26 @@ const MarksEntry = () => {
   };
 
   if (initialLoading) {
-    return <div className="text-slate-400 p-8 text-center">Loading Grade Upload Portal...</div>;
+    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading Grade Upload Portal...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Grade Book Portal</h2>
-          <p className="text-slate-400 mt-1">Upload and view examination grades, reports and remarks.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Grade Book Portal</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Upload and view examination grades, reports and remarks.</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-white/10 gap-6">
+      <div className="flex border-b border-slate-200 dark:border-white/10 gap-6">
         <button
           onClick={() => setActiveTab('upload')}
           className={`pb-3 font-bold text-sm tracking-wide transition-all ${
             activeTab === 'upload'
-              ? 'text-blue-400 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-white'
+              ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-500'
+              : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Grade Sheet Upload
@@ -537,8 +538,8 @@ const MarksEntry = () => {
           onClick={() => setActiveTab('sheet')}
           className={`pb-3 font-bold text-sm tracking-wide transition-all ${
             activeTab === 'sheet'
-              ? 'text-blue-400 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-white'
+              ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-500'
+              : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           Complete Result Sheet
@@ -549,39 +550,38 @@ const MarksEntry = () => {
         <>
           {/* Selectors Bar */}
           {!hasAssignments && isTeacher ? (
-            <div className="glass p-8 rounded-3xl border border-rose-500/10 bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="glass-card p-8 rounded-3xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
               <ShieldAlert className="w-12 h-12 text-rose-500" />
-              <h3 className="text-lg font-bold text-white">No Assigned Sections</h3>
-              <p className="text-slate-400 text-sm max-w-md leading-relaxed">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Assigned Sections</h3>
+              <p className="text-slate-600 dark:text-slate-400 text-sm max-w-md leading-relaxed">
                 You are not assigned to any sections as class teacher. You cannot upload results until a section is assigned to you.
               </p>
             </div>
           ) : (
         <>
-          <div className="glass p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-white/5">
+          <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
             <div className="flex flex-col">
-              <label className="text-xs text-slate-500 font-medium mb-1">Select Exam</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Select Exam</label>
               <div className="relative">
                 <select
                   value={selectedExam}
                   onChange={(e) => setSelectedExam(e.target.value)}
-                  className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10"
+                  className="input-field pr-10 min-w-[160px]"
                 >
                   {exams.length > 0 ? (
                     exams.map(exam => (
-                      <option key={exam.id} value={exam.id}>{exam.name}</option>
+                      <option key={exam.id} value={exam.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{exam.name}</option>
                     ))
                   ) : (
-                    <option value="">No exams available</option>
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">No exams available</option>
                   )}
                 </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 
             {isTeacher ? (
               <div className="flex flex-col">
-                <label className="text-xs text-slate-500 font-medium mb-1">Assigned Class-Section</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Assigned Class-Section</label>
                 <div className="relative">
                   <select
                     value={`${selectedClass}-${selectedSection}`}
@@ -590,44 +590,41 @@ const MarksEntry = () => {
                       setSelectedClass(cName);
                       setSelectedSection(sName);
                     }}
-                    className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10 min-w-[160px]"
+                    className="input-field pr-10 min-w-[160px]"
                   >
                     {assignedSections.map(s => (
-                      <option key={s.id} value={`${s.class.name}-${s.name}`}>
+                      <option key={s.id} value={`${s.class.name}-${s.name}`} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                         {s.class.name} - Section {s.name}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             ) : (
               <>
                 <div className="flex flex-col">
-                  <label className="text-xs text-slate-500 font-medium mb-1">Class</label>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Class</label>
                   <div className="relative">
                     <select
                       value={selectedClass}
                       onChange={(e) => setSelectedClass(e.target.value)}
-                      className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10"
+                      className="input-field pr-10"
                     >
-                      {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+                      {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="text-xs text-slate-500 font-medium mb-1">Section</label>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Section</label>
                   <div className="relative">
                     <select
                       value={selectedSection}
                       onChange={(e) => setSelectedSection(e.target.value)}
-                      className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10"
+                      className="input-field pr-10"
                     >
-                      {SECTIONS.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                      {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
               </>
@@ -635,190 +632,178 @@ const MarksEntry = () => {
 
             {isSeniorClass && (
               <div className="flex flex-col">
-                <label className="text-xs text-slate-500 font-medium mb-1">Department</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Department</label>
                 <div className="relative">
                   <select
                     value={selectedDepartment}
                     onChange={(e) => setSelectedDepartment(e.target.value)}
-                    className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10"
+                    className="input-field pr-10"
                   >
-                    {DEPARTMENTS.map(dept => <option key={dept} value={dept}>{dept}</option>)}
+                    {DEPARTMENTS.map(dept => <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{dept}</option>)}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
             )}
 
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-500 font-medium mb-1">Subject</label>
-          <div className="relative">
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10"
-            >
-              {availableSubjects.map(sub => (
-                <option key={sub} value={sub}>{sub}</option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-500 font-medium mb-1">Max Marks</label>
-          <input
-            type="number"
-            value={maxMarks}
-            onChange={(e) => setMaxMarks(parseInt(e.target.value, 10) || 100)}
-            className="w-20 bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-          />
-        </div>
-      </div>
-
-      {/* Grade Sheet Grid */}
-      <div className="glass rounded-2xl overflow-hidden border border-white/5">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="bg-slate-900/40 text-xs uppercase text-slate-400">
-              <tr>
-                <th className="px-6 py-4 font-medium">Student</th>
-                <th className="px-6 py-4 font-medium">Roll No</th>
-                <th className="px-6 py-4 font-medium w-32">Score</th>
-                <th className="px-6 py-4 font-medium">Remarks</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                    Loading students...
-                  </td>
-                </tr>
-              ) : students.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                    No students found.
-                  </td>
-                </tr>
-              ) : (
-                students.map((student) => (
-                  <tr key={student.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-white">{student.firstName} {student.lastName}</div>
-                        <div className="text-xs text-slate-500">{student.studentId}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{student.rollNumber || '?'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={marks[selectedSubject]?.[student.id]?.score || ''}
-                          onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                          className="w-16 bg-slate-950/50 border border-slate-800 rounded-xl px-2 py-1.5 text-center text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                        />
-                        <span className="text-slate-500">/ {maxMarks}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="e.g. Excellent progress"
-                          value={marks[selectedSubject]?.[student.id]?.remarks || ''}
-                          onChange={(e) => handleRemarksChange(student.id, e.target.value)}
-                          className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-3 py-1.5 text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                        />
-                        <button
-                          onClick={() => handleGenerateComment(student.id, marks[selectedSubject]?.[student.id]?.score)}
-                          disabled={generatingFor === student.id}
-                          type="button"
-                          title="Generate AI Comment"
-                          className="p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
-                        >
-                          {generatingFor === student.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Action Footer */}
-        {students.length > 0 && (
-          <div className="p-4 bg-slate-900/20 border-t border-white/5 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={downloadTemplate}
-                className="flex items-center gap-2 border border-slate-700/50 hover:bg-white/5 text-slate-300 font-semibold py-2 px-4 rounded-xl transition-all text-sm"
-              >
-                Download Template (CSV)
-              </button>
-              
-              <label className="flex items-center gap-2 border border-indigo-500/30 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 font-semibold py-2 px-4 rounded-xl transition-all text-sm cursor-pointer">
-                <span>Upload Excel/CSV</span>
-                <input
-                  type="file"
-                  accept=".csv, .xlsx, .xls"
-                  onChange={handleCSVImport}
-                  className="hidden"
-                />
-              </label>
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Subject</label>
+              <div className="relative">
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                  className="input-field pr-10"
+                >
+                  {availableSubjects.map(sub => (
+                    <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sub}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* <button
-              onClick={handleSave}
-              disabled={loading}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
-            >
-              <Save className="w-4 h-4" />
-              {loading ? 'Submitting...' : 'Submit Grade Sheet'}
-            </button> */}
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Max Marks</label>
+              <input
+                type="number"
+                value={maxMarks}
+                onChange={(e) => setMaxMarks(parseInt(e.target.value, 10) || 100)}
+                className="input-field w-20"
+              />
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Grade Sheet Grid */}
+          <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm bg-white dark:bg-transparent">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
+                  <tr>
+                    <th className="px-6 py-4 font-medium">Student</th>
+                    <th className="px-6 py-4 font-medium">Roll No</th>
+                    <th className="px-6 py-4 font-medium w-32">Score</th>
+                    <th className="px-6 py-4 font-medium">Remarks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                        Loading students...
+                      </td>
+                    </tr>
+                  ) : students.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                        No students found.
+                      </td>
+                    </tr>
+                  ) : (
+                    students.map((student) => (
+                      <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                        <td className="px-6 py-4">
+                          <div>
+                            <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
+                            <div className="text-xs text-slate-500">{student.studentId}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{student.rollNumber || '?'}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              placeholder="0"
+                              value={marks[selectedSubject]?.[student.id]?.score || ''}
+                              onChange={(e) => handleScoreChange(student.id, e.target.value)}
+                              className="input-field w-16 text-center font-semibold"
+                            />
+                            <span className="text-slate-500">/ {maxMarks}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="e.g. Excellent progress"
+                              value={marks[selectedSubject]?.[student.id]?.remarks || ''}
+                              onChange={(e) => handleRemarksChange(student.id, e.target.value)}
+                              className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600"
+                            />
+                            <button
+                              onClick={() => handleGenerateComment(student.id, marks[selectedSubject]?.[student.id]?.score)}
+                              disabled={generatingFor === student.id}
+                              type="button"
+                              title="Generate AI Comment"
+                              className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
+                            >
+                              {generatingFor === student.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Action Footer */}
+            {students.length > 0 && (
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/20 border-t border-slate-200/50 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={downloadTemplate}
+                    className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 rounded-xl transition-all text-sm"
+                  >
+                    Download Template (CSV)
+                  </button>
+                  
+                  <label className="flex items-center gap-2 border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-600/10 hover:bg-indigo-100 dark:hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-4 rounded-xl transition-all text-sm cursor-pointer">
+                    <span>Upload Excel/CSV</span>
+                    <input
+                      type="file"
+                      accept=".csv, .xlsx, .xls"
+                      onChange={handleCSVImport}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
         </>
       ) : (
         <>
           {/* COMPLETE RESULT SHEET TAB */}
-          <div className="glass p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-white/5 bg-slate-900/30">
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex flex-col">
-                <label className="text-xs text-slate-500 font-semibold mb-1.5">Select Exam</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
                 <div className="relative">
                   <select
                     value={selectedExam}
                     onChange={(e) => setSelectedExam(e.target.value)}
-                    className="bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10 min-w-[160px]"
+                    className="input-field pr-10 min-w-[160px]"
                   >
                     {exams.length > 0 ? (
                       exams.map(exam => (
-                        <option key={exam.id} value={exam.id}>{exam.name}</option>
+                        <option key={exam.id} value={exam.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{exam.name}</option>
                       ))
                     ) : (
-                      <option value="">No exams available</option>
+                      <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">No exams available</option>
                     )}
                   </select>
-                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
               </div>
 
               {isTeacher ? (
                 <div className="flex flex-col">
-                  <label className="text-xs text-slate-500 font-semibold mb-1.5">Assigned Class-Section</label>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Assigned Class-Section</label>
                   <div className="relative">
                     <select
                       value={`${selectedClass}-${selectedSection}`}
@@ -827,44 +812,41 @@ const MarksEntry = () => {
                         setSelectedClass(cName);
                         setSelectedSection(sName);
                       }}
-                      className="bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10 min-w-[160px]"
+                      className="input-field pr-10 min-w-[160px]"
                     >
                       {assignedSections.map(s => (
-                        <option key={s.id} value={`${s.class.name}-${s.name}`}>
+                        <option key={s.id} value={`${s.class.name}-${s.name}`} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                           {s.class.name} - Section {s.name}
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
               ) : (
                 <>
                   <div className="flex flex-col">
-                    <label className="text-xs text-slate-500 font-semibold mb-1.5">Class</label>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Class</label>
                     <div className="relative">
                       <select
                         value={selectedClass}
                         onChange={(e) => setSelectedClass(e.target.value)}
-                        className="bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10 min-w-[140px]"
+                        className="input-field pr-10 min-w-[140px]"
                       >
-                        {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
+                        {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
                       </select>
-                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
 
                   <div className="flex flex-col">
-                    <label className="text-xs text-slate-500 font-semibold mb-1.5">Section</label>
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Section</label>
                     <div className="relative">
                       <select
                         value={selectedSection}
                         onChange={(e) => setSelectedSection(e.target.value)}
-                        className="bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none pr-10 min-w-[120px]"
+                        className="input-field pr-10 min-w-[120px]"
                       >
-                        {SECTIONS.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                        {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
                       </select>
-                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
                 </>
@@ -881,24 +863,24 @@ const MarksEntry = () => {
           </div>
 
           {/* Info Card displaying Who Made the Result */}
-          <div className="glass p-5 rounded-3xl border border-white/5 bg-slate-900/20 flex flex-wrap items-center justify-between gap-4">
+          <div className="glass-card p-5 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/20 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <span className="text-slate-500 text-xs font-bold block mb-1">Result Author (Class Teacher Assigned)</span>
-              <span className="text-white font-semibold text-sm">
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Result Author (Class Teacher Assigned)</span>
+              <span className="text-slate-900 dark:text-white font-semibold text-sm">
                 {resultSheetClassTeacher !== 'Not Assigned' ? resultSheetClassTeacher : '⚠️ No Class Teacher Assigned'}
               </span>
             </div>
             <div className="text-right">
-              <span className="text-slate-500 text-xs font-bold block mb-1">Total Tracked Subjects</span>
-              <span className="text-blue-400 font-extrabold text-sm">{uniqueSubjects.length} Subjects</span>
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Total Tracked Subjects</span>
+              <span className="text-blue-600 dark:text-blue-400 font-extrabold text-sm">{uniqueSubjects.length} Subjects</span>
             </div>
           </div>
 
           {/* Grid Table */}
-          <div className="glass rounded-3xl overflow-hidden border border-white/5 bg-slate-900/20 shadow-xl">
+          <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-900/40 text-xs uppercase text-slate-400">
+              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
                   <tr>
                     <th className="px-6 py-4 font-medium pl-8">Student Info</th>
                     <th className="px-6 py-4 font-medium">Roll No</th>
@@ -909,7 +891,7 @@ const MarksEntry = () => {
                     <th className="px-6 py-4 font-medium text-center pr-8">Percentage</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {completeResultsLoading ? (
                     <tr>
                       <td colSpan={uniqueSubjects.length + 4} className="px-6 py-12 text-center text-slate-500">
@@ -929,29 +911,29 @@ const MarksEntry = () => {
                     studentRows.map((row) => {
                       const pct = row.totalPossible > 0 ? Math.round((row.totalObtained / row.totalPossible) * 100) : null;
                       return (
-                        <tr key={row.studentId} className="hover:bg-white/[0.01] transition-colors">
+                        <tr key={row.studentId} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors">
                           <td className="px-6 py-4 pl-8">
                             <div>
-                              <div className="font-semibold text-white">{row.firstName} {row.lastName}</div>
+                              <div className="font-semibold text-slate-900 dark:text-white">{row.firstName} {row.lastName}</div>
                               <div className="text-xs text-slate-500 font-mono">{row.studentId}</div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 font-semibold">{row.rollNumber}</td>
+                          <td className="px-6 py-4 font-semibold text-slate-700 dark:text-slate-300">{row.rollNumber}</td>
                           {uniqueSubjects.map(sub => (
                             <td key={sub} className="px-6 py-4 text-center font-medium">
                               {row.scores[sub] !== undefined ? (
-                                <span className="text-slate-200">
+                                <span className="text-slate-800 dark:text-slate-200">
                                   {row.scores[sub]}<span className="text-slate-500 text-xs">/{row.maxMarks[sub]}</span>
                                 </span>
                               ) : (
-                                <span className="text-slate-600">—</span>
+                                <span className="text-slate-400 dark:text-slate-600">—</span>
                               )}
                             </td>
                           ))}
-                          <td className="px-6 py-4 text-center font-bold text-slate-200">
+                          <td className="px-6 py-4 text-center font-bold text-slate-800 dark:text-slate-200">
                             {row.totalObtained}<span className="text-slate-500 text-xs">/{row.totalPossible}</span>
                           </td>
-                          <td className="px-6 py-4 text-center font-extrabold text-blue-400 pr-8">
+                          <td className="px-6 py-4 text-center font-extrabold text-blue-600 dark:text-blue-400 pr-8">
                             {pct !== null ? `${pct}%` : '—'}
                           </td>
                         </tr>
@@ -968,10 +950,10 @@ const MarksEntry = () => {
       {/* Floating Save Action Bar when there are unsaved changes */}
       {unsavedChanges && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-          <div className="glass px-6 py-4 rounded-full shadow-2xl shadow-blue-500/30 border border-blue-500/40 bg-slate-900/90 backdrop-blur-xl flex items-center gap-6">
+          <div className="glass-card px-6 py-4 rounded-full shadow-2xl shadow-blue-500/30 border border-blue-500/40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl flex items-center gap-6">
             <div className="flex items-center gap-3">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-sm font-bold text-white tracking-wide">
+              <span className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
                 {uploadSummary 
                   ? `Parsed ${uploadSummary.marks} grades for ${uploadSummary.students} students.`
                   : 'You have unsaved changes.'}

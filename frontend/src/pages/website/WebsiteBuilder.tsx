@@ -78,11 +78,11 @@ export default function WebsiteBuilder() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Layout className="w-7 h-7 text-indigo-400" />
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Layout className="w-7 h-7 text-indigo-500 dark:text-indigo-400" />
             Landing Page Customizer
           </h2>
-          <p className="text-slate-400 mt-1">
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
             Configure the public-facing landing page of your institution and preview edits instantly.
           </p>
         </div>
@@ -99,14 +99,14 @@ export default function WebsiteBuilder() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Side: Inputs visual configuration */}
         <div className="xl:col-span-5 space-y-6">
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-            <h3 className="text-md font-semibold text-white flex items-center gap-2">
-              <Palette className="w-4.5 h-4.5 text-indigo-400" />
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Palette className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
               Theme &amp; Brand Styling
             </h3>
 
             <div>
-              <label className="text-xs text-slate-400 font-medium mb-1.5 block">Theme Color Accent</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Theme Color Accent</label>
               <div className="flex gap-2">
                 {Object.keys(themeColorsMap).map((colorName) => (
                   <button
@@ -115,7 +115,7 @@ export default function WebsiteBuilder() {
                     onClick={() => setConfig(prev => ({ ...prev, themeColor: colorName }))}
                     className={`w-8 h-8 rounded-full border-2 transition-all relative ${
                       config.themeColor === colorName
-                        ? 'border-white scale-110 shadow-lg'
+                        ? 'border-slate-800 dark:border-white scale-110 shadow-lg'
                         : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
                     }`}
                     style={{
@@ -137,89 +137,89 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-            <h3 className="text-md font-semibold text-white flex items-center gap-2">
-              <Type className="w-4.5 h-4.5 text-indigo-400" />
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Type className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
               Hero Section Text
             </h3>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1 block">Hero Main Title</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">Hero Main Title</label>
                 <input
                   type="text"
                   value={config.heroTitle}
                   onChange={e => setConfig(prev => ({ ...prev, heroTitle: e.target.value }))}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                   placeholder="E.g. Building Tomorrow's Leaders"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1 block">Hero Subtitle</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">Hero Subtitle</label>
                 <textarea
                   rows={3}
                   value={config.heroSubtitle}
                   onChange={e => setConfig(prev => ({ ...prev, heroSubtitle: e.target.value }))}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                  className="input-field resize-none"
                   placeholder="Enter a brief tag description"
                 />
               </div>
             </div>
           </div>
 
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-            <h3 className="text-md font-semibold text-white flex items-center gap-2">
-              <Info className="w-4.5 h-4.5 text-indigo-400" />
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Info className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
               About Institution Section
             </h3>
 
             <div>
-              <label className="text-xs text-slate-400 font-medium mb-1 block">About Us Body Text</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">About Us Body Text</label>
               <textarea
                 rows={4}
                 value={config.aboutText}
                 onChange={e => setConfig(prev => ({ ...prev, aboutText: e.target.value }))}
-                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                className="input-field resize-none"
                 placeholder="Institutional profile information"
               />
             </div>
           </div>
 
-          <div className="glass p-6 rounded-2xl border border-white/5 space-y-4">
-            <h3 className="text-md font-semibold text-white flex items-center gap-2">
-              <Phone className="w-4.5 h-4.5 text-indigo-400" />
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <Phone className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
               Contact Information
             </h3>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1.5 block">Official Email Address</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Official Email Address</label>
                 <input
                   type="email"
                   value={config.contactEmail}
                   onChange={e => setConfig(prev => ({ ...prev, contactEmail: e.target.value }))}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1.5 block">Contact Hotline</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Contact Hotline</label>
                 <input
                   type="text"
                   value={config.contactPhone}
                   onChange={e => setConfig(prev => ({ ...prev, contactPhone: e.target.value }))}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-400 font-medium mb-1.5 block">Campus Address</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Campus Address</label>
                 <input
                   type="text"
                   value={config.contactAddress}
                   onChange={e => setConfig(prev => ({ ...prev, contactAddress: e.target.value }))}
-                  className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="input-field"
                 />
               </div>
             </div>
@@ -228,24 +228,24 @@ export default function WebsiteBuilder() {
 
         {/* Right Side: Responsive Desktop Preview Mock */}
         <div className="xl:col-span-7 space-y-2">
-          <span className="text-xs font-semibold text-slate-400 tracking-wide uppercase px-1">Live Web Preview (Desktop Mock)</span>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase px-1">Live Web Preview (Desktop Mock)</span>
           
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[680px]">
+          <div className="bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[680px]">
             {/* Desktop window controls bar */}
-            <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex items-center gap-2">
+            <div className="bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-2">
               <div className="flex gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-red-500/40 block" />
                 <span className="w-3 h-3 rounded-full bg-yellow-500/40 block" />
                 <span className="w-3 h-3 rounded-full bg-green-500/40 block" />
               </div>
-              <div className="bg-slate-950/80 border border-slate-800/80 rounded-lg text-[10px] text-slate-500 px-3 py-1 flex items-center gap-1.5 w-64 mx-auto truncate select-none">
-                <Globe className="w-3 h-3 text-slate-600 flex-shrink-0" />
+              <div className="bg-white dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-lg text-[10px] text-slate-600 dark:text-slate-500 px-3 py-1 flex items-center gap-1.5 w-64 mx-auto truncate select-none">
+                <Globe className="w-3 h-3 text-slate-405 dark:text-slate-600 flex-shrink-0" />
                 <span>https://www.peopleit-school.edu</span>
               </div>
             </div>
 
             {/* Desktop page body wrapper */}
-            <div className="flex-1 overflow-y-auto bg-slate-900 text-slate-800 selection:bg-slate-200">
+            <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-800 selection:bg-slate-200">
               
               {/* Site Header */}
               <nav className="bg-white px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
@@ -287,7 +287,7 @@ export default function WebsiteBuilder() {
                     <button className={`text-white font-semibold text-xs px-4 py-2 rounded-lg ${selectedTheme.bg}`}>
                       Apply Online
                     </button>
-                    <button className="bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold text-xs px-4 py-2 rounded-lg">
+                    <button className="bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-205 font-semibold text-xs px-4 py-2 rounded-lg">
                       Virtual Tour
                     </button>
                   </div>
