@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Toaster } from 'react-hot-toast';
-import { Menu, X, Bell } from 'lucide-react';
+import { Menu, X, Bell, Sun, Moon, Monitor } from 'lucide-react';
 import { useUiStore } from './store/uiStore';
 import { useEffect } from 'react';
 
@@ -45,8 +45,20 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
 
 // Layout Wrapper
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, notifications } = useUiStore();
+  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, notifications, theme, setTheme } = useUiStore();
   const { user } = useAuthStore();
+  const [themeMenuOpen, setThemeMenuOpen] = React.useState(false);
+  const themeMenuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) {
+        setThemeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'U';
@@ -81,16 +93,76 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             <button
               id="mobile-menu-toggle"
               onClick={toggleMobileMenu}
-              className="p-2 -ml-2 mr-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl md:hidden transition-colors"
+              className="p-2 -ml-2 mr-2 text-slate-450 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl md:hidden transition-colors"
               title="Open menu"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-emerald-400">
               PeopleIT SMS
             </h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Smart Theme Toggle Button */}
+            <div className="relative" ref={themeMenuRef}>
+              <button
+                onClick={() => setThemeMenuOpen(!themeMenuOpen)}
+                className="relative p-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-all duration-300 active:scale-95 flex items-center justify-center border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+                title={`Theme: ${theme.toUpperCase()} (Click to change)`}
+              >
+                {theme === 'light' && <Sun className="w-4.5 h-4.5 text-amber-500 animate-spin-slow" />}
+                {theme === 'dark' && <Moon className="w-4.5 h-4.5 text-indigo-500 dark:text-indigo-400" />}
+                {theme === 'system' && <Monitor className="w-4.5 h-4.5 text-blue-500 dark:text-blue-400" />}
+              </button>
+
+              {themeMenuOpen && (
+                <div className="absolute right-0 mt-2.5 w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl py-1.5 shadow-xl z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <button
+                    onClick={() => {
+                      setTheme('light');
+                      setThemeMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-all ${
+                      theme === 'light'
+                        ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Sun className="w-4 h-4 text-amber-500" />
+                    Light
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTheme('dark');
+                      setThemeMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-all ${
+                      theme === 'dark'
+                        ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Moon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                    Dark
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTheme('system');
+                      setThemeMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold transition-all ${
+                      theme === 'system'
+                        ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <Monitor className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                    System
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors">
               <Bell className="w-5 h-5" />
               {unreadCount > 0 && (
