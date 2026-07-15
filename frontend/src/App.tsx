@@ -189,6 +189,11 @@ const DashboardRouter = () => {
   if (user?.role === 'STUDENT') {
     return <Navigate to="/students" replace />;
   }
+  if (user?.role === 'GUARDIAN') {
+    // No guardian-specific dashboard exists yet; AdminDashboard requires
+    // admin-only data access and would 403. Land on Notices instead.
+    return <Navigate to="/notices" replace />;
+  }
   if (user?.role === 'TEACHER') {
     return <TeacherDashboard />;
   }

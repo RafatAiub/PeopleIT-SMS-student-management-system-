@@ -131,7 +131,7 @@ const AdminDashboard = () => {
       adminLastName: admin.lastName || '',
       adminEmail: admin.email || '',
       phone: admin.phone || '',
-      adminPassword: admin.plainPassword || ''
+      adminPassword: ''
     });
     setIsEditModalOpen(true);
   };

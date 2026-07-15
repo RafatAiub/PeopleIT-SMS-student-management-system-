@@ -29,7 +29,7 @@ export async function updateWebsiteConfig(
   return updated;
 }
 
-export async function createInstitution(data: any) {
+export async function createInstitution(data: any, actorUserId: string) {
   const { prisma } = require('../../config/prisma');
   const bcrypt = require('bcryptjs');
   const { ConflictError } = require('../../utils/AppError');
@@ -75,7 +75,6 @@ export async function createInstitution(data: any) {
         institutionId: institution.id,
         email: data.adminEmail,
         passwordHash,
-        plainPassword: data.adminPassword,
         role: UserRole.ADMIN,
         firstName: data.adminFirstName,
         lastName: data.adminLastName,
@@ -98,10 +97,30 @@ export async function createInstitution(data: any) {
     slug: result.institution.slug,
   });
 
+  // Super-admin actions run before the tenant/audit middleware chain (there is
+  // no tenant yet at request time), so log explicitly here instead.
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId: result.institution.id,
+        userId: actorUserId,
+        action: 'CREATE',
+        resource: 'Institution',
+        resourceId: result.institution.id,
+        metadata: { slug: result.institution.slug, adminEmail: result.admin.email },
+      },
+    })
+    .catch((err: Error) => {
+      logger.error('Failed to write audit log for institution creation', {
+        error: err.message,
+        institutionId: result.institution.id,
+      });
+    });
+
   return result;
 }
 
-export async function updateInstitutionAdmin(institutionId: string, data: any) {
+export async function updateInstitutionAdmin(institutionId: string, data: any, actorUserId: string) {
   const { prisma } = require('../../config/prisma');
   const bcrypt = require('bcryptjs');
   const { NotFoundError } = require('../../utils/AppError');
@@ -131,10 +150,9 @@ export async function updateInstitutionAdmin(institutionId: string, data: any) {
   if (data.adminPassword && data.adminPassword.trim() !== '') {
     const rounds = 12;
     updateData.passwordHash = await bcrypt.hash(data.adminPassword, rounds);
-    updateData.plainPassword = data.adminPassword;
   }
 
-  return prisma.user.update({
+  const updatedAdmin = await prisma.user.update({
     where: { id: admin.id },
     data: updateData,
     select: {
@@ -145,6 +163,33 @@ export async function updateInstitutionAdmin(institutionId: string, data: any) {
       phone: true,
     },
   });
+
+  // Super-admin actions run before the tenant/audit middleware chain, so log
+  // explicitly here. Never record the new password in metadata.
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: actorUserId,
+        action: 'UPDATE',
+        resource: 'InstitutionAdmin',
+        resourceId: admin.id,
+        metadata: {
+          institutionNameChanged: Boolean(data.institutionName && data.institutionName.trim() !== ''),
+          passwordChanged: Boolean(data.adminPassword && data.adminPassword.trim() !== ''),
+          adminEmail: updatedAdmin.email,
+        },
+      },
+    })
+    .catch((err: Error) => {
+      logger.error('Failed to write audit log for admin credential update', {
+        error: err.message,
+        institutionId,
+        adminId: admin.id,
+      });
+    });
+
+  return updatedAdmin;
 }
 
 export async function listPublicInstitutions() {

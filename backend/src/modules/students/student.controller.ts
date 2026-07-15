@@ -4,6 +4,7 @@ import {
   successResponse,
   paginatedResponse,
 } from '../../utils/response';
+import { NotFoundError } from '../../utils/AppError';
 
 // =============================================================================
 // Student Controller — thin layer, delegates to student.service.ts
@@ -212,6 +213,17 @@ export async function listSections(
     if (!classId) {
       res.status(400).json({ success: false, message: 'classId query parameter is required' });
       return;
+    }
+
+    // Verify the class belongs to the caller's tenant before reading or
+    // self-healing any sections — classId is client-supplied and must never
+    // be trusted across institutions.
+    const ownedClass = await prisma.class.findFirst({
+      where: { id: classId as string, branch: { institutionId: req.tenantId! } },
+      select: { id: true },
+    });
+    if (!ownedClass) {
+      throw new NotFoundError('Class not found');
     }
 
     let sections = await prisma.section.findMany({

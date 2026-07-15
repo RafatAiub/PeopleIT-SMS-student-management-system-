@@ -160,24 +160,26 @@ const Login = () => {
             </button>
           </form>
           
-          {/* Demo Accounts - Cleared from Confusion */}
-          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5 space-y-3 animate-fadeIn" style={{ animationDelay: '250ms' }}>
-            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Demo Accounts</h4>
-            <div className="grid grid-cols-2 gap-2 text-left">
-              <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
-                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block">Super Admin (Global)</span>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">admin@peopleit.com</span></span>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
-                <span className="text-[9px] text-slate-500 block mt-1 italic">*Select 'Global Admin'</span>
-              </div>
-              <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
-                <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 block">Teacher (School-based)</span>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">teacher@peopleit.com</span></span>
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
-                <span className="text-[9px] text-slate-500 block mt-1 italic">*Select school from dropdown</span>
+          {/* Demo Accounts — local development only, never rendered in a production build */}
+          {import.meta.env.DEV && (
+            <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/5 space-y-3 animate-fadeIn" style={{ animationDelay: '250ms' }}>
+              <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Demo Accounts (Dev Only)</h4>
+              <div className="grid grid-cols-2 gap-2 text-left">
+                <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block">Super Admin (Global)</span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">admin@peopleit.com</span></span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
+                  <span className="text-[9px] text-slate-500 block mt-1 italic">*Select 'Global Admin'</span>
+                </div>
+                <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
+                  <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 block">Teacher (School-based)</span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">teacher@peopleit.com</span></span>
+                  <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
+                  <span className="text-[9px] text-slate-500 block mt-1 italic">*Select school from dropdown</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>

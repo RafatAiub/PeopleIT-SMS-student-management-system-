@@ -34,17 +34,20 @@ app.use(
   })
 );
 
+// Explicit allow-list only — no wildcard domain suffix matching. Any additional
+// origin (e.g. a Vercel preview URL) must be added via ALLOWED_ORIGINS, not inferred.
 const allowedOrigins = [
   env.FRONTEND_URL,
   'https://peopleitsms.vercel.app',
   'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));

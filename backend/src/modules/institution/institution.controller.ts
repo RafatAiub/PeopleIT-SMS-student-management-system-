@@ -34,7 +34,7 @@ export async function createInstitution(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await institutionService.createInstitution(req.body);
+    const result = await institutionService.createInstitution(req.body, req.user!.sub);
     successResponse(res, result, 'Institution and Admin user created successfully', 201);
   } catch (error) {
     next(error);
@@ -61,7 +61,7 @@ export async function updateInstitutionAdmin(
 ): Promise<void> {
   try {
     const { id } = req.params;
-    const admin = await institutionService.updateInstitutionAdmin(id, req.body);
+    const admin = await institutionService.updateInstitutionAdmin(id, req.body, req.user!.sub);
     successResponse(res, admin, 'Administrator credentials updated successfully');
   } catch (error) {
     next(error);

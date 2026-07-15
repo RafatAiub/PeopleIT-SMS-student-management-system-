@@ -139,14 +139,17 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
-            if (user?.role === 'SUPER_ADMIN') {
-              const superAdminRoutes = ['/', '/messages'];
-              return superAdminRoutes.includes(item.to);
-            }
+            // isAdmin covers both SUPER_ADMIN and ADMIN, so SUPER_ADMIN falls
+            // through to the same rules as ADMIN below — matching what the
+            // route guards in App.tsx actually allow it to reach.
             if (item.adminOnly && !isAdmin) return false;
             if (user?.role === 'STUDENT') {
               const studentRoutes = ['/', '/students', '/timetables', '/notices', '/messages'];
               return studentRoutes.includes(item.to);
+            }
+            if (user?.role === 'GUARDIAN') {
+              const guardianRoutes = ['/', '/notices', '/messages'];
+              return guardianRoutes.includes(item.to);
             }
             return true;
           });

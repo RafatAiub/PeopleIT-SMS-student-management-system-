@@ -47,14 +47,12 @@ async function main() {
     update: {
       institutionId: institution.id,
       role: UserRole.ADMIN,
-      plainPassword: 'admin123',
     },
     create: {
       id: 'schooladmin-1',
       institutionId: institution.id,
       email: 'schooladmin@peopleit.com',
       passwordHash,
-      plainPassword: 'admin123',
       role: UserRole.ADMIN,
       firstName: 'School',
       lastName: 'Admin',

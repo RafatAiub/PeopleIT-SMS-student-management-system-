@@ -147,13 +147,21 @@ export async function update(
   id: string,
   data: UpdateStudentDtoType,
 ) {
-  return prisma.student.update({
-    where: { id },
+  // Scope the write itself to the tenant (defense in depth, not just the
+  // service-layer existence check) — matches remove()'s pattern below.
+  const result = await prisma.student.updateMany({
+    where: { id, institutionId },
     data: {
       ...data,
       // Prevent tenant escape — institutionId cannot be changed
       institutionId,
     },
+  });
+  if (result.count === 0) {
+    return null;
+  }
+  return prisma.student.findFirst({
+    where: { id, institutionId },
     select: studentDetailSelect,
   });
 }

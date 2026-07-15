@@ -141,7 +141,6 @@ erDiagram
         String institutionId FK
         String email UK
         String passwordHash
-        String plainPassword
         UserRole role
         String firstName
         String lastName

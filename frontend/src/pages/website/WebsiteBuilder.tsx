@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import apiClient from '../../api/client';
 
 interface CustomizerConfig {
   themeColor: string;
@@ -12,67 +13,91 @@ interface CustomizerConfig {
   contactAddress: string;
 }
 
-export default function WebsiteBuilder() {
-  const [config, setConfig] = useState<CustomizerConfig>({
-    themeColor: 'indigo',
-    heroTitle: 'Empowering Next-Gen Leaders',
-    heroSubtitle: 'Welcome to PeopleIT School, where academic excellence meets innovative character building and core skill development.',
-    aboutText: 'Established in 2012, PeopleIT School has been a pioneer in student-first educational paradigms. We provide top-tier facilities, dedicated educational mentors, and a robust learning environment suited for the digital age.',
-    contactEmail: 'admissions@peopleit-school.edu',
-    contactPhone: '+880 2-9876543',
-    contactAddress: 'Plot 42, Road 11, Banani, Dhaka, Bangladesh',
-  });
+// Named swatches map to the hex values actually persisted by the backend
+// (Institution.themeColor is a strict #RRGGBB/#RGB string, not a color name).
+const THEME_SWATCHES: Record<
+  string,
+  { hex: string; bg: string; text: string; border: string; btn: string; banner: string }
+> = {
+  indigo: { hex: '#4f46e5', bg: 'bg-indigo-600', text: 'text-indigo-400', border: 'border-indigo-500', btn: 'bg-indigo-600 hover:bg-indigo-700', banner: 'from-indigo-650 to-indigo-900' },
+  emerald: { hex: '#059669', bg: 'bg-emerald-600', text: 'text-emerald-400', border: 'border-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700', banner: 'from-emerald-650 to-emerald-900' },
+  blue: { hex: '#2563eb', bg: 'bg-blue-600', text: 'text-blue-400', border: 'border-blue-500', btn: 'bg-blue-600 hover:bg-blue-700', banner: 'from-blue-650 to-blue-900' },
+  rose: { hex: '#e11d48', bg: 'bg-rose-600', text: 'text-rose-400', border: 'border-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', banner: 'from-rose-650 to-rose-900' },
+  amber: { hex: '#d97706', bg: 'bg-amber-650', text: 'text-amber-400', border: 'border-amber-500', btn: 'bg-amber-600 hover:bg-amber-700', banner: 'from-amber-650 to-amber-900' },
+};
 
+const DEFAULT_CONFIG: CustomizerConfig = {
+  themeColor: THEME_SWATCHES.indigo.hex,
+  heroTitle: 'Empowering Next-Gen Leaders',
+  heroSubtitle: 'Welcome to PeopleIT School, where academic excellence meets innovative character building and core skill development.',
+  aboutText: 'Established in 2012, PeopleIT School has been a pioneer in student-first educational paradigms. We provide top-tier facilities, dedicated educational mentors, and a robust learning environment suited for the digital age.',
+  contactEmail: 'admissions@peopleit-school.edu',
+  contactPhone: '+880 2-9876543',
+  contactAddress: 'Plot 42, Road 11, Banani, Dhaka, Bangladesh',
+};
+
+export default function WebsiteBuilder() {
+  const [config, setConfig] = useState<CustomizerConfig>(DEFAULT_CONFIG);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await apiClient.get('/institution/website');
+        const data = res.data?.data;
+        if (data) {
+          setConfig((prev) => ({
+            ...prev,
+            themeColor: data.themeColor || prev.themeColor,
+            heroTitle: data.heroTitle ?? prev.heroTitle,
+            heroSubtitle: data.heroSubtitle ?? prev.heroSubtitle,
+            aboutText: data.aboutText ?? prev.aboutText,
+            contactEmail: data.contactEmail ?? prev.contactEmail,
+            contactPhone: data.contactPhone ?? prev.contactPhone,
+            // contactAddress isn't part of the website-config API/schema yet —
+            // kept as local preview-only state until that field exists.
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load website configuration', err);
+        toast.error('Failed to load saved landing page configuration');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      await apiClient.put('/institution/website', {
+        themeColor: config.themeColor,
+        heroTitle: config.heroTitle,
+        heroSubtitle: config.heroSubtitle,
+        aboutText: config.aboutText,
+        contactEmail: config.contactEmail || null,
+        contactPhone: config.contactPhone || null,
+      });
       toast.success('Landing page visual configuration published successfully!');
-    }, 1000);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to publish changes');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // Color theme classes mapped from state selection
-  const themeColorsMap: Record<string, { bg: string; text: string; border: string; btn: string; banner: string }> = {
-    indigo: {
-      bg: 'bg-indigo-600',
-      text: 'text-indigo-400',
-      border: 'border-indigo-500',
-      btn: 'bg-indigo-600 hover:bg-indigo-700',
-      banner: 'from-indigo-650 to-indigo-900',
-    },
-    emerald: {
-      bg: 'bg-emerald-600',
-      text: 'text-emerald-400',
-      border: 'border-emerald-500',
-      btn: 'bg-emerald-600 hover:bg-emerald-700',
-      banner: 'from-emerald-650 to-emerald-900',
-    },
-    blue: {
-      bg: 'bg-blue-600',
-      text: 'text-blue-400',
-      border: 'border-blue-500',
-      btn: 'bg-blue-600 hover:bg-blue-700',
-      banner: 'from-blue-650 to-blue-900',
-    },
-    rose: {
-      bg: 'bg-rose-600',
-      text: 'text-rose-400',
-      border: 'border-rose-500',
-      btn: 'bg-rose-600 hover:bg-rose-700',
-      banner: 'from-rose-650 to-rose-900',
-    },
-    amber: {
-      bg: 'bg-amber-650',
-      text: 'text-amber-400',
-      border: 'border-amber-500',
-      btn: 'bg-amber-600 hover:bg-amber-700',
-      banner: 'from-amber-650 to-amber-900',
-    },
-  };
+  const selectedTheme =
+    Object.values(THEME_SWATCHES).find((t) => t.hex === config.themeColor) || THEME_SWATCHES.indigo;
 
-  const selectedTheme = themeColorsMap[config.themeColor] || themeColorsMap.indigo;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400 text-sm">
+        Loading landing page configuration...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -108,28 +133,17 @@ export default function WebsiteBuilder() {
             <div>
               <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Theme Color Accent</label>
               <div className="flex gap-2">
-                {Object.keys(themeColorsMap).map((colorName) => (
+                {Object.entries(THEME_SWATCHES).map(([colorName, swatch]) => (
                   <button
                     key={colorName}
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, themeColor: colorName }))}
+                    onClick={() => setConfig((prev) => ({ ...prev, themeColor: swatch.hex }))}
                     className={`w-8 h-8 rounded-full border-2 transition-all relative ${
-                      config.themeColor === colorName
+                      config.themeColor === swatch.hex
                         ? 'border-slate-800 dark:border-white scale-110 shadow-lg'
                         : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
                     }`}
-                    style={{
-                      backgroundColor:
-                        colorName === 'indigo'
-                          ? '#4f46e5'
-                          : colorName === 'emerald'
-                          ? '#059669'
-                          : colorName === 'blue'
-                          ? '#2563eb'
-                          : colorName === 'rose'
-                          ? '#e11d48'
-                          : '#d97706',
-                    }}
+                    style={{ backgroundColor: swatch.hex }}
                     title={`Theme color ${colorName}`}
                   />
                 ))}
@@ -214,7 +228,9 @@ export default function WebsiteBuilder() {
               </div>
 
               <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Campus Address</label>
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">
+                  Campus Address <span className="text-slate-400 dark:text-slate-500 font-normal">(preview only — not yet saved)</span>
+                </label>
                 <input
                   type="text"
                   value={config.contactAddress}
@@ -229,7 +245,7 @@ export default function WebsiteBuilder() {
         {/* Right Side: Responsive Desktop Preview Mock */}
         <div className="xl:col-span-7 space-y-2">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase px-1">Live Web Preview (Desktop Mock)</span>
-          
+
           <div className="bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[680px]">
             {/* Desktop window controls bar */}
             <div className="bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-2">
@@ -246,7 +262,7 @@ export default function WebsiteBuilder() {
 
             {/* Desktop page body wrapper */}
             <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-800 selection:bg-slate-200">
-              
+
               {/* Site Header */}
               <nav className="bg-white px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -269,10 +285,10 @@ export default function WebsiteBuilder() {
               {/* Site Hero Banner */}
               <div className="relative bg-slate-950 text-white py-16 px-8 overflow-hidden">
                 <div className="absolute inset-0 opacity-15 bg-grid-pattern pointer-events-none" />
-                
+
                 {/* Visual gradient blob based on chosen theme */}
                 <div className={`absolute -right-16 -top-16 w-60 h-60 rounded-full blur-3xl opacity-30 ${selectedTheme.bg}`} />
-                
+
                 <div className="max-w-xl relative z-10 space-y-4">
                   <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full text-white ${selectedTheme.bg}`}>
                     Admissions Open 2026-27
@@ -310,7 +326,7 @@ export default function WebsiteBuilder() {
               {/* Contact section */}
               <div className="bg-slate-50 border-t border-slate-200 py-10 px-8">
                 <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-                  
+
                   <div className="flex items-start gap-2.5">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${selectedTheme.bg}`}>
                       <Mail className="w-4 h-4" />

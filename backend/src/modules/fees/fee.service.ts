@@ -4,6 +4,7 @@ import { BkashGateway } from './gateways/bkash.stub';
 import { NagadGateway } from './gateways/nagad.stub';
 import { SslCommerzGateway } from './gateways/sslcommerz.stub';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
+import * as studentRepository from '../students/student.repository';
 
 export class FeeService {
   static async createCategory(tenantId: string, data: {
@@ -45,6 +46,14 @@ export class FeeService {
       }[];
     }
   ) {
+    // Verify the student belongs to the caller's tenant before ever billing
+    // them — studentId is client-supplied and must never be trusted across
+    // institutions.
+    const student = await studentRepository.findById(tenantId, data.studentId);
+    if (!student) {
+      throw new NotFoundError('Student not found');
+    }
+
     // Generate invoice number
     const invoiceNo = await generateInvoiceNumber(tenantId);
 

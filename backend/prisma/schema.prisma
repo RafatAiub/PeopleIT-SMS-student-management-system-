@@ -122,7 +122,6 @@ model User {
   institution     Institution?   @relation(fields: [institutionId], references: [id])
   email           String         @unique
   passwordHash    String
-  plainPassword   String?        // Plain-text password for Super Admin visibility
   role            UserRole
   firstName       String
   lastName        String

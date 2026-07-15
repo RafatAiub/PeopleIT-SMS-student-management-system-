@@ -20,6 +20,9 @@ const envSchema = z.object({
   APP_NAME: z.string().default('PeopleIT SMS'),
   APP_URL: z.string().url().default('http://localhost:3001'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  // Comma-separated list of additional allowed CORS origins (e.g. Vercel preview URLs).
+  // Must be explicit hosts — no wildcard domain suffixes are honored.
+  ALLOWED_ORIGINS: z.string().optional(),
 
   // Database
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
