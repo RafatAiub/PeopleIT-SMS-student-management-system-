@@ -189,33 +189,34 @@ export async function listClasses(
         });
       }
 
-      // Seed default classes
+      // Seed default classes. Batched (createMany) instead of one
+      // sequential await per class/section — the previous version issued
+      // ~104 sequential round trips to the database on a single GET
+      // request (13 classes + 13*7 sections), which against a remote DB
+      // can turn one request into many seconds. IDs are generated
+      // client-side so sections can reference their class in the same
+      // batch without needing the created rows back (createMany doesn't
+      // return them).
       const classesToSeed = [
-        'KG', 'Nursery', 'Junior One', 
-        'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 
+        'KG', 'Nursery', 'Junior One',
+        'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
         'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
       ];
       const sectionsToSeed = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
-      for (let i = 0; i < classesToSeed.length; i++) {
-        const clsName = classesToSeed[i];
-        const cls = await prisma.class.create({
-          data: {
-            branchId: branch.id,
-            name: clsName,
-            level: i + 1,
-          }
-        });
+      const { randomUUID } = require('crypto');
+      const classRows = classesToSeed.map((name, i) => ({
+        id: randomUUID(),
+        branchId: branch.id,
+        name,
+        level: i + 1,
+      }));
+      await prisma.class.createMany({ data: classRows });
 
-        for (const secName of sectionsToSeed) {
-          await prisma.section.create({
-            data: {
-              classId: cls.id,
-              name: secName,
-            }
-          });
-        }
-      }
+      const sectionRows = classRows.flatMap((cls) =>
+        sectionsToSeed.map((name) => ({ id: randomUUID(), classId: cls.id, name })),
+      );
+      await prisma.section.createMany({ data: sectionRows });
 
       // Query classes again
       classes = await prisma.class.findMany({
@@ -277,14 +278,11 @@ export async function listSections(
     const missingSections = requiredSections.filter(name => !existingSectionNames.includes(name));
 
     if (missingSections.length > 0) {
-      for (const secName of missingSections) {
-        await prisma.section.create({
-          data: {
-            classId: classId as string,
-            name: secName
-          }
-        });
-      }
+      // Batched — was one sequential await per missing section (up to 7
+      // round trips) for what should be a single insert.
+      await prisma.section.createMany({
+        data: missingSections.map((name) => ({ classId: classId as string, name })),
+      });
 
       // Re-fetch updated list
       sections = await prisma.section.findMany({
