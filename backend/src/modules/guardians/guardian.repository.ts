@@ -111,3 +111,18 @@ export async function unlinkFromStudent(guardianId: string, studentId: string) {
     where: { guardianId, studentId },
   });
 }
+
+// Resolves the studentIds linked to a GUARDIAN's own login (req.user.sub),
+// scoped to their institution. Used for self-service ownership checks
+// (e.g. fee invoices) — never trust a client-supplied studentId instead.
+export async function findLinkedStudentIdsByUserId(institutionId: string, userId: string): Promise<string[]> {
+  const guardian = await prisma.guardian.findFirst({
+    where: { userId, institutionId },
+    select: {
+      students: {
+        select: { studentId: true },
+      },
+    },
+  });
+  return guardian?.students.map((s) => s.studentId) ?? [];
+}

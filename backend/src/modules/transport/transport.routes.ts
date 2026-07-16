@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authenticate } from '../../middleware/auth.middleware';
 import { setTenant } from '../../middleware/tenant.middleware';
 import { validate } from '../../middleware/validate.middleware';
+import { requireRole } from '../../middleware/rbac.middleware';
+import { UserRole } from '@prisma/client';
 import { CreateVehicleDto, CreateRouteDto, CreateAssignmentDto } from './transport.dto';
 import * as transportController from './transport.controller';
 
@@ -9,13 +11,17 @@ const router = Router();
 
 router.use(authenticate, setTenant);
 
-router.post('/vehicles', validate({ body: CreateVehicleDto }), transportController.createVehicle);
-router.get('/vehicles', transportController.getVehicles);
+// STUDENT "own transport" self-service view is a future addition (needs
+// ownership scoping); until then, transport access is staff-only.
+const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TRANSPORT_OFFICER);
 
-router.post('/routes', validate({ body: CreateRouteDto }), transportController.createRoute);
-router.get('/routes', transportController.getRoutes);
+router.post('/vehicles', STAFF_ROLES, validate({ body: CreateVehicleDto }), transportController.createVehicle);
+router.get('/vehicles', STAFF_ROLES, transportController.getVehicles);
 
-router.post('/assignments', validate({ body: CreateAssignmentDto }), transportController.createAssignment);
-router.get('/assignments', transportController.getAssignments);
+router.post('/routes', STAFF_ROLES, validate({ body: CreateRouteDto }), transportController.createRoute);
+router.get('/routes', STAFF_ROLES, transportController.getRoutes);
+
+router.post('/assignments', STAFF_ROLES, validate({ body: CreateAssignmentDto }), transportController.createAssignment);
+router.get('/assignments', STAFF_ROLES, transportController.getAssignments);
 
 export default router;

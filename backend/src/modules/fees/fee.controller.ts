@@ -41,7 +41,7 @@ export class FeeController {
 
   static async getInvoice(req: Request, res: Response, next: NextFunction) {
     try {
-      const invoice = await FeeService.getInvoice(req.tenantId!, req.params.id);
+      const invoice = await FeeService.getInvoice(req.tenantId!, req.params.id, req.user!);
       return successResponse(res, invoice, 'Invoice retrieved successfully');
     } catch (error) {
       next(error);
@@ -59,7 +59,7 @@ export class FeeController {
         search,
         page,
         pageSize,
-      });
+      }, req.user!);
       return paginatedResponse(res, invoices, total, page, pageSize, 'Invoices retrieved successfully');
     } catch (error) {
       next(error);
@@ -87,7 +87,8 @@ export class FeeController {
         req.tenantId!,
         req.params.id,
         method,
-        callbackUrl
+        callbackUrl,
+        req.user!
       );
       return successResponse(res, paymentResult, 'Online payment initiated successfully');
     } catch (error) {

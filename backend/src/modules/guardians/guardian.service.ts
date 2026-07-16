@@ -84,6 +84,10 @@ export async function linkGuardianToStudent(
   return guardianRepository.linkToStudent(data.guardianId, studentId, data);
 }
 
+export async function getMyLinkedStudentIds(institutionId: string, userId: string) {
+  return guardianRepository.findLinkedStudentIdsByUserId(institutionId, userId);
+}
+
 export async function unlinkGuardianFromStudent(
   institutionId: string,
   studentId: string,

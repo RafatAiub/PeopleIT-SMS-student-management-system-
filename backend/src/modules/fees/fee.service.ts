@@ -5,8 +5,35 @@ import { NagadGateway } from './gateways/nagad.stub';
 import { SslCommerzGateway } from './gateways/sslcommerz.stub';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import * as studentRepository from '../students/student.repository';
+import * as guardianRepository from '../guardians/guardian.repository';
+import { UserRole } from '@prisma/client';
+
+export type RequestingUser = { sub: string; role: string };
 
 export class FeeService {
+  // STUDENT/GUARDIAN callers may only reach invoices for themselves / their
+  // own linked children — never trust a client-supplied studentId/invoice id
+  // for these roles. ADMIN/SUPER_ADMIN/ACCOUNTANT remain tenant-scoped only.
+  // Throws NotFoundError (not ForbiddenError) to avoid confirming that a
+  // given invoice id exists at all for another family.
+  private static async assertInvoiceAccess(
+    tenantId: string,
+    invoice: { studentId: string },
+    requester: RequestingUser,
+  ) {
+    if (requester.role === UserRole.STUDENT) {
+      const student = await studentRepository.findByUserId(tenantId, requester.sub);
+      if (!student || student.id !== invoice.studentId) {
+        throw new NotFoundError('Invoice not found');
+      }
+    } else if (requester.role === UserRole.GUARDIAN) {
+      const linkedStudentIds = await guardianRepository.findLinkedStudentIdsByUserId(tenantId, requester.sub);
+      if (!linkedStudentIds.includes(invoice.studentId)) {
+        throw new NotFoundError('Invoice not found');
+      }
+    }
+  }
+
   static async createCategory(tenantId: string, data: {
     name: string;
     description?: string;
@@ -80,9 +107,10 @@ export class FeeService {
     );
   }
 
-  static async getInvoice(tenantId: string, id: string) {
+  static async getInvoice(tenantId: string, id: string, requester: RequestingUser) {
     const invoice = await FeeRepository.getInvoiceById(tenantId, id);
     if (!invoice) throw new NotFoundError('Invoice not found');
+    await FeeService.assertInvoiceAccess(tenantId, invoice, requester);
     return invoice;
   }
 
@@ -94,10 +122,35 @@ export class FeeService {
       search?: string;
       page?: number;
       pageSize?: number;
-    }
+    },
+    requester: RequestingUser,
   ) {
     const page = filters.page ?? 1;
     const pageSize = filters.pageSize ?? 10;
+
+    // STUDENT/GUARDIAN: force the studentId scope server-side, ignoring
+    // whatever the client supplied in the query string.
+    if (requester.role === UserRole.STUDENT) {
+      const student = await studentRepository.findByUserId(tenantId, requester.sub);
+      return FeeRepository.listInvoices(tenantId, {
+        status: filters.status,
+        search: filters.search,
+        studentId: student?.id ?? '__no-match__',
+        page,
+        pageSize,
+      });
+    }
+    if (requester.role === UserRole.GUARDIAN) {
+      const linkedStudentIds = await guardianRepository.findLinkedStudentIdsByUserId(tenantId, requester.sub);
+      return FeeRepository.listInvoices(tenantId, {
+        status: filters.status,
+        search: filters.search,
+        studentIdIn: linkedStudentIds.length > 0 ? linkedStudentIds : ['__no-match__'],
+        page,
+        pageSize,
+      });
+    }
+
     return FeeRepository.listInvoices(tenantId, {
       ...filters,
       page,
@@ -109,10 +162,12 @@ export class FeeService {
     tenantId: string,
     invoiceId: string,
     method: 'BKASH' | 'NAGAD' | 'SSLCOMMERZ',
-    callbackUrl: string
+    callbackUrl: string,
+    requester: RequestingUser,
   ) {
     const invoice = await FeeRepository.getInvoiceById(tenantId, invoiceId);
     if (!invoice) throw new NotFoundError('Invoice not found');
+    await FeeService.assertInvoiceAccess(tenantId, invoice, requester);
 
     const amount = Number(invoice.dueAmount);
     if (amount <= 0 || invoice.status === 'PAID') {

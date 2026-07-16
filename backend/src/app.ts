@@ -68,13 +68,17 @@ if (env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Global rate limiting
+// Global rate limiting — skipped in the automated test environment, where a
+// single authorization-matrix test run legitimately fires far more than
+// 100 requests/minute against one process; the limiter itself is exercised
+// by real traffic, not by this suite.
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100, // Limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again after a minute',
+  skip: () => env.NODE_ENV === 'test',
 });
 app.use('/api/', globalLimiter);
 
@@ -85,6 +89,7 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many login attempts from this IP, please try again after 15 minutes',
+  skip: () => env.NODE_ENV === 'test',
 });
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/refresh', authLimiter);

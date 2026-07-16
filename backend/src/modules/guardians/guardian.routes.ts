@@ -25,6 +25,14 @@ router.post(
   guardianController.createGuardian
 );
 
+// Self-service — GUARDIAN lists their own linked children, scoped server-side
+// to req.user.sub. Must be declared before the generic '/:id' route.
+router.get(
+  '/me/students',
+  requireRole(UserRole.GUARDIAN),
+  guardianController.getMyStudents
+);
+
 router.get(
   '/:id',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT),

@@ -132,6 +132,15 @@ export async function findByStudentId(institutionId: string, studentId: string) 
   });
 }
 
+// Resolves a STUDENT-role login's own studentId for self-service ownership
+// checks (e.g. fee invoices) — never trust a client-supplied studentId instead.
+export async function findByUserId(institutionId: string, userId: string) {
+  return prisma.student.findFirst({
+    where: { institutionId, userId },
+    select: { id: true },
+  });
+}
+
 export async function create(institutionId: string, data: CreateStudentDtoType) {
   return prisma.student.create({
     data: {

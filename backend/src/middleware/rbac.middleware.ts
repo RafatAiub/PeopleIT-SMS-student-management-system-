@@ -41,12 +41,18 @@ export function requirePermission(resource: string, action: string) {
 
       const institutionId = req.tenantId;
 
-      // Check the Permission table for explicit grant
+      // Check the Permission table for explicit grant. Must be scoped to
+      // this institution (a row from another tenant must never grant access
+      // here) and must actually be granted (a `granted: false` deny-row is
+      // not "no opinion" — treating its mere existence as an allow inverts
+      // the intent of explicit deny rows).
       const permission = await prisma.permission.findFirst({
         where: {
+          institutionId,
           role: role as UserRole,
           resource,
           action,
+          granted: true,
         },
       });
  

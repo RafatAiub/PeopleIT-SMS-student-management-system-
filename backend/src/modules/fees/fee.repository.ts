@@ -144,6 +144,7 @@ export class FeeRepository {
     tenantId: string,
     filters: {
       studentId?: string;
+      studentIdIn?: string[];
       status?: string;
       search?: string;
       page: number;
@@ -152,6 +153,7 @@ export class FeeRepository {
   ) {
     const where: any = { institutionId: tenantId };
     if (filters.studentId) where.studentId = filters.studentId;
+    if (filters.studentIdIn) where.studentId = { in: filters.studentIdIn };
     if (filters.status) where.status = filters.status;
     if (filters.search) {
       where.OR = [

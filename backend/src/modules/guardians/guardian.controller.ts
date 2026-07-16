@@ -48,6 +48,13 @@ export async function linkGuardian(req: Request, res: Response, next: NextFuncti
   } catch (error) { next(error); }
 }
 
+export async function getMyStudents(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const studentIds = await guardianService.getMyLinkedStudentIds(req.tenantId!, req.user!.sub);
+    successResponse(res, studentIds);
+  } catch (error) { next(error); }
+}
+
 export async function unlinkGuardian(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await guardianService.unlinkGuardianFromStudent(req.tenantId!, req.params.studentId, req.params.guardianId);

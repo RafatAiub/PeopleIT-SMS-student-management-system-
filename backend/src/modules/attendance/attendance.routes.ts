@@ -16,12 +16,14 @@ router.use(authenticate, setTenant, auditLog);
 // 1. Mark sheet retrieval & bulk submits (Teacher/Admin)
 router.post(
   '/bulk',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   validate({ body: BulkSubmitAttendanceDto }),
   attendanceController.submitAttendance,
 );
 
 router.get(
   '/sheet',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   attendanceController.getAttendanceSheet,
 );
 
@@ -52,9 +54,11 @@ router.get(
   attendanceController.listAssignments,
 );
 
-// Fallback search route
+// Fallback search route — STUDENT/GUARDIAN excluded; they must use
+// /my-attendance, which is scoped server-side to req.user.sub.
 router.get(
   '/',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT),
   validate({ query: AttendanceQueryDto }),
   attendanceController.getAttendanceList,
 );
