@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 const Login = React.lazy(() => import('./pages/Login'));
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
 const TeacherDashboard = React.lazy(() => import('./pages/TeacherDashboard'));
+const GuardianDashboard = React.lazy(() => import('./pages/GuardianDashboard'));
 const StudentList = React.lazy(() => import('./pages/students/StudentList'));
 const InvoiceList = React.lazy(() => import('./pages/fees/InvoiceList'));
 const AttendanceEntry = React.lazy(() => import('./pages/attendance/AttendanceEntry'));
@@ -190,9 +191,7 @@ const DashboardRouter = () => {
     return <Navigate to="/students" replace />;
   }
   if (user?.role === 'GUARDIAN') {
-    // No guardian-specific dashboard exists yet; AdminDashboard requires
-    // admin-only data access and would 403. Land on Notices instead.
-    return <Navigate to="/notices" replace />;
+    return <GuardianDashboard />;
   }
   if (user?.role === 'TEACHER') {
     return <TeacherDashboard />;

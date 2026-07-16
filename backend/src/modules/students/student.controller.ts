@@ -88,6 +88,34 @@ export async function deleteStudent(
   }
 }
 
+export async function bulkImportStudents(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    if (!req.file) {
+      res.status(400).json({ success: false, message: 'No file uploaded (expected field name "file")' });
+      return;
+    }
+
+    const XLSX = require('xlsx');
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows: unknown[] = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
+
+    const result = await studentService.bulkImportStudents(req.tenantId!, rows);
+    successResponse(
+      res,
+      result,
+      `Import complete: ${result.successCount} created, ${result.errorCount} failed`,
+      result.errorCount > 0 ? 207 : 201,
+    );
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getStudentDocuments(
   req: Request,
   res: Response,

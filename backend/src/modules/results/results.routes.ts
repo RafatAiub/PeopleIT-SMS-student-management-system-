@@ -24,15 +24,30 @@ router.use(authenticate, setTenant, auditLog);
 const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER);
 
 // Exam Result routes (Static paths first)
-// No STUDENT/GUARDIAN-scoped "my results" route exists yet — tracked separately.
+// No STUDENT/GUARDIAN-scoped "my results" list route exists yet — tracked
+// separately. Report cards ARE ownership-scoped (see generateReportCard).
 router.post('/submit', STAFF_ROLES, validate({ body: SubmitExamResultsDto }), resultsController.submitResults);
 router.get('/results-list', STAFF_ROLES, validate({ query: ExamResultQueryDto }), resultsController.listResults);
 router.delete('/results-list/:id', STAFF_ROLES, validate({ params: ResultIdParamDto }), resultsController.deleteResult);
+router.get(
+  '/:studentId/report-card',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN),
+  resultsController.getReportCard,
+);
 
-// Exam routes (Wildcard paths last)
+// Exam routes (Wildcard paths last). List/get are readable more broadly —
+// exam name/dates carry no per-student marks data, and STUDENT/GUARDIAN
+// need this to pick an exam for their (ownership-scoped) report card.
+const EXAM_READ_ROLES = requireRole(
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.TEACHER,
+  UserRole.STUDENT,
+  UserRole.GUARDIAN,
+);
 router.post('/', STAFF_ROLES, validate({ body: CreateExamDto }), resultsController.createExam);
-router.get('/', STAFF_ROLES, validate({ query: ExamQueryDto }), resultsController.listExams);
-router.get('/:id', STAFF_ROLES, validate({ params: ExamIdParamDto }), resultsController.getExam);
+router.get('/', EXAM_READ_ROLES, validate({ query: ExamQueryDto }), resultsController.listExams);
+router.get('/:id', EXAM_READ_ROLES, validate({ params: ExamIdParamDto }), resultsController.getExam);
 router.put('/:id', STAFF_ROLES, validate({ params: ExamIdParamDto, body: UpdateExamDto }), resultsController.updateExam);
 router.delete('/:id', STAFF_ROLES, validate({ params: ExamIdParamDto }), resultsController.deleteExam);
 

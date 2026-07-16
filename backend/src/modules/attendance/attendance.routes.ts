@@ -41,6 +41,13 @@ router.get(
   attendanceController.getStudentAttendanceHistory,
 );
 
+// 3b. Guardian — a linked child's history & fines (ownership-scoped in the service)
+router.get(
+  '/child/:studentId',
+  requireRole(UserRole.GUARDIAN),
+  attendanceController.getChildAttendanceHistory,
+);
+
 // 4. Admin assignment routes
 router.post(
   '/assign-teacher',

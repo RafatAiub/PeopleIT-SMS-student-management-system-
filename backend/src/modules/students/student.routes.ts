@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticate } from '../../middleware/auth.middleware';
 import { setTenant } from '../../middleware/tenant.middleware';
 import { validate } from '../../middleware/validate.middleware';
@@ -16,6 +17,10 @@ import * as studentController from './student.controller';
 
 const READ_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT, UserRole.LIBRARIAN];
 const WRITE_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER];
+
+// Memory storage (never written to disk) — 5MB cap is generous for a
+// spreadsheet of a few thousand rows and keeps the request handler bounded.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // =============================================================================
 // Student Routes
@@ -46,6 +51,13 @@ router.post(
   requireRole(...WRITE_ROLES),
   validate({ body: CreateStudentDto }),
   studentController.createStudent,
+);
+
+router.post(
+  '/bulk-import',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN),
+  upload.single('file'),
+  studentController.bulkImportStudents,
 );
 
 // STUDENT/GUARDIAN are intentionally excluded here — they must use /me,

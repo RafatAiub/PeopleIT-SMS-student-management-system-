@@ -88,6 +88,10 @@ export async function getMyLinkedStudentIds(institutionId: string, userId: strin
   return guardianRepository.findLinkedStudentIdsByUserId(institutionId, userId);
 }
 
+export async function getMyLinkedStudentSummaries(institutionId: string, userId: string) {
+  return guardianRepository.findLinkedStudentSummariesByUserId(institutionId, userId);
+}
+
 export async function unlinkGuardianFromStudent(
   institutionId: string,
   studentId: string,

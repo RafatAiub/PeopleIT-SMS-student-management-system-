@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prisma';
+import { computeGrade } from '../../utils/grading';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -72,14 +73,19 @@ export async function upsertBulkResults(
   results: SubmitExamResultsDtoType['results'],
 ) {
   const operations = results.map((res) => {
+    const maxMarks = res.maxMarks ?? 100.0;
+    // Grade is always server-computed from marks, never trusted from the
+    // client — a client-supplied grade could drift from the actual marks
+    // and corrupt report cards / transcripts.
+    const grade = computeGrade(res.marksObtained, maxMarks);
     const data = {
       institutionId,
       examId,
       studentId: res.studentId,
       subject: res.subject,
       marksObtained: res.marksObtained,
-      maxMarks: res.maxMarks ?? 100.0,
-      grade: res.grade || null,
+      maxMarks,
+      grade,
       remarks: res.remarks || null,
     };
     return prisma.examResult.upsert({
@@ -93,8 +99,8 @@ export async function upsertBulkResults(
       },
       update: {
         marksObtained: res.marksObtained,
-        maxMarks: res.maxMarks ?? 100.0,
-        grade: res.grade || null,
+        maxMarks,
+        grade,
         remarks: res.remarks || null,
       },
       create: data,

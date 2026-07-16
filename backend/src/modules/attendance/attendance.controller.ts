@@ -104,3 +104,20 @@ export async function getStudentAttendanceHistory(
     next(error);
   }
 }
+
+export async function getChildAttendanceHistory(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await attendanceService.getChildAttendanceHistory(
+      req.tenantId!,
+      req.params.studentId,
+      req.user!.sub,
+    );
+    successResponse(res, result);
+  } catch (error) {
+    next(error);
+  }
+}

@@ -28,7 +28,8 @@ export const SingleExamResultEntryDto = z.object({
   subject: z.string().min(1, 'Subject is required').max(100),
   marksObtained: z.number().min(0, 'Marks cannot be negative').max(1000),
   maxMarks: z.number().min(1, 'Max marks must be at least 1').max(1000).default(100),
-  grade: z.string().max(10).optional().nullable(),
+  // grade is always server-computed from marks — see computeGrade() in
+  // utils/grading.ts — never accepted as client input.
   remarks: z.string().max(200).optional().nullable(),
 }).refine((data) => {
   return data.marksObtained <= data.maxMarks;

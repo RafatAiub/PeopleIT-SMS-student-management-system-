@@ -85,7 +85,12 @@ describe('Authorization matrix — previously-unprotected routes', () => {
     },
 
     // --- results ---
-    { method: 'get', path: '/api/v1/results', allowedRoles: STAFF_RW, label: 'GET /results (list exams)' },
+    {
+      method: 'get',
+      path: '/api/v1/results',
+      allowedRoles: STAFF_RW.concat(UserRole.STUDENT, UserRole.GUARDIAN),
+      label: 'GET /results (list exams — readable by everyone, no marks data)',
+    },
     {
       method: 'delete',
       path: '/api/v1/results/results-list/does-not-exist',

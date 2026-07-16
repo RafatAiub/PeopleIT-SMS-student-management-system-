@@ -2,6 +2,9 @@ import * as resultsRepository from './results.repository';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import * as studentRepository from '../students/student.repository';
+import * as guardianRepository from '../guardians/guardian.repository';
+import { renderReportCardPdf } from './reportCard.pdf';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -96,6 +99,80 @@ export async function listResults(
   query: ExamResultQueryDtoType,
 ) {
   return resultsRepository.findAllResults(institutionId, query);
+}
+
+// ── Report Card PDF ─────────────────────────────────────────────────────────
+
+/**
+ * Generates a report-card PDF for one student's results in one exam.
+ * STUDENT/GUARDIAN callers are ownership-scoped to their own/linked
+ * children — never trust the :studentId param for those roles. Follows the
+ * same pattern as fee.service.ts's invoice ownership scoping.
+ */
+export async function generateReportCard(
+  institutionId: string,
+  studentId: string,
+  examId: string,
+  requester: { sub: string; role: string },
+): Promise<Buffer> {
+  if (requester.role === 'STUDENT') {
+    const own = await studentRepository.findByUserId(institutionId, requester.sub);
+    if (!own || own.id !== studentId) {
+      throw new NotFoundError('Student not found');
+    }
+  } else if (requester.role === 'GUARDIAN') {
+    const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, requester.sub);
+    if (!linked.includes(studentId)) {
+      throw new NotFoundError('Student not found');
+    }
+  }
+
+  const [student, exam, results] = await Promise.all([
+    prisma.student.findFirst({
+      where: { id: studentId, institutionId },
+      select: {
+        studentId: true,
+        firstName: true,
+        lastName: true,
+        rollNumber: true,
+        class: { select: { name: true } },
+        section: { select: { name: true } },
+      },
+    }),
+    prisma.exam.findFirst({ where: { id: examId, institutionId }, select: { name: true, startDate: true, endDate: true } }),
+    prisma.examResult.findMany({
+      where: { institutionId, examId, studentId },
+      select: { subject: true, marksObtained: true, maxMarks: true, grade: true, remarks: true },
+      orderBy: { subject: 'asc' },
+    }),
+  ]);
+
+  if (!student) throw new NotFoundError('Student not found');
+  if (!exam) throw new NotFoundError('Exam not found');
+  if (results.length === 0) throw new NotFoundError('No results found for this student in this exam');
+
+  const totalObtained = results.reduce((sum, r) => sum + Number(r.marksObtained), 0);
+  const totalMax = results.reduce((sum, r) => sum + Number(r.maxMarks), 0);
+  const overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 10000) / 100 : 0;
+
+  const pdf = await renderReportCardPdf({
+    institutionName: (await prisma.institution.findUnique({ where: { id: institutionId }, select: { name: true } }))?.name ?? '',
+    student,
+    exam,
+    results: results.map((r) => ({
+      subject: r.subject,
+      marksObtained: Number(r.marksObtained),
+      maxMarks: Number(r.maxMarks),
+      grade: r.grade ?? '-',
+      remarks: r.remarks ?? '',
+    })),
+    totalObtained,
+    totalMax,
+    overallPercentage,
+  });
+
+  logger.info('Report card generated', { institutionId, studentId, examId });
+  return pdf;
 }
 
 export async function deleteResult(institutionId: string, id: string) {

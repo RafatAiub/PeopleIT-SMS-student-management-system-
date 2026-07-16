@@ -126,3 +126,30 @@ export async function findLinkedStudentIdsByUserId(institutionId: string, userId
   });
   return guardian?.students.map((s) => s.studentId) ?? [];
 }
+
+// Richer variant for the guardian's own "my children" UI — full student
+// summaries, not just ids.
+export async function findLinkedStudentSummariesByUserId(institutionId: string, userId: string) {
+  const guardian = await prisma.guardian.findFirst({
+    where: { userId, institutionId },
+    select: {
+      students: {
+        select: {
+          isPrimary: true,
+          student: {
+            select: {
+              id: true,
+              studentId: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              class: { select: { name: true } },
+              section: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  return (guardian?.students ?? []).map((s) => ({ ...s.student, isPrimary: s.isPrimary }));
+}

@@ -6,6 +6,8 @@ import { SslCommerzGateway } from './gateways/sslcommerz.stub';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
+import { feeReminderQueue } from '../../queues/reminderQueue';
+import { logger } from '../../utils/logger';
 import { UserRole } from '@prisma/client';
 
 export type RequestingUser = { sub: string; role: string };
@@ -94,7 +96,7 @@ export class FeeService {
       throw new BadRequestError('Invoice total amount must be greater than zero');
     }
 
-    return FeeRepository.createInvoice(
+    const invoice = await FeeRepository.createInvoice(
       tenantId,
       {
         studentId: data.studentId,
@@ -103,8 +105,31 @@ export class FeeService {
         dueDate: new Date(data.dueDate),
         notes: data.notes,
       },
-      data.items
+      data.items,
     );
+
+    // Schedule a fee-due SMS reminder for the due date itself — BullMQ's
+    // delay does the scheduling, no cron/scanner needed. Failure to enqueue
+    // must never fail invoice creation.
+    const delayMs = new Date(data.dueDate).getTime() - Date.now();
+    await feeReminderQueue
+      .add(
+        'fee-due',
+        {
+          type: 'fee-due',
+          institutionId: tenantId,
+          studentId: data.studentId,
+          invoiceNo,
+          dueAmount: totalAmount,
+          dueDate: data.dueDate,
+        },
+        { delay: Math.max(delayMs, 0) },
+      )
+      .catch((err) => {
+        logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
+      });
+
+    return invoice;
   }
 
   static async getInvoice(tenantId: string, id: string, requester: RequestingUser) {

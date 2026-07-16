@@ -50,8 +50,8 @@ export async function linkGuardian(req: Request, res: Response, next: NextFuncti
 
 export async function getMyStudents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const studentIds = await guardianService.getMyLinkedStudentIds(req.tenantId!, req.user!.sub);
-    successResponse(res, studentIds);
+    const students = await guardianService.getMyLinkedStudentSummaries(req.tenantId!, req.user!.sub);
+    successResponse(res, students);
   } catch (error) { next(error); }
 }
 

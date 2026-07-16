@@ -109,6 +109,26 @@ export async function listResults(
   }
 }
 
+export async function getReportCard(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const examId = req.query.examId as string;
+    if (!examId) {
+      res.status(400).json({ success: false, message: 'examId query parameter is required' });
+      return;
+    }
+    const pdf = await resultsService.generateReportCard(req.tenantId!, req.params.studentId, examId, req.user!);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="report-card-${req.params.studentId}.pdf"`);
+    res.send(pdf);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function deleteResult(
   req: Request,
   res: Response,

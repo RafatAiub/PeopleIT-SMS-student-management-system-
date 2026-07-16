@@ -74,6 +74,10 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
+  // Greenweb — the Bangladesh SMS gateway named in reminderWorker.ts as the
+  // intended provider. Gated behind SMS_ENABLED, same as Twilio above.
+  GREENWEB_API_TOKEN: z.string().optional(),
+  GREENWEB_BASE_URL: z.string().url().default('https://api.greenweb.com.bd/api.php'),
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),

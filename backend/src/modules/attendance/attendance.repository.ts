@@ -248,6 +248,23 @@ export async function getStudentAttendanceHistory(userId: string, institutionId:
     throw new NotFoundError('Student profile not found');
   }
 
+  return getAttendanceHistoryByStudentId(institutionId, student.id, student);
+}
+
+// Shared by both the STUDENT self-service route (resolved via userId above)
+// and the GUARDIAN "my child's attendance" route, which already knows the
+// studentId (ownership-checked in the service layer before this is called).
+export async function getAttendanceHistoryByStudentId(
+  institutionId: string,
+  studentId: string,
+  preloadedStudent?: NonNullable<Awaited<ReturnType<typeof prisma.student.findFirst>>>,
+) {
+  const student =
+    preloadedStudent ?? (await prisma.student.findFirst({ where: { id: studentId, institutionId } }));
+  if (!student) {
+    throw new NotFoundError('Student profile not found');
+  }
+
   const attendance = await prisma.attendance.findMany({
     where: { studentId: student.id, institutionId },
     orderBy: { date: 'desc' },

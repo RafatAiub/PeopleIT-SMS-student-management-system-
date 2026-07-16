@@ -1,6 +1,8 @@
 import * as attendanceRepository from './attendance.repository';
 import { prisma } from '../../config/prisma';
-import { BadRequestError } from '../../utils/AppError';
+import { BadRequestError, NotFoundError } from '../../utils/AppError';
+import * as guardianRepository from '../guardians/guardian.repository';
+import { feeReminderQueue } from '../../queues/reminderQueue';
 import type { BulkSubmitAttendanceDtoType, AttendanceQueryDtoType, AssignTeacherDtoType, AttendanceSheetQueryDtoType } from './attendance.dto';
 import { logger } from '../../utils/logger';
 
@@ -26,6 +28,18 @@ export async function submitBulkAttendance(
 
   const result = await attendanceRepository.upsertBulkAttendance(institutionId, date, records);
   logger.info('Bulk attendance submitted', { institutionId, date, count: records.length });
+
+  // Fire-and-forget absence SMS reminders. Failure to enqueue must never
+  // fail the attendance submission itself.
+  const absentees = records.filter((r) => r.status === 'ABSENT');
+  await Promise.all(
+    absentees.map((r) =>
+      feeReminderQueue
+        .add('absence', { type: 'absence', institutionId, studentId: r.studentId, date })
+        .catch((err) => logger.error('Failed to enqueue absence reminder', { studentId: r.studentId, error: err.message })),
+    ),
+  );
+
   return result;
 }
 
@@ -65,4 +79,17 @@ export async function getAttendanceSheet(
 
 export async function getStudentAttendanceHistory(userId: string, institutionId: string) {
   return attendanceRepository.getStudentAttendanceHistory(userId, institutionId);
+}
+
+/** GUARDIAN "my child's attendance" — ownership-scoped to linked children only. */
+export async function getChildAttendanceHistory(
+  institutionId: string,
+  studentId: string,
+  guardianUserId: string,
+) {
+  const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, guardianUserId);
+  if (!linked.includes(studentId)) {
+    throw new NotFoundError('Student not found');
+  }
+  return attendanceRepository.getAttendanceHistoryByStudentId(institutionId, studentId);
 }
