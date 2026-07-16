@@ -89,7 +89,24 @@ export async function getMyLinkedStudentIds(institutionId: string, userId: strin
 }
 
 export async function getMyLinkedStudentSummaries(institutionId: string, userId: string) {
-  return guardianRepository.findLinkedStudentSummariesByUserId(institutionId, userId);
+  const summaries = await guardianRepository.findLinkedStudentSummariesByUserId(institutionId, userId);
+
+  // Usage-event log for pilot measurement (guardian portal adoption). Fires
+  // on every dashboard load, since that's the meaningful "used the portal"
+  // signal for this feature, not just the first visit.
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId,
+        action: 'GUARDIAN_PORTAL_VIEW',
+        resource: 'Guardian',
+        metadata: { linkedChildrenCount: summaries.length },
+      },
+    })
+    .catch(() => {});
+
+  return summaries;
 }
 
 export async function unlinkGuardianFromStudent(

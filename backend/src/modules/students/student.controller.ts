@@ -104,7 +104,7 @@ export async function bulkImportStudents(
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: unknown[] = XLSX.utils.sheet_to_json(firstSheet, { defval: null });
 
-    const result = await studentService.bulkImportStudents(req.tenantId!, rows);
+    const result = await studentService.bulkImportStudents(req.tenantId!, rows, req.user!.sub);
     successResponse(
       res,
       result,

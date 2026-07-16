@@ -89,6 +89,7 @@ export interface BulkImportResult {
 export async function bulkImportStudents(
   institutionId: string,
   rawRows: unknown[],
+  actorUserId: string,
 ): Promise<BulkImportResult> {
   const errors: BulkImportError[] = [];
   const validRows: Array<{
@@ -196,6 +197,22 @@ export async function bulkImportStudents(
     successCount,
     errorCount: errors.length,
   });
+
+  // Usage-event log for pilot measurement (onboarding effort, adoption) —
+  // reuses the existing AuditLog model rather than a new logging system.
+  // Distinct from the generic CREATE entry the route's auditLog middleware
+  // already writes, since that one carries no success/error counts.
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: actorUserId,
+        action: 'BULK_IMPORT_COMPLETED',
+        resource: 'Student',
+        metadata: { successCount, errorCount: errors.length, totalRows: rawRows.length },
+      },
+    })
+    .catch(() => {});
 
   return { successCount, errorCount: errors.length, errors };
 }

@@ -172,6 +172,21 @@ export async function generateReportCard(
   });
 
   logger.info('Report card generated', { institutionId, studentId, examId });
+
+  // Usage-event log for pilot measurement (completed report-card cycles).
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: requester.sub,
+        action: 'REPORT_CARD_GENERATED',
+        resource: 'ExamResult',
+        resourceId: examId,
+        metadata: { studentId, overallPercentage },
+      },
+    })
+    .catch(() => {});
+
   return pdf;
 }
 
