@@ -439,6 +439,7 @@ model TimetableSlot {
   className     String // e.g. "Class 8"
   sectionName   String // e.g. "A"
   subject       String // e.g. "Math"
+  roomNumber    String?
   teacherId     String?
   teacher       Teacher?    @relation(fields: [teacherId], references: [id])
 

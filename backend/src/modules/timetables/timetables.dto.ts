@@ -18,6 +18,7 @@ export const CreateTimetableSlotBaseDto = z.object({
   className: z.string().min(1, 'Class name is required').max(50),
   sectionName: z.string().min(1, 'Section name is required').max(50),
   subject: z.string().min(1, 'Subject is required').max(100),
+  roomNumber: z.string().max(50).optional().nullable(),
   teacherId: z.string().cuid('Invalid teacher ID').optional().nullable(),
   teacherUserId: z.string().cuid('Invalid teacher user ID').optional().nullable(),
 });

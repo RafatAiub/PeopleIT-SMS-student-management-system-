@@ -41,24 +41,55 @@ export async function createSlot(institutionId: string, data: CreateTimetableSlo
     }
   }
 
-  // Check for scheduling conflict (same teacher at same day/time slot in this institution)
+  // Check for scheduling conflicts. Exclusive boundaries (lt/gt) so
+  // back-to-back periods (e.g. 09:00-10:00 then 10:00-11:00) never
+  // false-positive as overlapping.
   if (data.teacherId) {
-    const conflict = await prisma.timetableSlot.findFirst({
+    const teacherConflict = await prisma.timetableSlot.findFirst({
       where: {
         institutionId,
         teacherId: data.teacherId,
         dayOfWeek: data.dayOfWeek,
-        OR: [
-          {
-            startTime: { lte: data.endTime },
-            endTime: { gte: data.startTime },
-          },
-        ],
+        startTime: { lt: data.endTime },
+        endTime: { gt: data.startTime },
       },
     });
-    if (conflict) {
+    if (teacherConflict) {
       throw new BadRequestError(
-        `Teacher schedule conflict: already assigned to ${conflict.className}-${conflict.sectionName} (${conflict.startTime}-${conflict.endTime}) on ${data.dayOfWeek}`,
+        `Teacher schedule conflict: already assigned to ${teacherConflict.className}-${teacherConflict.sectionName} (${teacherConflict.startTime}-${teacherConflict.endTime}) on ${data.dayOfWeek}`,
+      );
+    }
+  }
+
+  const sectionConflict = await prisma.timetableSlot.findFirst({
+    where: {
+      institutionId,
+      className: data.className,
+      sectionName: data.sectionName,
+      dayOfWeek: data.dayOfWeek,
+      startTime: { lt: data.endTime },
+      endTime: { gt: data.startTime },
+    },
+  });
+  if (sectionConflict) {
+    throw new BadRequestError(
+      `Section schedule conflict: ${data.className}-${data.sectionName} already has ${sectionConflict.subject} (${sectionConflict.startTime}-${sectionConflict.endTime}) on ${data.dayOfWeek}`,
+    );
+  }
+
+  if (data.roomNumber) {
+    const roomConflict = await prisma.timetableSlot.findFirst({
+      where: {
+        institutionId,
+        roomNumber: data.roomNumber,
+        dayOfWeek: data.dayOfWeek,
+        startTime: { lt: data.endTime },
+        endTime: { gt: data.startTime },
+      },
+    });
+    if (roomConflict) {
+      throw new BadRequestError(
+        `Room schedule conflict: room '${data.roomNumber}' already occupied by ${roomConflict.className}-${roomConflict.sectionName} (${roomConflict.startTime}-${roomConflict.endTime}) on ${data.dayOfWeek}`,
       );
     }
   }
@@ -112,26 +143,63 @@ export async function updateSlot(
     }
   }
 
-  if (data.teacherId) {
+  const dayOfWeek = data.dayOfWeek || existing.dayOfWeek;
+  const startTime = data.startTime || existing.startTime;
+  const endTime = data.endTime || existing.endTime;
+  const className = data.className || existing.className;
+  const sectionName = data.sectionName || existing.sectionName;
+  const roomNumber = data.roomNumber !== undefined ? data.roomNumber : existing.roomNumber;
+  const teacherId = data.teacherId !== undefined ? data.teacherId : existing.teacherId;
 
-    // Check for scheduling conflict
-    const conflict = await prisma.timetableSlot.findFirst({
+  if (teacherId) {
+    const teacherConflict = await prisma.timetableSlot.findFirst({
       where: {
         institutionId,
         id: { not: id },
-        teacherId: data.teacherId,
-        dayOfWeek: data.dayOfWeek || existing.dayOfWeek,
-        OR: [
-          {
-            startTime: { lte: data.endTime || existing.endTime },
-            endTime: { gte: data.startTime || existing.startTime },
-          },
-        ],
+        teacherId,
+        dayOfWeek,
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
       },
     });
-    if (conflict) {
+    if (teacherConflict) {
       throw new BadRequestError(
-        `Teacher schedule conflict: already assigned to ${conflict.className}-${conflict.sectionName} (${conflict.startTime}-${conflict.endTime}) on ${data.dayOfWeek || existing.dayOfWeek}`,
+        `Teacher schedule conflict: already assigned to ${teacherConflict.className}-${teacherConflict.sectionName} (${teacherConflict.startTime}-${teacherConflict.endTime}) on ${dayOfWeek}`,
+      );
+    }
+  }
+
+  const sectionConflict = await prisma.timetableSlot.findFirst({
+    where: {
+      institutionId,
+      id: { not: id },
+      className,
+      sectionName,
+      dayOfWeek,
+      startTime: { lt: endTime },
+      endTime: { gt: startTime },
+    },
+  });
+  if (sectionConflict) {
+    throw new BadRequestError(
+      `Section schedule conflict: ${className}-${sectionName} already has ${sectionConflict.subject} (${sectionConflict.startTime}-${sectionConflict.endTime}) on ${dayOfWeek}`,
+    );
+  }
+
+  if (roomNumber) {
+    const roomConflict = await prisma.timetableSlot.findFirst({
+      where: {
+        institutionId,
+        id: { not: id },
+        roomNumber,
+        dayOfWeek,
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      },
+    });
+    if (roomConflict) {
+      throw new BadRequestError(
+        `Room schedule conflict: room '${roomNumber}' already occupied by ${roomConflict.className}-${roomConflict.sectionName} (${roomConflict.startTime}-${roomConflict.endTime}) on ${dayOfWeek}`,
       );
     }
   }

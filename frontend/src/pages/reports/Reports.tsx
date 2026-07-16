@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
 import apiClient from '../../api/client';
 
@@ -19,6 +19,14 @@ const Reports = () => {
     };
     fetchReports();
   }, []);
+
+  // Fee amounts aren't already 0-100 like attendance %, so normalize each
+  // day against the week's max for the bar-height visualization.
+  const feeTrendPercents = useMemo(() => {
+    const trend: number[] = data?.feeTrend ?? [];
+    const max = Math.max(...trend, 1);
+    return trend.map((v) => Math.round((v / max) * 100));
+  }, [data]);
 
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading reports...</div>;
@@ -51,7 +59,7 @@ const Reports = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Average Attendance</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.averageAttendance || 0}%</h3>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.attendanceRate || 0}%</h3>
             </div>
           </div>
         </div>
@@ -75,7 +83,7 @@ const Reports = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Staff</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.activeStaff || 0}</h3>
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.totalTeachers || 0}</h3>
             </div>
           </div>
         </div>
@@ -88,9 +96,9 @@ const Reports = () => {
             Fee Collections
           </h3>
           <div className="h-64 flex items-end justify-between gap-2">
-            {[40, 70, 45, 90, 65, 80, 100].map((val, i) => (
-              <div key={i} className="w-full bg-blue-100 dark:bg-blue-500/20 rounded-t-sm relative group h-full">
-                <div 
+            {feeTrendPercents.map((val, i) => (
+              <div key={i} className="w-full bg-blue-100 dark:bg-blue-500/20 rounded-t-sm relative group h-full" title={`৳${(data?.feeTrend?.[i] ?? 0).toLocaleString()}`}>
+                <div
                   className="absolute bottom-0 w-full bg-blue-500/50 dark:bg-blue-500/50 rounded-t-sm transition-all"
                   style={{ height: `${val}%` }}
                 ></div>
@@ -105,9 +113,9 @@ const Reports = () => {
             Attendance Trends
           </h3>
           <div className="h-64 flex items-end justify-between gap-2">
-            {[80, 85, 90, 88, 95, 92, 98].map((val, i) => (
-              <div key={i} className="w-full bg-emerald-100 dark:bg-emerald-500/20 rounded-t-sm relative group h-full">
-                <div 
+            {(data?.attendanceTrend ?? []).map((val: number, i: number) => (
+              <div key={i} className="w-full bg-emerald-100 dark:bg-emerald-500/20 rounded-t-sm relative group h-full" title={`${val}%`}>
+                <div
                   className="absolute bottom-0 w-full bg-emerald-500/50 dark:bg-emerald-500/50 rounded-t-sm transition-all"
                   style={{ height: `${val}%` }}
                 ></div>
