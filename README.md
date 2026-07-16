@@ -66,26 +66,28 @@ This diagram shows the complete high-level deployment architecture of PeopleIT S
 
 ```mermaid
 flowchart TB
-    user["👤 User\n(Super Admin / Admin / Teacher / Student / Guardian)"]
+    user["User<br/>Super Admin / Admin / Teacher / Student / Guardian"]
 
-    subgraph ClientContainer ["🌐 Client — User's Browser"]
-        spa["React SPA\n(Vite + TypeScript + TailwindCSS)"]
+    subgraph ClientContainer["Client — User's Browser"]
+        spa["React SPA<br/>Vite + TypeScript + TailwindCSS"]
     end
 
-    subgraph ServerContainer ["☁️ Server — Render.com Cloud"]
-        api["Express REST API\n(Node.js / TypeScript)"]
+    subgraph ServerContainer["Server — Render.com Cloud"]
+        api["Express REST API<br/>Node.js / TypeScript"]
     end
 
-    subgraph DataLayer ["💾 Data & Caching Layer"]
-        db[("PostgreSQL\n(Neon Serverless)")]
-        redis[("Redis Cache\n(Upstash Redis)")]
+    subgraph DataLayer["Data & Caching Layer"]
+        db[("PostgreSQL<br/>Neon Serverless")]
+        redis[("Redis Cache<br/>Upstash Redis")]
     end
 
     user -->|Interacts with UI| spa
-    spa -->|JSON REST / HTTPS| api
-    api -->|Session & Rate Limiting| redis
+    spa -->|JSON REST over HTTPS| api
+    api -->|Rate limiting & sessions| redis
     api -->|Multi-tenant SQL via Prisma| db
 ```
+
+**How to read this:** a user's browser only ever talks to the React app; the React app is the only thing that talks to the API; the API is the only thing that talks to the database and Redis. No component skips a layer.
 
 ---
 
@@ -126,7 +128,67 @@ sequenceDiagram
 
 ## 🗄️ Entity-Relationship Diagram (Full ERD)
 
-> This ERD is generated directly from the Prisma schema and covers **all 31 models** in the system. Every table scoped to a tenant includes an `institutionId` foreign key for strict multi-tenant data isolation. The single source of truth is always `backend/prisma/schema.prisma` — if this diagram and the schema ever disagree, trust the schema.
+> The single source of truth is always `backend/prisma/schema.prisma` (**31 models**) — if any diagram below and the schema ever disagree, trust the schema. Every tenant-scoped table has an `institutionId` foreign key.
+>
+> A single 31-entity, all-fields diagram is unreadable, so this is split into **(1)** a bird's-eye domain map with no fields, then **(2)** six focused diagrams — one per business domain — each showing only the fields that matter for understanding relationships. For the complete field list of every model, see the [ERD Model Reference](#-erd-model-reference--explanations) table below, or just open `schema.prisma` directly.
+
+### 1. Domain Map (bird's-eye view)
+
+```mermaid
+flowchart LR
+    Institution(("Institution<br/>(the tenant)"))
+
+    subgraph Identity["Identity & Access"]
+        User["User"]
+        Permission["Permission"]
+        RefreshToken["RefreshToken"]
+    end
+
+    subgraph People["People"]
+        Student["Student"]
+        Guardian["Guardian"]
+        Teacher["Teacher"]
+        StaffProfile["StaffProfile"]
+    end
+
+    subgraph Academics["Academics"]
+        Attendance["Attendance"]
+        ExamResult["Exam / ExamResult"]
+        TimetableSlot["TimetableSlot"]
+    end
+
+    subgraph Billing["Fees & Billing"]
+        Invoice["Invoice / InvoiceItem"]
+        Payment["Payment"]
+    end
+
+    subgraph Facilities["Facilities"]
+        Library["LibraryBook / LibraryIssue"]
+        Transport["Transport Route / Vehicle / Assignment"]
+    end
+
+    subgraph Comms["Communication & Compliance"]
+        Notice["Notice"]
+        Message["Message"]
+        AuditLog["AuditLog"]
+    end
+
+    Institution --> User
+    Institution --> Student
+    Institution --> Attendance
+    Institution --> Invoice
+    Institution --> Library
+    Institution --> Notice
+
+    User -.linked to.-> Student
+    User -.linked to.-> Teacher
+    User -.linked to.-> Guardian
+    User -.linked to.-> StaffProfile
+```
+
+**How to read this:** every solid arrow means "belongs to this tenant." Dotted arrows show that a `User` account can optionally be linked to exactly one Student, Teacher, Guardian, or StaffProfile record — that's how one login system serves every role. The sections below zoom into each domain.
+
+### 2. Tenant & Academic Structure
 
 ```mermaid
 erDiagram
@@ -134,35 +196,17 @@ erDiagram
         String id PK
         String name
         String slug UK
-        String logoUrl
-        String address
-        String phone
-        String email
-        String country
         Boolean isActive
-        String themeColor
-        String heroTitle
-        String heroSubtitle
-        String aboutText
-        String contactEmail
-        String contactPhone
-        DateTime createdAt
-        DateTime updatedAt
     }
     Branch {
         String id PK
         String institutionId FK
         String name
-        String address
-        Boolean isActive
-        DateTime createdAt
     }
     AcademicYear {
         String id PK
         String institutionId FK
         String label
-        DateTime startDate
-        DateTime endDate
         Boolean isCurrent
     }
     AcademicClass {
@@ -177,20 +221,23 @@ erDiagram
         String name
         String classTeacherId FK
     }
+
+    Institution ||--o{ Branch : has
+    Institution ||--o{ AcademicYear : defines
+    Branch ||--o{ AcademicClass : contains
+    AcademicClass ||--o{ Section : "split into"
+```
+
+### 3. Identity & Access
+
+```mermaid
+erDiagram
     User {
         String id PK
         String institutionId FK
         String email UK
         String passwordHash
         UserRole role
-        String firstName
-        String lastName
-        String phone
-        String avatarUrl
-        Boolean isActive
-        DateTime lastLoginAt
-        DateTime createdAt
-        DateTime updatedAt
     }
     Permission {
         String id PK
@@ -198,91 +245,83 @@ erDiagram
         UserRole role
         String resource
         String action
-        Boolean granted
     }
     RefreshToken {
         String id PK
+        String userId FK
         String token UK
         Boolean isRevoked
-        String userId FK
-        DateTime expiresAt
-        DateTime createdAt
+    }
+
+    User ||--o{ RefreshToken : owns
+    User }o--o{ Permission : "checked against (role, resource, action) — not currently enforced, see below"
+```
+
+> `Permission` is modeled but **not enforced** anywhere yet — every route currently checks the coarser `role` field directly via `requireRole` middleware instead of this table. See [Known Limitations](#-known-limitations--roadmap).
+
+### 4. Student & Guardian
+
+```mermaid
+erDiagram
+    User {
+        String id PK
+        String email UK
+        UserRole role
     }
     Student {
         String id PK
         String institutionId FK
-        String branchId FK
         String classId FK
         String sectionId FK
-        String academicYearId FK
         String userId FK
         String studentId
-        String rollNumber
-        String firstName
-        String lastName
-        DateTime dateOfBirth
-        String gender
-        String email
-        String phone
-        String address
-        String bloodGroup
-        String religion
-        String nationality
-        String avatarUrl
-        DateTime admissionDate
         String status
-        DateTime createdAt
-        DateTime updatedAt
     }
     StudentDocument {
         String id PK
-        String institutionId FK
         String studentId FK
-        String name
         String type
         String fileUrl
-        Int fileSize
-        String mimeType
-        DateTime uploadedAt
     }
     Guardian {
         String id PK
         String institutionId FK
         String userId FK
         String relationship
-        String occupation
-        String nidNumber
-        String emergencyPhone
-        String firstName
-        String lastName
-        String phone
-        String email
-        DateTime createdAt
     }
     GuardianStudent {
-        String guardianId PK_FK
-        String studentId PK_FK
+        String guardianId PK
+        String studentId PK
         Boolean isPrimary
-        String relationship
     }
     Teacher {
         String id PK
         String userId FK
         String qualification
-        String subjectExpertise
-        DateTime joiningDate
-        String employeeId
-        DateTime createdAt
+    }
+
+    User ||--o| Student : "linked to"
+    User ||--o| Guardian : "linked to"
+    User ||--o| Teacher : "linked to"
+    Student ||--o{ StudentDocument : has
+    Student ||--o{ GuardianStudent : "linked via"
+    Guardian ||--o{ GuardianStudent : "linked via"
+```
+
+### 5. Fees & Billing
+
+```mermaid
+erDiagram
+    Student {
+        String id PK
+        String studentId
     }
     FeeCategory {
         String id PK
         String institutionId FK
         String name
-        String description
         Decimal amount
         String frequency
-        Boolean isActive
-        DateTime createdAt
     }
     Invoice {
         String id PK
@@ -290,21 +329,13 @@ erDiagram
         String studentId FK
         String invoiceNo UK
         Decimal totalAmount
-        Decimal paidAmount
         Decimal dueAmount
-        DateTime dueDate
         String status
-        String notes
-        DateTime createdAt
-        DateTime updatedAt
     }
     InvoiceItem {
         String id PK
         String invoiceId FK
         String feeCategoryId FK
-        String description
-        Decimal amount
-        Decimal discount
         Decimal netAmount
     }
     Payment {
@@ -312,23 +343,27 @@ erDiagram
         String invoiceId FK
         Decimal amount
         String method
-        String transactionRef
-        DateTime paidAt
-        String recordedBy
-        String notes
         String status
     }
-    AuditLog {
+
+    Student ||--o{ Invoice : "billed for"
+    Invoice ||--o{ InvoiceItem : contains
+    Invoice ||--o{ Payment : "settled by"
+    FeeCategory ||--o{ InvoiceItem : "referenced by"
+```
+
+> Invoice status moves `UNPAID → PARTIAL/PAID → OVERDUE/CANCELLED` — see the [state diagram](#-status--transition-state-diagrams) below. Money fields (`totalAmount`, `amount`, ...) are Prisma `Decimal` — see [pitfall #2](#-coding-rules--common-pitfalls) if you're consuming these on the frontend.
+
+### 6. Academics
+
+```mermaid
+erDiagram
+    Student {
         String id PK
-        String institutionId FK
-        String userId FK
-        String action
-        String resource
-        String resourceId
-        Json metadata
-        String ipAddress
-        String userAgent
-        DateTime createdAt
+        String studentId
+    }
+    Teacher {
+        String id PK
     }
     Attendance {
         String id PK
@@ -336,199 +371,101 @@ erDiagram
         String studentId FK
         DateTime date
         String status
-        String notes
-        DateTime createdAt
-        DateTime updatedAt
     }
     Exam {
         String id PK
         String institutionId FK
         String name
-        DateTime startDate
-        DateTime endDate
-        Boolean isActive
     }
     ExamResult {
         String id PK
-        String institutionId FK
         String examId FK
         String studentId FK
         String subject
         Decimal marksObtained
-        Decimal maxMarks
         String grade
-        String remarks
-        DateTime createdAt
-        DateTime updatedAt
     }
     TimetableSlot {
         String id PK
-        String institutionId FK
         String branchId FK
-        String dayOfWeek
-        String startTime
-        String endTime
-        String className
-        String sectionName
-        String subject
         String teacherId FK
+        String dayOfWeek
+        String subject
+    }
+
+    Student ||--o{ Attendance : logs
+    Student ||--o{ ExamResult : receives
+    Exam ||--o{ ExamResult : produces
+    Teacher ||--o{ TimetableSlot : "assigned to"
+```
+
+### 7. Facilities, HR & Communication
+
+```mermaid
+erDiagram
+    Student {
+        String id PK
+    }
+    LibraryBook {
+        String id PK
+        String title
+        Int availableCopies
+    }
+    LibraryIssue {
+        String id PK
+        String bookId FK
+        String studentId FK
+        String status
+    }
+    TransportRoute {
+        String id PK
+        String name
+    }
+    TransportVehicle {
+        String id PK
+        String registrationNumber
+    }
+    TransportAssignment {
+        String id PK
+        String studentId FK
+        String routeId FK
+        String vehicleId FK
+    }
+    StaffProfile {
+        String id PK
+        String userId FK
+        String designation
+    }
+    PayrollRecord {
+        String id PK
+        String staffId FK
+        String payPeriod
+        Decimal netAmount
+        String status
     }
     Notice {
         String id PK
         String institutionId FK
-        String title
-        String content
         String audience
-        Boolean isActive
-        DateTime publishedAt
-        DateTime createdAt
-    }
-    LibraryBook {
-        String id PK
-        String institutionId FK
-        String title
-        String author
-        String isbn
-        String publisher
-        Int totalCopies
-        Int availableCopies
-        DateTime createdAt
-        DateTime updatedAt
-    }
-    LibraryIssue {
-        String id PK
-        String institutionId FK
-        String bookId FK
-        String studentId FK
-        DateTime issueDate
-        DateTime dueDate
-        DateTime returnDate
-        String status
-        Decimal fineAmount
-        DateTime createdAt
-        DateTime updatedAt
-    }
-    TransportVehicle {
-        String id PK
-        String institutionId FK
-        String registrationNumber
-        Int capacity
-        String driverName
-        String driverPhone
-        Boolean isActive
-        DateTime createdAt
-        DateTime updatedAt
-    }
-    TransportRoute {
-        String id PK
-        String institutionId FK
-        String name
-        String stops
-        Decimal routeFare
-        Boolean isActive
-        DateTime createdAt
-        DateTime updatedAt
-    }
-    TransportAssignment {
-        String id PK
-        String institutionId FK
-        String studentId FK
-        String routeId FK
-        String vehicleId FK
-        String pickupPoint
-        DateTime assignedAt
-    }
-    StaffProfile {
-        String id PK
-        String institutionId FK
-        String userId FK
-        String employeeId
-        String department
-        String designation
-        DateTime joiningDate
-        Decimal baseSalary
-        String status
-        DateTime createdAt
-        DateTime updatedAt
-    }
-    PayrollRecord {
-        String id PK
-        String institutionId FK
-        String staffId FK
-        String payPeriod
-        Decimal baseSalary
-        Decimal allowances
-        Decimal deductions
-        Decimal netAmount
-        String status
-        DateTime paidAt
-        DateTime createdAt
-        DateTime updatedAt
     }
     Message {
         String id PK
-        String institutionId FK
         String senderId FK
         String receiverId FK
-        String content
-        Boolean read
-        DateTime createdAt
+    }
+    AuditLog {
+        String id PK
+        String userId FK
+        String action
+        String resource
     }
 
-    Institution ||--o{ Branch : "has"
-    Institution ||--o{ User : "contains"
-    Institution ||--o{ Student : "enrolls"
-    Institution ||--o{ FeeCategory : "defines"
-    Institution ||--o{ Invoice : "issues"
-    Institution ||--o{ AuditLog : "logs"
-    Institution ||--o{ Guardian : "registers"
-    Institution ||--o{ Attendance : "records"
-    Institution ||--o{ Exam : "conducts"
-    Institution ||--o{ ExamResult : "stores"
-    Institution ||--o{ TimetableSlot : "schedules"
-    Institution ||--o{ Notice : "publishes"
-    Institution ||--o{ LibraryBook : "owns"
-    Institution ||--o{ LibraryIssue : "tracks"
-    Institution ||--o{ TransportVehicle : "operates"
-    Institution ||--o{ TransportRoute : "defines"
-    Institution ||--o{ TransportAssignment : "manages"
-    Institution ||--o{ StaffProfile : "employs"
-    Institution ||--o{ PayrollRecord : "processes"
-    Institution ||--o{ Message : "hosts"
-
-    Branch ||--o{ AcademicClass : "contains"
-    AcademicClass ||--o{ Section : "split into"
-    Section }o--o| Teacher : "managed by"
-
-    User ||--o| Student : "linked to"
-    User ||--o| Teacher : "linked to"
-    User ||--o| Guardian : "linked to"
-    User ||--o| StaffProfile : "linked to"
-    User ||--o{ RefreshToken : "owns"
-    User ||--o{ AuditLog : "generates"
-    User ||--o{ Message : "sends/receives"
-
-    Student ||--o{ GuardianStudent : "linked to"
-    Guardian ||--o{ GuardianStudent : "linked to"
-    Student ||--o{ StudentDocument : "has"
-    Student ||--o{ Attendance : "logs"
-    Student ||--o{ Invoice : "billed for"
-    Student ||--o{ ExamResult : "receives"
-    Student ||--o{ LibraryIssue : "borrows"
-    Student ||--o{ TransportAssignment : "assigned to"
-
-    Invoice ||--o{ InvoiceItem : "contains"
-    Invoice ||--o{ Payment : "settled by"
-    FeeCategory ||--o{ InvoiceItem : "referenced by"
-
-    Exam ||--o{ ExamResult : "produces"
-
     LibraryBook ||--o{ LibraryIssue : "issued via"
+    Student ||--o{ LibraryIssue : borrows
     TransportRoute ||--o{ TransportAssignment : "used by"
     TransportVehicle ||--o{ TransportAssignment : "assigned in"
-
-    StaffProfile ||--o{ PayrollRecord : "receives"
-    Teacher ||--o{ TimetableSlot : "assigned to"
+    Student ||--o{ TransportAssignment : "assigned to"
+    StaffProfile ||--o{ PayrollRecord : receives
 ```
 
 ---
