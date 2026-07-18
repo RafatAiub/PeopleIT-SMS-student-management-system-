@@ -11,9 +11,12 @@ const router = Router();
 
 router.use(authenticate, setTenant);
 
-// STUDENT "own transport" self-service view is a future addition (needs
-// ownership scoping); until then, transport access is staff-only.
 const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TRANSPORT_OFFICER);
+
+// Self-service — STUDENT/GUARDIAN view their own (or linked children's)
+// transport assignment, scoped server-side. Must be declared before any
+// ':id'-style routes.
+router.get('/me/assignment', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), transportController.getMyAssignment);
 
 router.post('/vehicles', STAFF_ROLES, validate({ body: CreateVehicleDto }), transportController.createVehicle);
 router.get('/vehicles', STAFF_ROLES, transportController.getVehicles);

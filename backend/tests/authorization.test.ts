@@ -126,6 +126,12 @@ describe('Authorization matrix — previously-unprotected routes', () => {
       allowedRoles: LIBRARY_STAFF,
       label: 'POST /library/books',
     },
+    {
+      method: 'get',
+      path: '/api/v1/library/me/issues',
+      allowedRoles: [UserRole.STUDENT, UserRole.GUARDIAN],
+      label: 'GET /library/me/issues (self-service)',
+    },
 
     // --- transport ---
     { method: 'get', path: '/api/v1/transport/vehicles', allowedRoles: TRANSPORT_STAFF, label: 'GET /transport/vehicles' },
@@ -135,6 +141,12 @@ describe('Authorization matrix — previously-unprotected routes', () => {
       body: { registrationNumber: 'x', capacity: 1, driverName: 'x' },
       allowedRoles: TRANSPORT_STAFF,
       label: 'POST /transport/vehicles',
+    },
+    {
+      method: 'get',
+      path: '/api/v1/transport/me/assignment',
+      allowedRoles: [UserRole.STUDENT, UserRole.GUARDIAN],
+      label: 'GET /transport/me/assignment (self-service)',
     },
 
     // --- timetables (reads open, writes locked down) ---

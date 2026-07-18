@@ -95,7 +95,13 @@ export async function createAssignment(institutionId: string, data: CreateAssign
 
 export async function getAssignments(
   institutionId: string,
-  query: { page?: number; pageSize?: number; search?: string }
+  query: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    studentId?: string;
+    studentIdIn?: string[];
+  }
 ) {
   const page = Number(query.page) || 1;
   const pageSize = Number(query.pageSize) || 20;
@@ -103,6 +109,8 @@ export async function getAssignments(
 
   const where = {
     institutionId,
+    ...(query.studentId ? { studentId: query.studentId } : {}),
+    ...(query.studentIdIn ? { studentId: { in: query.studentIdIn } } : {}),
     ...(query.search
       ? {
           OR: [

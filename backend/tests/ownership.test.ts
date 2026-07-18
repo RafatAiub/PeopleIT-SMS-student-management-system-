@@ -113,6 +113,254 @@ describe('Fee invoice ownership scoping (GUARDIAN/STUDENT)', () => {
   });
 });
 
+describe('Library issue ownership scoping (GUARDIAN/STUDENT)', () => {
+  let instA: InstitutionFixture;
+  let book: { id: string };
+  let issueForA: { id: string };
+  let otherStudentInA: { id: string };
+  let issueForOtherStudent: { id: string };
+
+  beforeAll(async () => {
+    instA = await createTestInstitution('libA');
+
+    book = await prisma.libraryBook.create({
+      data: {
+        institutionId: instA.institutionId,
+        title: 'Test Book',
+        author: 'Author X',
+        totalCopies: 5,
+        availableCopies: 5,
+      },
+    });
+
+    issueForA = await prisma.libraryIssue.create({
+      data: {
+        institutionId: instA.institutionId,
+        bookId: book.id,
+        studentId: instA.studentId,
+        dueDate: new Date(),
+        status: 'ISSUED',
+      },
+    });
+
+    otherStudentInA = await prisma.student.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: `STU-LIB-OTHER-${instA.slug}`,
+        firstName: 'Other',
+        lastName: 'Student',
+      },
+    });
+
+    issueForOtherStudent = await prisma.libraryIssue.create({
+      data: {
+        institutionId: instA.institutionId,
+        bookId: book.id,
+        studentId: otherStudentInA.id,
+        dueDate: new Date(),
+        status: 'ISSUED',
+      },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await prisma.libraryIssue.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.libraryBook.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.student.deleteMany({ where: { id: otherStudentInA.id } });
+    await cleanupInstitution(instA);
+    await disconnectFixtures();
+  }, 30_000);
+
+  it('STUDENT sees only their own issues', async () => {
+    const { token } = instA.usersByRole[UserRole.STUDENT];
+    const res = await request(app).get('/api/v1/library/me/issues').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((i) => i.id);
+    expect(ids).toContain(issueForA.id);
+    expect(ids).not.toContain(issueForOtherStudent.id);
+  });
+
+  it('GUARDIAN sees only their linked children\'s issues', async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app).get('/api/v1/library/me/issues').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((i) => i.id);
+    expect(ids).toContain(issueForA.id);
+    expect(ids).not.toContain(issueForOtherStudent.id);
+  });
+
+  it('GUARDIAN cannot access a non-linked student\'s issues via studentId param', async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app)
+      .get(`/api/v1/library/me/issues?studentId=${otherStudentInA.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((i) => i.id);
+    expect(ids).not.toContain(issueForOtherStudent.id);
+    expect(ids.length).toBe(0);
+  });
+
+  it('unauthenticated request is rejected (401)', async () => {
+    const res = await request(app).get('/api/v1/library/me/issues');
+    expect(res.status).toBe(401);
+  });
+
+  it('a staff-only role (ADMIN) cannot use the self-service route (403)', async () => {
+    const { token } = instA.usersByRole[UserRole.ADMIN];
+    const res = await request(app).get('/api/v1/library/me/issues').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('Transport assignment ownership scoping (GUARDIAN/STUDENT)', () => {
+  let instA: InstitutionFixture;
+  let instB: InstitutionFixture;
+  let vehicle: { id: string };
+  let route: { id: string };
+  let assignmentForA: { id: string };
+  let otherStudentInA: { id: string };
+  let assignmentForOtherStudent: { id: string };
+  let secondLinkedStudent: { id: string };
+
+  beforeAll(async () => {
+    instA = await createTestInstitution('transportA');
+    // A second, unrelated institution whose STUDENT has no transport
+    // assignment at all — used to prove "no assignment" returns null, not a 500.
+    instB = await createTestInstitution('transportB');
+
+    vehicle = await prisma.transportVehicle.create({
+      data: {
+        institutionId: instA.institutionId,
+        registrationNumber: `VEH-${instA.slug}`,
+        capacity: 40,
+        driverName: 'Driver X',
+      },
+    });
+
+    route = await prisma.transportRoute.create({
+      data: {
+        institutionId: instA.institutionId,
+        name: 'Route A',
+        stops: 'Stop 1, Stop 2',
+      },
+    });
+
+    assignmentForA = await prisma.transportAssignment.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: instA.studentId,
+        routeId: route.id,
+        vehicleId: vehicle.id,
+        pickupPoint: 'Stop 1',
+      },
+    });
+
+    // A second student in the same institution, NOT linked to instA's
+    // guardian and NOT the instA student themself — used to prove ownership
+    // scoping blocks a same-tenant sibling family, not just cross-tenant.
+    otherStudentInA = await prisma.student.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: `STU-TRANSPORT-OTHER-${instA.slug}`,
+        firstName: 'Other',
+        lastName: 'Student',
+      },
+    });
+
+    assignmentForOtherStudent = await prisma.transportAssignment.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: otherStudentInA.id,
+        routeId: route.id,
+        vehicleId: vehicle.id,
+        pickupPoint: 'Stop 2',
+      },
+    });
+
+    // A second child linked to the same guardian, WITHOUT a transport
+    // assignment — proves the multi-child array omits children with no
+    // assignment rather than erroring or padding with nulls.
+    secondLinkedStudent = await prisma.student.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: `STU-TRANSPORT-SIBLING-${instA.slug}`,
+        firstName: 'Sibling',
+        lastName: 'Student',
+      },
+    });
+    await prisma.guardianStudent.create({
+      data: { guardianId: instA.guardianId, studentId: secondLinkedStudent.id, isPrimary: false },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await prisma.guardianStudent.deleteMany({ where: { studentId: secondLinkedStudent.id } });
+    await prisma.transportAssignment.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.transportRoute.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.transportVehicle.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.student.deleteMany({ where: { id: { in: [otherStudentInA.id, secondLinkedStudent.id] } } });
+    await cleanupInstitution(instA);
+    await cleanupInstitution(instB);
+    await disconnectFixtures();
+  }, 30_000);
+
+  it('STUDENT sees only their own assignment', async () => {
+    const { token } = instA.usersByRole[UserRole.STUDENT];
+    const res = await request(app).get('/api/v1/transport/me/assignment').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data?.id).toBe(assignmentForA.id);
+    expect(res.body.data?.studentId).toBe(instA.studentId);
+  });
+
+  it('STUDENT with no assignment record gets null, not a 500', async () => {
+    const { token } = instB.usersByRole[UserRole.STUDENT];
+    const res = await request(app).get('/api/v1/transport/me/assignment').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeNull();
+  });
+
+  it("GUARDIAN with a studentId param sees only their linked child's assignment", async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app)
+      .get(`/api/v1/transport/me/assignment?studentId=${instA.studentId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data?.id).toBe(assignmentForA.id);
+  });
+
+  it("GUARDIAN supplying a non-linked studentId gets null, not another family's data", async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app)
+      .get(`/api/v1/transport/me/assignment?studentId=${otherStudentInA.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeNull();
+  });
+
+  it('GUARDIAN with multiple children and no studentId param gets an array with only assigned children present', async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app).get('/api/v1/transport/me/assignment').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    const ids = (res.body.data as Array<{ studentId: string }>).map((a) => a.studentId);
+    expect(ids).toContain(instA.studentId);
+    expect(ids).not.toContain(secondLinkedStudent.id);
+    expect(ids).not.toContain(otherStudentInA.id);
+    expect(ids.length).toBe(1);
+  });
+
+  it('unauthenticated request is rejected (401)', async () => {
+    const res = await request(app).get('/api/v1/transport/me/assignment');
+    expect(res.status).toBe(401);
+  });
+
+  it('a staff-only role (TRANSPORT_OFFICER) cannot use the self-service route (403)', async () => {
+    const { token } = instA.usersByRole[UserRole.TRANSPORT_OFFICER];
+    const res = await request(app).get('/api/v1/transport/me/assignment').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('Cross-tenant isolation — students module', () => {
   let instA: InstitutionFixture;
   let instB: InstitutionFixture;

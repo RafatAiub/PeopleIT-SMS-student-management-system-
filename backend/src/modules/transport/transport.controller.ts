@@ -61,3 +61,16 @@ export async function getAssignments(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+export async function getMyAssignment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await transportService.getMyAssignment(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.query as any,
+    );
+    successResponse(res, result, 'Assignment fetched successfully', 200);
+  } catch (error) {
+    next(error);
+  }
+}

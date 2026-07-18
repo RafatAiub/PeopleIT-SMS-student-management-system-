@@ -51,3 +51,18 @@ export async function getIssues(req: Request, res: Response, next: NextFunction)
     next(error);
   }
 }
+
+export async function getMyIssues(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const page = Number(req.query.page) || 1;
+    const pageSize = Number(req.query.pageSize) || 20;
+    const { issues, total } = await libraryService.getMyIssues(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.query as any,
+    );
+    paginatedResponse(res, issues, total, page, pageSize, 'Issues fetched successfully');
+  } catch (error) {
+    next(error);
+  }
+}

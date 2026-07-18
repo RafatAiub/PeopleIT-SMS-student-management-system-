@@ -19,7 +19,9 @@ const MarksEntry = React.lazy(() => import('./pages/results/MarksEntry'));
 const TimetableGrid = React.lazy(() => import('./pages/timetables/TimetableGrid'));
 const NoticeBoard = React.lazy(() => import('./pages/notices/NoticeBoard'));
 const LibraryManagement = React.lazy(() => import('./pages/library/LibraryManagement'));
+const MyLibraryIssues = React.lazy(() => import('./pages/library/MyLibraryIssues'));
 const TransportManagement = React.lazy(() => import('./pages/transport/TransportManagement'));
+const MyTransportAssignment = React.lazy(() => import('./pages/transport/MyTransportAssignment'));
 const HrPayrollManagement = React.lazy(() => import('./pages/hr/HrPayrollManagement'));
 const AiInsights = React.lazy(() => import('./pages/ai/AiInsights'));
 const WebsiteBuilder = React.lazy(() => import('./pages/website/WebsiteBuilder'));
@@ -42,6 +44,24 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   }
 
   return <>{children}</>;
+};
+
+// Library route branches by role: staff manage the catalog, students/guardians see a read-only issues view
+const LibraryRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyLibraryIssues />;
+  }
+  return <LibraryManagement />;
+};
+
+// Transport route branches by role: staff manage routes/vehicles, students/guardians see a read-only assignment view
+const TransportRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyTransportAssignment />;
+  }
+  return <TransportManagement />;
 };
 
 // Layout Wrapper
@@ -310,7 +330,7 @@ const App = () => {
         <Route path="/library" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <LibraryManagement />
+              <LibraryRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -318,7 +338,7 @@ const App = () => {
         <Route path="/transport" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <TransportManagement />
+              <TransportRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />

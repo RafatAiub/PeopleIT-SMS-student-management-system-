@@ -11,9 +11,11 @@ const router = Router();
 
 router.use(authenticate, setTenant);
 
-// STUDENT "own issues" self-service view is a future addition (needs
-// ownership scoping); until then, library access is staff-only.
 const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.LIBRARIAN);
+
+// Self-service — STUDENT/GUARDIAN view their own (or linked children's) book
+// issues, scoped server-side. Must be declared before any ':id'-style routes.
+router.get('/me/issues', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), libraryController.getMyIssues);
 
 router.post('/books', STAFF_ROLES, validate({ body: CreateLibraryBookDto }), libraryController.createBook);
 router.get('/books', STAFF_ROLES, libraryController.getBooks);

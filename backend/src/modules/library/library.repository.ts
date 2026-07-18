@@ -106,7 +106,14 @@ export async function returnBook(institutionId: string, issueId: string, data: R
 
 export async function getIssues(
   institutionId: string,
-  query: { page?: number; pageSize?: number; search?: string; status?: string }
+  query: {
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    status?: string;
+    studentId?: string;
+    studentIdIn?: string[];
+  }
 ) {
   const page = Number(query.page) || 1;
   const pageSize = Number(query.pageSize) || 20;
@@ -115,6 +122,8 @@ export async function getIssues(
   const where = {
     institutionId,
     ...(query.status ? { status: query.status as any } : {}),
+    ...(query.studentId ? { studentId: query.studentId } : {}),
+    ...(query.studentIdIn ? { studentId: { in: query.studentIdIn } } : {}),
     ...(query.search
       ? {
           OR: [
@@ -142,7 +151,7 @@ export async function getIssues(
       skip,
       take: pageSize,
       include: {
-        book: true,
+        book: { select: { title: true, author: true, isbn: true } },
         student: true,
       },
       orderBy: { createdAt: 'desc' },
