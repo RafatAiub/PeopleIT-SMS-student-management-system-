@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert } from 'lucide-react';
+import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, BookOpen, Download, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -40,10 +40,132 @@ const getSubjectsForClassAndDept = (className: string, dept: string) => {
   return COMMON_SUBJECTS_JUNIOR;
 };
 
+// =============================================================================
+// STUDENT "MY RESULTS" VIEW (For role = STUDENT)
+// =============================================================================
+const MyResults = () => {
+  const [loading, setLoading] = useState(true);
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [results, setResults] = useState<any[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [meRes, resultsRes] = await Promise.all([
+          apiClient.get('/students/me').catch(() => null),
+          apiClient.get('/results/me'),
+        ]);
+        setStudentId(meRes?.data?.data?.id || null);
+        setResults(resultsRes.data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch my results', err);
+        toast.error('Failed to load your results');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your results...</div>;
+  }
+
+  const examGroups = new Map<string, { examName: string; records: any[] }>();
+  results.forEach((r) => {
+    const examId = r.exam?.id || r.examId;
+    if (!examGroups.has(examId)) {
+      examGroups.set(examId, { examName: r.exam?.name || 'Exam', records: [] });
+    }
+    examGroups.get(examId)!.records.push(r);
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Results</h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Your exam marks, grades and report cards.</p>
+      </div>
+
+      {examGroups.size === 0 ? (
+        <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-500 dark:text-slate-400">
+          <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
+          No results have been published yet. Check back after your exams are graded.
+        </div>
+      ) : (
+        Array.from(examGroups.entries()).map(([examId, group]) => {
+          const totalObtained = group.records.reduce((s, r) => s + Number(r.marksObtained), 0);
+          const totalMax = group.records.reduce((s, r) => s + Number(r.maxMarks), 0);
+          const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+          return (
+            <div key={examId} className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-hidden">
+              <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/50 dark:border-white/5">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">{group.examName}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{group.records.length} subjects graded</p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="flex items-center gap-1.5 text-sm font-bold text-blue-600 dark:text-blue-400">
+                      <TrendingUp className="w-4 h-4" />
+                      {pct}%
+                    </div>
+                    <p className="text-xs text-slate-500">{totalObtained}/{totalMax} marks</p>
+                  </div>
+                  {studentId && (
+                    <a
+                      href={`${apiClient.defaults.baseURL}/results/${studentId}/report-card?examId=${examId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl transition-all shadow-md shadow-blue-500/20 text-xs font-semibold active:scale-[0.98]"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Report Card
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
+                  <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
+                    <tr>
+                      <th className="px-6 py-3 font-medium">Subject</th>
+                      <th className="px-6 py-3 font-medium text-center">Marks</th>
+                      <th className="px-6 py-3 font-medium text-center">Grade</th>
+                      <th className="px-6 py-3 font-medium">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {group.records.map((r: any) => (
+                      <tr key={r.id}>
+                        <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{r.subject}</td>
+                        <td className="px-6 py-3 text-center">{Number(r.marksObtained)}/{Number(r.maxMarks)}</td>
+                        <td className="px-6 py-3 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                            {r.grade || '—'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-slate-500 dark:text-slate-400">{r.remarks || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+};
+
 const MarksEntry = () => {
   const { user } = useAuthStore();
   const isTeacher = user?.role === 'TEACHER';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isStudent = user?.role === 'STUDENT';
+  const isGuardian = user?.role === 'GUARDIAN';
 
   const [exams, setExams] = useState<any[]>([]);
   const [selectedExam, setSelectedExam] = useState('');
@@ -73,6 +195,10 @@ const MarksEntry = () => {
   const [marks, setMarks] = useState<Record<string, Record<string, { score: string; remarks: string }>>>({});
 
   const loadInitialMetadata = async () => {
+    if (isStudent || isGuardian) {
+      setInitialLoading(false);
+      return;
+    }
     try {
       setInitialLoading(true);
       const examsRes = await apiClient.get('/results');
@@ -110,7 +236,7 @@ const MarksEntry = () => {
   }, [user]);
 
   const fetchStudentsAndMarks = async () => {
-    if (isTeacher && !hasAssignments) return;
+    if (isStudent || isGuardian || (isTeacher && !hasAssignments)) return;
     try {
       setLoading(true);
       // Reusing attendance sheet endpoint to easily fetch students by class/section name
@@ -154,7 +280,7 @@ const MarksEntry = () => {
   const isSeniorClass = selectedClass.includes('9') || selectedClass.includes('10');
 
   const fetchCompleteResultSheet = async () => {
-    if (!selectedExam) return;
+    if (isStudent || isGuardian || !selectedExam) return;
     
     const cls = classesMeta.find((c: any) => c.name === selectedClass);
     let sec = null;
@@ -508,6 +634,20 @@ const MarksEntry = () => {
       setLoading(false);
     }
   };
+
+  if (isStudent) {
+    return <MyResults />;
+  }
+
+  if (isGuardian) {
+    return (
+      <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+        <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
+        <p>Your linked children's exam results and report cards are available on your Guardian Dashboard.</p>
+        <a href="/" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
+      </div>
+    );
+  }
 
   if (initialLoading) {
     return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading Grade Upload Portal...</div>;

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, X, Edit2, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import {
+  Users, Search, X, Edit2, Trash2, UserCheck, BookOpen, Receipt,
+  Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake,
+} from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
@@ -41,6 +45,10 @@ const StudentList = () => {
   });
 
   const fetchStudents = async () => {
+    // The auth store hydrates from sessionStorage asynchronously, so `user`
+    // is null on the very first render — bail out rather than firing the
+    // staff-only /students list with a still-unresolved role.
+    if (!user) return;
     setLoading(true);
     try {
       if (isStudent) {
@@ -70,7 +78,7 @@ const StudentList = () => {
   };
 
   const fetchClasses = async () => {
-    if (isStudent) return; // Students don't need classes metadata
+    if (!user || isStudent) return; // Students don't need classes metadata
     try {
       const response = await apiClient.get('/students/meta/classes');
       setClasses(response.data.data || []);
@@ -82,7 +90,7 @@ const StudentList = () => {
   useEffect(() => {
     fetchStudents();
     fetchClasses();
-  }, [isStudent, params.page, params.pageSize, debouncedSearch, params.filters.classId, params.filters.status]);
+  }, [user, isStudent, params.page, params.pageSize, debouncedSearch, params.filters.classId, params.filters.status]);
 
   const fetchSectionsForEdit = async (classId: string, selectFirst: boolean = false) => {
     if (!classId) {
@@ -166,9 +174,12 @@ const StudentList = () => {
 
   const handleOpenEditModal = (student: any) => {
     setSelectedStudent(student);
-    
+
+    // Students only edit their own personal fields — class/section are
+    // staff-managed, and /students/meta/sections is a staff-only endpoint
+    // that would 403 for a STUDENT caller here.
     const studentClassId = student.class?.id || '';
-    if (studentClassId) {
+    if (!isStudent && studentClassId) {
       fetchSectionsForEdit(studentClassId, false).then(() => {
         setEditFormData(prev => ({ ...prev, sectionId: student.section?.id || '' }));
       });
@@ -272,102 +283,103 @@ const StudentList = () => {
       );
     }
 
-    return (
-      <div className="space-y-6 max-w-4xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Profile</h2>
-            <p className="text-slate-600 dark:text-slate-400 mt-1">View and manage your personal student profile.</p>
-          </div>
-          <button 
-            onClick={() => handleOpenEditModal(selectedStudent)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-          >
-            <Edit2 className="w-4 h-4" />
-            Edit Personal Data
-          </button>
-        </div>
+    const quickLinks = [
+      { to: '/attendance', icon: UserCheck, label: 'Attendance', desc: 'My attendance history & fines', color: 'from-emerald-500 to-teal-500' },
+      { to: '/results', icon: BookOpen, label: 'Results', desc: 'Exam marks & report cards', color: 'from-indigo-500 to-blue-500' },
+      { to: '/fees', icon: Receipt, label: 'Fees & Billing', desc: 'Invoices & online payment', color: 'from-amber-500 to-orange-500' },
+      { to: '/timetables', icon: Calendar, label: 'Timetable', desc: 'My class routine', color: 'from-purple-500 to-fuchsia-500' },
+      { to: '/library', icon: Library, label: 'Library', desc: 'My borrowed books', color: 'from-cyan-500 to-sky-500' },
+      { to: '/transport', icon: Bus, label: 'Transport', desc: 'My route & vehicle', color: 'from-rose-500 to-pink-500' },
+      { to: '/notices', icon: Megaphone, label: 'Notices', desc: 'School announcements', color: 'from-lime-500 to-green-500' },
+    ];
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Avatar and Key Info */}
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col items-center text-center space-y-4">
+    return (
+      <div className="space-y-6 max-w-5xl">
+        {/* Hero */}
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 p-6 sm:p-8 bg-gradient-to-br from-indigo-500/5 via-transparent to-teal-500/5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             {selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl ? (
-              <img 
-                src={selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl} 
-                alt="Avatar" 
-                className="w-24 h-24 rounded-full object-cover border border-slate-200/50 dark:border-white/10 shadow-lg"
+              <img
+                src={selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl}
+                alt="Avatar"
+                className="w-24 h-24 rounded-2xl object-cover border border-slate-200/50 dark:border-white/10 shadow-lg flex-shrink-0"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center text-3xl font-bold text-white glow-indigo shadow-lg">
+              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center text-3xl font-bold text-white glow-indigo shadow-lg flex-shrink-0">
                 {selectedStudent.firstName?.[0] || '?'}
               </div>
             )}
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{selectedStudent.firstName} {selectedStudent.lastName}</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {selectedStudent.studentId}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  {selectedStudent.firstName} {selectedStudent.lastName}
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+                  {selectedStudent.status || 'ACTIVE'}
+                </span>
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                Student ID {selectedStudent.studentId} · {selectedStudent.class?.name || 'No class'} {selectedStudent.section?.name ? `- ${selectedStudent.section.name}` : ''} · Roll {selectedStudent.rollNumber || 'N/A'}
+              </p>
+              <p className="text-slate-600 dark:text-slate-400 text-sm mt-2">Welcome back! Here's your student hub — everything about your school life in one place.</p>
             </div>
-            <div className="w-full pt-4 border-t border-slate-200/50 dark:border-white/5 text-left space-y-2.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Status</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-semibold uppercase">{selectedStudent.status || 'ACTIVE'}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Class</span>
-                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.class?.name || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Section</span>
-                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.section?.name || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Roll Number</span>
-                <span className="text-slate-900 dark:text-white font-medium">{selectedStudent.rollNumber || 'N/A'}</span>
-              </div>
-            </div>
+            <button
+              onClick={() => handleOpenEditModal(selectedStudent)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center flex-shrink-0"
+            >
+              <Edit2 className="w-4 h-4" />
+              Edit Personal Data
+            </button>
           </div>
+        </div>
 
-          {/* Complete Profile Details */}
-          <div className="md:col-span-2 glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 space-y-6">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-200/50 dark:border-white/5 pb-3">Personal & Academic Details</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 text-sm">
-              <div>
-                <span className="text-xs text-slate-500 block">First Name</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.firstName}</span>
+        {/* Quick access grid */}
+        <div>
+          <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Quick Access</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {quickLinks.map(({ to, icon: Icon, label, desc, color }) => (
+              <Link
+                key={to}
+                to={to}
+                className="glass-card group p-4 rounded-2xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/20 hover:-translate-y-0.5 transition-all duration-200 flex flex-col gap-3"
+              >
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{label}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{desc}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Personal & Academic Details */}
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-5">Personal &amp; Academic Details</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 text-sm">
+            {[
+              { icon: Users, label: 'Full Name', value: `${selectedStudent.firstName} ${selectedStudent.lastName}` },
+              { icon: Mail, label: 'Email Address', value: selectedStudent.email || 'N/A' },
+              { icon: Phone, label: 'Phone Number', value: selectedStudent.phone || 'N/A' },
+              { icon: Users, label: 'Gender', value: selectedStudent.gender ? selectedStudent.gender.charAt(0) + selectedStudent.gender.slice(1).toLowerCase() : 'N/A' },
+              { icon: Droplet, label: 'Blood Group', value: selectedStudent.bloodGroup || 'N/A' },
+              { icon: MapPin, label: 'Address', value: selectedStudent.address || 'N/A' },
+              { icon: Cake, label: 'Admission Date', value: selectedStudent.admissionDate ? new Date(selectedStudent.admissionDate).toLocaleDateString() : 'N/A' },
+              { icon: Users, label: 'Branch', value: selectedStudent.branch?.name || 'Main Branch' },
+              { icon: Calendar, label: 'Academic Year', value: selectedStudent.academicYear?.label || new Date().getFullYear().toString() },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 flex-shrink-0">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs text-slate-500 block">{label}</span>
+                  <span className="text-slate-800 dark:text-white font-medium mt-0.5 block truncate" title={value}>{value}</span>
+                </div>
               </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Last Name</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.lastName}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Email Address</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.email || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Phone Number</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.phone || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Gender</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block capitalize">{selectedStudent.gender?.toLowerCase() || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Admission Date</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">
-                  {selectedStudent.admissionDate ? new Date(selectedStudent.admissionDate).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Branch</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">{selectedStudent.branch?.name || 'Main Branch'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-slate-500 block">Academic Year</span>
-                <span className="text-slate-800 dark:text-white font-medium mt-1 block">
-                  {selectedStudent.academicYear?.label || new Date().getFullYear().toString()}
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 

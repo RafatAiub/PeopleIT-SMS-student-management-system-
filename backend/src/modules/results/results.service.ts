@@ -101,6 +101,34 @@ export async function listResults(
   return resultsRepository.findAllResults(institutionId, query);
 }
 
+/** STUDENT "my results" — ownership-scoped to the caller's own student record. */
+export async function getMyResults(institutionId: string, userId: string) {
+  const own = await studentRepository.findByUserId(institutionId, userId);
+  if (!own) {
+    throw new NotFoundError('Student record not found');
+  }
+  const { records } = await resultsRepository.findAllResults(institutionId, {
+    studentId: own.id,
+    page: 1,
+    pageSize: 500,
+  } as ExamResultQueryDtoType);
+  return records;
+}
+
+/** GUARDIAN "my child's results" — ownership-scoped to linked children only. */
+export async function getChildResults(institutionId: string, studentId: string, guardianUserId: string) {
+  const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, guardianUserId);
+  if (!linked.includes(studentId)) {
+    throw new NotFoundError('Student not found');
+  }
+  const { records } = await resultsRepository.findAllResults(institutionId, {
+    studentId,
+    page: 1,
+    pageSize: 500,
+  } as ExamResultQueryDtoType);
+  return records;
+}
+
 // ── Report Card PDF ─────────────────────────────────────────────────────────
 
 /**

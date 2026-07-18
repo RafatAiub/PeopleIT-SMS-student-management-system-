@@ -24,11 +24,12 @@ router.use(authenticate, setTenant, auditLog);
 const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER);
 
 // Exam Result routes (Static paths first)
-// No STUDENT/GUARDIAN-scoped "my results" list route exists yet — tracked
-// separately. Report cards ARE ownership-scoped (see generateReportCard).
 router.post('/submit', STAFF_ROLES, validate({ body: SubmitExamResultsDto }), resultsController.submitResults);
 router.get('/results-list', STAFF_ROLES, validate({ query: ExamResultQueryDto }), resultsController.listResults);
 router.delete('/results-list/:id', STAFF_ROLES, validate({ params: ResultIdParamDto }), resultsController.deleteResult);
+// STUDENT "my results" / GUARDIAN "child's results" — ownership-scoped in the service.
+router.get('/me', requireRole(UserRole.STUDENT), resultsController.getMyResults);
+router.get('/child/:studentId', requireRole(UserRole.GUARDIAN), resultsController.getChildResults);
 router.get(
   '/:studentId/report-card',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN),

@@ -17,6 +17,8 @@ const AttendanceEntry = () => {
   const isStudent = user?.role === 'STUDENT';
   const isTeacher = user?.role === 'TEACHER';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isGuardian = user?.role === 'GUARDIAN';
+  const isAccountant = user?.role === 'ACCOUNTANT';
 
   // State for Admin/Teacher operations
   const [selectedClass, setSelectedClass] = useState('Class 8');
@@ -73,6 +75,8 @@ const AttendanceEntry = () => {
         const res = await apiClient.get('/users?role=TEACHER&pageSize=100');
         setTeachersList(res.data.data || []);
       }
+      // GUARDIAN/ACCOUNTANT: no dedicated view built here yet — fall through
+      // to the message screen below rather than firing a staff-only request.
     } catch (err) {
       console.error('Failed to load initial metadata', err);
     } finally {
@@ -86,7 +90,7 @@ const AttendanceEntry = () => {
 
   // Load attendance sheet for Teacher/Admin when parameters change
   const fetchAttendanceSheet = async () => {
-    if (isStudent || (isTeacher && !hasAssignments)) return;
+    if (isStudent || isGuardian || isAccountant || (isTeacher && !hasAssignments)) return;
     try {
       setLoading(true);
       const res = await apiClient.get(
@@ -287,7 +291,27 @@ const AttendanceEntry = () => {
     );
   }
 
-  // ── 2. TEACHER / ADMIN VIEW ───────────────────────────────────────────────
+  // ── 2. GUARDIAN / ACCOUNTANT (no dedicated view built yet) ────────────────
+  if (isGuardian) {
+    return (
+      <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
+        <p>Your linked children's attendance is available on your Guardian Dashboard.</p>
+        <a href="/" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
+      </div>
+    );
+  }
+  if (isAccountant) {
+    return (
+      <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
+        <p>Institution-wide attendance trends are available on the Reports page.</p>
+        <a href="/reports" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Reports →</a>
+      </div>
+    );
+  }
+
+  // ── 3. TEACHER / ADMIN VIEW ───────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

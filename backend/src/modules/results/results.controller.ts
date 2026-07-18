@@ -109,6 +109,32 @@ export async function listResults(
   }
 }
 
+export async function getMyResults(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const records = await resultsService.getMyResults(req.tenantId!, req.user!.sub);
+    successResponse(res, records);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getChildResults(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const records = await resultsService.getChildResults(req.tenantId!, req.params.studentId, req.user!.sub);
+    successResponse(res, records);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getReportCard(
   req: Request,
   res: Response,

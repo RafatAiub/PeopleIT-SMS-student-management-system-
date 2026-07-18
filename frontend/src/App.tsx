@@ -14,6 +14,7 @@ const TeacherDashboard = React.lazy(() => import('./pages/TeacherDashboard'));
 const GuardianDashboard = React.lazy(() => import('./pages/GuardianDashboard'));
 const StudentList = React.lazy(() => import('./pages/students/StudentList'));
 const InvoiceList = React.lazy(() => import('./pages/fees/InvoiceList'));
+const MyInvoices = React.lazy(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = React.lazy(() => import('./pages/attendance/AttendanceEntry'));
 const MarksEntry = React.lazy(() => import('./pages/results/MarksEntry'));
 const TimetableGrid = React.lazy(() => import('./pages/timetables/TimetableGrid'));
@@ -62,6 +63,15 @@ const TransportRoute = () => {
     return <MyTransportAssignment />;
   }
   return <TransportManagement />;
+};
+
+// Fees route branches by role: staff/accountant manage invoices & categories, students/guardians see a read-only "my invoices" + pay view
+const FeesRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyInvoices />;
+  }
+  return <InvoiceList />;
 };
 
 // Layout Wrapper
@@ -291,7 +301,7 @@ const App = () => {
         <Route path="/fees" element={
           <ProtectedRoute>
             <DashboardLayout>
-              <InvoiceList />
+              <FeesRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />
