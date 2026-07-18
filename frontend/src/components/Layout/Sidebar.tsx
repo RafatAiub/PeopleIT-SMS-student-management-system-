@@ -28,6 +28,11 @@ interface NavGroup {
 // Role Permission Access Matrix — mirrors the route guards in App.tsx /
 // backend *.routes.ts requireRole() calls, so the sidebar never advertises
 // a link a role would be redirected away from.
+// Role Permission Access Matrix (PROJECT_STATUS.md) — resource -> role visibility.
+// Super Admin is scoped to tenant/platform management (Institutions, Branches &
+// Classes, User Accounts, Audit Logs); it deliberately does NOT see day-to-day
+// school-operations resources (Students, Attendance, Exam Marks, Invoices,
+// Library, Transport, HR, Notices, Messages) — those are Admin's domain.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
@@ -38,46 +43,57 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Academics',
     items: [
-      { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'MANAGEMENT', 'STUDENT'] },
-      { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only
+      { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+      // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
+      { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
+      { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
     ],
   },
   {
     label: 'Management',
     items: [
-      { to: '/hr', icon: <Users className="w-4.5 h-4.5" />, label: 'HR & Payroll', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
-      { to: '/ai-insights', icon: <Brain className="w-4.5 h-4.5" />, label: 'AI Insights', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/website-builder', icon: <Globe className="w-4.5 h-4.5" />, label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // HR & Payroll: Admin Full, Accountant Read
+      { to: '/hr', icon: <Users className="w-4.5 h-4.5" />, label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
+      { to: '/ai-insights', icon: <Brain className="w-4.5 h-4.5" />, label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
+      { to: '/website-builder', icon: <Globe className="w-4.5 h-4.5" />, label: 'Website Builder', roles: ['ADMIN'] },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
-      { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
+      { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
     ],
   },
   {
     label: 'Communication',
     items: [
-      { to: '/messages', icon: <MessageSquare className="w-4.5 h-4.5" />, label: 'Messages' },
-      { to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Notices' },
+      // Messages: Admin Full, everyone else Own conversations only (Super Admin excluded)
+      { to: '/messages', icon: <MessageSquare className="w-4.5 h-4.5" />, label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
+      { to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // User Accounts: Super Admin (admin-level accounts only), Admin Full, Teacher/Accountant Read
+      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT'] },
+      // Branches & Classes: Super Admin/Admin Full, everyone else Read
+      { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
     label: 'Facilities',
     items: [
-      { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library', roles: ['SUPER_ADMIN', 'ADMIN', 'LIBRARIAN', 'TEACHER', 'STUDENT'] },
-      { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['SUPER_ADMIN', 'ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Library: Admin Full, Librarian Full, Student/Guardian Own Issues
+      { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
+      // Transport: Admin Full, Transport Officer Full, Student/Guardian Own Only
+      { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
 ];

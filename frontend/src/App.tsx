@@ -277,7 +277,7 @@ const App = () => {
         } />
 
         <Route path="/attendance" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <AttendanceEntry />
             </DashboardLayout>
@@ -285,7 +285,7 @@ const App = () => {
         } />
 
         <Route path="/results" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <MarksEntry />
             </DashboardLayout>
@@ -324,7 +324,7 @@ const App = () => {
         } />
 
         <Route path="/hr" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <HrPayrollManagement />
             </DashboardLayout>
@@ -332,7 +332,7 @@ const App = () => {
         } />
 
         <Route path="/ai-insights" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
             <DashboardLayout>
               <AiInsights />
             </DashboardLayout>
@@ -340,7 +340,7 @@ const App = () => {
         } />
 
         <Route path="/website-builder" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['ADMIN']}>
             <DashboardLayout>
               <WebsiteBuilder />
             </DashboardLayout>
@@ -348,7 +348,7 @@ const App = () => {
         } />
         
         <Route path="/reports" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <Reports />
             </DashboardLayout>
@@ -364,7 +364,7 @@ const App = () => {
         } />
 
         <Route path="/users" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT']}>
             <DashboardLayout>
               <Users />
             </DashboardLayout>
@@ -372,7 +372,7 @@ const App = () => {
         } />
 
         <Route path="/settings" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <Settings />
             </DashboardLayout>
