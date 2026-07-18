@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, Receipt, UserCheck, FileText, Download, Megaphone, Bus, Library } from 'lucide-react';
+import {
+  Users, Receipt, UserCheck, FileText, Download, Megaphone, Bus, Library,
+  Phone, Mail, CheckCircle2, AlertTriangle, Bell,
+} from 'lucide-react';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '../store/authStore';
 import { EmptyState } from '../components/common/EmptyState';
 
 interface ChildSummary {
@@ -11,6 +15,7 @@ interface ChildSummary {
   firstName: string;
   lastName: string;
   isPrimary: boolean;
+  avatarUrl?: string | null;
   class: { name: string } | null;
   section: { name: string } | null;
 }
@@ -52,6 +57,12 @@ interface LibraryIssue {
   fineAmount: number;
 }
 
+interface SchoolContact {
+  name: string;
+  contactPhone: string | null;
+  contactEmail: string | null;
+}
+
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
     PAID: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
@@ -62,13 +73,63 @@ const StatusBadge = ({ status }: { status: string }) => {
     RETURNED: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
   };
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${map[status] || 'bg-slate-100 text-slate-600'}`}>
+    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${map[status] || 'bg-slate-100 text-slate-600'}`}>
       {status}
     </span>
   );
 };
 
+// Large, plain-language status tiles for the top of the dashboard — the
+// things a worried (and possibly elderly) parent wants to know at a glance,
+// without reading anything. Status is never color-alone: every tile pairs
+// its color with an icon and a short, everyday-language line.
+type TileStatus = 'good' | 'warning' | 'critical' | 'info';
+
+const TILE_STYLES: Record<TileStatus, { box: string; icon: React.ReactNode }> = {
+  good: {
+    box: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400',
+    icon: <CheckCircle2 className="w-9 h-9" />,
+  },
+  warning: {
+    box: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400',
+    icon: <AlertTriangle className="w-9 h-9" />,
+  },
+  critical: {
+    box: 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400',
+    icon: <AlertTriangle className="w-9 h-9" />,
+  },
+  info: {
+    box: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400',
+    icon: <Bell className="w-9 h-9" />,
+  },
+};
+
+const StatTile = ({
+  label,
+  value,
+  status,
+  helpText,
+}: {
+  label: string;
+  value: string;
+  status: TileStatus;
+  helpText?: string;
+}) => {
+  const style = TILE_STYLES[status];
+  return (
+    <div className={`rounded-2xl border-2 p-5 flex items-center gap-4 ${style.box}`}>
+      <div className="shrink-0">{style.icon}</div>
+      <div className="min-w-0">
+        <p className="text-3xl font-black leading-none">{value}</p>
+        <p className="text-base font-bold mt-2">{label}</p>
+        {helpText && <p className="text-sm mt-1 opacity-80">{helpText}</p>}
+      </div>
+    </div>
+  );
+};
+
 const GuardianDashboard = () => {
+  const { user } = useAuthStore();
   const [children, setChildren] = useState<ChildSummary[]>([]);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -77,6 +138,7 @@ const GuardianDashboard = () => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [transportAssignment, setTransportAssignment] = useState<TransportAssignment | null>(null);
   const [libraryIssues, setLibraryIssues] = useState<LibraryIssue[]>([]);
+  const [contact, setContact] = useState<SchoolContact | null>(null);
   const [loading, setLoading] = useState(true);
   const [childDataLoading, setChildDataLoading] = useState(false);
 
@@ -97,8 +159,8 @@ const GuardianDashboard = () => {
     fetchChildren();
   }, []);
 
-  // Announcements aren't per-child — parents check these first, so they're
-  // fetched independently of which child is currently selected.
+  // Announcements and school contact details aren't per-child — parents check
+  // these first, so they're fetched independently of the selected child.
   useEffect(() => {
     const fetchNotices = async () => {
       try {
@@ -109,7 +171,17 @@ const GuardianDashboard = () => {
         console.error('Failed to load notices', err);
       }
     };
+    const fetchContact = async () => {
+      try {
+        const res = await apiClient.get('/institution/website');
+        const inst = res.data.data;
+        if (inst) setContact({ name: inst.name, contactPhone: inst.contactPhone, contactEmail: inst.contactEmail });
+      } catch (err) {
+        console.error('Failed to load school contact info', err);
+      }
+    };
     fetchNotices();
+    fetchContact();
   }, []);
 
   useEffect(() => {
@@ -157,7 +229,7 @@ const GuardianDashboard = () => {
   };
 
   if (loading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your dashboard...</div>;
+    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center text-lg">Loading your dashboard...</div>;
   }
 
   if (children.length === 0) {
@@ -174,50 +246,109 @@ const GuardianDashboard = () => {
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
 
+  // Derive plain-language status for the top tiles — never color alone.
+  const attendancePct: number | null = attendance?.statistics?.attendancePercentage ?? null;
+  const attendanceStatus: TileStatus = attendancePct === null ? 'info' : attendancePct >= 85 ? 'good' : attendancePct >= 70 ? 'warning' : 'critical';
+
+  const totalFeesDue = invoices.reduce((sum, inv) => sum + Number(inv.dueAmount || 0), 0);
+  const feesStatus: TileStatus = totalFeesDue > 0 ? 'critical' : 'good';
+
+  const overdueBooks = libraryIssues.filter((i) => new Date(i.dueDate) < new Date());
+  const libraryStatus: TileStatus = overdueBooks.length > 0 ? 'critical' : libraryIssues.length > 0 ? 'warning' : 'good';
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Guardian Dashboard</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Fees, attendance, and results for your children.</p>
+        <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+          Hello, {user?.firstName || 'Guardian'}
+        </h2>
+        <p className="text-slate-600 dark:text-slate-400 mt-1.5 text-lg">Here is what's happening with your family today.</p>
       </div>
 
-      {/* Announcements — surfaced first since this is what parents check on
+      {/* At a glance — the four things a parent worries about most, in big,
+          plain numbers. No jargon, no reading required to get the gist. */}
+      {childDataLoading ? (
+        <div className="text-slate-500 dark:text-slate-400 p-8 text-center text-lg">Loading...</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatTile
+            label="Attendance"
+            value={attendancePct === null ? '—' : `${attendancePct}%`}
+            status={attendanceStatus}
+            helpText="This month"
+          />
+          <StatTile
+            label="Fees Due"
+            value={totalFeesDue > 0 ? `৳${totalFeesDue.toLocaleString()}` : 'All Paid'}
+            status={feesStatus}
+            helpText={totalFeesDue > 0 ? 'Please pay soon' : 'Nothing owed'}
+          />
+          <StatTile
+            label="Library Books"
+            value={libraryIssues.length === 0 ? 'None' : `${libraryIssues.length}`}
+            status={libraryStatus}
+            helpText={overdueBooks.length > 0 ? `${overdueBooks.length} overdue` : 'Currently borrowed'}
+          />
+          <StatTile
+            label="New Notices"
+            value={`${notices.length}`}
+            status="info"
+            helpText="From the school"
+          />
+        </div>
+      )}
+
+      {/* Announcements — surfaced early since this is what parents check on
           landing, independent of which child is currently selected. */}
       {notices.length > 0 && (
         <div className="glass-card overflow-hidden border-l-4 border-l-amber-500">
-          <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Megaphone className="w-5 h-5 text-amber-500" />
-              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Announcements</h3>
+          <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Megaphone className="w-6 h-6 text-amber-500" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Announcements</h3>
             </div>
-            <Link to="/notices" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View all</Link>
+            <Link
+              to="/notices"
+              className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+            >
+              View all
+            </Link>
           </div>
           <div className="divide-y divide-slate-100 dark:divide-white/5">
             {notices.map((notice) => (
-              <div key={notice.id} className="p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-semibold text-sm text-slate-900 dark:text-white">{notice.title}</p>
-                  <span className="text-[10px] text-slate-400 shrink-0">{new Date(notice.publishedAt).toLocaleDateString()}</span>
+              <div key={notice.id} className="p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-bold text-base text-slate-900 dark:text-white">{notice.title}</p>
+                  <span className="text-xs text-slate-400 shrink-0">{new Date(notice.publishedAt).toLocaleDateString()}</span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{notice.content}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 line-clamp-3">{notice.content}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* Child picker — big touch targets with a photo/initial so a child can
+          be recognized at a glance rather than by reading a name. */}
       {children.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-3 flex-wrap">
           {children.map((child) => (
             <button
               key={child.id}
               onClick={() => setSelectedChildId(child.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2.5 pl-2 pr-5 py-2 rounded-2xl text-base font-bold transition-all ${
                 selectedChildId === child.id
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                  : 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
               }`}
             >
+              {child.avatarUrl ? (
+                <img src={child.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover" />
+              ) : (
+                <span className={`w-9 h-9 rounded-full flex items-center justify-center font-black ${selectedChildId === child.id ? 'bg-white/20' : 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'}`}>
+                  {child.firstName.charAt(0)}
+                </span>
+              )}
               {child.firstName} {child.lastName}
             </button>
           ))}
@@ -225,13 +356,17 @@ const GuardianDashboard = () => {
       )}
 
       {selectedChild && (
-        <div className="glass-card p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-            <Users className="w-6 h-6" />
-          </div>
+        <div className="glass-card p-6 flex items-center gap-4">
+          {selectedChild.avatarUrl ? (
+            <img src={selectedChild.avatarUrl} alt="" className="w-16 h-16 rounded-2xl object-cover border border-slate-200 dark:border-white/10" />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-2xl font-black">
+              {selectedChild.firstName.charAt(0)}
+            </div>
+          )}
           <div>
-            <p className="font-bold text-slate-900 dark:text-white">{selectedChild.firstName} {selectedChild.lastName}</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="font-black text-xl text-slate-900 dark:text-white">{selectedChild.firstName} {selectedChild.lastName}</p>
+            <p className="text-base text-slate-500 dark:text-slate-400 mt-0.5">
               {selectedChild.class?.name || 'No class'} {selectedChild.section?.name ? `- ${selectedChild.section.name}` : ''} · ID: {selectedChild.studentId}
             </p>
           </div>
@@ -239,25 +374,25 @@ const GuardianDashboard = () => {
       )}
 
       {childDataLoading ? (
-        <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading...</div>
+        <div className="text-slate-500 dark:text-slate-400 p-8 text-center text-lg">Loading...</div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Fees */}
           <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-indigo-500" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Fee Invoices</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+              <Receipt className="w-6 h-6 text-indigo-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Fees & Payments</h3>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {invoices.length === 0 ? (
                 <EmptyState title="No invoices" description="No fee invoices for this child yet." icon={<Receipt className="w-8 h-8 text-slate-400" />} />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {invoices.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between text-sm">
+                    <div key={inv.id} className="flex items-center justify-between text-base">
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{inv.invoiceNo}</p>
-                        <p className="text-xs text-slate-500">Due {new Date(inv.dueDate).toLocaleDateString()} · ৳{Number(inv.dueAmount).toLocaleString()} due</p>
+                        <p className="font-semibold text-slate-900 dark:text-white">{inv.invoiceNo}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Due {new Date(inv.dueDate).toLocaleDateString()} · ৳{Number(inv.dueAmount).toLocaleString()} due</p>
                       </div>
                       <StatusBadge status={inv.status} />
                     </div>
@@ -269,25 +404,25 @@ const GuardianDashboard = () => {
 
           {/* Attendance */}
           <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
-              <UserCheck className="w-5 h-5 text-emerald-500" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Attendance</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+              <UserCheck className="w-6 h-6 text-emerald-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Attendance</h3>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {!attendance ? (
                 <EmptyState title="No attendance data" description="No attendance records yet." icon={<UserCheck className="w-8 h-8 text-slate-400" />} />
               ) : (
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 text-base">
                   <div>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{attendance.statistics?.attendancePercentage ?? 0}%</p>
-                    <p className="text-xs text-slate-500">Attendance rate</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-white">{attendance.statistics?.attendancePercentage ?? 0}%</p>
+                    <p className="text-sm text-slate-500 mt-1">Attendance rate</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-red-500">{attendance.statistics?.absent ?? 0}</p>
-                    <p className="text-xs text-slate-500">Days absent</p>
+                    <p className="text-3xl font-black text-red-500">{attendance.statistics?.absent ?? 0}</p>
+                    <p className="text-sm text-slate-500 mt-1">Days absent</p>
                   </div>
                   {attendance.finesDue > 0 && (
-                    <div className="col-span-2 text-xs text-red-500 font-semibold">৳{attendance.finesDue} in absence fines due</div>
+                    <div className="col-span-2 text-sm text-red-500 font-semibold">৳{attendance.finesDue} in absence fines due</div>
                   )}
                 </div>
               )}
@@ -296,21 +431,21 @@ const GuardianDashboard = () => {
 
           {/* Transport */}
           <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
-              <Bus className="w-5 h-5 text-sky-500" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Transport</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+              <Bus className="w-6 h-6 text-sky-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">School Bus</h3>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {!transportAssignment ? (
                 <EmptyState title="No transport assigned" description="This child isn't on a transport route yet." icon={<Bus className="w-8 h-8 text-slate-400" />} />
               ) : (
-                <div className="text-sm space-y-1.5">
-                  <p className="font-medium text-slate-900 dark:text-white">{transportAssignment.route?.name || 'Route unassigned'}</p>
+                <div className="text-base space-y-2">
+                  <p className="font-semibold text-slate-900 dark:text-white">{transportAssignment.route?.name || 'Route unassigned'}</p>
                   {transportAssignment.pickupPoint && (
-                    <p className="text-xs text-slate-500">Pickup: {transportAssignment.pickupPoint}</p>
+                    <p className="text-sm text-slate-500">Pickup: {transportAssignment.pickupPoint}</p>
                   )}
                   {transportAssignment.vehicle && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm text-slate-500">
                       Vehicle {transportAssignment.vehicle.registrationNumber} · Driver {transportAssignment.vehicle.driverName}
                       {transportAssignment.vehicle.driverPhone ? ` (${transportAssignment.vehicle.driverPhone})` : ''}
                     </p>
@@ -322,20 +457,20 @@ const GuardianDashboard = () => {
 
           {/* Library */}
           <div className="glass-card overflow-hidden">
-            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
-              <Library className="w-5 h-5 text-rose-500" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Library Books</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+              <Library className="w-6 h-6 text-rose-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Library Books</h3>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {libraryIssues.length === 0 ? (
                 <EmptyState title="No books issued" description="No library books currently checked out." icon={<Library className="w-8 h-8 text-slate-400" />} />
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {libraryIssues.map((issue) => (
-                    <div key={issue.id} className="flex items-center justify-between text-sm">
+                    <div key={issue.id} className="flex items-center justify-between text-base">
                       <div>
-                        <p className="font-medium text-slate-900 dark:text-white">{issue.book.title}</p>
-                        <p className="text-xs text-slate-500">Due {new Date(issue.dueDate).toLocaleDateString()}</p>
+                        <p className="font-semibold text-slate-900 dark:text-white">{issue.book.title}</p>
+                        <p className="text-sm text-slate-500 mt-0.5">Due {new Date(issue.dueDate).toLocaleDateString()}</p>
                       </div>
                       <StatusBadge status={issue.status} />
                     </div>
@@ -345,31 +480,58 @@ const GuardianDashboard = () => {
             </div>
           </div>
 
-          {/* Report Cards */}
+          {/* Exam Results */}
           <div className="glass-card overflow-hidden lg:col-span-2">
-            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-violet-500" />
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Report Cards</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
+              <FileText className="w-6 h-6 text-violet-500" />
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Exam Results</h3>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               {exams.length === 0 ? (
                 <EmptyState title="No exams yet" description="Report cards will appear here once exams are recorded." icon={<FileText className="w-8 h-8 text-slate-400" />} />
               ) : (
                 <div className="space-y-2">
                   {exams.map((exam) => (
-                    <div key={exam.id} className="flex items-center justify-between text-sm p-3 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5">
-                      <span className="text-slate-900 dark:text-white font-medium">{exam.name}</span>
+                    <div key={exam.id} className="flex items-center justify-between text-base p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5">
+                      <span className="text-slate-900 dark:text-white font-semibold">{exam.name}</span>
                       <button
                         onClick={() => downloadReportCard(exam.id)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        className="flex items-center gap-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-2 rounded-xl transition-colors"
                       >
-                        <Download className="w-3.5 h-3.5" /> Download PDF
+                        <Download className="w-4 h-4" /> Download Report Card
                       </button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact the school — for anything confusing on this page, a
+          one-tap phone/email out to the school office. */}
+      {contact && (contact.contactPhone || contact.contactEmail) && (
+        <div className="glass-card p-6">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Need Help?</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">If anything here is unclear, contact the school office directly.</p>
+          <div className="flex flex-wrap gap-3">
+            {contact.contactPhone && (
+              <a
+                href={`tel:${contact.contactPhone}`}
+                className="flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-3 rounded-2xl transition-colors text-base"
+              >
+                <Phone className="w-5 h-5" /> Call {contact.contactPhone}
+              </a>
+            )}
+            {contact.contactEmail && (
+              <a
+                href={`mailto:${contact.contactEmail}`}
+                className="flex items-center gap-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 font-bold px-5 py-3 rounded-2xl transition-colors text-base"
+              >
+                <Mail className="w-5 h-5" /> Email the School
+              </a>
+            )}
           </div>
         </div>
       )}

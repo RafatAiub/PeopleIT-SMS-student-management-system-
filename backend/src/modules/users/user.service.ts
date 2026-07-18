@@ -90,7 +90,13 @@ export class UserService {
       await linkGuardianStudents(tenantId, guardian.id, data.studentIds, data.relationship);
     }
 
-    return user;
+    // The initial insert predates the role-specific profile (student/teacher/
+    // guardian) created above — re-fetch so the response actually reflects it,
+    // instead of always reporting studentProfile/guardianProfile as null.
+    const created = await UserRepository.getUserById(tenantId, user.id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _passwordHash, ...createdWithoutPassword } = created!;
+    return createdWithoutPassword;
   }
 
   static async getUser(tenantId: string, id: string) {
@@ -214,7 +220,10 @@ export class UserService {
       }
     }
 
-    return UserRepository.getUserById(tenantId, id);
+    const updated = await UserRepository.getUserById(tenantId, id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _passwordHash, ...updatedWithoutPassword } = updated!;
+    return updatedWithoutPassword;
   }
 
   static async changePassword(
