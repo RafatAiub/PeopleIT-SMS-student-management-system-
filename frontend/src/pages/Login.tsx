@@ -2,17 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Eye, EyeOff, Mail, Lock, Building2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import apiClient from '../api/client';
+
+// Remembers the last institution/portal actually chosen on this browser, so a
+// returning user sees their own last selection preselected instead of the
+// login form silently defaulting to an arbitrary, hardcoded school.
+const LAST_PORTAL_STORAGE_KEY = 'sms_last_portal';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [institutionCode, setInstitutionCode] = useState('102030');
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [institutionCode, setInstitutionCode] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(
+    () => localStorage.getItem(LAST_PORTAL_STORAGE_KEY) === 'global-admin'
+  );
   const [showPassword, setShowPassword] = useState(false);
-  const [institutions, setInstitutions] = useState<any[]>([
-    { name: 'Dhaka City School', slug: '102030' },
-  ]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,7 +32,16 @@ const Login = () => {
           headers: { 'Cache-Control': 'no-cache' },
         });
         if (!cancelled) {
-          setInstitutions(response.data.data || []);
+          const list = response.data.data || [];
+          setInstitutions(list);
+
+          // Preselect the last portal this browser actually used — but only
+          // if it still exists in the freshly fetched list. Never fall back
+          // to picking the first/any institution automatically.
+          const remembered = localStorage.getItem(LAST_PORTAL_STORAGE_KEY);
+          if (remembered && remembered !== 'global-admin' && list.some((inst: any) => inst.slug === remembered)) {
+            setInstitutionCode(remembered);
+          }
         }
       } catch (err) {
         console.error('Failed to load institutions list', err);
@@ -47,6 +62,10 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isSuperAdmin && !institutionCode.trim()) {
+      toast.error('Please select your institution / portal');
+      return;
+    }
     try {
       await login.mutateAsync({ 
         email: email.trim(), 
@@ -87,19 +106,29 @@ const Login = () => {
               <div className="relative">
                 <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <select
+                  required
                   value={isSuperAdmin ? 'global-admin' : institutionCode}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === 'global-admin') {
                       setIsSuperAdmin(true);
                       setInstitutionCode('');
+                      localStorage.setItem(LAST_PORTAL_STORAGE_KEY, 'global-admin');
                     } else {
                       setIsSuperAdmin(false);
                       setInstitutionCode(val);
+                      if (val) {
+                        localStorage.setItem(LAST_PORTAL_STORAGE_KEY, val);
+                      } else {
+                        localStorage.removeItem(LAST_PORTAL_STORAGE_KEY);
+                      }
                     }
                   }}
                   className="input-field pl-11 pr-10 py-3 text-sm font-medium appearance-none cursor-pointer"
                 >
+                  <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
+                    {institutions.length === 0 ? 'Loading institutions…' : 'Select your institution…'}
+                  </option>
                   {institutions.map((inst) => (
                     <option key={inst.slug} value={inst.slug} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
                       {inst.name} ({inst.slug})
