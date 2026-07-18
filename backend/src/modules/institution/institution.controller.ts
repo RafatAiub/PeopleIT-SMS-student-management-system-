@@ -74,6 +74,10 @@ export async function listPublicInstitutions(
   next: NextFunction,
 ): Promise<void> {
   try {
+    // This list changes whenever an institution is added/deactivated and is
+    // fetched unauthenticated on every login page load — never let a browser
+    // or intermediary cache serve a stale copy.
+    res.set('Cache-Control', 'no-store');
     const list = await institutionService.listPublicInstitutions();
     successResponse(res, list);
   } catch (error) {

@@ -324,7 +324,7 @@ const App = () => {
         } />
 
         <Route path="/hr" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <HrPayrollManagement />
             </DashboardLayout>
@@ -348,7 +348,7 @@ const App = () => {
         } />
         
         <Route path="/reports" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <Reports />
             </DashboardLayout>

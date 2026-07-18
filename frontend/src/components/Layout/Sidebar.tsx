@@ -6,21 +6,28 @@ import {
   LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
   Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X
 } from 'lucide-react';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, User } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
+
+type Role = User['role'];
 
 interface NavItem {
   to: string;
   icon: React.ReactNode;
   label: string;
-  adminOnly?: boolean;
+  /** Roles allowed to see this item. Omit to allow every role. */
+  roles?: Role[];
 }
 
 interface NavGroup {
   label: string;
   items: NavItem[];
 }
+
+// Role Permission Access Matrix — mirrors the route guards in App.tsx /
+// backend *.routes.ts requireRole() calls, so the sidebar never advertises
+// a link a role would be redirected away from.
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
@@ -31,25 +38,25 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Academics',
     items: [
-      { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students' },
-      { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance' },
-      { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results' },
+      { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'MANAGEMENT', 'STUDENT'] },
+      { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
     ],
   },
   {
     label: 'Management',
     items: [
-      { to: '/hr', icon: <Users className="w-4.5 h-4.5" />, label: 'HR & Payroll', adminOnly: true },
-      { to: '/ai-insights', icon: <Brain className="w-4.5 h-4.5" />, label: 'AI Insights' },
-      { to: '/website-builder', icon: <Globe className="w-4.5 h-4.5" />, label: 'Website Builder', adminOnly: true },
+      { to: '/hr', icon: <Users className="w-4.5 h-4.5" />, label: 'HR & Payroll', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      { to: '/ai-insights', icon: <Brain className="w-4.5 h-4.5" />, label: 'AI Insights', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/website-builder', icon: <Globe className="w-4.5 h-4.5" />, label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', adminOnly: true },
-      { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', adminOnly: true },
+      { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
     ],
   },
   {
@@ -62,15 +69,15 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Administration',
     items: [
-      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', adminOnly: true },
-      { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', adminOnly: true },
+      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
     label: 'Facilities',
     items: [
-      { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library' },
-      { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport' },
+      { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library', roles: ['SUPER_ADMIN', 'ADMIN', 'LIBRARIAN', 'TEACHER', 'STUDENT'] },
+      { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['SUPER_ADMIN', 'ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
 ];
@@ -78,7 +85,7 @@ const NAV_GROUPS: NavGroup[] = [
 export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
   const { user } = useAuthStore();
-  const { logout, isAdmin } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -94,13 +101,18 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
     ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
     : 'U';
 
-  const roleLabel = {
+  const roleLabel: Record<Role, string> = {
     SUPER_ADMIN: 'Super Admin',
     ADMIN: 'Administrator',
     TEACHER: 'Teacher',
-    STUDENT: 'Student',
+    ACCOUNTANT: 'Accountant',
+    LIBRARIAN: 'Librarian',
+    TRANSPORT_OFFICER: 'Transport Officer',
     GUARDIAN: 'Guardian',
-  }[user?.role ?? 'ADMIN'] ?? 'User';
+    STUDENT: 'Student',
+    MANAGEMENT: 'Management',
+  };
+  const roleLabelText = user ? roleLabel[user.role] : 'User';
 
   return (
     <aside
@@ -139,19 +151,8 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
         {NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
-            // isAdmin covers both SUPER_ADMIN and ADMIN, so SUPER_ADMIN falls
-            // through to the same rules as ADMIN below — matching what the
-            // route guards in App.tsx actually allow it to reach.
-            if (item.adminOnly && !isAdmin) return false;
-            if (user?.role === 'STUDENT') {
-              const studentRoutes = ['/', '/students', '/timetables', '/notices', '/messages'];
-              return studentRoutes.includes(item.to);
-            }
-            if (user?.role === 'GUARDIAN') {
-              const guardianRoutes = ['/', '/notices', '/messages'];
-              return guardianRoutes.includes(item.to);
-            }
-            return true;
+            if (!item.roles) return true;
+            return !!user && item.roles.includes(user.role);
           });
           if (visibleItems.length === 0) return null;
           return (
@@ -199,7 +200,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{roleLabel}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{roleLabelText}</p>
             </div>
             <button
               id="sidebar-logout-btn"

@@ -10,21 +10,39 @@ const Login = () => {
   const [institutionCode, setInstitutionCode] = useState('102030');
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([
+    { name: 'Dhaka City School', slug: '102030' },
+  ]);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const fetchInstitutions = async () => {
+    let cancelled = false;
+
+    const fetchInstitutions = async (attempt = 0) => {
       try {
-        const response = await apiClient.get('/institution/public/list');
-        setInstitutions(response.data.data || []);
+        const response = await apiClient.get('/institution/public/list', {
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+        if (!cancelled) {
+          setInstitutions(response.data.data || []);
+        }
       } catch (err) {
         console.error('Failed to load institutions list', err);
+        // Transient failures (cold-starting backend, flaky connection, etc.)
+        // used to leave the dropdown stuck on the single fallback entry until
+        // the user manually reloaded — retry a couple of times instead.
+        if (!cancelled && attempt < 2) {
+          setTimeout(() => fetchInstitutions(attempt + 1), 1000 * (attempt + 1));
+        }
       }
     };
     fetchInstitutions();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -82,13 +100,12 @@ const Login = () => {
                   }}
                   className="input-field pl-11 pr-10 py-3 text-sm font-medium appearance-none cursor-pointer"
                 >
-                  <option value="102030" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">Dhaka City School (102030)</option>
-                  <option value="global-admin" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">Global Admin</option>
-                  {institutions.filter(inst => inst.slug !== '102030').map((inst) => (
+                  {institutions.map((inst) => (
                     <option key={inst.slug} value={inst.slug} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
                       {inst.name} ({inst.slug})
                     </option>
                   ))}
+                  <option value="global-admin" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">Global Admin</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
