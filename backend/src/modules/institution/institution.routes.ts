@@ -5,7 +5,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
-import { CreateInstitutionDto, UpdateWebsiteConfigDto } from './institution.dto';
+import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto } from './institution.dto';
 import * as institutionController from './institution.controller';
 
 const router = Router();
@@ -35,6 +35,7 @@ router.put(
   '/:id/admin',
   authenticate,
   requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: UpdateInstitutionAdminDto }),
   institutionController.updateInstitutionAdmin
 );
 

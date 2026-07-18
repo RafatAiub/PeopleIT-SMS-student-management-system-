@@ -49,6 +49,35 @@ const AdminDashboard = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const PHONE_REGEX = /^[0-9+\-\s()]{7,20}$/;
+
+  const validateCreateForm = (data: typeof formData) => {
+    const errors: Record<string, string> = {};
+    if (data.name.trim().length < 2) errors.name = 'Institution name must be at least 2 characters';
+    if (!/^\d+$/.test(data.slug)) errors.slug = 'Institution Code / EIIN must be numeric';
+    if (!data.adminFirstName.trim()) errors.adminFirstName = 'First name is required';
+    if (!data.adminLastName.trim()) errors.adminLastName = 'Last name is required';
+    if (!EMAIL_REGEX.test(data.adminEmail.trim())) errors.adminEmail = 'Enter a valid email address';
+    if (data.adminPassword.length < 6) errors.adminPassword = 'Password must be at least 6 characters';
+    return errors;
+  };
+
+  const validateEditForm = (data: typeof editFormData) => {
+    const errors: Record<string, string> = {};
+    if (data.institutionName.trim().length < 2) errors.institutionName = 'Institution name must be at least 2 characters';
+    if (!data.adminFirstName.trim()) errors.adminFirstName = 'First name is required';
+    if (!data.adminLastName.trim()) errors.adminLastName = 'Last name is required';
+    if (!EMAIL_REGEX.test(data.adminEmail.trim())) errors.adminEmail = 'Enter a valid email address';
+    if (data.phone.trim() && !PHONE_REGEX.test(data.phone.trim())) errors.phone = 'Enter a valid phone number';
+    if (data.adminPassword.trim() && data.adminPassword.trim().length < 6) {
+      errors.adminPassword = 'Password must be at least 6 characters, or leave blank to keep the current one';
+    }
+    return errors;
+  };
 
   const fetchData = async () => {
     try {
@@ -100,11 +129,24 @@ const AdminDashboard = () => {
 
   const handleCreateInstitution = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateCreateForm(formData);
+    setCreateErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
     setSubmitting(true);
     try {
-      await apiClient.post('/institution', formData);
+      await apiClient.post('/institution', {
+        ...formData,
+        name: formData.name.trim(),
+        adminEmail: formData.adminEmail.trim().toLowerCase(),
+        adminFirstName: formData.adminFirstName.trim(),
+        adminLastName: formData.adminLastName.trim(),
+      });
       toast.success('Institution and Admin registered successfully!');
       setIsModalOpen(false);
+      setCreateErrors({});
       setFormData({
         name: '',
         slug: '',
@@ -132,14 +174,28 @@ const AdminDashboard = () => {
       phone: admin.phone || '',
       adminPassword: ''
     });
+    setEditErrors({});
     setIsEditModalOpen(true);
   };
 
   const handleEditAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateEditForm(editFormData);
+    setEditErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
     setSubmitting(true);
     try {
-      await apiClient.put(`/institution/${selectedInst.id}/admin`, editFormData);
+      await apiClient.put(`/institution/${selectedInst.id}/admin`, {
+        ...editFormData,
+        institutionName: editFormData.institutionName.trim(),
+        adminFirstName: editFormData.adminFirstName.trim(),
+        adminLastName: editFormData.adminLastName.trim(),
+        adminEmail: editFormData.adminEmail.trim().toLowerCase(),
+        phone: editFormData.phone.trim(),
+      });
       toast.success('Admin credentials updated successfully!');
       setIsEditModalOpen(false);
       fetchData();
@@ -284,52 +340,64 @@ const AdminDashboard = () => {
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Institution Name</label>
                     <input
                       type="text"
+                      name="organization"
+                      autoComplete="organization"
                       required
                       value={formData.name}
                       onChange={e => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Mirpur Cadet School"
-                      className="input-field"
+                      className={`input-field ${createErrors.name ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {createErrors.name && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.name}</span>}
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Institution Code (EIIN / Slug)</label>
                     <input
                       type="text"
+                      name="organization-id"
+                      autoComplete="off"
                       required
                       pattern="[0-9]*"
                       value={formData.slug}
                       onChange={e => setFormData({ ...formData, slug: e.target.value.replace(/\D/g, '') })}
                       placeholder="e.g. 102030"
-                      className="input-field font-mono"
+                      className={`input-field font-mono ${createErrors.slug ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {createErrors.slug && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.slug}</span>}
                   </div>
                 </div>
 
                 <div className="p-5 bg-slate-50 dark:bg-slate-950/40 rounded-2xl border border-slate-200 dark:border-white/5 space-y-4">
                   <h4 className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Sub-Institution Administrator Account</h4>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">First Name</label>
                       <input
                         type="text"
+                        name="given-name"
+                        autoComplete="given-name"
                         required
                         value={formData.adminFirstName}
                         onChange={e => setFormData({ ...formData, adminFirstName: e.target.value })}
                         placeholder="Admin First Name"
-                        className="input-field"
+                        className={`input-field ${createErrors.adminFirstName ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
+                      {createErrors.adminFirstName && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.adminFirstName}</span>}
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">Last Name</label>
                       <input
                         type="text"
+                        name="family-name"
+                        autoComplete="family-name"
                         required
                         value={formData.adminLastName}
                         onChange={e => setFormData({ ...formData, adminLastName: e.target.value })}
                         placeholder="Admin Last Name"
-                        className="input-field"
+                        className={`input-field ${createErrors.adminLastName ? 'border-red-500 focus:ring-red-500' : ''}`}
                       />
+                      {createErrors.adminLastName && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.adminLastName}</span>}
                     </div>
                   </div>
 
@@ -340,13 +408,16 @@ const AdminDashboard = () => {
                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                           type="email"
+                          name="email"
+                          autoComplete="email"
                           required
                           value={formData.adminEmail}
                           onChange={e => setFormData({ ...formData, adminEmail: e.target.value })}
                           placeholder="admin@school.com"
-                          className="input-field pl-10"
+                          className={`input-field pl-10 ${createErrors.adminEmail ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
                       </div>
+                      {createErrors.adminEmail && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.adminEmail}</span>}
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-400 mb-1.5">Password</label>
@@ -354,11 +425,13 @@ const AdminDashboard = () => {
                         <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                         <input
                           type={showCreatePassword ? 'text' : 'password'}
+                          name="new-password"
+                          autoComplete="new-password"
                           required
                           value={formData.adminPassword}
                           onChange={e => setFormData({ ...formData, adminPassword: e.target.value })}
                           placeholder="Password (Min 6 chars)"
-                          className="input-field pl-10 pr-10"
+                          className={`input-field pl-10 pr-10 ${createErrors.adminPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
                         />
                         <button
                           type="button"
@@ -369,6 +442,7 @@ const AdminDashboard = () => {
                           {showCreatePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {createErrors.adminPassword && <span className="text-[11px] text-red-500 mt-1 block">{createErrors.adminPassword}</span>}
                     </div>
                   </div>
                 </div>
@@ -416,12 +490,15 @@ const AdminDashboard = () => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Institution Name</label>
                   <input
                     type="text"
+                    name="organization"
+                    autoComplete="organization"
                     required
                     value={editFormData.institutionName}
                     onChange={e => setEditFormData({ ...editFormData, institutionName: e.target.value })}
-                    className="input-field"
+                    className={`input-field ${editErrors.institutionName ? 'border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="e.g. Government Science College School"
                   />
+                  {editErrors.institutionName && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.institutionName}</span>}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -429,21 +506,27 @@ const AdminDashboard = () => {
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">First Name</label>
                     <input
                       type="text"
+                      name="given-name"
+                      autoComplete="given-name"
                       required
                       value={editFormData.adminFirstName}
                       onChange={e => setEditFormData({ ...editFormData, adminFirstName: e.target.value })}
-                      className="input-field"
+                      className={`input-field ${editErrors.adminFirstName ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {editErrors.adminFirstName && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.adminFirstName}</span>}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Last Name</label>
                     <input
                       type="text"
+                      name="family-name"
+                      autoComplete="family-name"
                       required
                       value={editFormData.adminLastName}
                       onChange={e => setEditFormData({ ...editFormData, adminLastName: e.target.value })}
-                      className="input-field"
+                      className={`input-field ${editErrors.adminLastName ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
+                    {editErrors.adminLastName && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.adminLastName}</span>}
                   </div>
                 </div>
 
@@ -453,12 +536,15 @@ const AdminDashboard = () => {
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="email"
+                      name="email"
+                      autoComplete="email"
                       required
                       value={editFormData.adminEmail}
                       onChange={e => setEditFormData({ ...editFormData, adminEmail: e.target.value })}
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${editErrors.adminEmail ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
                   </div>
+                  {editErrors.adminEmail && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.adminEmail}</span>}
                 </div>
 
                 <div>
@@ -467,12 +553,15 @@ const AdminDashboard = () => {
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type="text"
+                      name="tel"
+                      autoComplete="tel"
                       value={editFormData.phone}
                       onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })}
-                      className="input-field pl-9"
+                      className={`input-field pl-9 ${editErrors.phone ? 'border-red-500 focus:ring-red-500' : ''}`}
                       placeholder="e.g. 017000000"
                     />
                   </div>
+                  {editErrors.phone && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.phone}</span>}
                 </div>
 
                 <div>
@@ -481,10 +570,12 @@ const AdminDashboard = () => {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                     <input
                       type={showEditPassword ? 'text' : 'password'}
+                      name="new-password"
+                      autoComplete="new-password"
                       value={editFormData.adminPassword}
                       onChange={e => setEditFormData({ ...editFormData, adminPassword: e.target.value })}
                       placeholder="Leave blank to keep current password"
-                      className="input-field pl-9 pr-10"
+                      className={`input-field pl-9 pr-10 ${editErrors.adminPassword ? 'border-red-500 focus:ring-red-500' : ''}`}
                     />
                     <button
                       type="button"
@@ -495,6 +586,7 @@ const AdminDashboard = () => {
                       {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {editErrors.adminPassword && <span className="text-[11px] text-red-500 mt-1 block">{editErrors.adminPassword}</span>}
                   <span className="text-[10px] text-slate-500 mt-1 block">Super Admin has the override authority to update this admin's credentials at any time.</span>
                 </div>
 

@@ -144,7 +144,7 @@ export async function updateInstitutionAdmin(institutionId: string, data: any, a
     email: data.adminEmail,
     firstName: data.adminFirstName,
     lastName: data.adminLastName,
-    phone: data.phone,
+    phone: data.phone && data.phone.trim() !== '' ? data.phone : null,
   };
 
   if (data.adminPassword && data.adminPassword.trim() !== '') {

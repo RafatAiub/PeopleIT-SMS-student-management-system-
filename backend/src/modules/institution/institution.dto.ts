@@ -26,3 +26,23 @@ export const CreateInstitutionDto = z.object({
 
 export type CreateInstitutionDtoType = z.infer<typeof CreateInstitutionDto>;
 
+export const UpdateInstitutionAdminDto = z.object({
+  institutionName: z.string().trim().min(2, 'Institution name is too short').max(200).optional(),
+  adminFirstName: z.string().trim().min(1, 'First name is required'),
+  adminLastName: z.string().trim().min(1, 'Last name is required'),
+  adminEmail: z.string().trim().toLowerCase().email('Invalid email address'),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[0-9+\-\s()]{7,20}$/, 'Invalid phone number')
+    .optional()
+    .or(z.literal('')),
+  adminPassword: z
+    .string()
+    .min(6, 'Password must be at least 6 characters')
+    .optional()
+    .or(z.literal('')),
+});
+
+export type UpdateInstitutionAdminDtoType = z.infer<typeof UpdateInstitutionAdminDto>;
+
