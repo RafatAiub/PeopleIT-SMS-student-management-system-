@@ -5,6 +5,142 @@ import toast from 'react-hot-toast';
 import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
 
+interface StudentOption {
+  id: string;
+  studentId: string;
+  firstName: string;
+  lastName: string;
+  class?: { name: string } | null;
+  section?: { name: string } | null;
+}
+
+const RELATIONSHIP_OPTIONS = ['FATHER', 'MOTHER', 'GUARDIAN'];
+
+// Lets an admin search existing students and link one or more of them to a
+// GUARDIAN user as their children, right from the Add/Edit User modal —
+// without this, a newly created guardian has no linked children and the
+// guardian portal has nothing to show them.
+const GuardianChildrenLinker = ({
+  selected,
+  onChange,
+  relationship,
+  onRelationshipChange,
+}: {
+  selected: StudentOption[];
+  onChange: (students: StudentOption[]) => void;
+  relationship: string;
+  onRelationshipChange: (value: string) => void;
+}) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<StudentOption[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.get('/students', { params: { search: trimmed, pageSize: 8 } });
+        if (!cancelled) setResults(res.data.data || []);
+      } catch (err) {
+        console.error('Failed to search students', err);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+
+  const selectedIds = new Set(selected.map((s) => s.id));
+  const visibleResults = results.filter((s) => !selectedIds.has(s.id));
+
+  const addStudent = (student: StudentOption) => {
+    onChange([...selected, student]);
+    setQuery('');
+    setResults([]);
+  };
+  const removeStudent = (id: string) => onChange(selected.filter((s) => s.id !== id));
+
+  return (
+    <div className="animate-fadeIn">
+      <h4 className="text-sm font-semibold text-amber-600 dark:text-amber-400 mb-4 uppercase tracking-wider">Linked Children (Students)</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Relationship</label>
+          <select value={relationship} onChange={(e) => onRelationshipChange(e.target.value)} className="input-field">
+            {RELATIONSHIP_OPTIONS.map((r) => (
+              <option key={r} value={r} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                {r.charAt(0) + r.slice(1).toLowerCase()}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="relative">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Search Student to Link</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name or student ID..."
+              className="input-field pl-9"
+            />
+          </div>
+          {query.trim() && (
+            <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl shadow-xl max-h-56 overflow-y-auto">
+              {searching ? (
+                <div className="p-3 text-xs text-slate-500">Searching...</div>
+              ) : visibleResults.length === 0 ? (
+                <div className="p-3 text-xs text-slate-500">No matching students found.</div>
+              ) : (
+                visibleResults.map((s) => (
+                  <button
+                    type="button"
+                    key={s.id}
+                    onClick={() => addStudent(s)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between gap-2"
+                  >
+                    <span className="text-slate-900 dark:text-white font-medium">{s.firstName} {s.lastName}</span>
+                    <span className="text-xs text-slate-500 shrink-0">{s.class?.name || ''} {s.section?.name || ''} · {s.studentId}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {selected.length === 0 ? (
+        <p className="text-xs text-slate-500 dark:text-slate-400 italic">No children linked yet. Search above to link this guardian to one or more students.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {selected.map((s, idx) => (
+            <span
+              key={s.id}
+              className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold px-3 py-1.5 rounded-xl"
+            >
+              {idx === 0 && <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded">Primary</span>}
+              {s.firstName} {s.lastName} ({s.studentId})
+              <button type="button" onClick={() => removeStudent(s.id)} className="hover:text-rose-600">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const Users = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -42,8 +178,11 @@ const Users = () => {
     // Teacher specifics
     qualification: '',
     subjectExpertise: '',
-    joiningDate: new Date().toISOString().split('T')[0]
+    joiningDate: new Date().toISOString().split('T')[0],
+    // Guardian specifics
+    relationship: 'FATHER'
   });
+  const [addSelectedChildren, setAddSelectedChildren] = useState<StudentOption[]>([]);
 
   // Edit User Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -69,8 +208,11 @@ const Users = () => {
     // Teacher specifics
     qualification: '',
     subjectExpertise: '',
-    joiningDate: new Date().toISOString().split('T')[0]
+    joiningDate: new Date().toISOString().split('T')[0],
+    // Guardian specifics
+    relationship: 'FATHER'
   });
+  const [editSelectedChildren, setEditSelectedChildren] = useState<StudentOption[]>([]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -220,17 +362,22 @@ const Users = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await apiClient.post('/users', formData);
+      await apiClient.post('/users', {
+        ...formData,
+        studentIds: formData.role === 'GUARDIAN' ? addSelectedChildren.map(s => s.id) : undefined,
+      });
       toast.success('User created successfully');
       setIsAddModalOpen(false);
-      setFormData({ 
+      setFormData({
         email: '', password: '', role: 'TEACHER', firstName: '', lastName: '', phone: '',
         avatarUrl: '',
         dateOfBirth: '', gender: 'Male', bloodGroup: 'A+', religion: 'Islam', nationality: 'Bangladeshi',
         address: '', admissionDate: new Date().toISOString().split('T')[0], rollNumber: '',
         classId: '', sectionId: '',
-        qualification: '', subjectExpertise: '', joiningDate: new Date().toISOString().split('T')[0]
+        qualification: '', subjectExpertise: '', joiningDate: new Date().toISOString().split('T')[0],
+        relationship: 'FATHER'
       });
+      setAddSelectedChildren([]);
       fetchUsers();
     } catch (error: any) {
       console.error('Failed to create user', error);
@@ -244,6 +391,7 @@ const Users = () => {
     setSelectedUser(user);
     const student = user.studentProfile || {};
     const teacher = user.teacherProfile || {};
+    const guardian = user.guardianProfile || {};
 
     const classId = student.classId || '';
     if (classId) {
@@ -275,8 +423,11 @@ const Users = () => {
       // Teacher specifics
       qualification: teacher.qualification || '',
       subjectExpertise: teacher.subjectExpertise || '',
-      joiningDate: teacher.joiningDate ? new Date(teacher.joiningDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+      joiningDate: teacher.joiningDate ? new Date(teacher.joiningDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      // Guardian specifics
+      relationship: guardian.relationship || 'FATHER'
     });
+    setEditSelectedChildren((guardian.students || []).map((gs: any) => gs.student));
     setIsEditModalOpen(true);
   };
 
@@ -285,7 +436,10 @@ const Users = () => {
     if (!selectedUser) return;
     setIsSubmitting(true);
     try {
-      await apiClient.put(`/users/${selectedUser.id}`, editFormData);
+      await apiClient.put(`/users/${selectedUser.id}`, {
+        ...editFormData,
+        studentIds: editFormData.role === 'GUARDIAN' ? editSelectedChildren.map(s => s.id) : undefined,
+      });
       toast.success('User updated successfully');
       setIsEditModalOpen(false);
       fetchUsers();
@@ -316,8 +470,8 @@ const Users = () => {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">User Management</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage Admins, Teachers, Students, and Guardians.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
+        <button
+          onClick={() => { setAddSelectedChildren([]); setIsAddModalOpen(true); }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
         >
           <Plus className="w-5 h-5" />
@@ -617,9 +771,19 @@ const Users = () => {
                   </div>
                 )}
 
+                {/* Conditional Guardian Details */}
+                {formData.role === 'GUARDIAN' && (
+                  <GuardianChildrenLinker
+                    selected={addSelectedChildren}
+                    onChange={setAddSelectedChildren}
+                    relationship={formData.relationship}
+                    onRelationshipChange={(value) => setFormData(prev => ({ ...prev, relationship: value }))}
+                  />
+                )}
+
               </form>
             </div>
-            
+
             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3 shrink-0 rounded-b-2xl">
               <button
                 type="button"
@@ -810,9 +974,19 @@ const Users = () => {
                   </div>
                 )}
 
+                {/* Conditional Guardian Details */}
+                {editFormData.role === 'GUARDIAN' && (
+                  <GuardianChildrenLinker
+                    selected={editSelectedChildren}
+                    onChange={setEditSelectedChildren}
+                    relationship={editFormData.relationship}
+                    onRelationshipChange={(value) => setEditFormData(prev => ({ ...prev, relationship: value }))}
+                  />
+                )}
+
               </form>
             </div>
-            
+
             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3 shrink-0 rounded-b-2xl">
               <button
                 type="button"

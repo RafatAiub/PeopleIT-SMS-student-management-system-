@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Users, Receipt, UserCheck, FileText, Download } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Users, Receipt, UserCheck, FileText, Download, Megaphone, Bus, Library } from 'lucide-react';
 import apiClient from '../api/client';
 import toast from 'react-hot-toast';
 import { EmptyState } from '../components/common/EmptyState';
@@ -28,12 +29,37 @@ interface Exam {
   name: string;
 }
 
+interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  audience: string;
+  publishedAt: string;
+}
+
+interface TransportAssignment {
+  id: string;
+  pickupPoint: string | null;
+  route: { name: string; stops: string } | null;
+  vehicle: { registrationNumber: string; driverName: string; driverPhone: string | null } | null;
+}
+
+interface LibraryIssue {
+  id: string;
+  book: { title: string; author: string };
+  dueDate: string;
+  status: string;
+  fineAmount: number;
+}
+
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
     PAID: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
     PARTIAL: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
     UNPAID: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
     OVERDUE: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+    ISSUED: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400',
+    RETURNED: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
   };
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${map[status] || 'bg-slate-100 text-slate-600'}`}>
@@ -48,6 +74,9 @@ const GuardianDashboard = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [attendance, setAttendance] = useState<any>(null);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [transportAssignment, setTransportAssignment] = useState<TransportAssignment | null>(null);
+  const [libraryIssues, setLibraryIssues] = useState<LibraryIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [childDataLoading, setChildDataLoading] = useState(false);
 
@@ -68,19 +97,38 @@ const GuardianDashboard = () => {
     fetchChildren();
   }, []);
 
+  // Announcements aren't per-child — parents check these first, so they're
+  // fetched independently of which child is currently selected.
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const res = await apiClient.get('/notices', { params: { isActive: true, pageSize: 20 } });
+        const list: Notice[] = res.data.data || [];
+        setNotices(list.filter((n) => n.audience === 'ALL' || n.audience === 'GUARDIANS').slice(0, 3));
+      } catch (err) {
+        console.error('Failed to load notices', err);
+      }
+    };
+    fetchNotices();
+  }, []);
+
   useEffect(() => {
     if (!selectedChildId) return;
     const fetchChildData = async () => {
       setChildDataLoading(true);
       try {
-        const [invoicesRes, attendanceRes, examsRes] = await Promise.all([
+        const [invoicesRes, attendanceRes, examsRes, transportRes, libraryRes] = await Promise.all([
           apiClient.get('/fees/invoices', { params: { studentId: selectedChildId, pageSize: 20 } }).catch(() => ({ data: { data: [] } })),
           apiClient.get(`/attendance/child/${selectedChildId}`).catch(() => ({ data: { data: null } })),
           apiClient.get('/results').catch(() => ({ data: { data: [] } })),
+          apiClient.get('/transport/me/assignment', { params: { studentId: selectedChildId } }).catch(() => ({ data: { data: null } })),
+          apiClient.get('/library/me/issues', { params: { studentId: selectedChildId, status: 'ISSUED', pageSize: 10 } }).catch(() => ({ data: { data: [] } })),
         ]);
         setInvoices(invoicesRes.data.data || []);
         setAttendance(attendanceRes.data.data || null);
         setExams(examsRes.data.data || []);
+        setTransportAssignment(transportRes.data.data || null);
+        setLibraryIssues(libraryRes.data.data || []);
       } catch (err) {
         console.error('Failed to load child data', err);
       } finally {
@@ -132,6 +180,31 @@ const GuardianDashboard = () => {
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Guardian Dashboard</h2>
         <p className="text-slate-600 dark:text-slate-400 mt-1">Fees, attendance, and results for your children.</p>
       </div>
+
+      {/* Announcements — surfaced first since this is what parents check on
+          landing, independent of which child is currently selected. */}
+      {notices.length > 0 && (
+        <div className="glass-card overflow-hidden border-l-4 border-l-amber-500">
+          <div className="p-4 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-5 h-5 text-amber-500" />
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Announcements</h3>
+            </div>
+            <Link to="/notices" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">View all</Link>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
+            {notices.map((notice) => (
+              <div key={notice.id} className="p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-sm text-slate-900 dark:text-white">{notice.title}</p>
+                  <span className="text-[10px] text-slate-400 shrink-0">{new Date(notice.publishedAt).toLocaleDateString()}</span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{notice.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {children.length > 1 && (
         <div className="flex gap-2 flex-wrap">
@@ -216,6 +289,57 @@ const GuardianDashboard = () => {
                   {attendance.finesDue > 0 && (
                     <div className="col-span-2 text-xs text-red-500 font-semibold">৳{attendance.finesDue} in absence fines due</div>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Transport */}
+          <div className="glass-card overflow-hidden">
+            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
+              <Bus className="w-5 h-5 text-sky-500" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Transport</h3>
+            </div>
+            <div className="p-5">
+              {!transportAssignment ? (
+                <EmptyState title="No transport assigned" description="This child isn't on a transport route yet." icon={<Bus className="w-8 h-8 text-slate-400" />} />
+              ) : (
+                <div className="text-sm space-y-1.5">
+                  <p className="font-medium text-slate-900 dark:text-white">{transportAssignment.route?.name || 'Route unassigned'}</p>
+                  {transportAssignment.pickupPoint && (
+                    <p className="text-xs text-slate-500">Pickup: {transportAssignment.pickupPoint}</p>
+                  )}
+                  {transportAssignment.vehicle && (
+                    <p className="text-xs text-slate-500">
+                      Vehicle {transportAssignment.vehicle.registrationNumber} · Driver {transportAssignment.vehicle.driverName}
+                      {transportAssignment.vehicle.driverPhone ? ` (${transportAssignment.vehicle.driverPhone})` : ''}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Library */}
+          <div className="glass-card overflow-hidden">
+            <div className="p-5 border-b border-slate-200 dark:border-white/5 flex items-center gap-2">
+              <Library className="w-5 h-5 text-rose-500" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Library Books</h3>
+            </div>
+            <div className="p-5">
+              {libraryIssues.length === 0 ? (
+                <EmptyState title="No books issued" description="No library books currently checked out." icon={<Library className="w-8 h-8 text-slate-400" />} />
+              ) : (
+                <div className="space-y-3">
+                  {libraryIssues.map((issue) => (
+                    <div key={issue.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-white">{issue.book.title}</p>
+                        <p className="text-xs text-slate-500">Due {new Date(issue.dueDate).toLocaleDateString()}</p>
+                      </div>
+                      <StatusBadge status={issue.status} />
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

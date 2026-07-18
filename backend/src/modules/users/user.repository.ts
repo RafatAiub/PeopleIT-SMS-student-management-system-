@@ -34,7 +34,24 @@ const userSelect = {
       subjectExpertise: true,
       joiningDate: true,
     }
-  }
+  },
+  guardianProfile: {
+    select: {
+      id: true,
+      relationship: true,
+      occupation: true,
+      nidNumber: true,
+      emergencyPhone: true,
+      students: {
+        select: {
+          isPrimary: true,
+          student: {
+            select: { id: true, studentId: true, firstName: true, lastName: true },
+          },
+        },
+      },
+    },
+  },
 } as const;
 
 export class UserRepository {

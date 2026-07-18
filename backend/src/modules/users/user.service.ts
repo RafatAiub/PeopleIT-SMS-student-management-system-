@@ -70,6 +70,26 @@ export class UserService {
       });
     }
 
+    if (data.role === 'GUARDIAN') {
+      const { prisma } = require('../../config/prisma');
+      const guardian = await prisma.guardian.create({
+        data: {
+          institutionId: tenantId,
+          userId: user.id,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone || '',
+          email: data.email,
+          relationship: data.relationship || 'GUARDIAN',
+          occupation: data.occupation || null,
+          nidNumber: data.nidNumber || null,
+          emergencyPhone: data.emergencyPhone || null,
+        },
+      });
+
+      await linkGuardianStudents(tenantId, guardian.id, data.studentIds, data.relationship);
+    }
+
     return user;
   }
 
@@ -165,6 +185,35 @@ export class UserService {
       });
     }
 
+    if (updatedUser.role === 'GUARDIAN') {
+      const guardianData = {
+        firstName: data.firstName || updatedUser.firstName,
+        lastName: data.lastName || updatedUser.lastName,
+        phone: data.phone || updatedUser.phone || '',
+        relationship: data.relationship || 'GUARDIAN',
+        occupation: data.occupation,
+        nidNumber: data.nidNumber,
+        emergencyPhone: data.emergencyPhone,
+      };
+
+      const guardian = await prisma.guardian.upsert({
+        where: { userId: id },
+        update: guardianData,
+        create: {
+          ...guardianData,
+          email: updatedUser.email,
+          institutionId: tenantId,
+          userId: id,
+        },
+      });
+
+      // studentIds is only sent when the admin actually edited the children
+      // list — undefined means "leave links untouched", [] means "unlink all".
+      if (data.studentIds !== undefined) {
+        await linkGuardianStudents(tenantId, guardian.id, data.studentIds, data.relationship, { replace: true });
+      }
+    }
+
     return UserRepository.getUserById(tenantId, id);
   }
 
@@ -227,7 +276,67 @@ export class UserService {
       }
     }
 
+    if (user.role === 'GUARDIAN') {
+      const { prisma } = require('../../config/prisma');
+      const guardian = await prisma.guardian.findFirst({ where: { userId: id } });
+      if (guardian) {
+        await prisma.guardianStudent.deleteMany({ where: { guardianId: guardian.id } });
+        await prisma.guardian.delete({ where: { id: guardian.id } });
+      }
+    }
+
     return UserRepository.deleteUser(tenantId, id);
+  }
+}
+
+// Links a guardian to a set of student IDs (silently ignoring any that don't
+// belong to this institution). With `replace: true` (update flow), the link
+// set is synced to exactly `studentIds` — missing ones are unlinked, new ones
+// added — while leaving isPrimary on already-linked students untouched.
+async function linkGuardianStudents(
+  tenantId: string,
+  guardianId: string,
+  studentIds: string[] | null | undefined,
+  relationship: string | null | undefined,
+  options: { replace?: boolean } = {},
+) {
+  const { prisma } = require('../../config/prisma');
+  const requestedIds = Array.isArray(studentIds) ? studentIds.filter(Boolean) : [];
+
+  const validStudents = requestedIds.length > 0
+    ? await prisma.student.findMany({
+        where: { id: { in: requestedIds }, institutionId: tenantId },
+        select: { id: true },
+      })
+    : [];
+  const validIds: string[] = validStudents.map((s: { id: string }) => s.id);
+
+  if (options.replace) {
+    await prisma.guardianStudent.deleteMany({
+      where: {
+        guardianId,
+        studentId: { notIn: validIds.length > 0 ? validIds : ['__none__'] },
+      },
+    });
+  }
+
+  const existingLinks = await prisma.guardianStudent.findMany({
+    where: { guardianId },
+    select: { studentId: true },
+  });
+  const existingIds = new Set(existingLinks.map((l: { studentId: string }) => l.studentId));
+  const toCreate = validIds.filter((studentId) => !existingIds.has(studentId));
+
+  if (toCreate.length > 0) {
+    await prisma.guardianStudent.createMany({
+      data: toCreate.map((studentId) => ({
+        guardianId,
+        studentId,
+        isPrimary: existingIds.size === 0 && studentId === toCreate[0],
+        relationship: relationship || 'GUARDIAN',
+      })),
+      skipDuplicates: true,
+    });
   }
 }
 

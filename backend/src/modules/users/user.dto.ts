@@ -26,6 +26,14 @@ export const CreateUserSchema = z.object({
   qualification: z.string().optional().nullable(),
   subjectExpertise: z.string().optional().nullable(),
   joiningDate: z.string().optional().nullable(),
+
+  // Guardian specifics
+  relationship: z.string().optional().nullable(),
+  occupation: z.string().optional().nullable(),
+  nidNumber: z.string().optional().nullable(),
+  emergencyPhone: z.string().optional().nullable(),
+  // IDs of existing students to link as this guardian's children.
+  studentIds: z.array(z.string()).optional().nullable(),
 });
 
 export const UpdateUserSchema = CreateUserSchema.partial().omit({ password: true });
