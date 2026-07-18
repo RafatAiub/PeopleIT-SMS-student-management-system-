@@ -394,7 +394,7 @@ const App = () => {
         } />
 
         <Route path="/users" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <Users />
             </DashboardLayout>

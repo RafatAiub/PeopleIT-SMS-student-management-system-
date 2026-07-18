@@ -81,8 +81,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Administration',
     items: [
-      // User Accounts: Super Admin (admin-level accounts only), Admin Full, Teacher/Accountant Read
-      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT'] },
+      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
+      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Branches & Classes: Super Admin/Admin Full, everyone else Read
       { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
