@@ -115,20 +115,11 @@ export async function getMyResults(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const records = await resultsService.getMyResults(req.tenantId!, req.user!.sub);
-    successResponse(res, records);
-  } catch (error) {
-    next(error);
-  }
-}
-
-export async function getChildResults(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  try {
-    const records = await resultsService.getChildResults(req.tenantId!, req.params.studentId, req.user!.sub);
+    const records = await resultsService.getMyResults(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.query as any,
+    );
     successResponse(res, records);
   } catch (error) {
     next(error);

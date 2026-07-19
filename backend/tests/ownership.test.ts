@@ -1,7 +1,9 @@
 import request from 'supertest';
 import { UserRole } from '@prisma/client';
+import jwt from 'jsonwebtoken';
 import app from '../src/app';
 import { requirePermission } from '../src/middleware/rbac.middleware';
+import { env } from '../src/config/env';
 import {
   createTestInstitution,
   cleanupInstitution,
@@ -357,6 +359,211 @@ describe('Transport assignment ownership scoping (GUARDIAN/STUDENT)', () => {
   it('a staff-only role (TRANSPORT_OFFICER) cannot use the self-service route (403)', async () => {
     const { token } = instA.usersByRole[UserRole.TRANSPORT_OFFICER];
     const res = await request(app).get('/api/v1/transport/me/assignment').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('Exam results ownership scoping (GUARDIAN/STUDENT)', () => {
+  let instA: InstitutionFixture;
+  let exam1: { id: string };
+  let exam2: { id: string };
+  let resultForA: { id: string };
+  let resultForA_exam2: { id: string };
+  let otherStudentInA: { id: string };
+  let resultForOtherStudent: { id: string };
+  let secondLinkedStudent: { id: string };
+  let resultForSecondLinkedStudent: { id: string };
+
+  beforeAll(async () => {
+    instA = await createTestInstitution('resultsA');
+
+    exam1 = await prisma.exam.create({
+      data: { institutionId: instA.institutionId, name: 'Term 1', startDate: new Date(), endDate: new Date() },
+    });
+    exam2 = await prisma.exam.create({
+      data: { institutionId: instA.institutionId, name: 'Term 2', startDate: new Date(), endDate: new Date() },
+    });
+
+    resultForA = await prisma.examResult.create({
+      data: {
+        institutionId: instA.institutionId,
+        examId: exam1.id,
+        studentId: instA.studentId,
+        subject: 'Math',
+        marksObtained: 80,
+        maxMarks: 100,
+        grade: 'A',
+      },
+    });
+
+    resultForA_exam2 = await prisma.examResult.create({
+      data: {
+        institutionId: instA.institutionId,
+        examId: exam2.id,
+        studentId: instA.studentId,
+        subject: 'Science',
+        marksObtained: 70,
+        maxMarks: 100,
+        grade: 'B',
+      },
+    });
+
+    // A second student in the same institution, NOT linked to instA's
+    // guardian and NOT the instA student themself — used to prove ownership
+    // scoping blocks a same-tenant sibling family, not just cross-tenant.
+    otherStudentInA = await prisma.student.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: `STU-RESULTS-OTHER-${instA.slug}`,
+        firstName: 'Other',
+        lastName: 'Student',
+      },
+    });
+
+    resultForOtherStudent = await prisma.examResult.create({
+      data: {
+        institutionId: instA.institutionId,
+        examId: exam1.id,
+        studentId: otherStudentInA.id,
+        subject: 'Math',
+        marksObtained: 60,
+        maxMarks: 100,
+        grade: 'C',
+      },
+    });
+
+    // A second child linked to the same guardian — proves the multi-child
+    // "no studentId" path returns results for ALL linked children, not just
+    // the first one.
+    secondLinkedStudent = await prisma.student.create({
+      data: {
+        institutionId: instA.institutionId,
+        studentId: `STU-RESULTS-SIBLING-${instA.slug}`,
+        firstName: 'Sibling',
+        lastName: 'Student',
+      },
+    });
+    await prisma.guardianStudent.create({
+      data: { guardianId: instA.guardianId, studentId: secondLinkedStudent.id, isPrimary: false },
+    });
+
+    resultForSecondLinkedStudent = await prisma.examResult.create({
+      data: {
+        institutionId: instA.institutionId,
+        examId: exam1.id,
+        studentId: secondLinkedStudent.id,
+        subject: 'Math',
+        marksObtained: 90,
+        maxMarks: 100,
+        grade: 'A+',
+      },
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await prisma.examResult.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.exam.deleteMany({ where: { institutionId: instA.institutionId } });
+    await prisma.guardianStudent.deleteMany({ where: { studentId: secondLinkedStudent.id } });
+    await prisma.student.deleteMany({ where: { id: { in: [otherStudentInA.id, secondLinkedStudent.id] } } });
+    await cleanupInstitution(instA);
+    await disconnectFixtures();
+  }, 30_000);
+
+  it('STUDENT sees only their own results', async () => {
+    const { token } = instA.usersByRole[UserRole.STUDENT];
+    const res = await request(app).get('/api/v1/results/me').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toContain(resultForA.id);
+    expect(ids).toContain(resultForA_exam2.id);
+    expect(ids).not.toContain(resultForOtherStudent.id);
+    expect(ids).not.toContain(resultForSecondLinkedStudent.id);
+  });
+
+  it('STUDENT with no linked Student record gets an empty array, not a 500', async () => {
+    const slug = `test-resultsedge-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const institution = await prisma.institution.create({ data: { name: 'Test Institution resultsedge', slug } });
+    const user = await prisma.user.create({
+      data: {
+        institutionId: institution.id,
+        email: `student.${slug}@test.local`,
+        passwordHash: 'x',
+        role: UserRole.STUDENT,
+        firstName: 'Orphan',
+        lastName: 'Student',
+      },
+    });
+    // Sanity: deliberately NOT creating a Student row linked to this user.
+    const orphanToken = jwt.sign(
+      { sub: user.id, institutionId: institution.id, role: UserRole.STUDENT, email: user.email },
+      env.JWT_ACCESS_SECRET,
+      { expiresIn: env.JWT_ACCESS_EXPIRES_IN as any },
+    );
+
+    try {
+      const res = await request(app).get('/api/v1/results/me').set('Authorization', `Bearer ${orphanToken}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBe(0);
+    } finally {
+      await prisma.user.deleteMany({ where: { institutionId: institution.id } });
+      await prisma.institution.delete({ where: { id: institution.id } });
+    }
+  });
+
+  it("GUARDIAN with a studentId param sees only that child's results", async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app)
+      .get(`/api/v1/results/me?studentId=${instA.studentId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toContain(resultForA.id);
+    expect(ids).toContain(resultForA_exam2.id);
+    expect(ids).not.toContain(resultForSecondLinkedStudent.id);
+    expect(ids).not.toContain(resultForOtherStudent.id);
+  });
+
+  it("GUARDIAN supplying a same-tenant non-linked studentId gets an empty array, not another family's data", async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app)
+      .get(`/api/v1/results/me?studentId=${otherStudentInA.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBe(0);
+  });
+
+  it('GUARDIAN with multiple children and no studentId param gets results for all linked children only', async () => {
+    const { token } = instA.usersByRole[UserRole.GUARDIAN];
+    const res = await request(app).get('/api/v1/results/me').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toContain(resultForA.id);
+    expect(ids).toContain(resultForA_exam2.id);
+    expect(ids).toContain(resultForSecondLinkedStudent.id);
+    expect(ids).not.toContain(resultForOtherStudent.id);
+  });
+
+  it('examId query param narrows results to just that exam', async () => {
+    const { token } = instA.usersByRole[UserRole.STUDENT];
+    const res = await request(app)
+      .get(`/api/v1/results/me?examId=${exam1.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
+    expect(ids).toContain(resultForA.id);
+    expect(ids).not.toContain(resultForA_exam2.id);
+  });
+
+  it('unauthenticated request is rejected (401)', async () => {
+    const res = await request(app).get('/api/v1/results/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('a staff-only role (TEACHER) cannot use the self-service route (403)', async () => {
+    const { token } = instA.usersByRole[UserRole.TEACHER];
+    const res = await request(app).get('/api/v1/results/me').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(403);
   });
 });

@@ -27,9 +27,9 @@ const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.T
 router.post('/submit', STAFF_ROLES, validate({ body: SubmitExamResultsDto }), resultsController.submitResults);
 router.get('/results-list', STAFF_ROLES, validate({ query: ExamResultQueryDto }), resultsController.listResults);
 router.delete('/results-list/:id', STAFF_ROLES, validate({ params: ResultIdParamDto }), resultsController.deleteResult);
-// STUDENT "my results" / GUARDIAN "child's results" — ownership-scoped in the service.
-router.get('/me', requireRole(UserRole.STUDENT), resultsController.getMyResults);
-router.get('/child/:studentId', requireRole(UserRole.GUARDIAN), resultsController.getChildResults);
+// STUDENT/GUARDIAN "my results" — ownership-scoped in the service. Must be
+// declared before the exam wildcard routes below (:id).
+router.get('/me', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), resultsController.getMyResults);
 router.get(
   '/:studentId/report-card',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN),

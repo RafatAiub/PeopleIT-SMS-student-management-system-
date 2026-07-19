@@ -17,6 +17,7 @@ const InvoiceList = React.lazy(() => import('./pages/fees/InvoiceList'));
 const MyInvoices = React.lazy(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = React.lazy(() => import('./pages/attendance/AttendanceEntry'));
 const MarksEntry = React.lazy(() => import('./pages/results/MarksEntry'));
+const MyExamResults = React.lazy(() => import('./pages/results/MyExamResults'));
 const TimetableGrid = React.lazy(() => import('./pages/timetables/TimetableGrid'));
 const NoticeBoard = React.lazy(() => import('./pages/notices/NoticeBoard'));
 const LibraryManagement = React.lazy(() => import('./pages/library/LibraryManagement'));
@@ -63,6 +64,15 @@ const TransportRoute = () => {
     return <MyTransportAssignment />;
   }
   return <TransportManagement />;
+};
+
+// Results route branches by role: staff enter/manage grades, students/guardians see a read-only "my exam results" view
+const ResultsRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyExamResults />;
+  }
+  return <MarksEntry />;
 };
 
 // Fees route branches by role: staff/accountant manage invoices & categories, students/guardians see a read-only "my invoices" + pay view
@@ -317,7 +327,7 @@ const App = () => {
         <Route path="/results" element={
           <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
-              <MarksEntry />
+              <ResultsRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />

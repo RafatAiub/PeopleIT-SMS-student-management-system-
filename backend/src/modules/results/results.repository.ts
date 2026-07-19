@@ -110,14 +110,23 @@ export async function upsertBulkResults(
   return prisma.$transaction(operations);
 }
 
-export async function findAllResults(institutionId: string, query: ExamResultQueryDtoType) {
-  const { page, pageSize, examId, studentId, subject, classId, sectionId } = query;
+// `studentIdIn` is an internal-only extension (not part of the Zod query
+// schema exposed to callers via validate()) used by the STUDENT/GUARDIAN
+// self-service "my results" path to fetch multiple linked children's
+// results in one query — same extension pattern as library/transport's
+// getIssues/getAssignments.
+export async function findAllResults(
+  institutionId: string,
+  query: ExamResultQueryDtoType & { studentIdIn?: string[] },
+) {
+  const { page, pageSize, examId, studentId, studentIdIn, subject, classId, sectionId } = query;
   const skip = (page - 1) * pageSize;
 
   const where = {
     institutionId,
     ...(examId ? { examId } : {}),
     ...(studentId ? { studentId } : {}),
+    ...(studentIdIn ? { studentId: { in: studentIdIn } } : {}),
     ...(subject ? { subject: { contains: subject, mode: 'insensitive' as const } } : {}),
     ...(classId || sectionId
       ? {

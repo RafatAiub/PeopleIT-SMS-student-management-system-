@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
+import { UserRole } from '@prisma/client';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -12,6 +13,8 @@ import type {
   SubmitExamResultsDtoType,
   ExamResultQueryDtoType,
 } from './results.dto';
+
+export type RequestingUser = { sub: string; role: string };
 
 // ── Exam Services ──────────────────────────────────────────────────────────
 
@@ -101,32 +104,61 @@ export async function listResults(
   return resultsRepository.findAllResults(institutionId, query);
 }
 
-/** STUDENT "my results" — ownership-scoped to the caller's own student record. */
-export async function getMyResults(institutionId: string, userId: string) {
-  const own = await studentRepository.findByUserId(institutionId, userId);
-  if (!own) {
-    throw new NotFoundError('Student record not found');
-  }
-  const { records } = await resultsRepository.findAllResults(institutionId, {
-    studentId: own.id,
-    page: 1,
-    pageSize: 500,
-  } as ExamResultQueryDtoType);
-  return records;
-}
+/**
+ * STUDENT/GUARDIAN self-service "my results" — ownership-scoped server-side,
+ * mirrors library.service.ts's getMyIssues / transport.service.ts's
+ * getMyAssignment. Never trust a client-supplied studentId for these roles;
+ * on a mismatch/missing record we fall back to a sentinel id that matches
+ * nothing rather than throwing — that avoids an existence-leak between
+ * "not your child" and "your child, zero results" (both must look the same:
+ * 200 + []).
+ */
+export async function getMyResults(
+  institutionId: string,
+  requester: RequestingUser,
+  query: { studentId?: string; examId?: string } = {},
+) {
+  const { examId } = query;
 
-/** GUARDIAN "my child's results" — ownership-scoped to linked children only. */
-export async function getChildResults(institutionId: string, studentId: string, guardianUserId: string) {
-  const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, guardianUserId);
-  if (!linked.includes(studentId)) {
-    throw new NotFoundError('Student not found');
+  if (requester.role === UserRole.STUDENT) {
+    const own = await studentRepository.findByUserId(institutionId, requester.sub);
+    const { records } = await resultsRepository.findAllResults(institutionId, {
+      studentId: own?.id ?? '__no-match__',
+      examId,
+      page: 1,
+      pageSize: 500,
+    });
+    return records;
   }
-  const { records } = await resultsRepository.findAllResults(institutionId, {
-    studentId,
-    page: 1,
-    pageSize: 500,
-  } as ExamResultQueryDtoType);
-  return records;
+
+  if (requester.role === UserRole.GUARDIAN) {
+    const linkedStudentIds = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, requester.sub);
+
+    if (query.studentId) {
+      const studentId = linkedStudentIds.includes(query.studentId) ? query.studentId : '__no-match__';
+      const { records } = await resultsRepository.findAllResults(institutionId, {
+        studentId,
+        examId,
+        page: 1,
+        pageSize: 500,
+      });
+      return records;
+    }
+
+    // No studentId filter — return results across ALL linked children
+    // together (unlike transport's one-per-student constraint, a student
+    // can have many result rows, so this naturally returns a flat list).
+    const { records } = await resultsRepository.findAllResults(institutionId, {
+      studentIdIn: linkedStudentIds.length > 0 ? linkedStudentIds : ['__no-match__'],
+      examId,
+      page: 1,
+      pageSize: 500,
+    });
+    return records;
+  }
+
+  // Non-student/guardian roles have no self-service concept here.
+  return [];
 }
 
 // ── Report Card PDF ─────────────────────────────────────────────────────────

@@ -97,6 +97,12 @@ describe('Authorization matrix — previously-unprotected routes', () => {
       allowedRoles: STAFF_RW,
       label: 'DELETE /results/results-list/:id',
     },
+    {
+      method: 'get',
+      path: '/api/v1/results/me',
+      allowedRoles: [UserRole.STUDENT, UserRole.GUARDIAN],
+      label: 'GET /results/me (self-service)',
+    },
 
     // --- hr (staff + payroll) ---
     { method: 'get', path: '/api/v1/hr/staff', allowedRoles: ADMIN_ACCOUNTANT, label: 'GET /hr/staff' },
