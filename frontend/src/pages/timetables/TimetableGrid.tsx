@@ -25,7 +25,9 @@ const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 // Convert 12hr time to 24hr for the backend matching
 const to24 = (timeStr: string) => {
   const [time, modifier] = timeStr.split(' ');
-  let [hours, minutes] = time.split(':');
+  const timeParts = time.split(':');
+  const minutes = timeParts[1];
+  let hours = timeParts[0];
   if (hours === '12') {
     hours = '00';
   }

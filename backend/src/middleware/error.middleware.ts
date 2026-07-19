@@ -12,7 +12,6 @@ import { env } from '../config/env';
 // Never leaks stack traces in production.
 // =============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function globalErrorHandler(
   err: Error,
   req: Request,

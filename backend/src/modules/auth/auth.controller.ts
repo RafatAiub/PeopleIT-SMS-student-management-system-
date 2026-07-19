@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from './auth.service';
-import { successResponse, errorResponse } from '../../utils/response';
-import { logger } from '../../utils/logger';
+import { successResponse } from '../../utils/response';
 
 // =============================================================================
 // Auth Controller — thin layer, delegates all logic to auth.service.ts

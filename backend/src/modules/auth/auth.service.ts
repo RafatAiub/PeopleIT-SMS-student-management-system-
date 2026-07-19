@@ -60,7 +60,6 @@ function generateRefreshToken(): string {
 
 export async function login(dto: LoginDtoType): Promise<AuthResult> {
   let user: any = null;
-  let institutionId: string | null = null;
 
   // 1. Check if institutionCode is missing (Super Admin smart login)
   if (!dto.institutionCode || dto.institutionCode.trim() === '') {
@@ -99,8 +98,6 @@ export async function login(dto: LoginDtoType): Promise<AuthResult> {
     if (!institution.isActive) {
       throw new ForbiddenError('Institution account is suspended');
     }
-
-    institutionId = institution.id;
 
     // Find user scoped STRICTLY to this institution
     user = await prisma.user.findFirst({

@@ -1,5 +1,5 @@
 import prisma from '../../config/prisma';
-import { CreateLibraryBookInput, UpdateLibraryBookInput, IssueBookInput, ReturnBookInput } from './library.dto';
+import { CreateLibraryBookInput, IssueBookInput, ReturnBookInput } from './library.dto';
 
 export async function createBook(institutionId: string, data: CreateLibraryBookInput) {
   return prisma.libraryBook.create({

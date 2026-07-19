@@ -6,7 +6,7 @@ import type {
 } from './timetables.dto';
 
 export async function create(institutionId: string, data: CreateTimetableSlotDtoType) {
-  const { teacherUserId, ...restData } = data;
+  const { teacherUserId: _teacherUserId, ...restData } = data;
   return prisma.timetableSlot.create({
     data: {
       ...restData,
@@ -34,7 +34,7 @@ export async function update(
   id: string,
   data: UpdateTimetableSlotDtoType,
 ) {
-  const { teacherUserId, ...restData } = data;
+  const { teacherUserId: _teacherUserId, ...restData } = data;
   return prisma.timetableSlot.update({
     where: { id },
     data: restData,

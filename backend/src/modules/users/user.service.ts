@@ -94,7 +94,6 @@ export class UserService {
     // guardian) created above — re-fetch so the response actually reflects it,
     // instead of always reporting studentProfile/guardianProfile as null.
     const created = await UserRepository.getUserById(tenantId, user.id);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _passwordHash, ...createdWithoutPassword } = created!;
     return createdWithoutPassword;
   }
@@ -221,7 +220,6 @@ export class UserService {
     }
 
     const updated = await UserRepository.getUserById(tenantId, id);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _passwordHash, ...updatedWithoutPassword } = updated!;
     return updatedWithoutPassword;
   }
