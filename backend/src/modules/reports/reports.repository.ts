@@ -20,15 +20,17 @@ export class ReportsRepository {
 
     const totalRevenue = invoices._sum.paidAmount || 0;
 
-    // Attendance rate
-    const attendances = await prisma.attendance.findMany({
-      where: { institutionId },
-    });
+    // Attendance rate — computed via DB-side counts rather than pulling the
+    // entire attendance history into memory. Same all-time semantics as
+    // before (no date bound), just computed without a findMany.
+    const [totalAttendance, presentAttendance] = await Promise.all([
+      prisma.attendance.count({ where: { institutionId } }),
+      prisma.attendance.count({ where: { institutionId, status: 'PRESENT' } }),
+    ]);
 
     let attendanceRate = 0;
-    if (attendances.length > 0) {
-      const presentCount = attendances.filter(a => a.status === 'PRESENT').length;
-      attendanceRate = (presentCount / attendances.length) * 100;
+    if (totalAttendance > 0) {
+      attendanceRate = (presentAttendance / totalAttendance) * 100;
     }
 
     // Last-7-days trend data for the dashboard charts (real data, not a

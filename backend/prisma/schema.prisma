@@ -388,6 +388,7 @@ model Attendance {
   @@index([institutionId])
   @@index([studentId])
   @@index([date])
+  @@index([institutionId, date])
 }
 
 // ── Phase 2: Academic Results ────────────────────────────────────────
