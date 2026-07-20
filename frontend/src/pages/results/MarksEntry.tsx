@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -70,6 +70,7 @@ const MarksEntry = () => {
 
   const [students, setStudents] = useState<any[]>([]);
   const [marks, setMarks] = useState<Record<string, Record<string, { score: string; remarks: string }>>>({});
+  const [savedMarkKeys, setSavedMarkKeys] = useState<Set<string>>(new Set());
 
   const loadInitialMetadata = async () => {
     try {
@@ -120,18 +121,56 @@ const MarksEntry = () => {
       setStudents(studentsData);
 
       const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
-      setMarks(prev => {
-        const next = { ...prev };
-        subjects.forEach((sub) => {
-          if (!next[sub]) next[sub] = {};
-          studentsData.forEach((student: any) => {
-            if (!next[sub][student.id]) {
-              next[sub][student.id] = { score: '', remarks: '' };
-            }
-          });
+
+      // Start with a blank grid for every subject/student pair.
+      const nextMarks: Record<string, Record<string, { score: string; remarks: string }>> = {};
+      subjects.forEach((sub) => {
+        nextMarks[sub] = {};
+        studentsData.forEach((student: any) => {
+          nextMarks[sub][student.id] = { score: '', remarks: '' };
         });
-        return next;
       });
+
+      // Overlay marks already saved for this exam/class/section — without
+      // this, reloading the page always showed a blank sheet even though
+      // the marks were submitted successfully and safely stored server-side.
+      const savedKeys = new Set<string>();
+      if (selectedExam) {
+        try {
+          const cls = classesMeta.find((c: any) => c.name === selectedClass);
+          let sec = null;
+          if (cls) {
+            const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
+            const sectionsList = sectionsRes.data.data || [];
+            sec = sectionsList.find((s: any) => s.name === selectedSection);
+          }
+          const queryParams = new URLSearchParams();
+          queryParams.append('examId', selectedExam);
+          if (cls) queryParams.append('classId', cls.id);
+          if (sec) queryParams.append('sectionId', sec.id);
+          queryParams.append('pageSize', '500');
+
+          const existingRes = await apiClient.get(`/results/results-list?${queryParams.toString()}`);
+          const existingRecords = existingRes.data.data || [];
+          let detectedMaxMarks: number | null = null;
+          existingRecords.forEach((record: any) => {
+            if (!record.student) return;
+            if (!nextMarks[record.subject]) nextMarks[record.subject] = {};
+            nextMarks[record.subject][record.student.id] = {
+              score: String(record.marksObtained),
+              remarks: record.remarks || ''
+            };
+            savedKeys.add(`${record.subject}:${record.student.id}`);
+            if (detectedMaxMarks === null) detectedMaxMarks = Number(record.maxMarks);
+          });
+          if (detectedMaxMarks !== null) setMaxMarks(detectedMaxMarks);
+        } catch (err) {
+          console.error('Failed to fetch previously saved marks', err);
+        }
+      }
+
+      setMarks(nextMarks);
+      setSavedMarkKeys(savedKeys);
     } catch (err) {
       console.error('Failed to fetch students', err);
     } finally {
@@ -141,7 +180,7 @@ const MarksEntry = () => {
 
   useEffect(() => {
     fetchStudentsAndMarks();
-  }, [selectedClass, selectedSection, selectedDepartment, hasAssignments]);
+  }, [selectedClass, selectedSection, selectedDepartment, selectedExam, hasAssignments, classesMeta]);
 
   useEffect(() => {
     const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
@@ -149,6 +188,16 @@ const MarksEntry = () => {
   }, [selectedClass, selectedDepartment]);
 
   const isSeniorClass = selectedClass.includes('9') || selectedClass.includes('10');
+
+  const subjectFillCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    availableSubjects.forEach((sub) => {
+      counts[sub] = students.filter((s) => (marks[sub]?.[s.id]?.score || '') !== '').length;
+    });
+    return counts;
+  }, [availableSubjects, students, marks]);
+
+  const selectedExamName = exams.find((e) => e.id === selectedExam)?.name || '';
 
   const fetchCompleteResultSheet = async () => {
     if (!selectedExam) return;
@@ -399,6 +448,11 @@ const MarksEntry = () => {
 
   const handleScoreChange = (subject: string, studentId: string, val: string) => {
     setUnsavedChanges(true);
+    setSavedMarkKeys(prev => {
+      const next = new Set(prev);
+      next.delete(`${subject}:${studentId}`);
+      return next;
+    });
     setMarks(prev => ({
       ...prev,
       [subject]: {
@@ -654,23 +708,52 @@ const MarksEntry = () => {
             </div>
           </div>
 
+          {/* Context strip + guidance */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
+                <BookOpenCheck className="w-3.5 h-3.5" />
+                {selectedExamName || 'No exam selected'}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                <Users className="w-3.5 h-3.5" />
+                {selectedClass} - Section {selectedSection}
+              </span>
+              {isSeniorClass && selectedDepartment !== 'None' && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/10">
+                  {selectedDepartment}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <Info className="w-3.5 h-3.5 flex-shrink-0" />
+              Saved marks are instantly visible to the student and their guardian in their own portals.
+            </div>
+          </div>
+
           {/* Grade Sheet Grid */}
           <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm bg-white dark:bg-transparent">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
+            <div className="overflow-auto max-h-[65vh]">
+              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-separate border-spacing-0">
+                <thead className="sticky top-0 z-20 text-xs uppercase text-slate-500 dark:text-slate-400">
                   <tr>
-                    <th rowSpan={2} className="px-6 py-4 font-medium align-bottom">Student</th>
-                    <th rowSpan={2} className="px-6 py-4 font-medium align-bottom">Roll No</th>
+                    <th rowSpan={2} className="sticky left-0 z-30 px-6 py-4 font-medium align-bottom bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-white/10">
+                      Student
+                    </th>
                     {availableSubjects.map(sub => (
-                      <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-slate-200 dark:border-white/10">{sub}</th>
+                      <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
+                        <div>{sub}</div>
+                        <div className="mt-0.5 font-normal normal-case text-[11px] text-slate-400 dark:text-slate-500">
+                          {subjectFillCounts[sub] || 0}/{students.length} filled
+                        </div>
+                      </th>
                     ))}
                   </tr>
                   <tr>
                     {availableSubjects.map(sub => (
                       <React.Fragment key={sub}>
-                        <th className="px-3 py-2 font-medium text-center border-l border-slate-200 dark:border-white/10 w-24">Score</th>
-                        <th className="px-3 py-2 font-medium text-center min-w-[220px]">Remarks</th>
+                        <th className="px-3 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 w-24 bg-slate-50 dark:bg-slate-900">Score</th>
+                        <th className="px-3 py-2 font-medium text-center min-w-[220px] border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">Remarks</th>
                       </React.Fragment>
                     ))}
                   </tr>
@@ -678,37 +761,47 @@ const MarksEntry = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={2 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={1 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         Loading students...
                       </td>
                     </tr>
                   ) : students.length === 0 ? (
                     <tr>
-                      <td colSpan={2 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={1 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         No students found.
                       </td>
                     </tr>
                   ) : (
                     students.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="sticky left-0 z-10 px-6 py-4 bg-white dark:bg-slate-950">
                           <div>
                             <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
-                            <div className="text-xs text-slate-500">{student.studentId}</div>
+                            <div className="text-xs text-slate-500">{student.studentId} • Roll {student.rollNumber || '?'}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{student.rollNumber || '?'}</td>
                         {availableSubjects.map(sub => {
                           const generatingKey = `${sub}:${student.id}`;
+                          const cellKey = `${sub}:${student.id}`;
+                          const scoreVal = marks[sub]?.[student.id]?.score || '';
+                          const isSaved = savedMarkKeys.has(cellKey) && scoreVal !== '';
+                          const isEdited = scoreVal !== '' && !isSaved;
                           return (
                             <React.Fragment key={sub}>
                               <td className="px-3 py-4 border-l border-slate-200 dark:border-white/10">
                                 <input
                                   type="number"
                                   placeholder="0"
-                                  value={marks[sub]?.[student.id]?.score || ''}
+                                  value={scoreVal}
                                   onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
-                                  className="input-field w-16 text-center font-semibold"
+                                  title={isSaved ? 'Saved' : isEdited ? 'Not yet saved' : undefined}
+                                  className={`input-field w-16 text-center font-semibold ${
+                                    isSaved
+                                      ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-200 dark:ring-emerald-500/20'
+                                      : isEdited
+                                      ? 'border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-200 dark:ring-amber-500/20'
+                                      : ''
+                                  }`}
                                 />
                               </td>
                               <td className="px-3 py-4">
