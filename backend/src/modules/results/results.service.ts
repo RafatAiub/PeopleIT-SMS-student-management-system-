@@ -43,7 +43,29 @@ export async function getExam(institutionId: string, id: string) {
   return exam;
 }
 
+// Schools expect Mid Term / Half Yearly / Final Term to already exist rather
+// than having to create exams from scratch before any marks can be entered.
+// Seeded once, lazily, the first time an institution has zero exams; admins
+// can rename or re-date them afterwards like any other exam.
+async function ensureStandardExams(institutionId: string) {
+  const count = await prisma.exam.count({ where: { institutionId } });
+  if (count > 0) return;
+
+  const year = new Date().getFullYear();
+  const standardExams = [
+    { name: 'Mid Term', startDate: new Date(`${year}-04-01`), endDate: new Date(`${year}-04-15`) },
+    { name: 'Half Yearly', startDate: new Date(`${year}-07-01`), endDate: new Date(`${year}-07-15`) },
+    { name: 'Final Term', startDate: new Date(`${year}-11-01`), endDate: new Date(`${year}-11-15`) },
+  ];
+
+  await prisma.exam.createMany({
+    data: standardExams.map((exam) => ({ ...exam, institutionId, isActive: true })),
+  });
+  logger.info('Standard exams auto-seeded', { institutionId });
+}
+
 export async function listExams(institutionId: string, query: ExamQueryDtoType) {
+  await ensureStandardExams(institutionId);
   return resultsRepository.findAllExams(institutionId, query);
 }
 

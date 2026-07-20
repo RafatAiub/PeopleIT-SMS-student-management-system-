@@ -51,7 +51,6 @@ const MarksEntry = () => {
   const [selectedSection, setSelectedSection] = useState('A');
   const [selectedDepartment, setSelectedDepartment] = useState('None');
   const [availableSubjects, setAvailableSubjects] = useState<string[]>(COMMON_SUBJECTS_JUNIOR);
-  const [selectedSubject, setSelectedSubject] = useState(COMMON_SUBJECTS_JUNIOR[0]);
   const [maxMarks, setMaxMarks] = useState(100);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -119,10 +118,11 @@ const MarksEntry = () => {
       );
       const studentsData = res.data.data || [];
       setStudents(studentsData);
-      
+
+      const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
       setMarks(prev => {
         const next = { ...prev };
-        availableSubjects.forEach((sub) => {
+        subjects.forEach((sub) => {
           if (!next[sub]) next[sub] = {};
           studentsData.forEach((student: any) => {
             if (!next[sub][student.id]) {
@@ -141,14 +141,11 @@ const MarksEntry = () => {
 
   useEffect(() => {
     fetchStudentsAndMarks();
-  }, [selectedClass, selectedSection, selectedSubject, hasAssignments]);
+  }, [selectedClass, selectedSection, selectedDepartment, hasAssignments]);
 
   useEffect(() => {
     const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
     setAvailableSubjects(subjects);
-    if (!subjects.includes(selectedSubject)) {
-      setSelectedSubject(subjects[0]);
-    }
   }, [selectedClass, selectedDepartment]);
 
   const isSeniorClass = selectedClass.includes('9') || selectedClass.includes('10');
@@ -400,49 +397,50 @@ const MarksEntry = () => {
     e.target.value = '';
   };
 
-  const handleScoreChange = (studentId: string, val: string) => {
+  const handleScoreChange = (subject: string, studentId: string, val: string) => {
     setUnsavedChanges(true);
     setMarks(prev => ({
       ...prev,
-      [selectedSubject]: {
-        ...(prev[selectedSubject] || {}),
+      [subject]: {
+        ...(prev[subject] || {}),
         [studentId]: {
           score: val,
-          remarks: prev[selectedSubject]?.[studentId]?.remarks || ''
+          remarks: prev[subject]?.[studentId]?.remarks || ''
         }
       }
     }));
   };
 
-  const handleRemarksChange = (studentId: string, val: string) => {
+  const handleRemarksChange = (subject: string, studentId: string, val: string) => {
     setUnsavedChanges(true);
     setMarks(prev => ({
       ...prev,
-      [selectedSubject]: {
-        ...(prev[selectedSubject] || {}),
+      [subject]: {
+        ...(prev[subject] || {}),
         [studentId]: {
-          score: prev[selectedSubject]?.[studentId]?.score || '',
+          score: prev[subject]?.[studentId]?.score || '',
           remarks: val
         }
       }
     }));
   };
 
-  const handleGenerateComment = async (studentId: string, score: string) => {
+  const handleGenerateComment = async (subject: string, studentId: string, score: string) => {
     if (!score) {
       toast.error('Please enter a score first to generate a comment.');
       return;
     }
-    setGeneratingFor(studentId);
+    const generatingKey = `${subject}:${studentId}`;
+    setGeneratingFor(generatingKey);
     try {
       const response = await apiClient.post('/ai/comments', {
         score: Number(score),
         maxMarks: maxMarks,
-        subject: selectedSubject,
+        subject,
         studentId: studentId
       });
       const aiComment = response.data?.data?.comment || response.data?.data?.remarks || response.data?.comment || response.data?.remarks || 'Excellent work and dedication.';
-      handleRemarksChange(studentId, aiComment);
+      handleRemarksChange(subject, studentId, aiComment);
       toast.success('AI remark generated successfully!');
     } catch (error) {
       console.warn('AI comment API error, using smart fallback logic:', error);
@@ -461,7 +459,7 @@ const MarksEntry = () => {
         mockComment = 'Needs significant improvement. Attention and additional remedial support are highly recommended.';
       }
       setTimeout(() => {
-        handleRemarksChange(studentId, mockComment);
+        handleRemarksChange(subject, studentId, mockComment);
         toast.success('AI remark generated (fallback simulated).');
       }, 500);
     } finally {
@@ -646,21 +644,6 @@ const MarksEntry = () => {
             )}
 
             <div className="flex flex-col">
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Subject</label>
-              <div className="relative">
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="input-field pr-10"
-                >
-                  {availableSubjects.map(sub => (
-                    <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sub}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Max Marks</label>
               <input
                 type="number"
@@ -677,22 +660,31 @@ const MarksEntry = () => {
               <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
                   <tr>
-                    <th className="px-6 py-4 font-medium">Student</th>
-                    <th className="px-6 py-4 font-medium">Roll No</th>
-                    <th className="px-6 py-4 font-medium w-32">Score</th>
-                    <th className="px-6 py-4 font-medium">Remarks</th>
+                    <th rowSpan={2} className="px-6 py-4 font-medium align-bottom">Student</th>
+                    <th rowSpan={2} className="px-6 py-4 font-medium align-bottom">Roll No</th>
+                    {availableSubjects.map(sub => (
+                      <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-slate-200 dark:border-white/10">{sub}</th>
+                    ))}
+                  </tr>
+                  <tr>
+                    {availableSubjects.map(sub => (
+                      <React.Fragment key={sub}>
+                        <th className="px-3 py-2 font-medium text-center border-l border-slate-200 dark:border-white/10 w-24">Score</th>
+                        <th className="px-3 py-2 font-medium text-center min-w-[220px]">Remarks</th>
+                      </React.Fragment>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={2 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         Loading students...
                       </td>
                     </tr>
                   ) : students.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={2 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         No students found.
                       </td>
                     </tr>
@@ -706,42 +698,46 @@ const MarksEntry = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-slate-700 dark:text-slate-300">{student.rollNumber || '?'}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              placeholder="0"
-                              value={marks[selectedSubject]?.[student.id]?.score || ''}
-                              onChange={(e) => handleScoreChange(student.id, e.target.value)}
-                              className="input-field w-16 text-center font-semibold"
-                            />
-                            <span className="text-slate-500">/ {maxMarks}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="text"
-                              placeholder="e.g. Excellent progress"
-                              value={marks[selectedSubject]?.[student.id]?.remarks || ''}
-                              onChange={(e) => handleRemarksChange(student.id, e.target.value)}
-                              className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600"
-                            />
-                            <button
-                              onClick={() => handleGenerateComment(student.id, marks[selectedSubject]?.[student.id]?.score)}
-                              disabled={generatingFor === student.id}
-                              type="button"
-                              title="Generate AI Comment"
-                              className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
-                            >
-                              {generatingFor === student.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Sparkles className="w-4 h-4" />
-                              )}
-                            </button>
-                          </div>
-                        </td>
+                        {availableSubjects.map(sub => {
+                          const generatingKey = `${sub}:${student.id}`;
+                          return (
+                            <React.Fragment key={sub}>
+                              <td className="px-3 py-4 border-l border-slate-200 dark:border-white/10">
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={marks[sub]?.[student.id]?.score || ''}
+                                  onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
+                                  className="input-field w-16 text-center font-semibold"
+                                />
+                              </td>
+                              <td className="px-3 py-4">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="e.g. Excellent progress"
+                                    value={marks[sub]?.[student.id]?.remarks || ''}
+                                    onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                                    className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px]"
+                                  />
+                                  <button
+                                    onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                                    disabled={generatingFor === generatingKey}
+                                    type="button"
+                                    title="Generate AI Comment"
+                                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
+                                  >
+                                    {generatingFor === generatingKey ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Sparkles className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </React.Fragment>
+                          );
+                        })}
                       </tr>
                     ))
                   )}
