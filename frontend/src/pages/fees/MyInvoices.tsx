@@ -186,8 +186,8 @@ const MyInvoices: React.FC = () => {
                   <tr key={invoice.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">{invoice.invoiceNo || invoice.invoiceNumber}</td>
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900 dark:text-white">৳ {invoice.totalAmount}</div>
-                      {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400">Due: ৳ {invoice.dueAmount}</div>}
+                      <div className="font-semibold text-slate-900 dark:text-white tabular-nums">৳ {invoice.totalAmount}</div>
+                      {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">Due: ৳ {invoice.dueAmount}</div>}
                     </td>
                     <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                       {new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}

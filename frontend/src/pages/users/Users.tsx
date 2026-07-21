@@ -650,8 +650,9 @@ const Users = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New User</h3>
-              <button 
+              <button
                 onClick={() => setIsAddModalOpen(false)}
+                aria-label="Close"
                 className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -859,8 +860,9 @@ const Users = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit User</h3>
-              <button 
+              <button
                 onClick={() => setIsEditModalOpen(false)}
+                aria-label="Close"
                 className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />

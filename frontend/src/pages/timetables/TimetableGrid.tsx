@@ -297,6 +297,7 @@ const TimetableGrid = () => {
               </h3>
               <button 
                 onClick={() => setIsAddModalOpen(false)}
+                aria-label="Close"
                 className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg"
               >
                 <X className="w-5 h-5" />

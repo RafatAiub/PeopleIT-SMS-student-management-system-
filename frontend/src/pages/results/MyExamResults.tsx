@@ -229,7 +229,7 @@ const MyExamResults: React.FC = () => {
                   {group.records.map((r) => (
                     <tr key={r.id}>
                       <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{r.subject}</td>
-                      <td className="px-6 py-3 text-center">
+                      <td className="px-6 py-3 text-center tabular-nums">
                         {Number(r.marksObtained)}/{Number(r.maxMarks)}
                       </td>
                       <td className="px-6 py-3 text-center">
@@ -239,7 +239,7 @@ const MyExamResults: React.FC = () => {
                           <span className="text-slate-400 dark:text-slate-600">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-3 text-center">
+                      <td className="px-6 py-3 text-center tabular-nums">
                         {r.highestMarkInSubject !== null ? (
                           <span
                             className={

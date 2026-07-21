@@ -8,6 +8,7 @@ import apiClient from '../api/client';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../store/authStore';
 import { EmptyState } from '../components/common/EmptyState';
+import { StatusBadge } from '../components/common/StatusBadge';
 
 interface ChildSummary {
   id: string;
@@ -62,22 +63,6 @@ interface SchoolContact {
   contactPhone: string | null;
   contactEmail: string | null;
 }
-
-const StatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    PAID: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-    PARTIAL: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400',
-    UNPAID: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-    OVERDUE: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
-    ISSUED: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400',
-    RETURNED: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400',
-  };
-  return (
-    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${map[status] || 'bg-slate-100 text-slate-600'}`}>
-      {status}
-    </span>
-  );
-};
 
 // Large, plain-language status tiles for the top of the dashboard — the
 // things a worried (and possibly elderly) parent wants to know at a glance,

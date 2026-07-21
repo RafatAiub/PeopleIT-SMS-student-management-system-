@@ -519,6 +519,7 @@ const AttendanceEntry = () => {
               </h3>
               <button
                 onClick={() => setIsAssignModalOpen(false)}
+                aria-label="Close"
                 className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
               >
                 <Plus className="w-6 h-6 rotate-45" />

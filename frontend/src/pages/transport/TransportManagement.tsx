@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
+import { DataTable, Column } from '../../components/DataTable/DataTable';
+import { EmptyState } from '../../components/common/EmptyState';
 
 interface RouteType {
   id: string;
@@ -134,6 +136,66 @@ export default function TransportManagement() {
     }
   };
 
+  const vehicleColumns: Column<VehicleType>[] = [
+    {
+      key: 'id',
+      header: 'Vehicle ID',
+      accessor: 'id',
+      render: (vehicle) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-indigo-500 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-transparent">
+            <Bus className="w-4 h-4" />
+          </div>
+          <span className="text-sm font-semibold text-slate-900 dark:text-white">{vehicle.id}</span>
+        </div>
+      ),
+    },
+    { key: 'registrationNumber', header: 'Registration', accessor: 'registrationNumber' },
+    {
+      key: 'capacity',
+      header: 'Capacity',
+      accessor: 'capacity',
+      render: (vehicle) => `${vehicle.capacity} seats`,
+    },
+    { key: 'driverName', header: 'Driver', accessor: 'driverName' },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (vehicle) => (
+        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+          vehicle.status === 'Active'
+            ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+            : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
+        }`}>
+          {vehicle.status}
+        </span>
+      ),
+    },
+  ];
+
+  const assignmentColumns: Column<AssignmentType>[] = [
+    {
+      key: 'studentName',
+      header: 'Student Name',
+      accessor: 'studentName',
+      render: (assignment) => assignment.studentName || `${assignment.student?.firstName || ''} ${assignment.student?.lastName || ''}`.trim(),
+    },
+    {
+      key: 'routeName',
+      header: 'Route',
+      accessor: 'routeName',
+      render: (assignment) => assignment.routeName || assignment.route?.routeName,
+    },
+    { key: 'stopName', header: 'Stop', accessor: 'stopName' },
+    {
+      key: 'fee',
+      header: 'Monthly Fee',
+      accessor: 'fee',
+      render: (assignment) => <span className="tabular-nums">{assignment.fee}</span>,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -185,27 +247,46 @@ export default function TransportManagement() {
         </button>
       </div>
 
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={`Search ${activeTab}...`}
-            className="input-field pl-10"
-            value={params.search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {activeTab === 'routes' && (
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search routes..."
+              className="input-field pl-10"
+              value={params.search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
+            <Filter className="w-4 h-4 text-slate-500" />
+            Filter
+          </button>
         </div>
-        <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
-          <Filter className="w-4 h-4 text-slate-500" />
-          Filter
-        </button>
-      </div>
+      )}
 
       {loading ? (
         <div className="text-center text-slate-500 py-10">Loading...</div>
       ) : activeTab === 'routes' ? (
         <div className="space-y-4">
+          {routes.length === 0 ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="No routes yet"
+                description="Add a route to start assigning vehicles and students."
+                icon={<Map className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+                action={
+                  <button
+                    onClick={openAddRoute}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
+                  >
+                    <Plus className="w-4 h-4" /> Add Route
+                  </button>
+                }
+              />
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {routes.map((route) => (
             <div key={route.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-colors">
@@ -244,6 +325,7 @@ export default function TransportManagement() {
             </div>
             ))}
           </div>
+          )}
           <Pagination
             page={params.page}
             pageSize={params.pageSize}
@@ -253,88 +335,41 @@ export default function TransportManagement() {
           />
         </div>
       ) : activeTab === 'vehicles' ? (
-        <div className="space-y-4">
-          <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden shadow-sm bg-white dark:bg-transparent">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-slate-700 dark:text-slate-300">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Vehicle ID</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Registration</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Capacity</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Driver</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Status</th>
-                </tr>
-              </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-                  {vehicles.map((vehicle) => (
-                    <tr key={vehicle.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-500 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-transparent">
-                          <Bus className="w-4 h-4" />
-                        </div>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{vehicle.id}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{vehicle.registrationNumber}</td>
-                    <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{vehicle.capacity} seats</td>
-                    <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{vehicle.driverName}</td>
-                    <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        vehicle.status === 'Active' 
-                          ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' 
-                          : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-                      }`}>
-                        {vehicle.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <Pagination
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+          <DataTable
+            data={vehicles}
+            columns={vehicleColumns}
+            isLoading={loading}
+            searchPlaceholder="Search vehicles..."
+            serverSearch
+            onSearch={setSearch}
+            serverPagination
+            totalCount={totalVehicles}
             page={params.page}
             pageSize={params.pageSize}
-            total={totalVehicles}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
+            emptyTitle="No vehicles yet"
+            emptyDescription="Add a vehicle to assign it to a route."
           />
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden shadow-sm bg-white dark:bg-transparent">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-slate-700 dark:text-slate-300">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Student Name</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Route</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Stop</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Monthly Fee</th>
-                </tr>
-              </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-                  {assignments.map((assignment) => (
-                    <tr key={assignment.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                      <td className="p-4 text-sm font-semibold text-slate-900 dark:text-white">{assignment.studentName || `${assignment.student?.firstName || ''} ${assignment.student?.lastName || ''}`.trim()}</td>
-                      <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{assignment.routeName || assignment.route?.routeName}</td>
-                      <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{assignment.stopName}</td>
-                      <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{assignment.fee}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <Pagination
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+          <DataTable
+            data={assignments}
+            columns={assignmentColumns}
+            isLoading={loading}
+            searchPlaceholder="Search assignments..."
+            serverSearch
+            onSearch={setSearch}
+            serverPagination
+            totalCount={totalAssignments}
             page={params.page}
             pageSize={params.pageSize}
-            total={totalAssignments}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
+            emptyTitle="No student assignments yet"
+            emptyDescription="Assign students to a transport route to see them listed here."
           />
         </div>
       )}
@@ -405,8 +440,9 @@ export default function TransportManagement() {
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Vehicle</h3>
-              <button 
-                onClick={() => setIsAddVehicleModalOpen(false)} 
+              <button
+                onClick={() => setIsAddVehicleModalOpen(false)}
+                aria-label="Close"
                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />

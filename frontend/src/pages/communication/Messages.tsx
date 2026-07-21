@@ -258,6 +258,7 @@ const Messages = () => {
                 <form onSubmit={handleSend} className="flex items-center gap-3">
                   <input
                     type="text"
+                    aria-label="Message"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type your message..."
@@ -292,7 +293,8 @@ const Messages = () => {
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Start New Chat</h3>
               <button 
-                onClick={() => setIsSearchOpen(false)} 
+                onClick={() => setIsSearchOpen(false)}
+                aria-label="Close"
                 className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
               >
                 <X className="w-5 h-5" />
@@ -303,7 +305,8 @@ const Messages = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input 
                 autoFocus
-                type="text" 
+                type="text"
+                aria-label="Search users"
                 value={searchQuery}
                 onChange={handleSearchUsers}
                 placeholder="Search by name or email..."

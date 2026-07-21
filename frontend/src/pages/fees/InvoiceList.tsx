@@ -406,7 +406,7 @@ const InvoiceList = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Generate Student Invoice</h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsAddModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -505,7 +505,7 @@ const InvoiceList = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Create Fee Category</h3>
-              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsCategoryModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -585,7 +585,7 @@ const InvoiceList = () => {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Record Offline Payment</h3>
-              <button onClick={() => setIsPaymentModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsPaymentModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>

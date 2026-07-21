@@ -3,6 +3,7 @@ import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus,
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
 
@@ -92,14 +93,21 @@ const Settings = () => {
     }
   };
 
-  const handleDeleteExam = async (exam: any) => {
-    if (!window.confirm(`Delete exam "${exam.name}"? This cannot be undone.`)) return;
+  const [examToDelete, setExamToDelete] = useState<any>(null);
+  const [deletingExam, setDeletingExam] = useState(false);
+
+  const handleConfirmDeleteExam = async () => {
+    if (!examToDelete) return;
+    setDeletingExam(true);
     try {
-      await apiClient.delete(`/results/${exam.id}`);
+      await apiClient.delete(`/results/${examToDelete.id}`);
       toast.success('Exam deleted successfully');
+      setExamToDelete(null);
       fetchExams();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete exam. It may already have results recorded.');
+    } finally {
+      setDeletingExam(false);
     }
   };
 
@@ -111,6 +119,7 @@ const Settings = () => {
       }
     } catch (err) {
       console.error('Failed to fetch settings', err);
+      toast.error('Failed to load institution settings');
     } finally {
       setLoading(false);
     }
@@ -190,8 +199,9 @@ const Settings = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Institution Name</label>
+                      <label htmlFor="settings-name" className="text-sm font-medium text-slate-700 dark:text-slate-400">Institution Name</label>
                       <input
+                        id="settings-name"
                         type="text"
                         value={settings.name || ''}
                         onChange={(e) => setSettings({ ...settings, name: e.target.value })}
@@ -199,8 +209,9 @@ const Settings = () => {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Email Address</label>
+                      <label htmlFor="settings-email" className="text-sm font-medium text-slate-700 dark:text-slate-400">Email Address</label>
                       <input
+                        id="settings-email"
                         type="email"
                         value={settings.email || ''}
                         onChange={(e) => setSettings({ ...settings, email: e.target.value })}
@@ -210,8 +221,9 @@ const Settings = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Phone Number</label>
+                    <label htmlFor="settings-phone" className="text-sm font-medium text-slate-700 dark:text-slate-400">Phone Number</label>
                     <input
+                      id="settings-phone"
                       type="text"
                       value={settings.phone || ''}
                       onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
@@ -220,8 +232,9 @@ const Settings = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Address</label>
+                    <label htmlFor="settings-address" className="text-sm font-medium text-slate-700 dark:text-slate-400">Address</label>
                     <textarea
+                      id="settings-address"
                       value={settings.address || ''}
                       onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                       rows={3}
@@ -240,8 +253,9 @@ const Settings = () => {
                 </h3>
                 <div className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Logo URL</label>
+                    <label htmlFor="settings-logoUrl" className="text-sm font-medium text-slate-700 dark:text-slate-400">Logo URL</label>
                     <input
+                      id="settings-logoUrl"
                       type="url"
                       placeholder="https://example.com/logo.png"
                       value={settings.logoUrl || ''}
@@ -249,10 +263,11 @@ const Settings = () => {
                       className="input-field"
                     />
                   </div>
-                  
+
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>
+                    <label htmlFor="settings-theme" className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>
                     <select
+                      id="settings-theme"
                       value={theme}
                       onChange={(e) => {
                         const newTheme = e.target.value as 'dark' | 'light' | 'system';
@@ -326,13 +341,15 @@ const Settings = () => {
                                 <button
                                   onClick={() => openEditExam(exam)}
                                   title="Edit exam"
+                                  aria-label={`Edit ${exam.name}`}
                                   className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteExam(exam)}
+                                  onClick={() => setExamToDelete(exam)}
                                   title="Delete exam"
+                                  aria-label={`Delete ${exam.name}`}
                                   className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -373,6 +390,7 @@ const Settings = () => {
               </h3>
               <button
                 onClick={() => setExamModalOpen(false)}
+                aria-label="Close"
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500"
               >
                 <X className="w-5 h-5" />
@@ -381,8 +399,9 @@ const Settings = () => {
 
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Exam Name</label>
+                <label htmlFor="exam-name" className="text-sm font-medium text-slate-700 dark:text-slate-400">Exam Name</label>
                 <input
+                  id="exam-name"
                   type="text"
                   list="standard-exam-names"
                   placeholder="e.g. Mid Term"
@@ -399,8 +418,9 @@ const Settings = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Start Date</label>
+                  <label htmlFor="exam-startDate" className="text-sm font-medium text-slate-700 dark:text-slate-400">Start Date</label>
                   <input
+                    id="exam-startDate"
                     type="date"
                     value={examForm.startDate}
                     onChange={(e) => setExamForm({ ...examForm, startDate: e.target.value })}
@@ -408,8 +428,9 @@ const Settings = () => {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-400">End Date</label>
+                  <label htmlFor="exam-endDate" className="text-sm font-medium text-slate-700 dark:text-slate-400">End Date</label>
                   <input
+                    id="exam-endDate"
                     type="date"
                     value={examForm.endDate}
                     onChange={(e) => setExamForm({ ...examForm, endDate: e.target.value })}
@@ -448,6 +469,17 @@ const Settings = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!examToDelete}
+        title="Delete exam"
+        message={`Delete exam "${examToDelete?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingExam}
+        onConfirm={handleConfirmDeleteExam}
+        onCancel={() => setExamToDelete(null)}
+      />
     </div>
   );
 };

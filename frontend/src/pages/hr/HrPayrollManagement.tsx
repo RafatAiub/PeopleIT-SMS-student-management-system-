@@ -466,7 +466,7 @@ export default function HrPayrollManagement() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Add New Staff Profile</h3>
-              <button onClick={() => setIsStaffModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsStaffModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -606,7 +606,7 @@ export default function HrPayrollManagement() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Process Monthly Payroll</h3>
-              <button onClick={() => setIsPayrollModalOpen(false)} className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsPayrollModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>

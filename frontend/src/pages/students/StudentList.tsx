@@ -433,6 +433,7 @@ const StudentList = () => {
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Personal Data</h3>
                 <button 
                   onClick={() => setIsEditModalOpen(false)}
+                  aria-label="Close"
                   className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -716,8 +717,9 @@ const StudentList = () => {
           <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Student Profile</h3>
-              <button 
+              <button
                 onClick={() => setIsEditModalOpen(false)}
+                aria-label="Close"
                 className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />

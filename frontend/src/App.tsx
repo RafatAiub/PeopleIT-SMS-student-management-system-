@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { Menu, X, Bell, Sun, Moon, Monitor, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useUiStore } from './store/uiStore';
 import { useEffect } from 'react';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 // Lazy load pages for performance
 const Login = React.lazy(() => import('./pages/Login'));
@@ -34,8 +35,20 @@ const Settings = React.lazy(() => import('./pages/settings/Settings'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, hasHydrated } = useAuthStore();
   const location = useLocation();
+
+  // The auth store hydrates from sessionStorage asynchronously — on a hard
+  // refresh, isAuthenticated is briefly false before hydration completes.
+  // Wait rather than redirecting to /login, or a logged-in user gets
+  // bounced for a frame on every page reload.
+  if (!hasHydrated) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-[#0F172A]">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -312,7 +325,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         
         {/* Main Content */}
         <main className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
     </div>

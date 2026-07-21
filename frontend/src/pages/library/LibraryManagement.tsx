@@ -5,6 +5,9 @@ import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { DataTable, Column } from '../../components/DataTable/DataTable';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { EmptyState } from '../../components/common/EmptyState';
 
 interface BookType {
   id: string;
@@ -157,6 +160,47 @@ export default function LibraryManagement() {
     }
   };
 
+  const issueColumns: Column<IssueType>[] = [
+    {
+      key: 'book',
+      header: 'Book',
+      sortable: false,
+      render: (issue) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
+            <Book className="w-4 h-4" />
+          </div>
+          <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.bookTitle || issue.book?.title}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'student',
+      header: 'Student',
+      sortable: false,
+      render: (issue) => issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim(),
+    },
+    { key: 'issueDate', header: 'Issue Date', accessor: 'issueDate' },
+    { key: 'dueDate', header: 'Due Date', accessor: 'dueDate' },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (issue) => <StatusBadge status={issue.status} />,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      sortable: false,
+      render: (issue) =>
+        issue.status === 'Issued' ? (
+          <button onClick={() => setIssueToReturn(issue)} aria-label="Return book" className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Return Book">
+            <ArrowRightLeft className="w-4 h-4" />
+          </button>
+        ) : null,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -196,27 +240,46 @@ export default function LibraryManagement() {
         </button>
       </div>
 
-      <div className="flex gap-4 items-center">
-        <div className="relative flex-1">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={activeTab === 'catalog' ? "Search books by title, author, or ISBN..." : "Search issues by student or book..."}
-            className="input-field pl-10"
-            value={params.search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {activeTab === 'catalog' && (
+        <div className="flex gap-4 items-center">
+          <div className="relative flex-1">
+            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search books by title, author, or ISBN..."
+              className="input-field pl-10"
+              value={params.search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
+            <Filter className="w-4 h-4 text-slate-500" />
+            Filter
+          </button>
         </div>
-        <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
-          <Filter className="w-4 h-4 text-slate-500" />
-          Filter
-        </button>
-      </div>
+      )}
 
       {loading ? (
         <div className="text-center text-slate-500 py-10">Loading...</div>
       ) : activeTab === 'catalog' ? (
         <div className="space-y-4">
+          {books.length === 0 ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="No books in the catalog yet"
+                description="Add a book to start building your library catalog."
+                icon={<Book className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+                action={
+                  <button
+                    onClick={openAddBook}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
+                  >
+                    <Plus className="w-4 h-4" /> Add Book
+                  </button>
+                }
+              />
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {books.map((book) => (
             <div key={book.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group">
@@ -257,7 +320,8 @@ export default function LibraryManagement() {
               </div>
             </div>
           ))}
-        </div>
+          </div>
+          )}
           <Pagination
             page={params.page}
             pageSize={params.pageSize}
@@ -267,62 +331,22 @@ export default function LibraryManagement() {
           />
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden shadow-sm bg-white dark:bg-transparent">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-slate-700 dark:text-slate-300">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Book</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Student</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Issue Date</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Due Date</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Status</th>
-                  <th className="p-4 text-sm font-semibold text-slate-500 dark:text-slate-300">Actions</th>
-                </tr>
-              </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/10">
-                  {issues.map((issue) => (
-                    <tr key={issue.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
-                            <Book className="w-4 h-4" />
-                          </div>
-                          <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.bookTitle || issue.book?.title}</span>
-                        </div>
-                      </td>
-                      <td className="p-4 text-sm text-slate-600 dark:text-slate-300">{issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim()}</td>
-                      <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{issue.issueDate}</td>
-                      <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{issue.dueDate}</td>
-                      <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          issue.status === 'Issued' 
-                            ? 'bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
-                            : 'bg-red-50 dark:bg-red-500/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-                        }`}>
-                          {issue.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {issue.status === 'Issued' && (
-                          <button onClick={() => setIssueToReturn(issue)} aria-label="Return book" className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Return Book">
-                            <ArrowRightLeft className="w-4 h-4" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <Pagination
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+          <DataTable
+            data={issues}
+            columns={issueColumns}
+            isLoading={loading}
+            searchPlaceholder="Search issues by student or book..."
+            serverSearch
+            onSearch={setSearch}
+            serverPagination
+            totalCount={totalIssues}
             page={params.page}
             pageSize={params.pageSize}
-            total={totalIssues}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
+            emptyTitle="No book issues found"
+            emptyDescription="Issue a book to a student to see it tracked here."
           />
         </div>
       )}

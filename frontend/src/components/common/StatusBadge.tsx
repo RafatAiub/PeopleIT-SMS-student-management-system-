@@ -2,9 +2,10 @@ import React from 'react';
 
 type StatusKey =
   | 'ACTIVE' | 'INACTIVE' | 'TRANSFERRED' | 'GRADUATED'
-  | 'PAID' | 'PARTIAL' | 'OVERDUE' | 'SENT' | 'DRAFT' | 'CANCELLED'
+  | 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE' | 'SENT' | 'DRAFT' | 'CANCELLED'
   | 'PRESENT' | 'ABSENT' | 'LATE'
-  | 'PENDING' | 'APPROVED' | 'REJECTED';
+  | 'PENDING' | 'APPROVED' | 'REJECTED'
+  | 'ISSUED' | 'RETURNED';
 
 interface StatusBadgeProps {
   status: StatusKey | string;
@@ -18,6 +19,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   GRADUATED:   { label: 'Graduated',   className: 'badge-info' },
   PAID:        { label: 'Paid',        className: 'badge-success' },
   PARTIAL:     { label: 'Partial',     className: 'badge-warning' },
+  UNPAID:      { label: 'Unpaid',      className: 'badge-danger' },
   OVERDUE:     { label: 'Overdue',     className: 'badge-danger' },
   SENT:        { label: 'Sent',        className: 'badge-info' },
   DRAFT:       { label: 'Draft',       className: 'badge-neutral' },
@@ -28,6 +30,8 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   PENDING:     { label: 'Pending',     className: 'badge-warning' },
   APPROVED:    { label: 'Approved',    className: 'badge-success' },
   REJECTED:    { label: 'Rejected',    className: 'badge-danger' },
+  ISSUED:      { label: 'Issued',      className: 'badge-info' },
+  RETURNED:    { label: 'Returned',    className: 'badge-success' },
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
