@@ -68,6 +68,21 @@ export async function updateInstitutionAdmin(
   }
 }
 
+export async function setInstitutionStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+    const updated = await institutionService.setInstitutionStatus(id, Boolean(isActive), req.user!.sub);
+    successResponse(res, updated, `Institution ${isActive ? 'activated' : 'suspended'} successfully`);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function deleteInstitution(
   req: Request,
   res: Response,

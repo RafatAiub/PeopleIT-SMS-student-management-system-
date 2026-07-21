@@ -58,6 +58,7 @@ const AdminDashboard = () => {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [statusTogglingId, setStatusTogglingId] = useState<string | null>(null);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const PHONE_REGEX = /^[0-9+\-\s()]{7,20}$/;
@@ -230,6 +231,27 @@ const AdminDashboard = () => {
     });
   }, [institutions, searchQuery, statusFilter]);
 
+  const handleToggleStatus = async (inst: any) => {
+    const nextIsActive = !inst.isActive;
+    const verb = nextIsActive ? 'activate' : 'suspend';
+    if (!window.confirm(`${nextIsActive ? 'Activate' : 'Suspend'} "${inst.name}"? ${nextIsActive ? 'Its portal will unlock immediately.' : 'Its portal will freeze immediately — all users, including any already logged in, will be locked out.'}`)) {
+      return;
+    }
+    setStatusTogglingId(inst.id);
+    // Optimistic update — this is a live-freeze control, it should feel instant.
+    setInstitutions(prev => prev.map(i => i.id === inst.id ? { ...i, isActive: nextIsActive } : i));
+    try {
+      await apiClient.patch(`/institution/${inst.id}/status`, { isActive: nextIsActive });
+      toast.success(`"${inst.name}" ${nextIsActive ? 'activated' : 'suspended'} successfully`);
+    } catch (err: any) {
+      // Roll back on failure
+      setInstitutions(prev => prev.map(i => i.id === inst.id ? { ...i, isActive: inst.isActive } : i));
+      toast.error(err.response?.data?.message || `Failed to ${verb} institution`);
+    } finally {
+      setStatusTogglingId(null);
+    }
+  };
+
   const handleOpenDeleteModal = (inst: any) => {
     setDeleteTarget(inst);
     setDeleteConfirmText('');
@@ -377,9 +399,14 @@ const AdminDashboard = () => {
                       <td className="p-4">{inst._count?.users || 0}</td>
                       <td className="p-4">{inst._count?.students || 0}</td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${inst.isActive ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20'}`}>
-                          {inst.isActive ? 'Active' : 'Suspended'}
-                        </span>
+                        <button
+                          onClick={() => handleToggleStatus(inst)}
+                          disabled={statusTogglingId === inst.id}
+                          title={inst.isActive ? 'Click to suspend — freezes the institute portal instantly' : 'Click to activate — unfreezes the institute portal instantly'}
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-wait ${inst.isActive ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 hover:bg-red-100 dark:hover:bg-red-500/20'}`}
+                        >
+                          {statusTogglingId === inst.id ? '...' : inst.isActive ? 'Active' : 'Suspended'}
+                        </button>
                       </td>
                       <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
                         {new Date(inst.createdAt).toLocaleDateString()}

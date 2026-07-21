@@ -5,7 +5,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
-import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto } from './institution.dto';
+import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto, SetInstitutionStatusDto } from './institution.dto';
 import * as institutionController from './institution.controller';
 
 const router = Router();
@@ -37,6 +37,17 @@ router.put(
   requireRole(UserRole.SUPER_ADMIN),
   validate({ body: UpdateInstitutionAdminDto }),
   institutionController.updateInstitutionAdmin
+);
+
+// Instantly activate/suspend an institution (Super Admin only, no tenant set yet).
+// Suspended institutions are frozen immediately — tenant.middleware.ts re-checks
+// isActive against the DB on every request, so live sessions are cut off too.
+router.patch(
+  '/:id/status',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: SetInstitutionStatusDto }),
+  institutionController.setInstitutionStatus
 );
 
 // Permanently delete an institution and all its data (Super Admin only, no tenant set yet)

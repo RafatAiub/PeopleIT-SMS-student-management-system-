@@ -63,3 +63,9 @@ export const UpdateInstitutionAdminDto = z.object({
 
 export type UpdateInstitutionAdminDtoType = z.infer<typeof UpdateInstitutionAdminDto>;
 
+export const SetInstitutionStatusDto = z.object({
+  isActive: z.boolean(),
+});
+
+export type SetInstitutionStatusDtoType = z.infer<typeof SetInstitutionStatusDto>;
+

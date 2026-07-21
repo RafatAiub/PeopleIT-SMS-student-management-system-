@@ -6,7 +6,8 @@
 // ============================================================================
 
 import { Request, Response, NextFunction } from 'express';
-import { UnauthorizedError } from '../utils/AppError';
+import { prisma } from '../config/prisma';
+import { UnauthorizedError, ForbiddenError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 
 /**
@@ -15,7 +16,7 @@ import { logger } from '../utils/logger';
  *
  * Every Prisma query MUST use: where: { institutionId: req.tenantId }
  */
-export function setTenant(req: Request, _res: Response, next: NextFunction): void {
+export async function setTenant(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) {
       throw new UnauthorizedError('Authentication required before tenant resolution');
@@ -29,6 +30,18 @@ export function setTenant(req: Request, _res: Response, next: NextFunction): voi
         return next();
       }
       throw new UnauthorizedError('No institution associated with this account');
+    }
+
+    // Suspension must take effect instantly, even for users holding an
+    // already-issued access token — so re-check isActive against the DB on
+    // every tenant-scoped request rather than trusting the JWT snapshot.
+    const institution = await prisma.institution.findUnique({
+      where: { id: institutionId },
+      select: { isActive: true },
+    });
+
+    if (!institution || !institution.isActive) {
+      throw new ForbiddenError('This institution has been suspended by the platform administrator');
     }
 
     req.tenantId = institutionId;

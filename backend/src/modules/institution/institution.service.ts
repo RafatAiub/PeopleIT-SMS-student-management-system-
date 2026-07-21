@@ -196,6 +196,43 @@ export async function listPublicInstitutions() {
   return institutionRepository.listPublic();
 }
 
+export async function setInstitutionStatus(institutionId: string, isActive: boolean, actorUserId: string) {
+  const { prisma } = require('../../config/prisma');
+
+  const institution = await prisma.institution.findUnique({ where: { id: institutionId } });
+  if (!institution) {
+    throw new NotFoundError(`Institution with ID '${institutionId}' not found`);
+  }
+
+  const updated = await prisma.institution.update({
+    where: { id: institutionId },
+    data: { isActive },
+    select: { id: true, name: true, slug: true, isActive: true },
+  });
+
+  // Super-admin actions run before the tenant/audit middleware chain, so log explicitly here.
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: actorUserId,
+        action: 'UPDATE',
+        resource: 'InstitutionStatus',
+        resourceId: institutionId,
+        metadata: { isActive },
+      },
+    })
+    .catch((err: Error) => {
+      logger.error('Failed to write audit log for institution status change', {
+        error: err.message,
+        institutionId,
+      });
+    });
+
+  logger.info('Institution status changed', { institutionId, isActive, actorUserId });
+  return updated;
+}
+
 export async function deleteInstitution(institutionId: string, actorUserId: string) {
   const { prisma } = require('../../config/prisma');
 
