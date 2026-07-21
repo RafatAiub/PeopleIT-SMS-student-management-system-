@@ -12,6 +12,7 @@ import type {
   ExamQueryDtoType,
   SubmitExamResultsDtoType,
   ExamResultQueryDtoType,
+  MarksheetQueryDtoType,
 } from './results.dto';
 
 export type RequestingUser = { sub: string; role: string };
@@ -270,6 +271,58 @@ export async function generateReportCard(
     .catch(() => {});
 
   return pdf;
+}
+
+/**
+ * STAFF-facing class/section marksheet for a given exam (GET
+ * /results/marksheet) — distinct from the STUDENT/GUARDIAN self-service
+ * getMyResults() above. One row per student x subject, plus
+ * highestMarkInSubject: the max marksObtained for that subject across ALL
+ * students in the returned class+section+exam result set (a per-subject
+ * aggregate over the whole class/section, not the individual student's own
+ * mark). Gracefully returns an empty rows array when the exam exists but no
+ * results have been entered yet for this class/section — that's a normal,
+ * expected state (e.g. marks not submitted yet), not an error.
+ */
+export async function getMarksheet(institutionId: string, query: MarksheetQueryDtoType) {
+  const { examId, classId, sectionId } = query;
+
+  const exam = await resultsRepository.findExamById(institutionId, examId);
+  if (!exam) {
+    throw new NotFoundError(`Exam with ID '${examId}' not found`);
+  }
+
+  const rows = await resultsRepository.findMarksheetRows(institutionId, { examId, classId, sectionId });
+
+  // Per-subject highest mark across the whole (already institutionId +
+  // examId + classId/sectionId-scoped) row set — single pass, no second
+  // query.
+  const highestBySubject = new Map<string, number>();
+  for (const row of rows) {
+    const marks = Number(row.marksObtained);
+    const current = highestBySubject.get(row.subject);
+    if (current === undefined || marks > current) {
+      highestBySubject.set(row.subject, marks);
+    }
+  }
+
+  const marksheetRows = rows.map((row) => ({
+    studentId: row.student.id,
+    studentName: `${row.student.firstName} ${row.student.lastName}`,
+    rollNumber: row.student.rollNumber,
+    subject: row.subject,
+    marksObtained: Number(row.marksObtained),
+    maxMarks: Number(row.maxMarks),
+    grade: row.grade,
+    highestMarkInSubject: highestBySubject.get(row.subject) ?? Number(row.marksObtained),
+  }));
+
+  return {
+    exam: { id: exam.id, name: exam.name },
+    classId,
+    sectionId: sectionId ?? null,
+    rows: marksheetRows,
+  };
 }
 
 export async function deleteResult(institutionId: string, id: string) {

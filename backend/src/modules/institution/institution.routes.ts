@@ -42,7 +42,14 @@ router.put(
 // Apply auth + tenant + audit logging to other institution routes
 router.use(authenticate, setTenant, auditLog);
 
+const WRITE_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN);
+
+// Read intentionally open to all authenticated roles in the tenant — the
+// selected fields (name, logo, phone, email, address, theme/hero/about,
+// public contact email/phone) are non-sensitive branding/contact info that
+// role-specific dashboards (e.g. GuardianDashboard) legitimately read to
+// display the school's name and contact details. Writes are Admin-only.
 router.get('/website', institutionController.getWebsiteConfig);
-router.put('/website', validate({ body: UpdateWebsiteConfigDto }), institutionController.updateWebsiteConfig);
+router.put('/website', WRITE_ROLES, validate({ body: UpdateWebsiteConfigDto }), institutionController.updateWebsiteConfig);
 
 export default router;

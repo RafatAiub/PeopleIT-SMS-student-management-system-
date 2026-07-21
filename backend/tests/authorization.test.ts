@@ -164,6 +164,24 @@ describe('Authorization matrix — previously-unprotected routes', () => {
       label: 'DELETE /timetables/:id',
     },
 
+    // --- institution profile (GET open for branding/contact reads e.g.
+    // GuardianDashboard's "school contact" card; PUT is Admin-only — was
+    // previously wide open to every tenant role, a live privilege-escalation
+    // bug proven by a tester on the STUDENT role) ---
+    {
+      method: 'get',
+      path: '/api/v1/institution/website',
+      allowedRoles: TENANT_ROLES,
+      label: 'GET /institution/website (everyone reads school profile/contact info)',
+    },
+    {
+      method: 'put',
+      path: '/api/v1/institution/website',
+      body: { name: 'Authz Matrix Attempted Rename' },
+      allowedRoles: ADMIN_ONLY,
+      label: 'PUT /institution/website (Admin-only — closes STUDENT/GUARDIAN privilege escalation)',
+    },
+
     // --- attendance gaps closed alongside the above ---
     {
       method: 'get',

@@ -6,6 +6,7 @@ import type {
   ExamQueryDtoType,
   SubmitExamResultsDtoType,
   ExamResultQueryDtoType,
+  MarksheetQueryDtoType,
 } from './results.dto';
 
 // ── Exam Repository ─────────────────────────────────────────────────────────
@@ -168,5 +169,40 @@ export async function findAllResults(
 export async function removeResult(institutionId: string, id: string) {
   return prisma.examResult.deleteMany({
     where: { id, institutionId },
+  });
+}
+
+// Staff-facing class/section marksheet (GET /results/marksheet). Fetches the
+// full institutionId+examId+classId(+sectionId)-scoped result set once; the
+// per-subject "highest mark in class/section" aggregate is computed from
+// this same row set in a second pass in the service layer, rather than a
+// separate groupBy/_max query — one row set, one round trip.
+export async function findMarksheetRows(institutionId: string, params: MarksheetQueryDtoType) {
+  const { examId, classId, sectionId } = params;
+
+  return prisma.examResult.findMany({
+    where: {
+      institutionId,
+      examId,
+      student: {
+        classId,
+        ...(sectionId ? { sectionId } : {}),
+      },
+    },
+    select: {
+      subject: true,
+      marksObtained: true,
+      maxMarks: true,
+      grade: true,
+      student: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          rollNumber: true,
+        },
+      },
+    },
+    orderBy: [{ studentId: 'asc' }, { subject: 'asc' }],
   });
 }

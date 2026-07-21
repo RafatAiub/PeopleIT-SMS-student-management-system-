@@ -1,6 +1,23 @@
 import { z } from 'zod';
 
 export const UpdateWebsiteConfigDto = z.object({
+  // Core institution profile fields (real columns on the Institution model —
+  // see backend/prisma/schema.prisma). These were previously stripped by
+  // Zod because the schema didn't list them, silently discarding saves from
+  // System Settings > Institution Profile (Bug 5a).
+  name: z.string().trim().min(2, 'Institution name is too short').max(200).optional(),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[0-9+\-\s()]{7,20}$/, 'Invalid phone number')
+    .optional()
+    .nullable()
+    .or(z.literal('')),
+  email: z.string().trim().toLowerCase().email('Invalid email format').or(z.literal('')).optional().nullable(),
+  address: z.string().trim().max(500).optional().nullable(),
+  logoUrl: z.string().trim().url('Invalid logo URL').or(z.literal('')).optional().nullable(),
+
+  // Public website / branding fields
   themeColor: z
     .string()
     .regex(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, 'Invalid hex color code')

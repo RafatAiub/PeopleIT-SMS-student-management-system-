@@ -13,6 +13,7 @@ import {
   SubmitExamResultsDto,
   ExamResultQueryDto,
   ResultIdParamDto,
+  MarksheetQueryDto,
 } from './results.dto';
 import * as resultsController from './results.controller';
 
@@ -27,6 +28,10 @@ const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.T
 router.post('/submit', STAFF_ROLES, validate({ body: SubmitExamResultsDto }), resultsController.submitResults);
 router.get('/results-list', STAFF_ROLES, validate({ query: ExamResultQueryDto }), resultsController.listResults);
 router.delete('/results-list/:id', STAFF_ROLES, validate({ params: ResultIdParamDto }), resultsController.deleteResult);
+// STAFF-facing class/section marksheet for a selected exam — one row per
+// student x subject with a per-subject highestMarkInSubject aggregate.
+// Static path, must stay above the `/:id` exam wildcard below.
+router.get('/marksheet', STAFF_ROLES, validate({ query: MarksheetQueryDto }), resultsController.getMarksheet);
 // STUDENT/GUARDIAN "my results" — ownership-scoped in the service. Must be
 // declared before the exam wildcard routes below (:id).
 router.get('/me', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), resultsController.getMyResults);

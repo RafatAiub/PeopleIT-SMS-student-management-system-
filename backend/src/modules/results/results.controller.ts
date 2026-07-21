@@ -109,6 +109,19 @@ export async function listResults(
   }
 }
 
+export async function getMarksheet(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const marksheet = await resultsService.getMarksheet(req.tenantId!, req.query as any);
+    successResponse(res, marksheet);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getMyResults(
   req: Request,
   res: Response,

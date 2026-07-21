@@ -144,16 +144,31 @@ const InvoiceList = () => {
 
   const openPaymentModal = (invoice: any) => {
     setSelectedInvoice(invoice);
-    setPaymentAmount(invoice.dueAmount);
+    setPaymentAmount(Number(invoice.dueAmount));
     setIsPaymentModalOpen(true);
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInvoice) return;
+
+    const dueAmount = Number(selectedInvoice.dueAmount);
+    if (dueAmount <= 0 || selectedInvoice.status === 'PAID') {
+      toast.error('This invoice is already fully paid');
+      return;
+    }
+    if (!paymentAmount || paymentAmount <= 0) {
+      toast.error('Payment amount must be greater than ৳ 0');
+      return;
+    }
+    if (paymentAmount > dueAmount) {
+      toast.error(`Payment amount cannot exceed the due amount of ৳ ${dueAmount}`);
+      return;
+    }
+
     try {
       await apiClient.post(`/fees/invoices/${selectedInvoice.id}/payments/offline`, {
-        amount: paymentAmount,
+        amount: Number(paymentAmount),
         method: 'CASH'
       });
       setIsPaymentModalOpen(false);
@@ -292,8 +307,8 @@ const InvoiceList = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {invoice.status !== 'PAID' && (
-                            <button 
+                          {invoice.status !== 'PAID' && Number(invoice.dueAmount) > 0 && (
+                            <button
                               onClick={() => openPaymentModal(invoice)}
                               className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                             >
@@ -543,41 +558,71 @@ const InvoiceList = () => {
               </button>
             </div>
             
-            <form onSubmit={handleRecordPayment} className="p-6 space-y-4">
-              <div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
-                <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
-                <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
+            {Number(selectedInvoice.dueAmount) <= 0 || selectedInvoice.status === 'PAID' ? (
+              // Defensive fallback: covers stale UI state where this modal is somehow opened
+              // for an invoice that is already fully paid (e.g. list not yet refetched after
+              // another user recorded the final payment).
+              <div className="p-6 space-y-4">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
+                  <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
+                  <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber}</div>
+                </div>
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                  This invoice is already fully paid. There is no due amount left to collect.
+                </div>
+                <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentModalOpen(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={handleRecordPayment} noValidate className="p-6 space-y-4">
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
+                  <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
+                  <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
+                </div>
 
-              <div className="border-t border-slate-100 dark:border-white/5 pt-4">
-                <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Payment Amount (৳)</label>
-                <input
-                  type="number"
-                  required
-                  max={selectedInvoice.dueAmount}
-                  value={paymentAmount}
-                  onChange={e => setPaymentAmount(Number(e.target.value) || 0)}
-                  className="input-field"
-                />
-              </div>
+                <div className="border-t border-slate-100 dark:border-white/5 pt-4">
+                  <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Payment Amount (৳)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0.01}
+                    max={Number(selectedInvoice.dueAmount)}
+                    step="0.01"
+                    value={paymentAmount}
+                    onChange={e => setPaymentAmount(Number(e.target.value) || 0)}
+                    className="input-field"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Must be greater than ৳ 0 and no more than the due amount of ৳ {selectedInvoice.dueAmount}.
+                  </p>
+                </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsPaymentModalOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
-                >
-                  Record Payment
-                </button>
-              </div>
-            </form>
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentModalOpen(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
+                  >
+                    Record Payment
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -49,6 +49,11 @@ const TimetableGrid = () => {
   const [loading, setLoading] = useState(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
+  // Resolved from `/students/meta/classes` (the same metadata endpoint used
+  // elsewhere in the app, e.g. AttendanceEntry/Users/StudentList) rather than
+  // hardcoded — that endpoint is tenant-scoped and self-heals a default
+  // "Main Branch" for institutions that haven't set up multi-branch yet.
+  const [branchId, setBranchId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     day: 'Saturday',
@@ -112,17 +117,28 @@ const TimetableGrid = () => {
       apiClient.get('/users?role=TEACHER&pageSize=100')
         .then(res => setTeachers(res.data.data || []))
         .catch(console.error);
+
+      apiClient.get('/students/meta/classes')
+        .then(res => {
+          const classes = res.data.data || [];
+          setBranchId(classes[0]?.branchId ?? null);
+        })
+        .catch(console.error);
     }
   }, [selectedClass, selectedSection, user]);
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!branchId) {
+      toast.error('Could not resolve your branch. Please refresh and try again.');
+      return;
+    }
     setSubmitting(true);
     try {
       const slotInfo = TIME_SLOTS.find(s => s.label === formData.period);
 
       await apiClient.post('/timetables', {
-        branchId: 'clbranch00000000000000000',
+        branchId,
         className: selectedClass,
         sectionName: selectedSection,
         dayOfWeek: formData.day.toUpperCase(),
@@ -350,7 +366,7 @@ const TimetableGrid = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !branchId}
                   className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
                 >
                   {submitting ? 'Saving...' : 'Save Schedule'}

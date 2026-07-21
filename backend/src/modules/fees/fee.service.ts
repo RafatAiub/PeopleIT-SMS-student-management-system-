@@ -235,7 +235,25 @@ export class FeeService {
     const invoice = await FeeRepository.getInvoiceById(tenantId, invoiceId);
     if (!invoice) throw new NotFoundError('Invoice not found');
 
-    if (data.amount > Number(invoice.dueAmount)) {
+    const dueAmount = Number(invoice.dueAmount);
+
+    // Server-side is the real guard here — the client's HTML `max` attribute
+    // is bypassable, and this is money. Reject payments against an invoice
+    // that's already fully settled before even looking at the submitted
+    // amount, so the client gets an unambiguous "already paid" message
+    // instead of a confusing "amount exceeds due" error on a $0 due amount.
+    if (dueAmount <= 0 || invoice.status === 'PAID') {
+      throw new BadRequestError('Invoice is already fully paid');
+    }
+
+    // Defense-in-depth: the Zod DTO already requires amount > 0, but the
+    // service layer must never rely solely on request-layer validation for
+    // a money-handling path.
+    if (data.amount <= 0) {
+      throw new BadRequestError('Payment amount must be greater than zero');
+    }
+
+    if (data.amount > dueAmount) {
       throw new BadRequestError('Payment amount exceeds invoice due amount');
     }
 

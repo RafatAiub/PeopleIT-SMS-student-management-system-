@@ -4,6 +4,18 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import * as XLSX from 'xlsx';
+import { DataTable, Column } from '../../components/DataTable/DataTable';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { EmptyState } from '../../components/common/EmptyState';
+
+interface MarksheetRow {
+  id: string;
+  subject: string;
+  marksObtained: number;
+  maxMarks: number;
+  grade: string | null;
+  highestMarkInSubject: number;
+}
 
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
@@ -63,10 +75,17 @@ const MarksEntry = () => {
   const [hasAssignments, setHasAssignments] = useState(true);
   const [classesMeta, setClassesMeta] = useState<any[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'upload' | 'sheet'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'sheet' | 'marksheet'>('upload');
   const [completeResults, setCompleteResults] = useState<any[]>([]);
   const [completeResultsLoading, setCompleteResultsLoading] = useState(false);
   const [resultSheetClassTeacher, setResultSheetClassTeacher] = useState<string>('Not Assigned');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+
+  // Student Marksheet tab — raw rows from GET /results/marksheet (one row
+  // per student x subject across the whole selected class/section+exam).
+  const [marksheetRowsRaw, setMarksheetRowsRaw] = useState<any[]>([]);
+  const [marksheetLoading, setMarksheetLoading] = useState(false);
+  const [marksheetError, setMarksheetError] = useState(false);
 
   const [students, setStudents] = useState<any[]>([]);
   const [marks, setMarks] = useState<Record<string, Record<string, { score: string; remarks: string }>>>({});
@@ -187,6 +206,20 @@ const MarksEntry = () => {
     setAvailableSubjects(subjects);
   }, [selectedClass, selectedDepartment]);
 
+  // Keep the marksheet tab's selected student in sync with the currently
+  // loaded class/section roster — default to the first student, and reset
+  // if the previously selected student falls outside the new roster.
+  useEffect(() => {
+    if (students.length === 0) {
+      setSelectedStudentId('');
+      return;
+    }
+    if (!selectedStudentId || !students.some((s) => s.id === selectedStudentId)) {
+      setSelectedStudentId(students[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [students]);
+
   const isSeniorClass = selectedClass.includes('9') || selectedClass.includes('10');
 
   const subjectFillCounts = useMemo(() => {
@@ -247,6 +280,54 @@ const MarksEntry = () => {
     }
   }, [activeTab, selectedExam, selectedClass, selectedSection, classesMeta]);
 
+  // ── Student Marksheet tab — GET /results/marksheet ─────────────────────
+  // Single isolated integration point for the staff-facing marksheet
+  // endpoint: one row per student x subject, plus a highestMarkInSubject
+  // aggregate computed server-side across the whole class/section for the
+  // selected exam. If the endpoint's field/param names ever change, this
+  // function is the only place that needs updating.
+  const fetchMarksheet = async () => {
+    if (!selectedExam) {
+      setMarksheetRowsRaw([]);
+      return;
+    }
+    const cls = classesMeta.find((c: any) => c.name === selectedClass);
+    if (!cls) {
+      setMarksheetRowsRaw([]);
+      return;
+    }
+    let sec: any = null;
+    try {
+      const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
+      const sectionsList = sectionsRes.data.data || [];
+      sec = sectionsList.find((s: any) => s.name === selectedSection);
+    } catch (err) {
+      console.error('Failed to resolve section for marksheet', err);
+    }
+
+    try {
+      setMarksheetLoading(true);
+      setMarksheetError(false);
+      const params: Record<string, string> = { examId: selectedExam, classId: cls.id };
+      if (sec) params.sectionId = sec.id;
+      const res = await apiClient.get('/results/marksheet', { params });
+      setMarksheetRowsRaw(res.data?.data?.rows || []);
+    } catch (err: any) {
+      console.error('Failed to fetch marksheet', err);
+      setMarksheetError(true);
+      toast.error(err.response?.data?.message || 'Failed to load marksheet');
+    } finally {
+      setMarksheetLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'marksheet') {
+      fetchMarksheet();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, selectedExam, selectedClass, selectedSection, classesMeta]);
+
   // Construct complete result matrix
   const uniqueSubjects = Array.from(new Set(completeResults.map(r => r.subject)));
 
@@ -292,6 +373,66 @@ const MarksEntry = () => {
     const rollB = parseInt(b.rollNumber) || 999;
     return rollA - rollB;
   });
+
+  // The selected student's own marksheet: one row per subject, sliced out
+  // of the full class/section response returned by GET /results/marksheet
+  // (marksheetRowsRaw already carries a server-computed highestMarkInSubject
+  // per row, aggregated across the whole class/section for this exam).
+  const marksheetRows: MarksheetRow[] = useMemo(() => {
+    if (!selectedStudentId) return [];
+    return marksheetRowsRaw
+      .filter((row: any) => row.studentId === selectedStudentId)
+      .map((row: any) => ({
+        id: `${row.studentId}-${row.subject}`,
+        subject: row.subject,
+        marksObtained: Number(row.marksObtained),
+        maxMarks: Number(row.maxMarks),
+        grade: row.grade ?? null,
+        highestMarkInSubject: Number(row.highestMarkInSubject),
+      }))
+      .sort((a, b) => a.subject.localeCompare(b.subject));
+  }, [marksheetRowsRaw, selectedStudentId]);
+
+  const marksheetColumns: Column<MarksheetRow>[] = [
+    { key: 'subject', header: 'Subject', accessor: 'subject' },
+    {
+      key: 'marksObtained',
+      header: 'Marks Obtained',
+      render: (row) => <span className="font-semibold text-slate-900 dark:text-white">{row.marksObtained}</span>,
+    },
+    {
+      key: 'maxMarks',
+      header: 'Max Marks',
+      render: (row) => <span className="text-slate-600 dark:text-slate-400">{row.maxMarks}</span>,
+    },
+    {
+      key: 'grade',
+      header: 'Grade',
+      render: (row) =>
+        row.grade ? (
+          <StatusBadge status={row.grade} />
+        ) : (
+          <span className="text-slate-400 dark:text-slate-600">—</span>
+        ),
+    },
+    {
+      key: 'highestMarkInSubject',
+      header: 'Highest Mark in Class',
+      render: (row) => (
+        <span
+          className={
+            row.marksObtained > 0 && row.marksObtained === row.highestMarkInSubject
+              ? 'font-bold text-emerald-600 dark:text-emerald-400'
+              : 'text-slate-700 dark:text-slate-300'
+          }
+        >
+          {row.highestMarkInSubject}
+        </span>
+      ),
+    },
+  ];
+
+  const selectedStudent = students.find((s: any) => s.id === selectedStudentId);
 
   const downloadCSV = () => {
     if (studentRows.length === 0) {
@@ -596,6 +737,16 @@ const MarksEntry = () => {
         >
           Complete Result Sheet
         </button>
+        <button
+          onClick={() => setActiveTab('marksheet')}
+          className={`pb-3 font-bold text-sm tracking-wide transition-all ${
+            activeTab === 'marksheet'
+              ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-500'
+              : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          Student Marksheet
+        </button>
       </div>
 
       {activeTab === 'upload' ? (
@@ -866,7 +1017,7 @@ const MarksEntry = () => {
         </>
       )}
         </>
-      ) : (
+      ) : activeTab === 'sheet' ? (
         <>
           {/* COMPLETE RESULT SHEET TAB */}
           <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
@@ -1033,6 +1184,170 @@ const MarksEntry = () => {
               </table>
             </div>
           </div>
+        </>
+      ) : (
+        <>
+          {/* STUDENT MARKSHEET TAB */}
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
+              <div className="relative">
+                <select
+                  value={selectedExam}
+                  onChange={(e) => setSelectedExam(e.target.value)}
+                  className="input-field pr-10 min-w-[160px]"
+                >
+                  {exams.length > 0 ? (
+                    exams.map(exam => (
+                      <option key={exam.id} value={exam.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{exam.name}</option>
+                    ))
+                  ) : (
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">No exams available</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {isTeacher ? (
+              <div className="flex flex-col">
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Assigned Class-Section</label>
+                <div className="relative">
+                  <select
+                    value={`${selectedClass}-${selectedSection}`}
+                    onChange={(e) => {
+                      const [cName, sName] = e.target.value.split('-');
+                      setSelectedClass(cName);
+                      setSelectedSection(sName);
+                    }}
+                    className="input-field pr-10 min-w-[160px]"
+                  >
+                    {assignedSections.map(s => (
+                      <option key={s.id} value={`${s.class.name}-${s.name}`} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        {s.class.name} - Section {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Class</label>
+                  <div className="relative">
+                    <select
+                      value={selectedClass}
+                      onChange={(e) => setSelectedClass(e.target.value)}
+                      className="input-field pr-10 min-w-[140px]"
+                    >
+                      {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Section</label>
+                  <div className="relative">
+                    <select
+                      value={selectedSection}
+                      onChange={(e) => setSelectedSection(e.target.value)}
+                      className="input-field pr-10 min-w-[120px]"
+                    >
+                      {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Student</label>
+              <div className="relative">
+                <select
+                  value={selectedStudentId}
+                  onChange={(e) => setSelectedStudentId(e.target.value)}
+                  disabled={students.length === 0}
+                  className="input-field pr-10 min-w-[240px]"
+                >
+                  {students.length > 0 ? (
+                    students.map((s: any) => (
+                      <option key={s.id} value={s.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        {s.firstName} {s.lastName} ({s.studentId}) • Roll {s.rollNumber || '?'}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">No students found</option>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {students.length === 0 ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="No students found"
+                description={`No students found under ${selectedClass} Section ${selectedSection}.`}
+                icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+              />
+            </div>
+          ) : !selectedExam ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="Select an exam"
+                description="Choose an exam above to view this student's marksheet."
+                icon={<Award className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+              />
+            </div>
+          ) : marksheetError ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="Failed to load marksheet"
+                description="Something went wrong while fetching the marksheet for this exam/class/section."
+                icon={<Award className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+                action={
+                  <button
+                    onClick={fetchMarksheet}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+                  >
+                    Retry
+                  </button>
+                }
+              />
+            </div>
+          ) : (
+            <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-sm p-5">
+              {selectedStudent && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                      {selectedStudent.firstName} {selectedStudent.lastName}
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {selectedStudent.studentId} • Roll {selectedStudent.rollNumber || '?'} • {selectedExamName || 'No exam selected'} • {selectedClass} - Section {selectedSection}
+                    </p>
+                  </div>
+                  {marksheetRows.length > 0 && (
+                    <div className="text-right">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Total</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-extrabold text-sm">
+                        {marksheetRows.reduce((sum, r) => sum + r.marksObtained, 0)}
+                        <span className="text-slate-500 text-xs">/{marksheetRows.reduce((sum, r) => sum + r.maxMarks, 0)}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <DataTable<MarksheetRow>
+                data={marksheetRows}
+                columns={marksheetColumns}
+                isLoading={marksheetLoading}
+                searchPlaceholder="Search subject..."
+                pageSize={25}
+                emptyTitle="No results yet"
+                emptyDescription={`No marks have been recorded for ${selectedStudent ? `${selectedStudent.firstName} ${selectedStudent.lastName}` : 'this student'} in ${selectedExamName || 'this exam'} yet.`}
+              />
+            </div>
+          )}
         </>
       )}
 

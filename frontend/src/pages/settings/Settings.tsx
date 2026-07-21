@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building, Palette, Calendar, GraduationCap, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
@@ -9,7 +9,7 @@ const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : 
 const emptyExamForm = { name: '', startDate: '', endDate: '', isActive: true };
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'academic' | 'branding' | 'exams'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams'>('profile');
 
   const [exams, setExams] = useState<any[]>([]);
   const [examsLoading, setExamsLoading] = useState(false);
@@ -18,15 +18,11 @@ const Settings = () => {
   const [examForm, setExamForm] = useState(emptyExamForm);
   const [savingExam, setSavingExam] = useState(false);
   const [settings, setSettings] = useState<any>({
-    institutionName: '',
+    name: '',
     email: '',
     phone: '',
     address: '',
-    academicYear: '2023-2024',
     theme: 'dark',
-    gradingSystem: 'GPA',
-    termStructure: 'Semesters',
-    primaryColor: '#3b82f6',
     logoUrl: ''
   });
   const [loading, setLoading] = useState(true);
@@ -140,7 +136,7 @@ const Settings = () => {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">System Settings</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Manage institution profile, branding, and academic configurations.</p>
+        <p className="text-slate-600 dark:text-slate-400 mt-1">Manage institution profile, branding, and exams.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -157,18 +153,7 @@ const Settings = () => {
             <Building className="w-5 h-5" />
             Institution Profile
           </button>
-          <button 
-            onClick={() => setActiveTab('academic')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
-              activeTab === 'academic' 
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
-            }`}
-          >
-            <Calendar className="w-5 h-5" />
-            Academic Setup
-          </button>
-          <button 
+          <button
             onClick={() => setActiveTab('branding')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'branding' 
@@ -208,8 +193,8 @@ const Settings = () => {
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Institution Name</label>
                       <input
                         type="text"
-                        value={settings.institutionName || ''}
-                        onChange={(e) => setSettings({ ...settings, institutionName: e.target.value })}
+                        value={settings.name || ''}
+                        onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                         className="input-field"
                       />
                     </div>
@@ -223,26 +208,15 @@ const Settings = () => {
                       />
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Phone Number</label>
-                      <input
-                        type="text"
-                        value={settings.phone || ''}
-                        onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
-                        className="input-field"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Current Academic Year</label>
-                      <input
-                        type="text"
-                        value={settings.academicYear || ''}
-                        onChange={(e) => setSettings({ ...settings, academicYear: e.target.value })}
-                        className="input-field"
-                      />
-                    </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Phone Number</label>
+                    <input
+                      type="text"
+                      value={settings.phone || ''}
+                      onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
+                      className="input-field"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
@@ -253,44 +227,6 @@ const Settings = () => {
                       rows={3}
                       className="input-field resize-none"
                     />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {activeTab === 'academic' && (
-              <>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                  Academic Setup
-                </h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Grading System</label>
-                      <select
-                        value={settings.gradingSystem || 'GPA'}
-                        onChange={(e) => setSettings({ ...settings, gradingSystem: e.target.value })}
-                        className="input-field"
-                      >
-                        <option value="GPA">GPA (4.0 / 5.0)</option>
-                        <option value="Percentage">Percentage (%)</option>
-                        <option value="Letter">Letter Grades (A, B, C...)</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Term Structure</label>
-                      <select
-                        value={settings.termStructure || 'Semesters'}
-                        onChange={(e) => setSettings({ ...settings, termStructure: e.target.value })}
-                        className="input-field"
-                      >
-                        <option value="Semesters">Semesters (2 Terms)</option>
-                        <option value="Trimesters">Trimesters (3 Terms)</option>
-                        <option value="Quarters">Quarters (4 Terms)</option>
-                        <option value="Annual">Annual (1 Term)</option>
-                      </select>
-                    </div>
                   </div>
                 </div>
               </>
@@ -314,40 +250,21 @@ const Settings = () => {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Primary Color</label>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          value={settings.primaryColor || '#3b82f6'}
-                          onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="h-10 w-10 rounded cursor-pointer bg-transparent border-0 p-0"
-                        />
-                        <input
-                          type="text"
-                          value={settings.primaryColor || '#3b82f6'}
-                          onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="flex-1 input-field uppercase"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>
-                      <select
-                        value={theme}
-                        onChange={(e) => {
-                          const newTheme = e.target.value as 'dark' | 'light' | 'system';
-                          setTheme(newTheme);
-                          setSettings({ ...settings, theme: newTheme });
-                        }}
-                        className="input-field"
-                      >
-                        <option value="dark">Dark Theme</option>
-                        <option value="light">Light Theme</option>
-                        <option value="system">System Default</option>
-                      </select>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>
+                    <select
+                      value={theme}
+                      onChange={(e) => {
+                        const newTheme = e.target.value as 'dark' | 'light' | 'system';
+                        setTheme(newTheme);
+                        setSettings({ ...settings, theme: newTheme });
+                      }}
+                      className="input-field"
+                    >
+                      <option value="dark">Dark Theme</option>
+                      <option value="light">Light Theme</option>
+                      <option value="system">System Default</option>
+                    </select>
                   </div>
                 </div>
               </>

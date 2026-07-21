@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { Sidebar } from './components/Layout/Sidebar';
 import { Toaster } from 'react-hot-toast';
@@ -86,8 +86,9 @@ const FeesRoute = () => {
 
 // Layout Wrapper
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
-  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, notifications, theme, setTheme } = useUiStore();
+  const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, theme, setTheme } = useUiStore();
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = React.useState(false);
   const themeMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -101,7 +102,6 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase() : 'U';
 
   return (
@@ -204,11 +204,12 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               )}
             </div>
 
-            <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors">
+            <button
+              onClick={() => navigate('/notices')}
+              title="Notices"
+              className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
+            >
               <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />
-              )}
             </button>
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white shadow-sm ring-2 ring-white dark:ring-white/10">
               {initials}
