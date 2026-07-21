@@ -58,6 +58,12 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/" replace />;
   }
 
+  // Super Admin is a platform-level operator, not a tenant user — the only
+  // page it's allowed to see is the SaaS control panel at "/".
+  if (user?.role === 'SUPER_ADMIN' && location.pathname !== '/') {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 };
 

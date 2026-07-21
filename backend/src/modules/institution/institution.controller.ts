@@ -68,6 +68,20 @@ export async function updateInstitutionAdmin(
   }
 }
 
+export async function deleteInstitution(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { id } = req.params;
+    await institutionService.deleteInstitution(id, req.user!.sub);
+    successResponse(res, null, 'Institution deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listPublicInstitutions(
   req: Request,
   res: Response,

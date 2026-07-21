@@ -165,7 +165,10 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
-        {NAV_GROUPS.map((group) => {
+        {/* Super Admin is a platform operator confined to the SaaS control
+            panel at "/" — it has no tenant-scoped resources to navigate to,
+            so the nav is intentionally empty for this role. */}
+        {user?.role !== 'SUPER_ADMIN' && NAV_GROUPS.map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!item.roles) return true;
             return !!user && item.roles.includes(user.role);

@@ -196,3 +196,74 @@ export async function listPublicInstitutions() {
   return institutionRepository.listPublic();
 }
 
+export async function deleteInstitution(institutionId: string, actorUserId: string) {
+  const { prisma } = require('../../config/prisma');
+
+  const institution = await prisma.institution.findUnique({ where: { id: institutionId } });
+  if (!institution) {
+    throw new NotFoundError(`Institution with ID '${institutionId}' not found`);
+  }
+
+  // Institution has no cascading deletes configured in the schema, so every
+  // dependent row across ~25 tables must be removed in dependency order
+  // (children before parents) inside one transaction before the institution
+  // itself can be deleted.
+  await prisma.$transaction(async (tx: any) => {
+    const students = await tx.student.findMany({ where: { institutionId }, select: { id: true } });
+    const studentIds = students.map((s: any) => s.id);
+    const invoices = await tx.invoice.findMany({ where: { institutionId }, select: { id: true } });
+    const invoiceIds = invoices.map((i: any) => i.id);
+    const guardians = await tx.guardian.findMany({ where: { institutionId }, select: { id: true } });
+    const guardianIds = guardians.map((g: any) => g.id);
+    const users = await tx.user.findMany({ where: { institutionId }, select: { id: true } });
+    const userIds = users.map((u: any) => u.id);
+    const branches = await tx.branch.findMany({ where: { institutionId }, select: { id: true } });
+    const branchIds = branches.map((b: any) => b.id);
+    const classes = await tx.class.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } });
+    const classIds = classes.map((c: any) => c.id);
+
+    await tx.payment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+    await tx.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+    await tx.invoice.deleteMany({ where: { institutionId } });
+    await tx.feeCategory.deleteMany({ where: { institutionId } });
+    await tx.studentDocument.deleteMany({ where: { institutionId } });
+    await tx.guardianStudent.deleteMany({ where: { guardianId: { in: guardianIds } } });
+    await tx.libraryIssue.deleteMany({ where: { institutionId } });
+    await tx.transportAssignment.deleteMany({ where: { institutionId } });
+    await tx.attendance.deleteMany({ where: { institutionId } });
+    await tx.examResult.deleteMany({ where: { institutionId } });
+    await tx.exam.deleteMany({ where: { institutionId } });
+    await tx.timetableSlot.deleteMany({ where: { institutionId } });
+    await tx.notice.deleteMany({ where: { institutionId } });
+    await tx.libraryBook.deleteMany({ where: { institutionId } });
+    await tx.transportVehicle.deleteMany({ where: { institutionId } });
+    await tx.transportRoute.deleteMany({ where: { institutionId } });
+    await tx.payrollRecord.deleteMany({ where: { institutionId } });
+    await tx.staffProfile.deleteMany({ where: { institutionId } });
+    await tx.message.deleteMany({ where: { institutionId } });
+    await tx.auditLog.deleteMany({ where: { institutionId } });
+    await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.guardian.deleteMany({ where: { institutionId } });
+    // Section.classTeacherId references Teacher — clear it before deleting Teachers.
+    await tx.section.updateMany({ where: { classId: { in: classIds } }, data: { classTeacherId: null } });
+    await tx.teacher.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.student.deleteMany({ where: { institutionId } });
+    await tx.permission.deleteMany({ where: { institutionId } });
+    await tx.section.deleteMany({ where: { classId: { in: classIds } } });
+    await tx.class.deleteMany({ where: { branchId: { in: branchIds } } });
+    await tx.branch.deleteMany({ where: { institutionId } });
+    await tx.user.deleteMany({ where: { institutionId } });
+    await tx.academicYear.deleteMany({ where: { institutionId } });
+    await tx.institution.delete({ where: { id: institutionId } });
+
+    void studentIds;
+  });
+
+  logger.warn('Institution permanently deleted', {
+    institutionId,
+    slug: institution.slug,
+    name: institution.name,
+    actorUserId,
+  });
+}
+

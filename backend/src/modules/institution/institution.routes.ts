@@ -39,6 +39,14 @@ router.put(
   institutionController.updateInstitutionAdmin
 );
 
+// Permanently delete an institution and all its data (Super Admin only, no tenant set yet)
+router.delete(
+  '/:id',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.deleteInstitution
+);
+
 // Apply auth + tenant + audit logging to other institution routes
 router.use(authenticate, setTenant, auditLog);
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, CircleDollarSign, GraduationCap, Building2, Plus, Shield, Globe, Mail, Lock, Phone, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Users, BookOpen, CircleDollarSign, GraduationCap, Building2, Plus, Shield, Globe, Mail, Lock, Phone, Eye, EyeOff, Search, Trash2, AlertTriangle, X } from 'lucide-react';
 import { KpiCard } from '../components/Charts/KpiCard';
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -51,6 +51,13 @@ const AdminDashboard = () => {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  // Super Admin search / filter / delete state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const PHONE_REGEX = /^[0-9+\-\s()]{7,20}$/;
@@ -206,6 +213,44 @@ const AdminDashboard = () => {
     }
   };
 
+  const filteredInstitutions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return institutions.filter((inst) => {
+      const admin = inst.users?.[0];
+      const matchesQuery = !q ||
+        inst.name?.toLowerCase().includes(q) ||
+        inst.slug?.toLowerCase().includes(q) ||
+        admin?.email?.toLowerCase().includes(q) ||
+        `${admin?.firstName || ''} ${admin?.lastName || ''}`.toLowerCase().includes(q);
+      const matchesStatus =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'ACTIVE' && inst.isActive) ||
+        (statusFilter === 'SUSPENDED' && !inst.isActive);
+      return matchesQuery && matchesStatus;
+    });
+  }, [institutions, searchQuery, statusFilter]);
+
+  const handleOpenDeleteModal = (inst: any) => {
+    setDeleteTarget(inst);
+    setDeleteConfirmText('');
+  };
+
+  const handleDeleteInstitution = async () => {
+    if (!deleteTarget || deleteConfirmText.trim() !== deleteTarget.name) return;
+    setDeleting(true);
+    try {
+      await apiClient.delete(`/institution/${deleteTarget.id}`);
+      toast.success(`"${deleteTarget.name}" and all its data have been permanently deleted`);
+      setDeleteTarget(null);
+      setDeleteConfirmText('');
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete institution');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return <DashboardSkeleton />;
   }
@@ -262,8 +307,45 @@ const AdminDashboard = () => {
 
         {/* Institutions Table */}
         <div className="glass-card overflow-hidden bg-slate-50 dark:bg-slate-900/20 animate-fadeIn" style={{ animationDelay: '120ms' }}>
-          <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Registered Institutions</h3>
+          <div className="p-6 border-b border-slate-200 dark:border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex-shrink-0">
+              Registered Institutions
+              <span className="ml-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                ({filteredInstitutions.length} of {institutions.length})
+              </span>
+            </h3>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1 sm:w-72">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by name, code, or admin email..."
+                  aria-label="Search institutions"
+                  className="input-field pl-10 !py-2.5 text-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as typeof statusFilter)}
+                aria-label="Filter by status"
+                className="input-field !py-2.5 text-sm sm:w-40"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="ACTIVE">Active</option>
+                <option value="SUSPENDED">Suspended</option>
+              </select>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -283,8 +365,12 @@ const AdminDashboard = () => {
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500 italic">No institutions found. Click "Register Institution" to add one.</td>
                   </tr>
+                ) : filteredInstitutions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">No institutions match "{searchQuery}".</td>
+                  </tr>
                 ) : (
-                  institutions.map(inst => (
+                  filteredInstitutions.map(inst => (
                     <tr key={inst.id} className="border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                       <td className="p-4 pl-6 font-semibold text-slate-900 dark:text-white">{inst.name}</td>
                       <td className="p-4 font-mono text-xs text-blue-600 dark:text-blue-400">{inst.slug}</td>
@@ -299,12 +385,22 @@ const AdminDashboard = () => {
                         {new Date(inst.createdAt).toLocaleDateString()}
                       </td>
                       <td className="p-4 pr-6 text-right">
-                        <button
-                          onClick={() => handleOpenEditModal(inst)}
-                          className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-white bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-600 border border-blue-200 dark:border-blue-500/20 hover:border-transparent px-3 py-1.5 rounded-xl transition-all shadow-sm"
-                        >
-                          View/Edit Admin
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEditModal(inst)}
+                            className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-white bg-blue-50 dark:bg-blue-500/10 hover:bg-blue-600 border border-blue-200 dark:border-blue-500/20 hover:border-transparent px-3 py-1.5 rounded-xl transition-all shadow-sm"
+                          >
+                            View/Edit Admin
+                          </button>
+                          <button
+                            onClick={() => handleOpenDeleteModal(inst)}
+                            title="Delete institution"
+                            aria-label={`Delete ${inst.name}`}
+                            className="text-xs font-bold text-red-600 dark:text-red-400 hover:text-white bg-red-50 dark:bg-red-500/10 hover:bg-red-600 border border-red-200 dark:border-red-500/20 hover:border-transparent p-1.5 rounded-xl transition-all shadow-sm"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -607,6 +703,57 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Institution Confirmation Modal */}
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-red-200 dark:border-red-500/20 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-start gap-4 mb-5">
+                <div className="p-2.5 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-xl flex-shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Delete Institution</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    This permanently deletes <strong className="text-slate-900 dark:text-white">{deleteTarget.name}</strong> and
+                    every record tied to it — students, staff, invoices, attendance, results, and all other data. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Type <span className="font-mono text-red-600 dark:text-red-400">{deleteTarget.name}</span> to confirm
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={deleteConfirmText}
+                onChange={e => setDeleteConfirmText(e.target.value)}
+                placeholder={deleteTarget.name}
+                className="input-field"
+              />
+
+              <div className="flex justify-end gap-3 pt-6">
+                <button
+                  type="button"
+                  onClick={() => { setDeleteTarget(null); setDeleteConfirmText(''); }}
+                  className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting || deleteConfirmText.trim() !== deleteTarget.name}
+                  onClick={handleDeleteInstitution}
+                  className="bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-xs flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
             </div>
           </div>
         )}
