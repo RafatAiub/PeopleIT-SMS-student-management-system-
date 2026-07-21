@@ -1,24 +1,31 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BarChart, TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { BarChart, TrendingUp, Users, DollarSign, Activity, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 
 const Reports = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/reports/dashboard');
+      setData(res.data.data);
+      setError(false);
+    } catch (err: any) {
+      console.error('Failed to fetch reports', err);
+      setError(true);
+      toast.error(err.response?.data?.message || 'Failed to load reports');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        const res = await apiClient.get('/reports/dashboard');
-        setData(res.data.data);
-      } catch (err) {
-        console.error('Failed to fetch reports', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchReports();
-  }, []);
+  }, [fetchReports]);
 
   // Fee amounts aren't already 0-100 like attendance %, so normalize each
   // day against the week's max for the bar-height visualization.
@@ -30,6 +37,22 @@ const Reports = () => {
 
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading reports...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="glass-card p-10 rounded-2xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3 max-w-lg mx-auto">
+        <AlertCircle className="w-10 h-10 text-rose-500" />
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Couldn't load reports</h3>
+        <p className="text-slate-600 dark:text-slate-400 text-sm">Something went wrong while fetching the analytics data.</p>
+        <button
+          onClick={fetchReports}
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (

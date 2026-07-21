@@ -206,3 +206,26 @@ export async function findMarksheetRows(institutionId: string, params: Marksheet
     orderBy: [{ studentId: 'asc' }, { subject: 'asc' }],
   });
 }
+
+// Per-subject highest mark across a class/section for one exam — lighter
+// variant of findMarksheetRows used by the STUDENT/GUARDIAN self-service
+// getMyResults() to annotate each of the requester's own result rows with
+// class-wide context, without pulling every student's identity fields.
+export async function findHighestMarksBySubject(
+  institutionId: string,
+  examId: string,
+  classId: string,
+  sectionId?: string | null,
+) {
+  return prisma.examResult.findMany({
+    where: {
+      institutionId,
+      examId,
+      student: {
+        classId,
+        ...(sectionId ? { sectionId } : {}),
+      },
+    },
+    select: { subject: true, marksObtained: true },
+  });
+}

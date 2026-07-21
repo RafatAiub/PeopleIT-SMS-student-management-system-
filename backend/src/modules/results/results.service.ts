@@ -151,7 +151,7 @@ export async function getMyResults(
       page: 1,
       pageSize: 500,
     });
-    return records;
+    return own ? attachHighestMarks(institutionId, own.id, records) : records;
   }
 
   if (requester.role === UserRole.GUARDIAN) {
@@ -165,7 +165,7 @@ export async function getMyResults(
         page: 1,
         pageSize: 500,
       });
-      return records;
+      return attachHighestMarks(institutionId, studentId, records);
     }
 
     // No studentId filter — return results across ALL linked children
@@ -182,6 +182,54 @@ export async function getMyResults(
 
   // Non-student/guardian roles have no self-service concept here.
   return [];
+}
+
+/**
+ * Annotates a single student's own result rows with highestMarkInSubject —
+ * the max mark for that subject across their whole class/section, for the
+ * same exam — mirroring the aggregate the staff-facing getMarksheet() above
+ * already exposes, so student/guardian views have the same class-comparison
+ * context. Scoped per (examId, subject) since results.records can span
+ * multiple exams when no examId filter was supplied.
+ */
+async function attachHighestMarks<T extends { examId: string; subject: string; marksObtained: unknown }>(
+  institutionId: string,
+  studentId: string,
+  records: T[],
+): Promise<(T & { highestMarkInSubject: number | null })[]> {
+  if (records.length === 0) return [];
+
+  const student = await studentRepository.findById(institutionId, studentId);
+  if (!student?.class?.id) {
+    return records.map((r) => ({ ...r, highestMarkInSubject: null }));
+  }
+
+  const examIds = Array.from(new Set(records.map((r) => r.examId)));
+  const highestByExamSubject = new Map<string, number>();
+
+  await Promise.all(
+    examIds.map(async (examId) => {
+      const rows = await resultsRepository.findHighestMarksBySubject(
+        institutionId,
+        examId,
+        student.class!.id,
+        student.section?.id ?? null,
+      );
+      for (const row of rows) {
+        const key = `${examId}:${row.subject}`;
+        const marks = Number(row.marksObtained);
+        const current = highestByExamSubject.get(key);
+        if (current === undefined || marks > current) {
+          highestByExamSubject.set(key, marks);
+        }
+      }
+    }),
+  );
+
+  return records.map((r) => ({
+    ...r,
+    highestMarkInSubject: highestByExamSubject.get(`${r.examId}:${r.subject}`) ?? Number(r.marksObtained),
+  }));
 }
 
 // ── Report Card PDF ─────────────────────────────────────────────────────────

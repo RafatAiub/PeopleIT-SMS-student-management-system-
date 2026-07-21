@@ -601,7 +601,7 @@ const AdminDashboard = () => {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
                   >
                     {submitting ? 'Updating...' : 'Save Credentials'}
                   </button>

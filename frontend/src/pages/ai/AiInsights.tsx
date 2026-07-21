@@ -48,8 +48,9 @@ export default function AiInsights() {
       ]);
       if (insightsRes.data?.data) setInsights(insightsRes.data.data);
       if (riskScoringRes.data?.data) setAtRiskStudents(riskScoringRes.data.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch AI insights:', error);
+      toast.error(error.response?.data?.message || 'Failed to load AI insights');
     } finally {
       setLoading(false);
     }
@@ -91,7 +92,7 @@ export default function AiInsights() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Brain className="w-7 h-7 text-indigo-650 dark:text-indigo-400" />
+            <Brain className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
             AI-Driven Insights
           </h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
@@ -109,7 +110,7 @@ export default function AiInsights() {
       </div>
 
       {loading ? (
-        <div className="text-center text-slate-550 dark:text-slate-400 py-20 flex flex-col items-center justify-center space-y-4">
+        <div className="text-center text-slate-500 dark:text-slate-400 py-20 flex flex-col items-center justify-center space-y-4">
           <Activity className="w-8 h-8 text-indigo-500 animate-pulse" />
           <p className="animate-pulse">Running advanced diagnostic models...</p>
         </div>
@@ -133,17 +134,17 @@ export default function AiInsights() {
                 
                 <div className="space-y-2 mt-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5">
                   {bulletPoints.map((bp, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm text-slate-750 dark:text-slate-300">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-550 mt-1.5 flex-shrink-0" />
+                    <div key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />
                       <span>{bp.replace('-', '').trim()}</span>
                     </div>
                   ))}
                 </div>
               </div>
               
-              <div className="relative z-10 mt-6 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between text-xs text-slate-550 dark:text-slate-500 font-medium">
+              <div className="relative z-10 mt-6 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-500 font-medium">
                 <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><Brain className="w-3.5 h-3.5" /> Powered by PeopleIT Core ML Engine</span>
-                <span className="text-slate-450 dark:text-slate-500">Generated At: {new Date(insights.generatedAt).toLocaleString()}</span>
+                <span className="text-slate-400 dark:text-slate-500">Generated At: {new Date(insights.generatedAt).toLocaleString()}</span>
               </div>
             </div>
 
@@ -164,7 +165,7 @@ export default function AiInsights() {
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-colors">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Outstanding Due</span>
-                  <span className="text-lg font-black text-rose-650 dark:text-rose-400">৳{insights.totalOutstandingDue.toLocaleString()}</span>
+                  <span className="text-lg font-black text-rose-600 dark:text-rose-400">৳{insights.totalOutstandingDue.toLocaleString()}</span>
                 </div>
               </div>
             </div>
@@ -214,10 +215,10 @@ export default function AiInsights() {
                 const isMed = student.riskLevel === 'MEDIUM';
                 
                 const badgeColor = isHigh 
-                  ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-250 dark:border-rose-500/20' 
+                  ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20' 
                   : isMed 
-                  ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-250 dark:border-amber-500/20'
-                  : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-250 dark:border-emerald-500/20';
+                  ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20'
+                  : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20';
 
                 return (
                   <div key={student.studentId} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 transition-colors bg-white dark:bg-slate-900/30 shadow-sm">
@@ -254,14 +255,14 @@ export default function AiInsights() {
 
                         <div className="flex items-center gap-5 bg-slate-50 dark:bg-slate-950/30 px-4 py-2 rounded-xl border border-slate-200/50 dark:border-white/5">
                           <div className="text-center">
-                            <div className="text-[9px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">Avg Grade</div>
+                            <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Avg Grade</div>
                             <div className={`text-sm font-black mt-0.5 ${student.averageMarks < 60 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>
                               {student.averageMarks ? student.averageMarks.toFixed(1) : 0}%
                             </div>
                           </div>
                           <div className="w-px h-6 bg-slate-200 dark:bg-slate-800" />
                           <div className="text-center">
-                            <div className="text-[9px] text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">Attendance</div>
+                            <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Attendance</div>
                             <div className={`text-sm font-black mt-0.5 ${student.attendanceRate < 80 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                               {student.attendanceRate ? student.attendanceRate.toFixed(1) : 0}%
                             </div>

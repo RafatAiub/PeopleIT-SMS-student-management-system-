@@ -23,7 +23,7 @@ const Messages = () => {
   useEffect(() => {
     fetchConversations();
     // Reduced polling frequency from 10s to 2 minutes to save database load
-    const interval = setInterval(fetchConversations, 120000);
+    const interval = setInterval(() => fetchConversations(true), 120000);
     return () => clearInterval(interval);
   }, []);
 
@@ -44,12 +44,13 @@ const Messages = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (silent = false) => {
     try {
       const res = await apiClient.get('/messages/conversations');
       setConversations(res.data.data || []);
     } catch (err) {
       console.error('Failed to fetch conversations', err);
+      if (!silent) toast.error('Failed to load conversations');
     }
   };
 
@@ -58,13 +59,14 @@ const Messages = () => {
     try {
       const res = await apiClient.get(`/messages/history/${otherUserId}`);
       setMessages(res.data.data || []);
-      
+
       // Update local unread count
-      setConversations(prev => prev.map(c => 
+      setConversations(prev => prev.map(c =>
         c.user.id === otherUserId ? { ...c, unreadCount: 0 } : c
       ));
     } catch (err) {
       console.error('Failed to fetch history', err);
+      if (!silent) toast.error('Failed to load message history');
     } finally {
       if (!silent) setLoadingHistory(false);
     }
@@ -191,7 +193,7 @@ const Messages = () => {
                     </p>
                   </div>
                   {conv.latestMessage && (
-                    <span className="text-[10px] text-slate-450 dark:text-slate-500 whitespace-nowrap">
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">
                       {new Date(conv.latestMessage.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </span>
                   )}
@@ -209,7 +211,7 @@ const Messages = () => {
                 {activeUser.avatarUrl ? (
                   <img src={activeUser.avatarUrl} alt={activeUser.firstName} className="w-10 h-10 rounded-full object-cover" />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-250 dark:border-transparent">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-transparent">
                     {activeUser.firstName.charAt(0)}
                   </div>
                 )}
@@ -264,7 +266,7 @@ const Messages = () => {
                   <button
                     type="submit"
                     disabled={!newMessage.trim()}
-                    className="p-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex-shrink-0"
+                    className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:hover:from-blue-600 disabled:hover:to-indigo-600 text-white rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex-shrink-0"
                   >
                     <Send className="w-6 h-6" />
                   </button>
@@ -274,7 +276,7 @@ const Messages = () => {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 p-8 text-center bg-slate-50/10 dark:bg-transparent">
               <div className="w-24 h-24 bg-slate-100 dark:bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-inner">
-                <MessageSquare className="w-10 h-10 text-slate-450 dark:text-slate-650" />
+                <MessageSquare className="w-10 h-10 text-slate-400 dark:text-slate-600" />
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Your Messages</h3>
               <p className="max-w-xs text-sm leading-relaxed text-slate-500">Select a conversation from the sidebar or start a new one to begin chatting.</p>
@@ -322,7 +324,7 @@ const Messages = () => {
                     {u.avatarUrl ? (
                       <img src={u.avatarUrl} alt={u.firstName} className="w-10 h-10 rounded-full object-cover" />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-650 dark:text-slate-300 font-bold border border-slate-200 dark:border-transparent">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-bold border border-slate-200 dark:border-transparent">
                         <User className="w-5 h-5" />
                       </div>
                     )}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Search, Plus, Filter, MoreVertical, Edit2, Trash2, ArrowRightLeft, X } from 'lucide-react';
+import { Book, Search, Plus, Filter, Edit2, Trash2, ArrowRightLeft, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 
 interface BookType {
   id: string;
@@ -40,6 +41,12 @@ export default function LibraryManagement() {
   const [isIssueBookModalOpen, setIsIssueBookModalOpen] = useState(false);
   const [newBook, setNewBook] = useState({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
   const [issueData, setIssueData] = useState({ bookId: '', studentId: '', dueDate: '' });
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [bookToDelete, setBookToDelete] = useState<BookType | null>(null);
+  const [deletingBook, setDeletingBook] = useState(false);
+  const [issueToReturn, setIssueToReturn] = useState<IssueType | null>(null);
+  const [returningBook, setReturningBook] = useState(false);
+  const [savingBook, setSavingBook] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -65,8 +72,9 @@ export default function LibraryManagement() {
         setIssues(issuesRes.data.data?.issues || issuesRes.data.data || []);
         setTotalIssues(issuesRes.data.data?.total || issuesRes.data.meta?.total || 0);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch library data:', error);
+      toast.error(error.response?.data?.message || 'Failed to load library data');
     } finally {
       setLoading(false);
     }
@@ -74,14 +82,50 @@ export default function LibraryManagement() {
 
   const handleAddBook = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingBook(true);
     try {
-      await apiClient.post('/library/books', newBook);
-      toast.success('Book added successfully');
+      if (editingBookId) {
+        await apiClient.put(`/library/books/${editingBookId}`, newBook);
+        toast.success('Book updated successfully');
+      } else {
+        await apiClient.post('/library/books', newBook);
+        toast.success('Book added successfully');
+      }
       setIsAddBookModalOpen(false);
+      setEditingBookId(null);
       setNewBook({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
       fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add book');
+      toast.error(error.response?.data?.message || `Failed to ${editingBookId ? 'update' : 'add'} book`);
+    } finally {
+      setSavingBook(false);
+    }
+  };
+
+  const openEditBook = (book: BookType) => {
+    setEditingBookId(book.id);
+    setNewBook({ title: book.title, author: book.author, isbn: book.isbn, category: book.category, totalCopies: book.totalCopies });
+    setIsAddBookModalOpen(true);
+  };
+
+  const openAddBook = () => {
+    setEditingBookId(null);
+    setNewBook({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
+    setIsAddBookModalOpen(true);
+  };
+
+  const handleConfirmDeleteBook = async () => {
+    if (!bookToDelete) return;
+    setDeletingBook(true);
+    try {
+      await apiClient.delete(`/library/books/${bookToDelete.id}`);
+      toast.success('Book deleted successfully');
+      setBookToDelete(null);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete book');
+    } finally {
+      setDeletingBook(false);
     }
   };
 
@@ -98,13 +142,18 @@ export default function LibraryManagement() {
     }
   };
 
-  const handleReturnBook = async (issueId: string) => {
+  const handleConfirmReturnBook = async () => {
+    if (!issueToReturn) return;
+    setReturningBook(true);
     try {
-      await apiClient.put(`/library/issues/${issueId}/return`);
+      await apiClient.put(`/library/issues/${issueToReturn.id}/return`);
       toast.success('Book returned successfully');
+      setIssueToReturn(null);
       fetchData();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to return book');
+    } finally {
+      setReturningBook(false);
     }
   };
 
@@ -113,11 +162,11 @@ export default function LibraryManagement() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Library Management</h2>
-          <p className="text-slate-650 dark:text-slate-400 text-sm">Manage books, catalogs, and issuing.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Manage books, catalogs, and issuing.</p>
         </div>
-        <button 
-          onClick={() => activeTab === 'catalog' ? setIsAddBookModalOpen(true) : setIsIssueBookModalOpen(true)}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+        <button
+          onClick={() => activeTab === 'catalog' ? openAddBook() : setIsIssueBookModalOpen(true)}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
           {activeTab === 'catalog' ? 'Add Book' : 'Issue Book'}
@@ -130,7 +179,7 @@ export default function LibraryManagement() {
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'catalog'
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           Book Catalog
@@ -140,7 +189,7 @@ export default function LibraryManagement() {
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'issues'
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           Issue Tracking
@@ -149,7 +198,7 @@ export default function LibraryManagement() {
 
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-450" />
+          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder={activeTab === 'catalog' ? "Search books by title, author, or ISBN..." : "Search issues by student or book..."}
@@ -183,14 +232,11 @@ export default function LibraryManagement() {
                   }`}>
                     {book.status}
                   </span>
-                  <button className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{book.title}</h3>
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{book.author}</p>
-              
+
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5">
                   <p className="text-xs text-slate-500 mb-1">Category</p>
@@ -201,12 +247,12 @@ export default function LibraryManagement() {
                   <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold">{book.availableCopies} / {book.totalCopies}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
                 <span>ISBN: {book.isbn}</span>
                 <div className="flex gap-2">
-                   <button className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
-                   <button className="p-1 text-slate-500 hover:text-rose-650 dark:hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                   <button onClick={() => openEditBook(book)} aria-label={`Edit ${book.title}`} title="Edit book" className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
+                   <button onClick={() => setBookToDelete(book)} aria-label={`Delete ${book.title}`} title="Delete book" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             </div>
@@ -240,13 +286,13 @@ export default function LibraryManagement() {
                     <tr key={issue.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-650 dark:text-blue-400 border border-blue-200 dark:border-transparent">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
                             <Book className="w-4 h-4" />
                           </div>
                           <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.bookTitle || issue.book?.title}</span>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-slate-650 dark:text-slate-300">{issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim()}</td>
+                      <td className="p-4 text-sm text-slate-600 dark:text-slate-300">{issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim()}</td>
                       <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{issue.issueDate}</td>
                       <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{issue.dueDate}</td>
                       <td className="p-4">
@@ -259,9 +305,11 @@ export default function LibraryManagement() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <button onClick={() => handleReturnBook(issue.id)} className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-450 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Return Book">
-                          <ArrowRightLeft className="w-4 h-4" />
-                        </button>
+                        {issue.status === 'Issued' && (
+                          <button onClick={() => setIssueToReturn(issue)} aria-label="Return book" className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Return Book">
+                            <ArrowRightLeft className="w-4 h-4" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -284,9 +332,10 @@ export default function LibraryManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Book</h3>
-              <button 
-                onClick={() => setIsAddBookModalOpen(false)} 
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingBookId ? 'Edit Book' : 'Add New Book'}</h3>
+              <button
+                onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }}
+                aria-label="Close"
                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -316,14 +365,16 @@ export default function LibraryManagement() {
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAddBookModalOpen(false)} 
+                <button
+                  type="button"
+                  onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Add Book</button>
+                <button type="submit" disabled={savingBook} className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98] disabled:opacity-50">
+                  {savingBook ? 'Saving...' : editingBookId ? 'Save Changes' : 'Add Book'}
+                </button>
               </div>
             </form>
           </div>
@@ -364,12 +415,34 @@ export default function LibraryManagement() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Issue Book</button>
+                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Issue Book</button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!bookToDelete}
+        title="Delete book"
+        message={`Are you sure you want to delete "${bookToDelete?.title}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingBook}
+        onConfirm={handleConfirmDeleteBook}
+        onCancel={() => setBookToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={!!issueToReturn}
+        title="Return book"
+        message={`Mark "${issueToReturn?.bookTitle || issueToReturn?.book?.title}" as returned?`}
+        confirmLabel="Return Book"
+        variant="info"
+        isLoading={returningBook}
+        onConfirm={handleConfirmReturnBook}
+        onCancel={() => setIssueToReturn(null)}
+      />
     </div>
   );
 }

@@ -279,7 +279,7 @@ const Settings = () => {
                   </h3>
                   <button
                     onClick={openCreateExam}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm"
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm"
                   >
                     <Plus className="w-4 h-4" />
                     New Exam
@@ -353,7 +353,7 @@ const Settings = () => {
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
+                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Changes'}
@@ -439,7 +439,7 @@ const Settings = () => {
               <button
                 onClick={handleSaveExam}
                 disabled={savingExam}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 text-sm"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 text-sm"
               >
                 <Save className="w-4 h-4" />
                 {savingExam ? 'Saving...' : 'Save Exam'}

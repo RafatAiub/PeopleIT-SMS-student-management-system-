@@ -207,7 +207,7 @@ const MyLibraryIssues: React.FC = () => {
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
               statusFilter === tab.key
                 ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-                : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             {tab.label}

@@ -48,6 +48,8 @@ export default function TransportManagement() {
   const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
   const [newRoute, setNewRoute] = useState({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
   const [newVehicle, setNewVehicle] = useState({ registrationNumber: '', capacity: 40, driverName: '' });
+  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [savingRoute, setSavingRoute] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -77,8 +79,9 @@ export default function TransportManagement() {
         setAssignments(assignmentsRes.data.data?.assignments || assignmentsRes.data.data || []);
         setTotalAssignments(assignmentsRes.data.data?.total || assignmentsRes.data.meta?.total || 0);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch transport data:', error);
+      toast.error(error.response?.data?.message || 'Failed to load transport data');
     } finally {
       setLoading(false);
     }
@@ -86,15 +89,36 @@ export default function TransportManagement() {
 
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingRoute(true);
     try {
-      await apiClient.post('/transport/routes', newRoute);
-      toast.success('Route added successfully');
+      if (editingRouteId) {
+        await apiClient.put(`/transport/routes/${editingRouteId}`, newRoute);
+        toast.success('Route updated successfully');
+      } else {
+        await apiClient.post('/transport/routes', newRoute);
+        toast.success('Route added successfully');
+      }
       setIsAddRouteModalOpen(false);
+      setEditingRouteId(null);
       setNewRoute({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
       fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add route');
+      toast.error(error.response?.data?.message || `Failed to ${editingRouteId ? 'update' : 'add'} route`);
+    } finally {
+      setSavingRoute(false);
     }
+  };
+
+  const openAddRoute = () => {
+    setEditingRouteId(null);
+    setNewRoute({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
+    setIsAddRouteModalOpen(true);
+  };
+
+  const openEditRoute = (route: RouteType) => {
+    setEditingRouteId(route.id);
+    setNewRoute({ name: route.name, startPoint: route.startPoint, endPoint: route.endPoint, distance: route.distance, vehicleId: route.vehicleId, stops: route.stops });
+    setIsAddRouteModalOpen(true);
   };
 
   const handleAddVehicle = async (e: React.FormEvent) => {
@@ -115,15 +139,17 @@ export default function TransportManagement() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Transport Management</h2>
-          <p className="text-slate-650 dark:text-slate-400 text-sm">Manage routes, vehicles, and student assignments.</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm">Manage routes, vehicles, and student assignments.</p>
         </div>
-        <button 
-          onClick={() => activeTab === 'routes' ? setIsAddRouteModalOpen(true) : activeTab === 'vehicles' ? setIsAddVehicleModalOpen(true) : null} 
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-        >
-          <Plus className="w-4 h-4" />
-          {activeTab === 'routes' ? 'Add Route' : activeTab === 'vehicles' ? 'Add Vehicle' : 'Assign Student'}
-        </button>
+        {activeTab !== 'assignments' && (
+          <button
+            onClick={() => activeTab === 'routes' ? openAddRoute() : setIsAddVehicleModalOpen(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" />
+            {activeTab === 'routes' ? 'Add Route' : 'Add Vehicle'}
+          </button>
+        )}
       </div>
 
       <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1 shadow-sm">
@@ -132,7 +158,7 @@ export default function TransportManagement() {
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'routes'
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <div className="flex items-center justify-center gap-2"><Map className="w-4 h-4" /> Routes</div>
@@ -142,7 +168,7 @@ export default function TransportManagement() {
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'vehicles'
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <div className="flex items-center justify-center gap-2"><Bus className="w-4 h-4" /> Vehicles</div>
@@ -152,7 +178,7 @@ export default function TransportManagement() {
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'assignments'
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-450 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
           <div className="flex items-center justify-center gap-2"><Users className="w-4 h-4" /> Assignments</div>
@@ -161,7 +187,7 @@ export default function TransportManagement() {
 
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-450" />
+          <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder={`Search ${activeTab}...`}
@@ -193,7 +219,7 @@ export default function TransportManagement() {
                     <p className="text-slate-500 dark:text-slate-400 text-sm">Vehicle: {route.vehicleId}</p>
                   </div>
                 </div>
-                <button className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                <button onClick={() => openEditRoute(route)} aria-label={`Edit ${route.name}`} title="Edit route" className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
                   <Settings className="w-4 h-4" />
                 </button>
               </div>
@@ -245,7 +271,7 @@ export default function TransportManagement() {
                     <tr key={vehicle.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-550 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-transparent">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-500 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-transparent">
                           <Bus className="w-4 h-4" />
                         </div>
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{vehicle.id}</span>
@@ -257,8 +283,8 @@ export default function TransportManagement() {
                     <td className="p-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                         vehicle.status === 'Active' 
-                          ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-250 dark:border-emerald-500/20' 
-                          : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-250 dark:border-amber-500/20'
+                          ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' 
+                          : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
                       }`}>
                         {vehicle.status}
                       </span>
@@ -296,7 +322,7 @@ export default function TransportManagement() {
                       <td className="p-4 text-sm font-semibold text-slate-900 dark:text-white">{assignment.studentName || `${assignment.student?.firstName || ''} ${assignment.student?.lastName || ''}`.trim()}</td>
                       <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{assignment.routeName || assignment.route?.routeName}</td>
                       <td className="p-4 text-sm text-slate-500 dark:text-slate-400">{assignment.stopName}</td>
-                      <td className="p-4 text-sm text-slate-750 dark:text-slate-300">{assignment.fee}</td>
+                      <td className="p-4 text-sm text-slate-700 dark:text-slate-300">{assignment.fee}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -318,9 +344,10 @@ export default function TransportManagement() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Route</h3>
-              <button 
-                onClick={() => setIsAddRouteModalOpen(false)} 
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingRouteId ? 'Edit Route' : 'Add New Route'}</h3>
+              <button
+                onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }}
+                aria-label="Close"
                 className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -356,14 +383,16 @@ export default function TransportManagement() {
                 <input required type="text" value={newRoute.vehicleId} onChange={e => setNewRoute({...newRoute, vehicleId: e.target.value})} className="input-field" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAddRouteModalOpen(false)} 
-                  className="px-4 py-2 bg-slate-105 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
+                <button
+                  type="button"
+                  onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Add Route</button>
+                <button type="submit" disabled={savingRoute} className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98] disabled:opacity-50">
+                  {savingRoute ? 'Saving...' : editingRouteId ? 'Save Changes' : 'Add Route'}
+                </button>
               </div>
             </form>
           </div>
@@ -400,11 +429,11 @@ export default function TransportManagement() {
                 <button 
                   type="button" 
                   onClick={() => setIsAddVehicleModalOpen(false)} 
-                  className="px-4 py-2 bg-slate-105 hover:bg-slate-200 text-slate-650 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Add Vehicle</button>
+                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Add Vehicle</button>
               </div>
             </form>
           </div>

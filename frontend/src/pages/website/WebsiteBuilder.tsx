@@ -19,11 +19,11 @@ const THEME_SWATCHES: Record<
   string,
   { hex: string; bg: string; text: string; border: string; btn: string; banner: string }
 > = {
-  indigo: { hex: '#4f46e5', bg: 'bg-indigo-600', text: 'text-indigo-400', border: 'border-indigo-500', btn: 'bg-indigo-600 hover:bg-indigo-700', banner: 'from-indigo-650 to-indigo-900' },
-  emerald: { hex: '#059669', bg: 'bg-emerald-600', text: 'text-emerald-400', border: 'border-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700', banner: 'from-emerald-650 to-emerald-900' },
-  blue: { hex: '#2563eb', bg: 'bg-blue-600', text: 'text-blue-400', border: 'border-blue-500', btn: 'bg-blue-600 hover:bg-blue-700', banner: 'from-blue-650 to-blue-900' },
-  rose: { hex: '#e11d48', bg: 'bg-rose-600', text: 'text-rose-400', border: 'border-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', banner: 'from-rose-650 to-rose-900' },
-  amber: { hex: '#d97706', bg: 'bg-amber-650', text: 'text-amber-400', border: 'border-amber-500', btn: 'bg-amber-600 hover:bg-amber-700', banner: 'from-amber-650 to-amber-900' },
+  indigo: { hex: '#4f46e5', bg: 'bg-indigo-600', text: 'text-indigo-400', border: 'border-indigo-500', btn: 'bg-indigo-600 hover:bg-indigo-700', banner: 'from-indigo-600 to-indigo-900' },
+  emerald: { hex: '#059669', bg: 'bg-emerald-600', text: 'text-emerald-400', border: 'border-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700', banner: 'from-emerald-600 to-emerald-900' },
+  blue: { hex: '#2563eb', bg: 'bg-blue-600', text: 'text-blue-400', border: 'border-blue-500', btn: 'bg-blue-600 hover:bg-blue-700', banner: 'from-blue-600 to-blue-900' },
+  rose: { hex: '#e11d48', bg: 'bg-rose-600', text: 'text-rose-400', border: 'border-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', banner: 'from-rose-600 to-rose-900' },
+  amber: { hex: '#d97706', bg: 'bg-amber-600', text: 'text-amber-400', border: 'border-amber-500', btn: 'bg-amber-600 hover:bg-amber-700', banner: 'from-amber-600 to-amber-900' },
 };
 
 const DEFAULT_CONFIG: CustomizerConfig = {
@@ -114,7 +114,7 @@ export default function WebsiteBuilder() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50 self-start sm:self-auto"
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50 self-start sm:self-auto"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Publishing...' : 'Publish Changes'}
@@ -126,7 +126,7 @@ export default function WebsiteBuilder() {
         <div className="xl:col-span-5 space-y-6">
           <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Palette className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
+              <Palette className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
               Theme &amp; Brand Styling
             </h3>
 
@@ -153,7 +153,7 @@ export default function WebsiteBuilder() {
 
           <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Type className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
+              <Type className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
               Hero Section Text
             </h3>
 
@@ -184,7 +184,7 @@ export default function WebsiteBuilder() {
 
           <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Info className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
+              <Info className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
               About Institution Section
             </h3>
 
@@ -202,7 +202,7 @@ export default function WebsiteBuilder() {
 
           <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Phone className="w-4.5 h-4.5 text-indigo-650 dark:text-indigo-400" />
+              <Phone className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
               Contact Information
             </h3>
 
@@ -255,7 +255,7 @@ export default function WebsiteBuilder() {
                 <span className="w-3 h-3 rounded-full bg-green-500/40 block" />
               </div>
               <div className="bg-white dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-lg text-[10px] text-slate-600 dark:text-slate-500 px-3 py-1 flex items-center gap-1.5 w-64 mx-auto truncate select-none">
-                <Globe className="w-3 h-3 text-slate-405 dark:text-slate-600 flex-shrink-0" />
+                <Globe className="w-3 h-3 text-slate-400 dark:text-slate-600 flex-shrink-0" />
                 <span>https://www.peopleit-school.edu</span>
               </div>
             </div>
@@ -303,7 +303,7 @@ export default function WebsiteBuilder() {
                     <button className={`text-white font-semibold text-xs px-4 py-2 rounded-lg ${selectedTheme.bg}`}>
                       Apply Online
                     </button>
-                    <button className="bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-205 font-semibold text-xs px-4 py-2 rounded-lg">
+                    <button className="bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-200 font-semibold text-xs px-4 py-2 rounded-lg">
                       Virtual Tour
                     </button>
                   </div>

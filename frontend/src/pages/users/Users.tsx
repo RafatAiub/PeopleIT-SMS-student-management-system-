@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon, Plus, Edit2, Trash2, Search, Filter, X } from 'lucide-react';
+import { Plus, Search, Filter, X } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import { useTableParams } from '../../hooks/useTableParams';
-import { Pagination } from '../../components/Pagination';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 
 interface StudentOption {
   id: string;
@@ -241,6 +242,7 @@ const Users = () => {
       setClasses(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch classes metadata', error);
+      toast.error('Failed to load class list');
     }
   };
 
@@ -323,12 +325,37 @@ const Users = () => {
     }
   };
 
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  const validateUserField = (name: string, value: string): string => {
+    if (name === 'firstName' && !value.trim()) return 'First name is required';
+    if (name === 'lastName' && !value.trim()) return 'Last name is required';
+    if (name === 'email') {
+      if (!value.trim()) return 'Email is required';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
+    }
+    if (name === 'password' && value && value.length < 8) return 'Password must be at least 8 characters';
+    return '';
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (addErrors[name]) setAddErrors(prev => ({ ...prev, [name]: '' }));
     if (name === 'classId') {
       fetchSectionsForAdd(value);
     }
+  };
+
+  const handleAddBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setAddErrors(prev => ({ ...prev, [name]: validateUserField(name, value) }));
+  };
+
+  const handleEditBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setEditErrors(prev => ({ ...prev, [name]: validateUserField(name, value) }));
   };
 
   const fetchSectionsForEdit = async (classId: string, selectFirst: boolean = false) => {
@@ -353,6 +380,7 @@ const Users = () => {
     const { name, value } = e.target;
     const val = name === 'isActive' ? value === 'true' : value;
     setEditFormData(prev => ({ ...prev, [name]: val }));
+    if (editErrors[name]) setEditErrors(prev => ({ ...prev, [name]: '' }));
     if (name === 'classId') {
       fetchSectionsForEdit(value, true);
     }
@@ -360,6 +388,23 @@ const Users = () => {
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const fieldsToValidate = ['firstName', 'lastName', 'email', 'password'];
+    const nextErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateUserField(field, (formData as any)[field] || '');
+      if (err) nextErrors[field] = err;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setAddErrors(nextErrors);
+      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      if (firstInvalidField) {
+        (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
+      }
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await apiClient.post('/users', {
@@ -389,6 +434,7 @@ const Users = () => {
 
   const handleOpenEditModal = (user: any) => {
     setSelectedUser(user);
+    setEditErrors({});
     const student = user.studentProfile || {};
     const teacher = user.teacherProfile || {};
     const guardian = user.guardianProfile || {};
@@ -434,6 +480,23 @@ const Users = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    const fieldsToValidate = ['firstName', 'lastName'];
+    const nextErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateUserField(field, (editFormData as any)[field] || '');
+      if (err) nextErrors[field] = err;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setEditErrors(nextErrors);
+      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      if (firstInvalidField) {
+        (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
+      }
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await apiClient.put(`/users/${selectedUser.id}`, {
@@ -451,17 +514,80 @@ const Users = () => {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeletingUser(true);
     try {
-      await apiClient.delete(`/users/${id}`);
+      await apiClient.delete(`/users/${userToDelete.id}`);
       toast.success('User deleted successfully');
+      setUserToDelete(null);
       fetchUsers();
     } catch (error: any) {
       console.error('Failed to delete user', error);
       toast.error(error.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setDeletingUser(false);
     }
   };
+
+  const userColumns: Column<any>[] = [
+    {
+      key: 'user',
+      header: 'User',
+      accessor: 'firstName',
+      render: (user) => (
+        <div className="flex items-center gap-3">
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt="Avatar"
+              className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-slate-200 dark:border-transparent">
+              {user.firstName?.charAt(0) || user.username?.charAt(0) || 'U'}
+            </div>
+          )}
+          <div>
+            <div className="font-medium text-slate-900 dark:text-white">{user.firstName} {user.lastName}</div>
+            <div className="text-xs text-slate-500">{user.email || user.username}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      accessor: 'role',
+      render: (user) => (
+        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+          {user.role}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (user) => (
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
+          user.isActive !== false
+            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
+            : 'bg-rose-50 dark:bg-red-500/10 text-rose-700 dark:text-red-400 border border-rose-200 dark:border-red-500/20'
+        }`}>
+          {user.isActive !== false ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+  ];
+
+  const userActions: RowAction<any>[] = [
+    { label: 'Edit user', icon: 'edit', onClick: handleOpenEditModal },
+    { label: 'Delete user', icon: 'delete', variant: 'danger', onClick: (user) => setUserToDelete(user) },
+  ];
 
   return (
     <div className="space-y-6">
@@ -471,8 +597,8 @@ const Users = () => {
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage Admins, Teachers, Students, and Guardians.</p>
         </div>
         <button
-          onClick={() => { setAddSelectedChildren([]); setIsAddModalOpen(true); }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+          onClick={() => { setAddSelectedChildren([]); setAddErrors({}); setIsAddModalOpen(true); }}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
         >
           <Plus className="w-5 h-5" />
           Add User
@@ -481,18 +607,8 @@ const Users = () => {
 
       {/* Toolbar */}
       <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
-        <div className="flex-1 min-w-[200px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={params.search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search users by name, email..."
-            className="input-field pl-9 text-sm"
-          />
-        </div>
         <div className="relative">
-          <select 
+          <select
             value={params.filters.role || ''}
             onChange={(e) => setFilter('role', e.target.value)}
             className="input-field pl-10 pr-8 cursor-pointer"
@@ -508,95 +624,23 @@ const Users = () => {
       </div>
 
       {/* Users Table */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-6 py-4 font-medium">User</th>
-                <th className="px-6 py-4 font-medium">Role</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-555">
-                    Loading users...
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500 flex flex-col items-center justify-center">
-                    <UsersIcon className="w-12 h-12 mb-2 opacity-20" />
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {user.avatarUrl ? (
-                          <img 
-                            src={user.avatarUrl} 
-                            alt="Avatar" 
-                            className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-slate-200 dark:border-transparent">
-                            {user.firstName?.charAt(0) || user.username?.charAt(0) || 'U'}
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium text-slate-900 dark:text-white">{user.firstName} {user.lastName}</div>
-                          <div className="text-xs text-slate-500">{user.email || user.username}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-                        user.isActive !== false 
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-                          : 'bg-rose-50 dark:bg-red-500/10 text-rose-700 dark:text-red-400 border border-rose-200 dark:border-red-500/20'
-                      }`}>
-                        {user.isActive !== false ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleOpenEditModal(user)}
-                          className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="p-1.5 text-slate-500 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-450 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        <Pagination
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm p-4">
+        <DataTable
+          data={users}
+          columns={userColumns}
+          actions={userActions}
+          isLoading={loading}
+          searchPlaceholder="Search users by name, email..."
+          serverSearch
+          onSearch={setSearch}
+          serverPagination
+          totalCount={totalUsers}
           page={params.page}
           pageSize={params.pageSize}
-          total={totalUsers}
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
+          emptyTitle="No users found"
+          emptyDescription="Try adjusting your search or role filter, or add a new user."
         />
       </div>
 
@@ -623,19 +667,23 @@ const Users = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-                      <input type="text" name="firstName" required placeholder="e.g. John" value={formData.firstName} onChange={handleChange} className="input-field" />
+                      <input type="text" name="firstName" required placeholder="e.g. John" value={formData.firstName} onChange={handleChange} onBlur={handleAddBlur} className={`input-field ${addErrors.firstName ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {addErrors.firstName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{addErrors.firstName}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
-                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={formData.lastName} onChange={handleChange} className="input-field" />
+                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={formData.lastName} onChange={handleChange} onBlur={handleAddBlur} className={`input-field ${addErrors.lastName ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {addErrors.lastName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{addErrors.lastName}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
-                      <input type="email" name="email" required placeholder="e.g. john.doe@school.edu" value={formData.email} onChange={handleChange} className="input-field" />
+                      <input type="email" name="email" required placeholder="e.g. john.doe@school.edu" value={formData.email} onChange={handleChange} onBlur={handleAddBlur} className={`input-field ${addErrors.email ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {addErrors.email && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{addErrors.email}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-                      <input type="password" name="password" required minLength={8} placeholder="••••••••" value={formData.password} onChange={handleChange} className="input-field" />
+                      <input type="password" name="password" required minLength={8} placeholder="••••••••" value={formData.password} onChange={handleChange} onBlur={handleAddBlur} className={`input-field ${addErrors.password ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {addErrors.password && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{addErrors.password}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
@@ -658,7 +706,7 @@ const Users = () => {
                         {formData.avatarUrl ? (
                           <img src={formData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-650 dark:text-blue-400 font-semibold">No Photo</div>
+                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-600 dark:text-blue-400 font-semibold">No Photo</div>
                         )}
                         <input 
                           type="file" 
@@ -753,7 +801,7 @@ const Users = () => {
                 {/* Conditional Teacher Details */}
                 {formData.role === 'TEACHER' && (
                   <div className="animate-fadeIn">
-                    <h4 className="text-sm font-semibold text-indigo-650 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
+                    <h4 className="text-sm font-semibold text-indigo-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification</label>
@@ -796,7 +844,7 @@ const Users = () => {
                 type="submit"
                 form="addUserForm"
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 {isSubmitting ? 'Creating...' : 'Create User'}
               </button>
@@ -828,11 +876,13 @@ const Users = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-                      <input type="text" name="firstName" required placeholder="e.g. John" value={editFormData.firstName} onChange={handleEditChange} className="input-field" />
+                      <input type="text" name="firstName" required placeholder="e.g. John" value={editFormData.firstName} onChange={handleEditChange} onBlur={handleEditBlur} className={`input-field ${editErrors.firstName ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {editErrors.firstName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.firstName}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
-                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={editFormData.lastName} onChange={handleEditChange} className="input-field" />
+                      <input type="text" name="lastName" required placeholder="e.g. Doe" value={editFormData.lastName} onChange={handleEditChange} onBlur={handleEditBlur} className={`input-field ${editErrors.lastName ? 'border-rose-500 focus:ring-rose-500' : ''}`} />
+                      {editErrors.lastName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.lastName}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
@@ -862,7 +912,7 @@ const Users = () => {
                         {editFormData.avatarUrl ? (
                           <img src={editFormData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-650 dark:text-blue-400 font-semibold">No Photo</div>
+                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-600 dark:text-blue-400 font-semibold">No Photo</div>
                         )}
                         <input 
                           type="file" 
@@ -956,7 +1006,7 @@ const Users = () => {
                 {/* Conditional Teacher Details */}
                 {editFormData.role === 'TEACHER' && (
                   <div className="animate-fadeIn">
-                    <h4 className="text-sm font-semibold text-indigo-650 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
+                    <h4 className="text-sm font-semibold text-indigo-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification</label>
@@ -999,7 +1049,7 @@ const Users = () => {
                 type="submit"
                 form="editUserForm"
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
               >
                 {isSubmitting ? 'Updating...' : 'Update User'}
               </button>
@@ -1007,6 +1057,17 @@ const Users = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!userToDelete}
+        title="Delete user"
+        message={`Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName}? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingUser}
+        onConfirm={handleConfirmDeleteUser}
+        onCancel={() => setUserToDelete(null)}
+      />
     </div>
   );
 };

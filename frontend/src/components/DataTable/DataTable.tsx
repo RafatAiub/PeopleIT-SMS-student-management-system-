@@ -35,6 +35,20 @@ interface DataTableProps<T extends { id: string }> {
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
+  /**
+   * When set, `data` is treated as already being just the current page's
+   * rows (fetched from the API), and pagination controls drive the caller's
+   * own fetch instead of slicing `data` client-side. Requires `totalCount`,
+   * `page`, and `onPageChange`; `onPageSizeChange` is optional but expected
+   * alongside a caller-controlled `pageSize`. Sorting/search still operate
+   * only on the current page's rows unless the caller also wires
+   * `onSearch`/`serverSearch`.
+   */
+  serverPagination?: boolean;
+  totalCount?: number;
+  page?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -67,13 +81,28 @@ export function DataTable<T extends { id: string }>({
   emptyTitle,
   emptyDescription,
   emptyAction,
+  serverPagination = false,
+  totalCount,
+  page: controlledPage,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [internalPage, setInternalPage] = useState(1);
+  const [internalPageSize, setInternalPageSize] = useState(defaultPageSize);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const page = serverPagination ? (controlledPage ?? 1) : internalPage;
+  const pageSize = serverPagination ? defaultPageSize : internalPageSize;
+  const setPage = (updater: (p: number) => number) => {
+    if (serverPagination) {
+      onPageChange?.(updater(page));
+    } else {
+      setInternalPage(updater);
+    }
+  };
 
   // Client-side filtering
   const filtered = useMemo(() => {
@@ -103,9 +132,11 @@ export function DataTable<T extends { id: string }>({
     });
   }, [filtered, sortKey, sortDir, columns]);
 
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
+  // Paginate — server-paginated tables treat `data` as already the current
+  // page's rows; client-paginated tables slice the full sorted set.
+  const effectiveTotal = serverPagination ? (totalCount ?? sorted.length) : sorted.length;
+  const totalPages = Math.max(1, Math.ceil(effectiveTotal / pageSize));
+  const paginated = serverPagination ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize);
 
   const handleSort = (key: string) => {
     if (sortKey !== key) { setSortKey(key); setSortDir('asc'); }
@@ -115,8 +146,17 @@ export function DataTable<T extends { id: string }>({
 
   const handleSearch = (val: string) => {
     setQuery(val);
-    setPage(1);
+    setPage(() => 1);
     if (serverSearch) onSearch?.(val);
+  };
+
+  const handlePageSizeChange = (val: number) => {
+    if (serverPagination) {
+      onPageSizeChange?.(val);
+    } else {
+      setInternalPageSize(val);
+    }
+    setPage(() => 1);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -166,7 +206,7 @@ export function DataTable<T extends { id: string }>({
           <span className="text-xs text-slate-500 dark:text-slate-400">Show</span>
           <select
             value={pageSize}
-            onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
           >
             {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s}</option>)}
@@ -281,7 +321,7 @@ export function DataTable<T extends { id: string }>({
       {!isLoading && paginated.length > 0 && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-500 dark:text-slate-500 font-medium">
-            Showing <span className="text-slate-900 dark:text-slate-300">{((page - 1) * pageSize) + 1}</span> to <span className="text-slate-900 dark:text-slate-300">{Math.min(page * pageSize, sorted.length)}</span> of <span className="text-slate-900 dark:text-slate-300">{sorted.length}</span> results
+            Showing <span className="text-slate-900 dark:text-slate-300">{((page - 1) * pageSize) + 1}</span> to <span className="text-slate-900 dark:text-slate-300">{Math.min(page * pageSize, effectiveTotal)}</span> of <span className="text-slate-900 dark:text-slate-300">{effectiveTotal}</span> results
           </span>
           <div className="flex items-center gap-1">
             <button
@@ -303,7 +343,7 @@ export function DataTable<T extends { id: string }>({
                 <button
                   key={p}
                   id={`datatable-page-${p}`}
-                  onClick={() => setPage(p)}
+                  onClick={() => setPage(() => p)}
                   className={`w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200 ${
                     page === p
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'

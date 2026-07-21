@@ -16,6 +16,7 @@ interface ExamResult {
   grade: string | null;
   remarks: string | null;
   studentId: string;
+  highestMarkInSubject: number | null;
 }
 
 interface ChildSummary {
@@ -220,6 +221,7 @@ const MyExamResults: React.FC = () => {
                     <th className="px-6 py-3 font-medium">Subject</th>
                     <th className="px-6 py-3 font-medium text-center">Marks</th>
                     <th className="px-6 py-3 font-medium text-center">Grade</th>
+                    <th className="px-6 py-3 font-medium text-center">Highest in Class</th>
                     <th className="px-6 py-3 font-medium">Remarks</th>
                   </tr>
                 </thead>
@@ -233,6 +235,21 @@ const MyExamResults: React.FC = () => {
                       <td className="px-6 py-3 text-center">
                         {r.grade ? (
                           <StatusBadge status={r.grade} />
+                        ) : (
+                          <span className="text-slate-400 dark:text-slate-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3 text-center">
+                        {r.highestMarkInSubject !== null ? (
+                          <span
+                            className={
+                              Number(r.marksObtained) > 0 && Number(r.marksObtained) === r.highestMarkInSubject
+                                ? 'font-bold text-emerald-600 dark:text-emerald-400'
+                                : 'text-slate-700 dark:text-slate-300'
+                            }
+                          >
+                            {r.highestMarkInSubject}
+                          </span>
                         ) : (
                           <span className="text-slate-400 dark:text-slate-600">—</span>
                         )}

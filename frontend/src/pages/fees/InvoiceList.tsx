@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, Search, DollarSign, X, Layers, Tag } from 'lucide-react';
+import { FileText, Plus, DollarSign, X, Layers, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
-import { Pagination } from '../../components/Pagination';
+import { DataTable, Column } from '../../components/DataTable/DataTable';
 
 const InvoiceList = () => {
   const [activeTab, setActiveTab] = useState<'invoices' | 'categories'>('invoices');
@@ -83,12 +83,40 @@ const InvoiceList = () => {
     fetchDependencies();
   }, []);
 
+  const [invoiceErrors, setInvoiceErrors] = useState<Record<string, string>>({});
+
+  const validateInvoiceField = (name: string, value: any): string => {
+    if (name === 'studentId' && !value) return 'Please select a student';
+    if (name === 'feeCategoryId' && !value) return 'Please select a fee category';
+    if (name === 'totalAmount' && (!value || Number(value) <= 0)) return 'Amount must be greater than ৳ 0';
+    if (name === 'dueDate' && !value) return 'Due date is required';
+    return '';
+  };
+
+  const handleInvoiceBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setInvoiceErrors(prev => ({ ...prev, [name]: validateInvoiceField(name, value) }));
+  };
+
   const handleGenerateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newInvoice.studentId || !newInvoice.feeCategoryId) {
-      toast.error('Please select a student and a fee category');
+
+    const fieldsToValidate = ['studentId', 'feeCategoryId', 'totalAmount', 'dueDate'];
+    const nextErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateInvoiceField(field, (newInvoice as any)[field]);
+      if (err) nextErrors[field] = err;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setInvoiceErrors(nextErrors);
+      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      if (firstInvalidField) {
+        (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
+      }
+      toast.error('Please fix the highlighted fields');
       return;
     }
+
     try {
       await apiClient.post('/fees/invoices', {
         studentId: newInvoice.studentId,
@@ -179,10 +207,112 @@ const InvoiceList = () => {
     }
   };
 
-  const filteredCategories = categories.filter(cat => {
-    return cat.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
-           (cat.description || '').toLowerCase().includes(debouncedSearch.toLowerCase());
-  });
+  const invoiceColumns: Column<any>[] = [
+    { key: 'invoiceNo', header: 'Invoice No', accessor: 'invoiceNo', render: (invoice) => invoice.invoiceNo || invoice.invoiceNumber },
+    {
+      key: 'student',
+      header: 'Student Info',
+      sortable: false,
+      render: (invoice) => (
+        <>
+          <div className="text-slate-850 dark:text-white font-medium">{invoice.student?.firstName} {invoice.student?.lastName}</div>
+          <div className="text-xs text-slate-500">ID: {invoice.student?.studentId}</div>
+        </>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      sortable: false,
+      render: (invoice) => (
+        <>
+          <div className="font-semibold text-slate-900 dark:text-white tabular-nums">৳ {invoice.totalAmount}</div>
+          {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">Due: ৳ {invoice.dueAmount}</div>}
+        </>
+      ),
+    },
+    {
+      key: 'dueDate',
+      header: 'Due Date',
+      sortable: false,
+      render: (invoice) => new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (invoice) => (
+        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+          invoice.status === 'PAID' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' :
+          invoice.status === 'OVERDUE' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20' :
+          'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
+        }`}>
+          {invoice.status}
+        </span>
+      ),
+    },
+    {
+      key: 'paymentAction',
+      header: 'Actions',
+      sortable: false,
+      render: (invoice) => (
+        invoice.status !== 'PAID' && Number(invoice.dueAmount) > 0 ? (
+          <button
+            onClick={() => openPaymentModal(invoice)}
+            className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+          >
+            <DollarSign className="w-3.5 h-3.5" /> Record Payment
+          </button>
+        ) : null
+      ),
+    },
+  ];
+
+  const categoryColumns: Column<any>[] = [
+    {
+      key: 'name',
+      header: 'Category Name',
+      accessor: 'name',
+      render: (cat) => (
+        <span className="flex items-center gap-2">
+          <Tag className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          {cat.name}
+        </span>
+      ),
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      sortable: false,
+      render: (cat) => <span className="text-slate-500 dark:text-slate-400 max-w-xs truncate block">{cat.description || 'N/A'}</span>,
+    },
+    {
+      key: 'frequency',
+      header: 'Frequency',
+      accessor: 'frequency',
+      render: (cat) => (
+        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-transparent">
+          {cat.frequency}
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Default Amount',
+      sortable: false,
+      render: (cat) => <span className="font-semibold text-slate-900 dark:text-white tabular-nums">৳ {cat.amount}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (cat) => (
+        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cat.isActive !== false ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'}`}>
+          {cat.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -195,9 +325,9 @@ const InvoiceList = () => {
         
         <div className="flex items-center gap-2">
           {activeTab === 'invoices' ? (
-            <button 
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
+            <button
+              onClick={() => { setInvoiceErrors({}); setIsAddModalOpen(true); }}
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
             >
               <Plus className="w-4 h-4" />
               Generate Invoice
@@ -241,142 +371,31 @@ const InvoiceList = () => {
       </div>
 
       {/* Main card panel */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
-        <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex items-center justify-between">
-          <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              value={params.search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={activeTab === 'invoices' ? "Search by invoice number or student..." : "Search categories..."}
-              className="input-field pl-10 text-sm"
-            />
-          </div>
-        </div>
-        
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm p-4">
         {activeTab === 'invoices' ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Invoice No</th>
-                  <th className="px-6 py-4 font-semibold">Student Info</th>
-                  <th className="px-6 py-4 font-semibold">Amount</th>
-                  <th className="px-6 py-4 font-semibold">Due Date</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 text-right font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                      Loading invoices...
-                    </td>
-                  </tr>
-                ) : invoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                      No invoices found.
-                    </td>
-                  </tr>
-                ) : (
-                  invoices.map((invoice: any) => (
-                    <tr key={invoice.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">{invoice.invoiceNo || invoice.invoiceNumber}</td>
-                      <td className="px-6 py-4">
-                        <div className="text-slate-850 dark:text-white font-medium">{invoice.student?.firstName} {invoice.student?.lastName}</div>
-                        <div className="text-xs text-slate-500">ID: {invoice.student?.studentId}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-900 dark:text-white">৳ {invoice.totalAmount}</div>
-                        {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400">Due: ৳ {invoice.dueAmount}</div>}
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          invoice.status === 'PAID' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' : 
-                          invoice.status === 'OVERDUE' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20' : 
-                          'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-                        }`}>
-                          {invoice.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {invoice.status !== 'PAID' && Number(invoice.dueAmount) > 0 && (
-                            <button
-                              onClick={() => openPaymentModal(invoice)}
-                              className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-600/20 hover:bg-emerald-100 dark:hover:bg-emerald-600/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                            >
-                              <DollarSign className="w-3.5 h-3.5" /> Record Payment
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Category Name</th>
-                  <th className="px-6 py-4 font-semibold">Description</th>
-                  <th className="px-6 py-4 font-semibold">Frequency</th>
-                  <th className="px-6 py-4 font-semibold">Default Amount</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {filteredCategories.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                      No fee categories created yet.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCategories.map((cat: any) => (
-                    <tr key={cat.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-slate-450 dark:text-slate-500" />
-                        {cat.name}
-                      </td>
-                      <td className="px-6 py-4 text-slate-500 dark:text-slate-400 max-w-xs truncate">{cat.description || 'N/A'}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-transparent">
-                          {cat.frequency}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">৳ {cat.amount}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          cat.isActive !== false ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'
-                        }`}>
-                          {cat.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {activeTab === 'invoices' && (
-          <Pagination
+          <DataTable
+            data={invoices}
+            columns={invoiceColumns}
+            isLoading={loading}
+            searchPlaceholder="Search by invoice number or student..."
+            serverSearch
+            onSearch={setSearch}
+            serverPagination
+            totalCount={totalInvoices}
             page={params.page}
             pageSize={params.pageSize}
-            total={totalInvoices}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
+            emptyTitle="No invoices found"
+            emptyDescription="Generate an invoice to get started."
+          />
+        ) : (
+          <DataTable
+            data={categories}
+            columns={categoryColumns}
+            searchPlaceholder="Search categories..."
+            emptyTitle="No fee categories created yet"
+            emptyDescription="Add a fee category to start generating invoices."
           />
         )}
       </div>
@@ -397,53 +416,66 @@ const InvoiceList = () => {
                 <div className="col-span-2">
                   <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Select Student *</label>
                   <select
+                    name="studentId"
                     required
                     value={newInvoice.studentId}
-                    onChange={e => setNewInvoice(prev => ({ ...prev, studentId: e.target.value }))}
-                    className="input-field"
+                    onChange={e => { setNewInvoice(prev => ({ ...prev, studentId: e.target.value })); if (invoiceErrors.studentId) setInvoiceErrors(prev => ({ ...prev, studentId: '' })); }}
+                    onBlur={handleInvoiceBlur}
+                    className={`input-field ${invoiceErrors.studentId ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   >
                     <option value="" className="bg-white dark:bg-slate-900 text-slate-950 dark:text-white">-- Choose Student --</option>
                     {students.map(st => (
                       <option key={st.id} value={st.id} className="bg-white dark:bg-slate-900 text-slate-950 dark:text-white">{st.firstName} {st.lastName} (ID: {st.studentId})</option>
                     ))}
                   </select>
+                  {invoiceErrors.studentId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{invoiceErrors.studentId}</p>}
                 </div>
                 <div className="col-span-2">
                   <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Fee Category *</label>
                   <select
+                    name="feeCategoryId"
                     required
                     value={newInvoice.feeCategoryId}
                     onChange={e => {
                       const cat = categories.find(c => c.id === e.target.value);
                       setNewInvoice(prev => ({ ...prev, feeCategoryId: e.target.value, totalAmount: cat ? Number(cat.amount) : 0 }));
+                      if (invoiceErrors.feeCategoryId) setInvoiceErrors(prev => ({ ...prev, feeCategoryId: '' }));
                     }}
-                    className="input-field"
+                    onBlur={handleInvoiceBlur}
+                    className={`input-field ${invoiceErrors.feeCategoryId ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   >
-                    <option value="" className="bg-white dark:bg-slate-900 text-slate-955 dark:text-white">-- Choose Fee Category --</option>
+                    <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">-- Choose Fee Category --</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900 text-slate-955 dark:text-white">{cat.name} (৳ {cat.amount})</option>
+                      <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cat.name} (৳ {cat.amount})</option>
                     ))}
                   </select>
+                  {invoiceErrors.feeCategoryId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{invoiceErrors.feeCategoryId}</p>}
                 </div>
                 <div>
                   <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Total Amount (৳) *</label>
                   <input
                     type="number"
+                    name="totalAmount"
                     required
                     value={newInvoice.totalAmount}
-                    onChange={e => setNewInvoice(prev => ({ ...prev, totalAmount: Number(e.target.value) }))}
-                    className="input-field"
+                    onChange={e => { setNewInvoice(prev => ({ ...prev, totalAmount: Number(e.target.value) })); if (invoiceErrors.totalAmount) setInvoiceErrors(prev => ({ ...prev, totalAmount: '' })); }}
+                    onBlur={handleInvoiceBlur}
+                    className={`input-field ${invoiceErrors.totalAmount ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {invoiceErrors.totalAmount && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{invoiceErrors.totalAmount}</p>}
                 </div>
                 <div>
                   <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Due Date *</label>
                   <input
                     type="date"
+                    name="dueDate"
                     required
                     value={newInvoice.dueDate}
-                    onChange={e => setNewInvoice(prev => ({ ...prev, dueDate: e.target.value }))}
-                    className="input-field"
+                    onChange={e => { setNewInvoice(prev => ({ ...prev, dueDate: e.target.value })); if (invoiceErrors.dueDate) setInvoiceErrors(prev => ({ ...prev, dueDate: '' })); }}
+                    onBlur={handleInvoiceBlur}
+                    className={`input-field ${invoiceErrors.dueDate ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {invoiceErrors.dueDate && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{invoiceErrors.dueDate}</p>}
                 </div>
               </div>
 
@@ -457,7 +489,7 @@ const InvoiceList = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm"
                 >
                   Generate Invoice
                 </button>
@@ -566,7 +598,7 @@ const InvoiceList = () => {
                 <div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
                   <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
-                  <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber}</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber}</div>
                 </div>
                 <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                   This invoice is already fully paid. There is no due amount left to collect.
@@ -586,7 +618,7 @@ const InvoiceList = () => {
                 <div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Student & Invoice Info</p>
                   <div className="text-slate-900 dark:text-white font-medium text-base mt-1">{selectedInvoice.student?.firstName} {selectedInvoice.student?.lastName}</div>
-                  <div className="text-xs text-slate-650 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Invoice: {selectedInvoice.invoiceNo || selectedInvoice.invoiceNumber} &bull; Due: ৳ {selectedInvoice.dueAmount}</div>
                 </div>
 
                 <div className="border-t border-slate-100 dark:border-white/5 pt-4">

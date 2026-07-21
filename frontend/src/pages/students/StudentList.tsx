@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Users, Search, X, Edit2, Trash2, UserCheck, BookOpen, Receipt,
+  Users, X, Edit2, UserCheck, BookOpen, Receipt,
   Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
 import { useTableParams } from '../../hooks/useTableParams';
-import { Pagination } from '../../components/Pagination';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 
 const StudentList = () => {
   const { user } = useAuthStore();
@@ -84,6 +85,7 @@ const StudentList = () => {
       setClasses(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch classes metadata', error);
+      toast.error('Failed to load class list');
     }
   };
 
@@ -110,13 +112,28 @@ const StudentList = () => {
     }
   };
 
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  const validateEditField = (name: string, value: string): string => {
+    if (name === 'firstName' && !value.trim()) return 'First name is required';
+    if (name === 'lastName' && !value.trim()) return 'Last name is required';
+    if (name === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
+    return '';
+  };
+
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({ ...prev, [name]: value }));
-    
+    if (editErrors[name]) setEditErrors(prev => ({ ...prev, [name]: '' }));
+
     if (name === 'classId') {
       fetchSectionsForEdit(value, true);
     }
+  };
+
+  const handleEditBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditErrors(prev => ({ ...prev, [name]: validateEditField(name, value) }));
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -174,6 +191,7 @@ const StudentList = () => {
 
   const handleOpenEditModal = (student: any) => {
     setSelectedStudent(student);
+    setEditErrors({});
 
     // Students only edit their own personal fields — class/section are
     // staff-managed, and /students/meta/sections is a staff-only endpoint
@@ -209,8 +227,25 @@ const StudentList = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
+
+    const fieldsToValidate = ['firstName', 'lastName', 'email'];
+    const nextErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateEditField(field, (editFormData as any)[field] || '');
+      if (err) nextErrors[field] = err;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setEditErrors(nextErrors);
+      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      if (firstInvalidField) {
+        (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
+      }
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     // Prepare payload.
     // If student, they only edit basic personal info (firstName, lastName, phone, gender)
     const payload: any = isStudent 
@@ -255,15 +290,22 @@ const StudentList = () => {
     }
   };
 
-  const handleDeleteStudent = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this student?')) return;
+  const [studentToDelete, setStudentToDelete] = useState<any>(null);
+  const [deletingStudent, setDeletingStudent] = useState(false);
+
+  const handleConfirmDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    setDeletingStudent(true);
     try {
-      await apiClient.delete(`/students/${id}`);
+      await apiClient.delete(`/students/${studentToDelete.id}`);
       toast.success('Student deleted successfully');
+      setStudentToDelete(null);
       fetchStudents();
     } catch (error: any) {
       console.error('Failed to delete student', error);
       toast.error(error.response?.data?.message || 'Failed to delete student');
+    } finally {
+      setDeletingStudent(false);
     }
   };
 
@@ -325,7 +367,7 @@ const StudentList = () => {
             </div>
             <button
               onClick={() => handleOpenEditModal(selectedStudent)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center flex-shrink-0"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center flex-shrink-0"
             >
               <Edit2 className="w-4 h-4" />
               Edit Personal Data
@@ -407,8 +449,10 @@ const StudentList = () => {
                       required
                       value={editFormData.firstName}
                       onChange={handleEditChange}
-                      className="input-field"
+                      onBlur={handleEditBlur}
+                      className={`input-field ${editErrors.firstName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                     />
+                    {editErrors.firstName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.firstName}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
@@ -418,8 +462,10 @@ const StudentList = () => {
                       required
                       value={editFormData.lastName}
                       onChange={handleEditChange}
-                      className="input-field"
+                      onBlur={handleEditBlur}
+                      className={`input-field ${editErrors.lastName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                     />
+                    {editErrors.lastName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.lastName}</p>}
                   </div>
                 </div>
 
@@ -531,7 +577,7 @@ const StudentList = () => {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
                   >
                     {isSubmitting ? 'Updating...' : 'Save Profile'}
                   </button>
@@ -547,6 +593,68 @@ const StudentList = () => {
   // =============================================================================
   // STANDARD ADMISSIONS/DIRECTORY VIEW (For role = ADMIN / TEACHER)
   // =============================================================================
+  const studentColumns: Column<any>[] = [
+    {
+      key: 'name',
+      header: 'Student Name',
+      accessor: 'firstName',
+      render: (student) => (
+        <div className="flex items-center gap-3">
+          {student.avatarUrl || student.user?.avatarUrl ? (
+            <img
+              src={student.avatarUrl || student.user?.avatarUrl}
+              alt="Avatar"
+              className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+              {student.firstName?.[0] || '?'}
+            </div>
+          )}
+          <div>
+            <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
+            <div className="text-xs text-slate-500">{student.email}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'studentId',
+      header: 'Admission No',
+      accessor: 'studentId',
+    },
+    {
+      key: 'class',
+      header: 'Class / Roll',
+      sortable: false,
+      render: (student) => (
+        <>
+          <span className="font-medium text-slate-900 dark:text-white">{student.class?.name || 'N/A'}</span>
+          <span className="text-slate-500"> (Roll: {student.rollNumber || 'N/A'})</span>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (student) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          student.status === 'ACTIVE'
+            ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20'
+            : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
+        }`}>
+          {student.status || 'ACTIVE'}
+        </span>
+      ),
+    },
+  ];
+
+  const studentActions: RowAction<any>[] = [
+    { label: 'Edit student', icon: 'edit', onClick: handleOpenEditModal },
+    { label: 'Delete student', icon: 'delete', variant: 'danger', onClick: (student) => setStudentToDelete(student) },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -557,133 +665,49 @@ const StudentList = () => {
       </div>
 
       <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
-        <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              value={params.search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students by name or ID..." 
-              className="input-field pl-10 text-sm"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={params.filters.classId || ''}
-              onChange={(e) => setFilter('classId', e.target.value)}
-              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
-            >
-              <option value="" className="bg-white dark:bg-slate-900">All Classes</option>
-              {classes.map(c => (
-                <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900">{c.name}</option>
-              ))}
-            </select>
-            <select
-              value={params.filters.status || ''}
-              onChange={(e) => setFilter('status', e.target.value)}
-              className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
-            >
-              <option value="" className="bg-white dark:bg-slate-900">All Statuses</option>
-              <option value="ACTIVE" className="bg-white dark:bg-slate-900">Active</option>
-              <option value="INACTIVE" className="bg-white dark:bg-slate-900">Inactive</option>
-              <option value="GRADUATED" className="bg-white dark:bg-slate-900">Graduated</option>
-              <option value="TRANSFERRED" className="bg-white dark:bg-slate-900">Transferred</option>
-            </select>
-          </div>
+        <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex flex-wrap items-center gap-3">
+          <select
+            value={params.filters.classId || ''}
+            onChange={(e) => setFilter('classId', e.target.value)}
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
+          >
+            <option value="" className="bg-white dark:bg-slate-900">All Classes</option>
+            {classes.map(c => (
+              <option key={c.id} value={c.id} className="bg-white dark:bg-slate-900">{c.name}</option>
+            ))}
+          </select>
+          <select
+            value={params.filters.status || ''}
+            onChange={(e) => setFilter('status', e.target.value)}
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
+          >
+            <option value="" className="bg-white dark:bg-slate-900">All Statuses</option>
+            <option value="ACTIVE" className="bg-white dark:bg-slate-900">Active</option>
+            <option value="INACTIVE" className="bg-white dark:bg-slate-900">Inactive</option>
+            <option value="GRADUATED" className="bg-white dark:bg-slate-900">Graduated</option>
+            <option value="TRANSFERRED" className="bg-white dark:bg-slate-900">Transferred</option>
+          </select>
         </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-6 py-4 font-medium">Student Name</th>
-                <th className="px-6 py-4 font-medium">Admission No</th>
-                <th className="px-6 py-4 font-medium">Class / Roll</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 text-right font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    Loading students...
-                  </td>
-                </tr>
-              ) : students.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    No students found.
-                  </td>
-                </tr>
-              ) : (
-                students.map((student: any) => (
-                  <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {student.avatarUrl || student.user?.avatarUrl ? (
-                          <img 
-                            src={student.avatarUrl || student.user?.avatarUrl} 
-                            alt="Avatar" 
-                            className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
-                            {student.firstName?.[0] || '?'}
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
-                          <div className="text-xs text-slate-500">{student.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{student.studentId}</td>
-                    <td className="px-6 py-4">
-                      <span className="font-medium text-slate-900 dark:text-white">{student.class?.name || 'N/A'}</span>
-                      <span className="text-slate-500"> (Roll: {student.rollNumber || 'N/A'})</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        student.status === 'ACTIVE' 
-                          ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' 
-                          : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-                      }`}>
-                        {student.status || 'ACTIVE'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleOpenEditModal(student)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        >
-                          <Edit2 className="w-4.5 h-4.5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteStudent(student.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                        >
-                          <Trash2 className="w-4.5 h-4.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {!isStudent && (
-          <Pagination
+
+        <div className="p-4">
+          <DataTable
+            data={students}
+            columns={studentColumns}
+            actions={studentActions}
+            isLoading={loading}
+            searchPlaceholder="Search students by name or ID..."
+            serverSearch
+            onSearch={setSearch}
+            serverPagination
+            totalCount={totalStudents}
             page={params.page}
             pageSize={params.pageSize}
-            total={totalStudents}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
+            emptyTitle="No students found"
+            emptyDescription="Try adjusting your search or filters, or add a new student."
           />
-        )}
+        </div>
       </div>
 
       {/* Edit Student Modal */}
@@ -711,8 +735,10 @@ const StudentList = () => {
                     placeholder="e.g. John"
                     value={editFormData.firstName}
                     onChange={handleEditChange}
-                    className="input-field"
+                    onBlur={handleEditBlur}
+                    className={`input-field ${editErrors.firstName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {editErrors.firstName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.firstName}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
@@ -723,8 +749,10 @@ const StudentList = () => {
                     placeholder="e.g. Doe"
                     value={editFormData.lastName}
                     onChange={handleEditChange}
-                    className="input-field"
+                    onBlur={handleEditBlur}
+                    className={`input-field ${editErrors.lastName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {editErrors.lastName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.lastName}</p>}
                 </div>
               </div>
 
@@ -823,8 +851,10 @@ const StudentList = () => {
                   placeholder="e.g. john.doe@school.edu"
                   value={editFormData.email}
                   onChange={handleEditChange}
-                  className="input-field"
+                  onBlur={handleEditBlur}
+                  className={`input-field ${editErrors.email ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                 />
+                {editErrors.email && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.email}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -911,7 +941,7 @@ const StudentList = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSubmitting ? 'Updating...' : 'Update Student'}
                 </button>
@@ -920,6 +950,17 @@ const StudentList = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!studentToDelete}
+        title="Delete student"
+        message={`Are you sure you want to delete ${studentToDelete?.firstName} ${studentToDelete?.lastName}? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingStudent}
+        onConfirm={handleConfirmDeleteStudent}
+        onCancel={() => setStudentToDelete(null)}
+      />
     </div>
   );
 };

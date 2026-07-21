@@ -202,7 +202,7 @@ const MyInvoices: React.FC = () => {
                         <button
                           onClick={() => handlePayOnline(invoice)}
                           disabled={payingId === invoice.id}
-                          className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           {payingId === invoice.id ? 'Processing...' : 'Pay Online'}
