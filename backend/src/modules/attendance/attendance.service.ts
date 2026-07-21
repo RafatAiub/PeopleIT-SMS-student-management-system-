@@ -29,16 +29,20 @@ export async function submitBulkAttendance(
   const result = await attendanceRepository.upsertBulkAttendance(institutionId, date, records);
   logger.info('Bulk attendance submitted', { institutionId, date, count: records.length });
 
-  // Fire-and-forget absence SMS reminders. Failure to enqueue must never
-  // fail the attendance submission itself.
+  // Fire-and-forget absence SMS reminders. Not awaited: a slow or unreachable
+  // Redis must never delay or fail the attendance submission response. Wrapped
+  // in try/catch too, since a synchronous throw from `.add()` (e.g. malformed
+  // connection config) would otherwise bypass the `.catch()` entirely.
   const absentees = records.filter((r) => r.status === 'ABSENT');
-  await Promise.all(
-    absentees.map((r) =>
+  try {
+    for (const r of absentees) {
       feeReminderQueue
         .add('absence', { type: 'absence', institutionId, studentId: r.studentId, date })
-        .catch((err) => logger.error('Failed to enqueue absence reminder', { studentId: r.studentId, error: err.message })),
-    ),
-  );
+        .catch((err) => logger.error('Failed to enqueue absence reminder', { studentId: r.studentId, error: err.message }));
+    }
+  } catch (err: any) {
+    logger.error('Failed to enqueue absence reminders', { error: err.message });
+  }
 
   return result;
 }

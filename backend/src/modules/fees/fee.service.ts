@@ -109,25 +109,31 @@ export class FeeService {
     );
 
     // Schedule a fee-due SMS reminder for the due date itself — BullMQ's
-    // delay does the scheduling, no cron/scanner needed. Failure to enqueue
-    // must never fail invoice creation.
+    // delay does the scheduling, no cron/scanner needed. Not awaited: a slow
+    // or unreachable Redis must never delay or fail invoice creation. Wrapped
+    // in try/catch too, since a synchronous throw from `.add()` would
+    // otherwise bypass the `.catch()` entirely.
     const delayMs = new Date(data.dueDate).getTime() - Date.now();
-    await feeReminderQueue
-      .add(
-        'fee-due',
-        {
-          type: 'fee-due',
-          institutionId: tenantId,
-          studentId: data.studentId,
-          invoiceNo,
-          dueAmount: totalAmount,
-          dueDate: data.dueDate,
-        },
-        { delay: Math.max(delayMs, 0) },
-      )
-      .catch((err) => {
-        logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
-      });
+    try {
+      feeReminderQueue
+        .add(
+          'fee-due',
+          {
+            type: 'fee-due',
+            institutionId: tenantId,
+            studentId: data.studentId,
+            invoiceNo,
+            dueAmount: totalAmount,
+            dueDate: data.dueDate,
+          },
+          { delay: Math.max(delayMs, 0) },
+        )
+        .catch((err) => {
+          logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
+        });
+    } catch (err: any) {
+      logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
+    }
 
     return invoice;
   }
