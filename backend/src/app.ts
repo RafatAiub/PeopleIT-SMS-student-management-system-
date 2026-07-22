@@ -77,7 +77,7 @@ const globalLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many requests from this IP, please try again after a minute',
+  message: { success: false, message: 'Too many requests from this IP, please try again after a minute' },
   skip: () => env.NODE_ENV === 'test',
 });
 app.use('/api/', globalLimiter);
@@ -88,7 +88,7 @@ const authLimiter = rateLimit({
   max: env.NODE_ENV === 'development' ? 100 : 10, // Increased for dev testing
   standardHeaders: true,
   legacyHeaders: false,
-  message: 'Too many login attempts from this IP, please try again after 15 minutes',
+  message: { success: false, message: 'Too many login attempts from this IP, please try again after 15 minutes' },
   skip: () => env.NODE_ENV === 'test',
 });
 app.use('/api/v1/auth/login', authLimiter);

@@ -42,6 +42,15 @@ export class ValidationError extends AppError {
   }
 }
 
+export class LockedError extends AppError {
+  public readonly retryAfterSeconds: number;
+
+  constructor(message: string, retryAfterSeconds: number) {
+    super(message, 423);
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(message = 'Resource already exists') {
     super(message, 409);

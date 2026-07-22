@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const LoginDto = z.object({
   email: z.string().email('Invalid email address').toLowerCase(),
   password: z.string().min(1, 'Password is required'),
-  institutionCode: z.string().regex(/^\d*$/, 'Institution Code / EIIN must be a numeric value').optional(),
+  institutionCode: z.string().optional(),
 });
 
 export const RefreshDto = z.object({

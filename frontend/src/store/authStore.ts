@@ -1,5 +1,26 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
+
+export const REMEMBER_ME_KEY = 'sms_remember_me';
+
+// Routes reads/writes to localStorage (survives browser restarts) when the
+// user ticked "Remember me" on login, sessionStorage (cleared on tab close)
+// otherwise. The flag itself always lives in localStorage so it can be read
+// before the store rehydrates.
+const rememberAwareStorage: StateStorage = {
+  getItem: (name) => {
+    const store = localStorage.getItem(REMEMBER_ME_KEY) === '1' ? localStorage : sessionStorage;
+    return store.getItem(name);
+  },
+  setItem: (name, value) => {
+    const store = localStorage.getItem(REMEMBER_ME_KEY) === '1' ? localStorage : sessionStorage;
+    store.setItem(name, value);
+  },
+  removeItem: (name) => {
+    localStorage.removeItem(name);
+    sessionStorage.removeItem(name);
+  },
+};
 
 export interface User {
   id: string;
@@ -35,8 +56,10 @@ export const useAuthStore = create<AuthState>()(
       setHasHydrated: (value) => set({ hasHydrated: value }),
       setAuth: (user, token, refreshToken) =>
         set({ user, accessToken: token, refreshToken, isAuthenticated: true }),
-      clearAuth: () =>
-        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      clearAuth: () => {
+        localStorage.removeItem(REMEMBER_ME_KEY);
+        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+      },
       updateToken: (token, refreshToken) => set((state) => ({
         accessToken: token,
         refreshToken: refreshToken || state.refreshToken
@@ -44,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'sms-auth-storage',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => rememberAwareStorage),
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,

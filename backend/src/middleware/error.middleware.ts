@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { AppError, ValidationError } from '../utils/AppError';
+import { AppError, ValidationError, LockedError } from '../utils/AppError';
 import { errorResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
@@ -39,6 +39,11 @@ export function globalErrorHandler(
     // ValidationError carries extra error details
     if (err instanceof ValidationError) {
       return errorResponse(res, err.message, err.statusCode, err.errors);
+    }
+
+    // LockedError carries a retry countdown for the client to render
+    if (err instanceof LockedError) {
+      return errorResponse(res, err.message, err.statusCode, { retryAfterSeconds: err.retryAfterSeconds });
     }
 
     return errorResponse(res, err.message, err.statusCode);

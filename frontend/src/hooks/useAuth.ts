@@ -12,8 +12,9 @@ export function useAuth() {
       setAuth(u, accessToken, refreshToken);
       toast.success(`স্বাগতম, ${u.firstName}!`);
     },
-    onError: () => {
-      toast.error('Invalid email or password. Please try again.');
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Invalid email or password. Please try again.';
+      toast.error(message);
     },
   });
 

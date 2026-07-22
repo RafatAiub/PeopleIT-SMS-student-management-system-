@@ -8,6 +8,7 @@ import {
   UnauthorizedError,
   NotFoundError,
   ForbiddenError,
+  LockedError,
 } from '../../utils/AppError';
 import type { LoginDtoType, RefreshDtoType } from './auth.dto';
 import type { JwtPayload } from '../../middleware/auth.middleware';
@@ -20,6 +21,13 @@ interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
+
+// Lock the account for LOCKOUT_MINUTES after MAX_FAILED_ATTEMPTS consecutive
+// wrong-password attempts. We deliberately never expose a remaining-attempts
+// count to the client (only the eventual lockout message) — surfacing a
+// counter would let an attacker time a brute-force run around it.
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
 
 interface AuthResult {
   user: {
@@ -78,6 +86,8 @@ export async function login(dto: LoginDtoType): Promise<AuthResult> {
         role: true,
         isActive: true,
         institutionId: true,
+        failedLoginAttempts: true,
+        lockedUntil: true,
       },
     });
 
@@ -114,8 +124,22 @@ export async function login(dto: LoginDtoType): Promise<AuthResult> {
         role: true,
         isActive: true,
         institutionId: true,
+        failedLoginAttempts: true,
+        lockedUntil: true,
       },
     });
+  }
+
+  // Reject before the password check if this account is already locked out,
+  // so a locked user gets an immediate, clear countdown instead of another
+  // "invalid password" attempt burning against nothing.
+  if (user?.lockedUntil && user.lockedUntil > new Date()) {
+    const retryAfterSeconds = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 1000);
+    const minutesLeft = Math.ceil(retryAfterSeconds / 60);
+    throw new LockedError(
+      `Too many failed login attempts. Please try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,
+      retryAfterSeconds,
+    );
   }
 
   // Use a constant-time comparison path to avoid user enumeration
@@ -124,11 +148,39 @@ export async function login(dto: LoginDtoType): Promise<AuthResult> {
   const passwordMatch = await bcrypt.compare(dto.password, hashToCompare);
 
   if (!user || !passwordMatch) {
+    // Only a known user can accrue lockout state — this mirrors the existing
+    // enumeration-safe design (unknown emails never touch the database again).
+    if (user) {
+      const attempts = user.failedLoginAttempts + 1;
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        const lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil },
+        });
+        throw new LockedError(
+          `Too many failed login attempts. Please try again in ${LOCKOUT_MINUTES} minutes.`,
+          LOCKOUT_MINUTES * 60,
+        );
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: attempts },
+      });
+    }
     throw new UnauthorizedError('Invalid email or password');
   }
 
   if (!user.isActive) {
     throw new ForbiddenError('Your account has been deactivated');
+  }
+
+  // Successful login — clear any accrued failed-attempt state.
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
   }
 
   // 3. Issue tokens
