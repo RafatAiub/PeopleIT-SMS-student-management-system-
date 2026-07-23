@@ -36,8 +36,10 @@ const studentListSelect = {
   branch: { select: { id: true, name: true } },
 } as const;
 
-// Full projection for single student view
-const studentDetailSelect = {
+// Full projection for single student view — exported so student.service.ts
+// can reuse it when creating a student inside a $transaction (bypassing this
+// module's own `prisma` client to stay on the transaction's tx client).
+export const studentDetailSelect = {
   id: true,
   studentId: true,
   firstName: true,

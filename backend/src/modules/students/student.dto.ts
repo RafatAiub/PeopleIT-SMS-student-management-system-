@@ -15,7 +15,11 @@ export const CreateStudentDto = z.object({
   dateOfBirth: z.coerce.date().optional().nullable(),
   gender: z.preprocess((val) => typeof val === 'string' ? val.toUpperCase() : val, z.enum(['MALE', 'FEMALE', 'OTHER'])).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
-  email: z.string().email().optional().nullable(),
+  // Required (not just optional) — every student created here also gets a
+  // linked login User account (role STUDENT), so the Students page and the
+  // Users page never diverge. Email is the User's unique login identifier.
+  email: z.string().email('A valid email is required to create the student login'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   address: z.string().max(500).optional().nullable(),
   bloodGroup: z.string().max(5).optional().nullable(),
   religion: z.string().max(50).optional().nullable(),

@@ -53,6 +53,7 @@ const StudentList = () => {
     firstName: '',
     lastName: '',
     email: '',
+    password: '',
     phone: '',
     gender: 'MALE',
     classId: '',
@@ -63,6 +64,7 @@ const StudentList = () => {
     bloodGroup: '',
     religion: '',
     nationality: 'Bangladeshi',
+    avatarUrl: '',
   };
   const [createFormData, setCreateFormData] = useState(emptyCreateFormData);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
@@ -338,11 +340,35 @@ const StudentList = () => {
   };
 
   const validateCreateField = (name: string, value: string, formState = createFormData): string => {
-    if (name === 'studentId' && !value.trim()) return 'Student ID is required';
-    if (name === 'firstName' && !value.trim()) return 'First name is required';
-    if (name === 'lastName' && !value.trim()) return 'Last name is required';
-    if (name === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
-    if (name === 'department' && !value.trim() && isDepartmentRequiredForClass(formState.classId)) {
+    const trimmed = value.trim();
+    if (name === 'studentId') {
+      if (!trimmed) return 'Student ID is required';
+      if (!/^[A-Za-z0-9/_-]{2,50}$/.test(trimmed)) return 'Use only letters, numbers, - / _ (2-50 characters)';
+    }
+    if (name === 'firstName') {
+      if (!trimmed) return 'First name is required';
+      if (trimmed.length > 100) return 'First name must be under 100 characters';
+      if (!/^[A-Za-z .'-]+$/.test(trimmed)) return 'First name has invalid characters';
+    }
+    if (name === 'lastName') {
+      if (!trimmed) return 'Last name is required';
+      if (trimmed.length > 100) return 'Last name must be under 100 characters';
+      if (!/^[A-Za-z .'-]+$/.test(trimmed)) return 'Last name has invalid characters';
+    }
+    if (name === 'email') {
+      if (!trimmed) return 'Email is required to create the student login';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'Enter a valid email address';
+    }
+    if (name === 'password' && value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (name === 'phone' && trimmed && !/^[+]?[\d\s()-]{7,20}$/.test(trimmed)) {
+      return 'Enter a valid phone number';
+    }
+    if (name === 'rollNumber' && trimmed && !/^[A-Za-z0-9-]{1,50}$/.test(trimmed)) {
+      return 'Roll number has invalid characters';
+    }
+    if (name === 'department' && !trimmed && isDepartmentRequiredForClass(formState.classId)) {
       return 'Department is required for Class 9 & 10 students';
     }
     return '';
@@ -367,6 +393,14 @@ const StudentList = () => {
     setCreateErrors(prev => ({ ...prev, [name]: validateCreateField(name, value) }));
   };
 
+  const handleCreatePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressed = await compressImage(file);
+      setCreateFormData(prev => ({ ...prev, avatarUrl: compressed }));
+    }
+  };
+
   const handleOpenCreateModal = () => {
     setCreateFormData(emptyCreateFormData);
     setCreateErrors({});
@@ -377,7 +411,7 @@ const StudentList = () => {
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fieldsToValidate = ['studentId', 'firstName', 'lastName', 'email', 'department'];
+    const fieldsToValidate = ['studentId', 'firstName', 'lastName', 'email', 'password', 'phone', 'rollNumber', 'department'];
     const nextErrors: Record<string, string> = {};
     for (const field of fieldsToValidate) {
       const err = validateCreateField(field, (createFormData as any)[field] || '');
@@ -399,7 +433,8 @@ const StudentList = () => {
         studentId: createFormData.studentId,
         firstName: createFormData.firstName,
         lastName: createFormData.lastName,
-        email: createFormData.email || undefined,
+        email: createFormData.email,
+        password: createFormData.password,
         phone: createFormData.phone || undefined,
         gender: createFormData.gender,
         classId: createFormData.classId || undefined,
@@ -410,6 +445,7 @@ const StudentList = () => {
         bloodGroup: createFormData.bloodGroup || undefined,
         religion: createFormData.religion || undefined,
         nationality: createFormData.nationality || undefined,
+        avatarUrl: createFormData.avatarUrl || undefined,
       };
       await apiClient.post('/students', payload);
       toast.success('Student added successfully');
@@ -1221,9 +1257,11 @@ const StudentList = () => {
                     name="rollNumber"
                     value={createFormData.rollNumber}
                     onChange={handleCreateChange}
+                    onBlur={handleCreateBlur}
                     placeholder="e.g. 15"
-                    className="input-field"
+                    className={`input-field ${createErrors.rollNumber ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {createErrors.rollNumber && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.rollNumber}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
@@ -1249,14 +1287,17 @@ const StudentList = () => {
                     placeholder="e.g. +8801700000000"
                     value={createFormData.phone}
                     onChange={handleCreateChange}
-                    className="input-field"
+                    onBlur={handleCreateBlur}
+                    className={`input-field ${createErrors.phone ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   />
+                  {createErrors.phone && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.phone}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
                   <input
                     type="email"
                     name="email"
+                    required
                     placeholder="e.g. john.doe@school.edu"
                     value={createFormData.email}
                     onChange={handleCreateChange}
@@ -1265,6 +1306,26 @@ const StudentList = () => {
                   />
                   {createErrors.email && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.email}</p>}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Login Password</label>
+                <input
+                  type="password"
+                  name="password"
+                  required
+                  minLength={8}
+                  placeholder="••••••••"
+                  value={createFormData.password}
+                  onChange={handleCreateChange}
+                  onBlur={handleCreateBlur}
+                  className={`input-field ${createErrors.password ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                />
+                {createErrors.password ? (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.password}</p>
+                ) : (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Sets up the student's login — this account also appears under User Management.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1305,16 +1366,34 @@ const StudentList = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
-                <input
-                  type="text"
-                  name="nationality"
-                  placeholder="e.g. Bangladeshi"
-                  value={createFormData.nationality}
-                  onChange={handleCreateChange}
-                  className="input-field"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
+                  <input
+                    type="text"
+                    name="nationality"
+                    placeholder="e.g. Bangladeshi"
+                    value={createFormData.nationality}
+                    onChange={handleCreateChange}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Profile Photo</label>
+                  {createFormData.avatarUrl && (
+                    <img
+                      src={createFormData.avatarUrl}
+                      alt="Preview"
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 mb-2"
+                    />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCreatePhotoChange}
+                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
+                  />
+                </div>
               </div>
 
               <div>

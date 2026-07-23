@@ -1,7 +1,10 @@
+import bcrypt from 'bcryptjs';
 import * as studentRepository from './student.repository';
+import { studentDetailSelect } from './student.repository';
 import { NotFoundError, ConflictError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import { BulkImportRowDto } from './student.dto';
 import type {
   CreateStudentDtoType,
@@ -56,7 +59,16 @@ export async function getStudent(institutionId: string, id: string) {
   return student;
 }
 
-export async function createStudent(institutionId: string, data: CreateStudentDtoType) {
+// Creating a student here always provisions a linked login User (role
+// STUDENT) in the same transaction — the Users page (/users?role=STUDENT)
+// lists User rows, while the Students page lists Student rows, and the two
+// only stay in sync if every Student created through this path also gets a
+// User. Mirrors the reverse direction already done in user.service.ts
+// createUser's STUDENT branch.
+export async function createStudent(
+  institutionId: string,
+  data: CreateStudentDtoType & { password: string },
+) {
   // Check for duplicate studentId within this institution
   const existing = await studentRepository.findByStudentId(institutionId, data.studentId);
   if (existing) {
@@ -65,9 +77,41 @@ export async function createStudent(institutionId: string, data: CreateStudentDt
     );
   }
 
+  const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+  if (existingUser) {
+    throw new ConflictError(`Email '${data.email}' is already in use`);
+  }
+
   await assertDepartmentIfRequired(institutionId, data.classId, data.department);
 
-  const student = await studentRepository.create(institutionId, data);
+  const { password, ...studentFields } = data;
+  const rounds = env.BCRYPT_ROUNDS ?? 12;
+  const passwordHash = await bcrypt.hash(password, rounds);
+
+  const student = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        institutionId,
+        email: data.email,
+        passwordHash,
+        role: 'STUDENT',
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone ?? undefined,
+        avatarUrl: data.avatarUrl ?? undefined,
+      },
+    });
+
+    return tx.student.create({
+      data: {
+        ...studentFields,
+        institutionId,
+        userId: user.id,
+      },
+      select: studentDetailSelect,
+    });
+  });
+
   logger.info('Student created', { studentId: student.id, institutionId });
   return student;
 }
