@@ -185,6 +185,7 @@ model Student {
   bloodGroup     String?
   religion       String?
   nationality    String            @default("Bangladeshi")
+  department     String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
   avatarUrl      String?
   admissionDate  DateTime          @default(now())
   status         String            @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED

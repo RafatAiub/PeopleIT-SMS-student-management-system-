@@ -1,5 +1,5 @@
 import * as studentRepository from './student.repository';
-import { NotFoundError, ConflictError } from '../../utils/AppError';
+import { NotFoundError, ConflictError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../config/prisma';
 import { BulkImportRowDto } from './student.dto';
@@ -14,6 +14,35 @@ import type {
 // Student Service — Business logic layer
 // institutionId ALWAYS comes from req.tenantId (never from body)
 // =============================================================================
+
+// Matches "Class 9", "Grade 10", "9", etc. — class names are free-text
+// (see Class.name in schema.prisma), so we detect grade 9/10 by pulling the
+// trailing number out of the name rather than relying on a fixed format.
+const DEPARTMENT_REQUIRED_GRADES = new Set([9, 10]);
+
+function extractGradeNumber(className: string): number | null {
+  const match = className.match(/(\d+)\s*$/);
+  return match ? Number(match[1]) : null;
+}
+
+async function assertDepartmentIfRequired(
+  institutionId: string,
+  classId: string | null | undefined,
+  department: string | null | undefined,
+) {
+  if (!classId) return;
+
+  const cls = await prisma.class.findFirst({
+    where: { id: classId, branch: { institutionId } },
+    select: { name: true },
+  });
+  if (!cls) return;
+
+  const grade = extractGradeNumber(cls.name);
+  if (grade !== null && DEPARTMENT_REQUIRED_GRADES.has(grade) && !department) {
+    throw new ValidationError(`Department is required for ${cls.name} students`);
+  }
+}
 
 export async function listStudents(institutionId: string, query: StudentQueryDtoType) {
   return studentRepository.findAll(institutionId, query);
@@ -36,6 +65,8 @@ export async function createStudent(institutionId: string, data: CreateStudentDt
     );
   }
 
+  await assertDepartmentIfRequired(institutionId, data.classId, data.department);
+
   const student = await studentRepository.create(institutionId, data);
   logger.info('Student created', { studentId: student.id, institutionId });
   return student;
@@ -51,6 +82,11 @@ export async function updateStudent(
   if (!existing) {
     throw new NotFoundError(`Student with ID '${id}' not found`);
   }
+
+  const nextClassId = data.classId !== undefined ? data.classId : existing.class?.id;
+  const nextDepartment =
+    data.department !== undefined ? data.department : (existing as { department?: string | null }).department;
+  await assertDepartmentIfRequired(institutionId, nextClassId, nextDepartment);
 
   const updated = await studentRepository.update(institutionId, id, data);
   logger.info('Student updated', { studentId: id, institutionId });

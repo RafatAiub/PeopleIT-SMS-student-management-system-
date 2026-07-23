@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, X, Edit2, UserCheck, BookOpen, Receipt,
-  Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake,
+  Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake, UserPlus,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
@@ -44,6 +44,28 @@ const StudentList = () => {
     nationality: 'Bangladeshi',
     avatarUrl: ''
   });
+
+  // Create Student Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createSections, setCreateSections] = useState<any[]>([]);
+  const emptyCreateFormData = {
+    studentId: '',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    gender: 'MALE',
+    classId: '',
+    sectionId: '',
+    rollNumber: '',
+    department: '',
+    address: '',
+    bloodGroup: '',
+    religion: '',
+    nationality: 'Bangladeshi',
+  };
+  const [createFormData, setCreateFormData] = useState(emptyCreateFormData);
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
 
   const fetchStudents = async () => {
     // The auth store hydrates from sessionStorage asynchronously, so `user`
@@ -285,6 +307,117 @@ const StudentList = () => {
     } catch (error: any) {
       console.error('Failed to update student', error);
       toast.error(error.response?.data?.message || 'Failed to update student');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Class names are free text (e.g. "Class 9", "Grade 10") — detect the
+  // grade by the trailing number so this stays in sync with the same rule
+  // enforced server-side in student.service.ts.
+  const isDepartmentRequiredForClass = (classId: string): boolean => {
+    const cls = classes.find((c) => c.id === classId);
+    if (!cls?.name) return false;
+    const match = String(cls.name).match(/(\d+)\s*$/);
+    const grade = match ? Number(match[1]) : null;
+    return grade === 9 || grade === 10;
+  };
+
+  const fetchSectionsForCreate = async (classId: string) => {
+    if (!classId) {
+      setCreateSections([]);
+      setCreateFormData(prev => ({ ...prev, sectionId: '' }));
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/students/meta/sections?classId=${classId}`);
+      setCreateSections(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch sections', err);
+    }
+  };
+
+  const validateCreateField = (name: string, value: string, formState = createFormData): string => {
+    if (name === 'studentId' && !value.trim()) return 'Student ID is required';
+    if (name === 'firstName' && !value.trim()) return 'First name is required';
+    if (name === 'lastName' && !value.trim()) return 'Last name is required';
+    if (name === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
+    if (name === 'department' && !value.trim() && isDepartmentRequiredForClass(formState.classId)) {
+      return 'Department is required for Class 9 & 10 students';
+    }
+    return '';
+  };
+
+  const handleCreateChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    const nextFormState = { ...createFormData, [name]: value };
+    setCreateFormData(nextFormState);
+    if (createErrors[name]) setCreateErrors(prev => ({ ...prev, [name]: '' }));
+
+    if (name === 'classId') {
+      fetchSectionsForCreate(value);
+      // Re-validate department against the newly selected class immediately,
+      // so switching into Class 9/10 surfaces the requirement right away.
+      setCreateErrors(prev => ({ ...prev, department: validateCreateField('department', nextFormState.department, nextFormState) }));
+    }
+  };
+
+  const handleCreateBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCreateErrors(prev => ({ ...prev, [name]: validateCreateField(name, value) }));
+  };
+
+  const handleOpenCreateModal = () => {
+    setCreateFormData(emptyCreateFormData);
+    setCreateErrors({});
+    setCreateSections([]);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const fieldsToValidate = ['studentId', 'firstName', 'lastName', 'email', 'department'];
+    const nextErrors: Record<string, string> = {};
+    for (const field of fieldsToValidate) {
+      const err = validateCreateField(field, (createFormData as any)[field] || '');
+      if (err) nextErrors[field] = err;
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setCreateErrors(nextErrors);
+      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      if (firstInvalidField) {
+        (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
+      }
+      toast.error('Please fix the highlighted fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        studentId: createFormData.studentId,
+        firstName: createFormData.firstName,
+        lastName: createFormData.lastName,
+        email: createFormData.email || undefined,
+        phone: createFormData.phone || undefined,
+        gender: createFormData.gender,
+        classId: createFormData.classId || undefined,
+        sectionId: createFormData.sectionId || undefined,
+        rollNumber: createFormData.rollNumber || undefined,
+        department: createFormData.department || undefined,
+        address: createFormData.address || undefined,
+        bloodGroup: createFormData.bloodGroup || undefined,
+        religion: createFormData.religion || undefined,
+        nationality: createFormData.nationality || undefined,
+      };
+      await apiClient.post('/students', payload);
+      toast.success('Student added successfully');
+      setIsCreateModalOpen(false);
+      fetchStudents();
+    } catch (error: any) {
+      console.error('Failed to create student', error);
+      toast.error(error.response?.data?.message || 'Failed to create student');
     } finally {
       setIsSubmitting(false);
     }
@@ -663,6 +796,13 @@ const StudentList = () => {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Students</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage student enrollments and profiles.</p>
         </div>
+        <button
+          onClick={handleOpenCreateModal}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center"
+        >
+          <UserPlus className="w-4 h-4" />
+          Add Student
+        </button>
       </div>
 
       <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
@@ -946,6 +1086,263 @@ const StudentList = () => {
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
                 >
                   {isSubmitting ? 'Updating...' : 'Update Student'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Student Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add Student</h3>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                aria-label="Close"
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Student ID / Admission No</label>
+                <input
+                  type="text"
+                  name="studentId"
+                  required
+                  placeholder="e.g. STU-2026-001"
+                  value={createFormData.studentId}
+                  onChange={handleCreateChange}
+                  onBlur={handleCreateBlur}
+                  className={`input-field ${createErrors.studentId ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                />
+                {createErrors.studentId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.studentId}</p>}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    required
+                    placeholder="e.g. John"
+                    value={createFormData.firstName}
+                    onChange={handleCreateChange}
+                    onBlur={handleCreateBlur}
+                    className={`input-field ${createErrors.firstName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                  />
+                  {createErrors.firstName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.firstName}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    required
+                    placeholder="e.g. Doe"
+                    value={createFormData.lastName}
+                    onChange={handleCreateChange}
+                    onBlur={handleCreateBlur}
+                    className={`input-field ${createErrors.lastName ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                  />
+                  {createErrors.lastName && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.lastName}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Class</label>
+                  <select
+                    name="classId"
+                    value={createFormData.classId}
+                    onChange={handleCreateChange}
+                    className="input-field"
+                  >
+                    <option value="">-- No Class Assigned --</option>
+                    {classes.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Section</label>
+                  <select
+                    name="sectionId"
+                    value={createFormData.sectionId}
+                    onChange={handleCreateChange}
+                    disabled={!createFormData.classId}
+                    className="input-field disabled:opacity-50"
+                  >
+                    <option value="">-- Select Section --</option>
+                    {createSections.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {isDepartmentRequiredForClass(createFormData.classId) && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Department <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    name="department"
+                    required
+                    value={createFormData.department}
+                    onChange={handleCreateChange}
+                    onBlur={handleCreateBlur}
+                    className={`input-field ${createErrors.department ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Science">Science</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="Arts">Arts</option>
+                  </select>
+                  {createErrors.department ? (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.department}</p>
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Required for Class 9 &amp; 10 students</p>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Roll Number</label>
+                  <input
+                    type="text"
+                    name="rollNumber"
+                    value={createFormData.rollNumber}
+                    onChange={handleCreateChange}
+                    placeholder="e.g. 15"
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    value={createFormData.gender}
+                    onChange={handleCreateChange}
+                    className="input-field appearance-none"
+                  >
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone</label>
+                  <input
+                    type="text"
+                    name="phone"
+                    placeholder="e.g. +8801700000000"
+                    value={createFormData.phone}
+                    onChange={handleCreateChange}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="e.g. john.doe@school.edu"
+                    value={createFormData.email}
+                    onChange={handleCreateChange}
+                    onBlur={handleCreateBlur}
+                    className={`input-field ${createErrors.email ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                  />
+                  {createErrors.email && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{createErrors.email}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Blood Group</label>
+                  <select
+                    name="bloodGroup"
+                    value={createFormData.bloodGroup}
+                    onChange={handleCreateChange}
+                    className="input-field"
+                  >
+                    <option value="">Select Blood Group</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Religion</label>
+                  <select
+                    name="religion"
+                    value={createFormData.religion}
+                    onChange={handleCreateChange}
+                    className="input-field"
+                  >
+                    <option value="">Select Religion</option>
+                    <option value="Islam">Islam</option>
+                    <option value="Hinduism">Hinduism</option>
+                    <option value="Christianity">Christianity</option>
+                    <option value="Buddhism">Buddhism</option>
+                    <option value="Others">Others</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nationality</label>
+                <input
+                  type="text"
+                  name="nationality"
+                  placeholder="e.g. Bangladeshi"
+                  value={createFormData.nationality}
+                  onChange={handleCreateChange}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Address</label>
+                <textarea
+                  name="address"
+                  rows={2}
+                  value={createFormData.address}
+                  onChange={handleCreateChange}
+                  placeholder="Enter permanent address"
+                  className="input-field resize-none"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting ? 'Adding...' : 'Add Student'}
                 </button>
               </div>
             </form>

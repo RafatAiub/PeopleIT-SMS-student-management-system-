@@ -22,6 +22,7 @@ export const CreateStudentDto = z.object({
   nationality: z.string().max(100).default('Bangladeshi'),
   admissionDate: z.coerce.date().optional(),
   rollNumber: z.string().max(50).optional().nullable(),
+  department: z.string().max(50).optional().nullable(),
   avatarUrl: z.string().optional().nullable(),
 });
 
