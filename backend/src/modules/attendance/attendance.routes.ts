@@ -5,69 +5,186 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
-import { BulkSubmitAttendanceDto, AttendanceQueryDto } from './attendance.dto';
 import * as attendanceController from './attendance.controller';
+import {
+  AdminRegisterQueryDto,
+  AssignmentQueryDto,
+  CorrectionRequestQueryDto,
+  CreateAssignmentDto,
+  CreateCorrectionRequestDto,
+  DraftSaveDto,
+  LockRegisterDto,
+  MyAttendanceQueryDto,
+  PatchRecordDto,
+  ReopenRegisterDto,
+  ReportsSummaryQueryDto,
+  ResolveCorrectionRequestDto,
+  RegisterIdParamDto,
+  RegistersRosterQueryDto,
+  RegistersTodayQueryDto,
+  RecordIdParamDto,
+  StudentIdParamDto,
+  SubmitRegisterDto,
+  TakeOnBehalfDto,
+  IdParamDto,
+} from './attendance.dto';
 
 const router = Router();
 
-// Apply auth + tenant to all attendance routes
 router.use(authenticate, setTenant, auditLog);
 
-// 1. Mark sheet retrieval & bulk submits (Teacher/Admin)
-router.post(
-  '/bulk',
-  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
-  validate({ body: BulkSubmitAttendanceDto }),
-  attendanceController.submitAttendance,
-);
+// =============================================================================
+// Teacher-facing
+// =============================================================================
 
 router.get(
-  '/sheet',
-  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
-  attendanceController.getAttendanceSheet,
-);
-
-// 2. Teacher specific assigned sections
-router.get(
-  '/my-sections',
+  '/registers/today',
   requireRole(UserRole.TEACHER),
-  attendanceController.listTeacherSections,
+  validate({ query: RegistersTodayQueryDto }),
+  attendanceController.getRegistersToday,
 );
 
-// 3. Student specific history & fines
+router.get(
+  '/registers/roster',
+  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ query: RegistersRosterQueryDto }),
+  attendanceController.getRosterBySectionDate,
+);
+
+router.put(
+  '/registers/:registerId/draft',
+  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RegisterIdParamDto, body: DraftSaveDto }),
+  attendanceController.saveDraft,
+);
+
+router.post(
+  '/registers/:registerId/take-on-behalf',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RegisterIdParamDto, body: TakeOnBehalfDto }),
+  attendanceController.takeOnBehalf,
+);
+
+router.post(
+  '/registers/:registerId/submit',
+  requireRole(UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RegisterIdParamDto, body: SubmitRegisterDto }),
+  attendanceController.submitRegister,
+);
+
+// =============================================================================
+// Admin-facing
+// =============================================================================
+
+router.get(
+  '/admin/registers',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGEMENT),
+  validate({ query: AdminRegisterQueryDto }),
+  attendanceController.listAdminRegisters,
+);
+
+router.post(
+  '/admin/registers/:registerId/reopen',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RegisterIdParamDto, body: ReopenRegisterDto }),
+  attendanceController.reopenRegister,
+);
+
+router.post(
+  '/admin/registers/:registerId/lock',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RegisterIdParamDto, body: LockRegisterDto }),
+  attendanceController.lockRegister,
+);
+
+router.patch(
+  '/admin/records/:recordId',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: RecordIdParamDto, body: PatchRecordDto }),
+  attendanceController.patchRecord,
+);
+
+// =============================================================================
+// Student / Guardian-facing
+// =============================================================================
+
 router.get(
   '/my-attendance',
   requireRole(UserRole.STUDENT),
-  attendanceController.getStudentAttendanceHistory,
+  validate({ query: MyAttendanceQueryDto }),
+  attendanceController.getMyAttendance,
 );
 
-// 3b. Guardian — a linked child's history & fines (ownership-scoped in the service)
 router.get(
   '/child/:studentId',
   requireRole(UserRole.GUARDIAN),
-  attendanceController.getChildAttendanceHistory,
+  validate({ params: StudentIdParamDto, query: MyAttendanceQueryDto }),
+  attendanceController.getChildAttendance,
 );
 
-// 4. Admin assignment routes
+router.get(
+  '/reports/summary',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MANAGEMENT, UserRole.TEACHER),
+  validate({ query: ReportsSummaryQueryDto }),
+  attendanceController.getReportsSummary,
+);
+
 router.post(
-  '/assign-teacher',
+  '/correction-requests',
+  requireRole(UserRole.STUDENT, UserRole.GUARDIAN),
+  validate({ body: CreateCorrectionRequestDto }),
+  attendanceController.createCorrectionRequest,
+);
+
+router.get(
+  '/correction-requests',
+  requireRole(UserRole.STUDENT, UserRole.GUARDIAN, UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ query: CorrectionRequestQueryDto }),
+  attendanceController.listCorrectionRequests,
+);
+
+router.patch(
+  '/correction-requests/:id/resolve',
   requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
-  attendanceController.assignTeacherToSection,
+  validate({ params: IdParamDto, body: ResolveCorrectionRequestDto }),
+  attendanceController.resolveCorrectionRequest,
+);
+
+// =============================================================================
+// Teacher-assignment CRUD (Admin)
+// =============================================================================
+
+router.post(
+  '/assignments',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ body: CreateAssignmentDto }),
+  attendanceController.createAssignment,
 );
 
 router.get(
   '/assignments',
   requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ query: AssignmentQueryDto }),
   attendanceController.listAssignments,
 );
 
-// Fallback search route — STUDENT/GUARDIAN excluded; they must use
-// /my-attendance, which is scoped server-side to req.user.sub.
-router.get(
-  '/',
-  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT),
-  validate({ query: AttendanceQueryDto }),
-  attendanceController.getAttendanceList,
+// NOTE: body is intentionally NOT validated via the `validate()` middleware
+// here — the controller must inspect the RAW body first to reject attempts
+// to change teacherId/sectionId/subject (see spec) before any schema would
+// silently strip those keys. The controller parses with UpdateAssignmentDto
+// itself after that check.
+router.patch(
+  '/assignments/:id',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: IdParamDto }),
+  attendanceController.updateAssignment,
+);
+
+router.delete(
+  '/assignments/:id',
+  requireRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validate({ params: IdParamDto }),
+  attendanceController.deleteAssignment,
 );
 
 export default router;

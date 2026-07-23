@@ -182,18 +182,18 @@ describe('Authorization matrix — previously-unprotected routes', () => {
       label: 'PUT /institution/website (Admin-only — closes STUDENT/GUARDIAN privilege escalation)',
     },
 
-    // --- attendance gaps closed alongside the above ---
+    // --- attendance (register-lifecycle model — replaces the old className/sectionName sheet route) ---
     {
       method: 'get',
-      path: '/api/v1/attendance/sheet',
-      allowedRoles: STAFF_RW,
-      label: 'GET /attendance/sheet',
+      path: '/api/v1/attendance/registers/today',
+      allowedRoles: [UserRole.TEACHER],
+      label: "GET /attendance/registers/today (teacher's own required registers)",
     },
     {
       method: 'get',
-      path: '/api/v1/attendance',
-      allowedRoles: ADMIN_ACCOUNTANT.concat(UserRole.TEACHER),
-      label: 'GET /attendance (fallback search)',
+      path: '/api/v1/attendance/admin/registers',
+      allowedRoles: [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.MANAGEMENT],
+      label: 'GET /attendance/admin/registers (register monitor)',
     },
   ];
 

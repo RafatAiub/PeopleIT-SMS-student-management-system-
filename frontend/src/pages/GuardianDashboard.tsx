@@ -232,7 +232,9 @@ const GuardianDashboard = () => {
   const selectedChild = children.find((c) => c.id === selectedChildId);
 
   // Derive plain-language status for the top tiles — never color alone.
-  const attendancePct: number | null = attendance?.statistics?.attendancePercentage ?? null;
+  // `attendance` is the /attendance/child/:studentId response shape:
+  // { records, summary: { percentage, counts, ... }, feeSummary? }.
+  const attendancePct: number | null = attendance?.summary?.percentage ?? null;
   const attendanceStatus: TileStatus = attendancePct === null ? 'info' : attendancePct >= 85 ? 'good' : attendancePct >= 70 ? 'warning' : 'critical';
 
   const totalFeesDue = invoices.reduce((sum, inv) => sum + Number(inv.dueAmount || 0), 0);
@@ -387,11 +389,23 @@ const GuardianDashboard = () => {
             </div>
           </div>
 
-          {/* Attendance */}
+          {/* Attendance — a lightweight summary; the full history, trend,
+              and correction-request tools live on /attendance/portal. Per
+              product rule, no fee/fine UI is ever shown unless the API
+              response actually includes a `feeSummary` (institution has
+              explicitly configured an attendance penalty policy). */}
           <div className="glass-card overflow-hidden">
-            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center gap-2.5">
-              <UserCheck className="w-6 h-6 text-emerald-500" />
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Attendance</h3>
+            <div className="p-6 border-b border-slate-200 dark:border-white/5 flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5">
+                <UserCheck className="w-6 h-6 text-emerald-500" />
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Attendance</h3>
+              </div>
+              <Link
+                to="/attendance/portal"
+                className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-3 py-1.5 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-500/10"
+              >
+                View details
+              </Link>
             </div>
             <div className="p-6">
               {!attendance ? (
@@ -399,15 +413,21 @@ const GuardianDashboard = () => {
               ) : (
                 <div className="grid grid-cols-2 gap-4 text-base">
                   <div>
-                    <p className="text-3xl font-black text-slate-900 dark:text-white">{attendance.statistics?.attendancePercentage ?? 0}%</p>
+                    <p className="text-3xl font-black text-slate-900 dark:text-white">
+                      {attendance.summary?.percentage === null || attendance.summary?.percentage === undefined
+                        ? 'No data yet'
+                        : `${attendance.summary.percentage}%`}
+                    </p>
                     <p className="text-sm text-slate-500 mt-1">Attendance rate</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-black text-red-500">{attendance.statistics?.absent ?? 0}</p>
-                    <p className="text-sm text-slate-500 mt-1">Days absent</p>
+                    <p className="text-3xl font-black text-red-500">{attendance.summary?.counts?.ABSENT_UNEXCUSED ?? 0}</p>
+                    <p className="text-sm text-slate-500 mt-1">Unexcused absences</p>
                   </div>
-                  {attendance.finesDue > 0 && (
-                    <div className="col-span-2 text-sm text-red-500 font-semibold">৳{attendance.finesDue} in absence fines due</div>
+                  {attendance.feeSummary && (
+                    <div className="col-span-2 text-sm text-amber-700 dark:text-amber-400 font-semibold">
+                      Institution attendance fee policy: ৳{attendance.feeSummary.totalDue} due this period
+                    </div>
                   )}
                 </div>
               )}

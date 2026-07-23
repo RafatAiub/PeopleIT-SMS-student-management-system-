@@ -47,6 +47,9 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
       { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      // Admins get a dedicated Attendance Control Center (register monitoring, reports,
+      // correction requests) plus a separate config area for teacher-section assignments.
+      { to: '/attendance/admin/assignments', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Teacher Assignments', roles: ['ADMIN'] },
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
       { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
@@ -184,10 +187,24 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
               {visibleItems.map((item) => {
                 const isStudentProfile = item.to === '/students' && user?.role === 'STUDENT';
                 const label = isStudentProfile ? 'My Profile' : item.label;
+                // Teachers get a dedicated "Today's Attendance" workspace at
+                // /attendance/teacher instead of the shared /attendance page.
+                const isTeacherAttendance = item.to === '/attendance' && user?.role === 'TEACHER';
+                // Admins get the Attendance Control Center instead of the shared /attendance page.
+                const isAdminAttendance = item.to === '/attendance' && user?.role === 'ADMIN';
+                // Students/Guardians get the read-only Attendance Portal instead of the shared /attendance page.
+                const isStudentGuardianAttendance = item.to === '/attendance' && (user?.role === 'STUDENT' || user?.role === 'GUARDIAN');
+                const to = isTeacherAttendance
+                  ? '/attendance/teacher'
+                  : isAdminAttendance
+                  ? '/attendance/admin'
+                  : isStudentGuardianAttendance
+                  ? '/attendance/portal'
+                  : item.to;
                 return (
                   <NavLink
                     key={item.to}
-                    to={item.to}
+                    to={to}
                     id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                     className={({ isActive }) =>
                       `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`

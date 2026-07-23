@@ -24,8 +24,10 @@ export class ReportsRepository {
     // entire attendance history into memory. Same all-time semantics as
     // before (no date bound), just computed without a findMany.
     const [totalAttendance, presentAttendance] = await Promise.all([
-      prisma.attendance.count({ where: { institutionId } }),
-      prisma.attendance.count({ where: { institutionId, status: 'PRESENT' } }),
+      prisma.attendanceRecord.count({
+        where: { institutionId, mark: { in: ['PRESENT', 'LATE', 'ABSENT_UNEXCUSED'] } },
+      }),
+      prisma.attendanceRecord.count({ where: { institutionId, mark: { in: ['PRESENT', 'LATE'] } } }),
     ]);
 
     let attendanceRate = 0;
@@ -40,9 +42,13 @@ export class ReportsRepository {
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
     const [recentAttendance, recentPayments] = await Promise.all([
-      prisma.attendance.findMany({
-        where: { institutionId, date: { gte: sevenDaysAgo } },
-        select: { date: true, status: true },
+      prisma.attendanceRecord.findMany({
+        where: {
+          institutionId,
+          register: { date: { gte: sevenDaysAgo } },
+          mark: { in: ['PRESENT', 'LATE', 'ABSENT_UNEXCUSED'] },
+        },
+        select: { mark: true, register: { select: { date: true } } },
       }),
       prisma.payment.findMany({
         where: { invoice: { institutionId }, status: 'COMPLETED', paidAt: { gte: sevenDaysAgo } },
@@ -59,10 +65,14 @@ export class ReportsRepository {
       day.setDate(day.getDate() - i);
       const key = dayKey(day);
 
-      const dayAttendance = recentAttendance.filter((a) => dayKey(a.date) === key);
+      const dayAttendance = recentAttendance.filter((a) => dayKey(a.register.date) === key);
       attendanceTrend.push(
         dayAttendance.length > 0
-          ? Math.round((dayAttendance.filter((a) => a.status === 'PRESENT').length / dayAttendance.length) * 100)
+          ? Math.round(
+              (dayAttendance.filter((a) => a.mark === 'PRESENT' || a.mark === 'LATE').length /
+                dayAttendance.length) *
+                100,
+            )
           : 0,
       );
 

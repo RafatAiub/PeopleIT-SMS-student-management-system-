@@ -46,6 +46,14 @@ export function globalErrorHandler(
       return errorResponse(res, err.message, err.statusCode, { retryAfterSeconds: err.retryAfterSeconds });
     }
 
+    if (err.code) {
+      return res.status(err.statusCode).json({
+        success: false,
+        message: err.message,
+        code: err.code,
+      });
+    }
+
     return errorResponse(res, err.message, err.statusCode);
   }
 

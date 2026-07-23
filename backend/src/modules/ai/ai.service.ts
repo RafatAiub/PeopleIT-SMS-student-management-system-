@@ -37,16 +37,20 @@ export async function getAcademicRiskScoring(institutionId: string) {
   const students = await prisma.student.findMany({
     where: { institutionId },
     include: {
-      Attendance: true,
+      attendanceRecords: true,
       ExamResult: true,
     },
   });
 
   const riskProfiles = students.map((student) => {
-    // Attendance calculation
-    const totalAttendance = student.Attendance.length;
-    const presentCount = student.Attendance.filter(
-      (a) => a.status === 'PRESENT' || a.status === 'LATE',
+    // Attendance calculation: PRESENT/LATE count as attended; ABSENT_UNEXCUSED counts against;
+    // ABSENT_EXCUSED/LEAVE/NOT_REQUIRED are excluded from the denominator (same rule as the attendance module).
+    const countedRecords = student.attendanceRecords.filter(
+      (a) => a.mark === 'PRESENT' || a.mark === 'LATE' || a.mark === 'ABSENT_UNEXCUSED',
+    );
+    const totalAttendance = countedRecords.length;
+    const presentCount = countedRecords.filter(
+      (a) => a.mark === 'PRESENT' || a.mark === 'LATE',
     ).length;
     const attendanceRate = totalAttendance > 0 ? (presentCount / totalAttendance) * 100 : 100;
 
@@ -129,14 +133,18 @@ export async function getDashboardInsights(institutionId: string) {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const [totalAttendanceRecords, presentAttendanceRecords] = await Promise.all([
-    prisma.attendance.count({
-      where: { institutionId, date: { gte: thirtyDaysAgo } },
-    }),
-    prisma.attendance.count({
+    prisma.attendanceRecord.count({
       where: {
         institutionId,
-        date: { gte: thirtyDaysAgo },
-        status: { in: ['PRESENT', 'LATE'] },
+        mark: { in: ['PRESENT', 'LATE', 'ABSENT_UNEXCUSED'] },
+        register: { date: { gte: thirtyDaysAgo } },
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        institutionId,
+        mark: { in: ['PRESENT', 'LATE'] },
+        register: { date: { gte: thirtyDaysAgo } },
       },
     }),
   ]);

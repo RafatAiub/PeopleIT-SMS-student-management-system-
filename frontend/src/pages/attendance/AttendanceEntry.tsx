@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle2, XCircle, Clock, ChevronDown, Save, ShieldAlert, BadgeAlert, Coins, Users, UserCheck, Plus } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { CheckCircle2, XCircle, Clock, Save, ShieldAlert, Users, UserCheck, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -33,11 +34,6 @@ const AttendanceEntry = () => {
   const [assignedSections, setAssignedSections] = useState<any[]>([]);
   const [hasAssignments, setHasAssignments] = useState(true);
 
-  // Student specific state
-  const [studentHistory, setStudentHistory] = useState<any[]>([]);
-  const [studentStats, setStudentStats] = useState<any>(null);
-  const [finesDue, setFinesDue] = useState(0);
-
   // Admin Assign Teacher Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [teachersList, setTeachersList] = useState<any[]>([]);
@@ -52,12 +48,9 @@ const AttendanceEntry = () => {
   const loadInitialMetadata = async () => {
     try {
       setInitialLoading(true);
-      if (isStudent) {
-        // Load student attendance history and absentees fines
-        const res = await apiClient.get('/attendance/my-attendance');
-        setStudentHistory(res.data.data.attendance || []);
-        setStudentStats(res.data.data.statistics || null);
-        setFinesDue(res.data.data.finesDue || 0);
+      if (isStudent || isGuardian) {
+        // Student/Guardian now have a dedicated read-only portal at
+        // /attendance/portal (see the redirect below) — no fetch needed here.
       } else if (isTeacher) {
         // Fetch teacher's assigned sections
         const res = await apiClient.get('/attendance/my-sections');
@@ -184,123 +177,14 @@ const AttendanceEntry = () => {
     return <div className="text-slate-400 p-8 text-center">Loading Attendance Portal...</div>;
   }
 
-  // ── 1. STUDENT VIEW ───────────────────────────────────────────────────────
-  if (isStudent) {
-    return (
-      <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">My Attendance Portal</h2>
-            <p className="text-slate-600 dark:text-slate-400 mt-1">Review your attendance stats, history, and absentee fines.</p>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Attendance Rate</span>
-              <UserCheck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-            </div>
-            <div className="text-3xl font-black text-slate-900 dark:text-white">{studentStats?.attendancePercentage ?? 100}%</div>
-            <div className="text-xs text-slate-500 mt-2">Recommended: 85% and above</div>
-          </div>
-
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Total Days Tracked</span>
-              <Calendar className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
-            </div>
-            <div className="text-3xl font-black text-slate-900 dark:text-white">{studentStats?.totalDays ?? 0} Days</div>
-            <div className="text-xs text-slate-600 dark:text-slate-400 mt-2 flex gap-3">
-              <span className="text-emerald-600 dark:text-emerald-400">Present: {studentStats?.present ?? 0}</span>
-              <span className="text-rose-600 dark:text-rose-400">Absent: {studentStats?.absent ?? 0}</span>
-              <span className="text-amber-600 dark:text-amber-400">Late: {studentStats?.late ?? 0}</span>
-            </div>
-          </div>
-
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-rose-500"></div>
-            <div className="flex justify-between items-start mb-4">
-              <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Absentee Fines Due</span>
-              <Coins className="w-5 h-5 text-amber-500 dark:text-amber-400" />
-            </div>
-            <div className="text-3xl font-black text-rose-600 dark:text-rose-400">৳{finesDue}</div>
-            <div className="text-xs text-slate-500 mt-2">Calculation: ৳100 per day absent</div>
-          </div>
-        </div>
-
-        {/* History Table */}
-        <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-sm bg-white dark:bg-slate-900/20">
-          <div className="p-6 border-b border-slate-200/50 dark:border-white/5">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Attendance Log</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/40 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="p-4 pl-6">Date</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Absent Fine Impact</th>
-                  <th className="p-4 pr-6">Notes / Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-sm text-slate-700 dark:text-slate-300">
-                {studentHistory.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-8 text-center text-slate-500 italic">No attendance records found.</td>
-                  </tr>
-                ) : (
-                  studentHistory.map(record => (
-                    <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors">
-                      <td className="p-4 pl-6 font-semibold text-slate-900 dark:text-white">
-                        {new Date(record.date).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          {
-                            PRESENT: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20',
-                            ABSENT: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20',
-                            LATE: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20',
-                            HALF_DAY: 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20',
-                          }[record.status as string]
-                        }`}>
-                          {record.status}
-                        </span>
-                      </td>
-                      <td className="p-4 font-mono text-xs">
-                        {record.status === 'ABSENT' ? (
-                          <span className="text-rose-600 dark:text-rose-400 font-bold">+ ৳100</span>
-                        ) : (
-                          <span className="text-slate-500">৳0</span>
-                        )}
-                      </td>
-                      <td className="p-4 pr-6 text-xs text-slate-500 dark:text-slate-400">
-                        {record.notes || '—'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
+  // ── 1 & 2. STUDENT / GUARDIAN — read-only attendance portal ───────────────
+  // These roles now have a dedicated page at /attendance/portal (built to
+  // the current API contract, including the institution's optional fee
+  // policy) — redirect there instead of rendering the old hardcoded-fines UI.
+  if (isStudent || isGuardian) {
+    return <Navigate to="/attendance/portal" replace />;
   }
 
-  // ── 2. GUARDIAN / ACCOUNTANT (no dedicated view built yet) ────────────────
-  if (isGuardian) {
-    return (
-      <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
-        <p>Your linked children's attendance is available on your Guardian Dashboard.</p>
-        <a href="/" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
-      </div>
-    );
-  }
   if (isAccountant) {
     return (
       <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">

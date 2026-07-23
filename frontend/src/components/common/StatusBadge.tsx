@@ -4,7 +4,9 @@ type StatusKey =
   | 'ACTIVE' | 'INACTIVE' | 'TRANSFERRED' | 'GRADUATED'
   | 'PAID' | 'PARTIAL' | 'UNPAID' | 'OVERDUE' | 'SENT' | 'DRAFT' | 'CANCELLED'
   | 'PRESENT' | 'ABSENT' | 'LATE'
-  | 'PENDING' | 'APPROVED' | 'REJECTED'
+  | 'ABSENT_EXCUSED' | 'ABSENT_UNEXCUSED' | 'LEAVE' | 'NOT_REQUIRED'
+  | 'NOT_OPENED' | 'IN_PROGRESS' | 'SUBMITTED' | 'LOCKED' | 'REOPENED'
+  | 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN'
   | 'ISSUED' | 'RETURNED';
 
 interface StatusBadgeProps {
@@ -27,9 +29,21 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   PRESENT:     { label: 'Present',     className: 'badge-success' },
   ABSENT:      { label: 'Absent',      className: 'badge-danger' },
   LATE:        { label: 'Late',        className: 'badge-warning' },
+  // New attendance mark set (register-based attendance, teacher workspace)
+  ABSENT_EXCUSED:   { label: 'Absent (Excused)',   className: 'badge-info' },
+  ABSENT_UNEXCUSED: { label: 'Absent (Unexcused)', className: 'badge-danger' },
+  LEAVE:            { label: 'Leave',              className: 'badge-info' },
+  NOT_REQUIRED:     { label: 'Not Required',       className: 'badge-neutral' },
+  // Register lifecycle statuses
+  NOT_OPENED:  { label: 'Not Opened',  className: 'badge-neutral' },
+  IN_PROGRESS: { label: 'In Progress', className: 'badge-info' },
+  SUBMITTED:   { label: 'Submitted',   className: 'badge-success' },
+  LOCKED:      { label: 'Locked',      className: 'badge-neutral' },
+  REOPENED:    { label: 'Reopened',    className: 'badge-warning' },
   PENDING:     { label: 'Pending',     className: 'badge-warning' },
   APPROVED:    { label: 'Approved',    className: 'badge-success' },
   REJECTED:    { label: 'Rejected',    className: 'badge-danger' },
+  WITHDRAWN:   { label: 'Withdrawn',   className: 'badge-neutral' },
   ISSUED:      { label: 'Issued',      className: 'badge-info' },
   RETURNED:    { label: 'Returned',    className: 'badge-success' },
 };

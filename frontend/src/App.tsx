@@ -17,6 +17,10 @@ const StudentList = React.lazy(() => import('./pages/students/StudentList'));
 const InvoiceList = React.lazy(() => import('./pages/fees/InvoiceList'));
 const MyInvoices = React.lazy(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = React.lazy(() => import('./pages/attendance/AttendanceEntry'));
+const TeacherAttendanceWorkspace = React.lazy(() => import('./pages/attendance/TeacherAttendanceWorkspace'));
+const AdminAttendanceControlCenter = React.lazy(() => import('./pages/attendance/AdminAttendanceControlCenter'));
+const AttendancePortal = React.lazy(() => import('./pages/attendance/AttendancePortal'));
+const TeacherAssignments = React.lazy(() => import('./pages/attendance/TeacherAssignments'));
 const MarksEntry = React.lazy(() => import('./pages/results/MarksEntry'));
 const MyExamResults = React.lazy(() => import('./pages/results/MyExamResults'));
 const TimetableGrid = React.lazy(() => import('./pages/timetables/TimetableGrid'));
@@ -430,9 +434,41 @@ const App = () => {
         } />
 
         <Route path="/attendance" element={
-          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN']}>
+          <ProtectedRoute allowedRoles={['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <AttendanceEntry />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/teacher" element={
+          <ProtectedRoute allowedRoles={['TEACHER']}>
+            <DashboardLayout>
+              <TeacherAttendanceWorkspace />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/admin" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <AdminAttendanceControlCenter />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/admin/assignments" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <TeacherAssignments />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/portal" element={
+          <ProtectedRoute allowedRoles={['STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <AttendancePortal />
             </DashboardLayout>
           </ProtectedRoute>
         } />
