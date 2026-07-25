@@ -159,6 +159,9 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
   const weekDays = getWeekDays(selectedDate);
   const weekStartDateStr = weekDays[0]?.dateStr;
   const weekEndDateStr = weekDays[6]?.dateStr;
+  const selectedDayInfo = weekDays.find((d) => d.dateStr === selectedDate);
+  const isSelectedDateHoliday = selectedDayInfo?.isHoliday ?? false;
+  const selectedDateHolidayName = selectedDayInfo?.holidayName || 'Holiday';
 
   // Stats computation
   const totalStudents = students.length;
@@ -405,11 +408,12 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           {/* Quick Mark All Present button */}
           <button
             type="button"
+            disabled={isSelectedDateHoliday}
             onClick={() => {
               onBatchSetStatus('PRESENT', 'ALL');
               toast.success('Marked all students Present! ⚡');
             }}
-            className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
+            className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:hover:bg-slate-300 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
           >
             <CheckCheck className="w-4 h-4" />
             <span className="hidden sm:inline">Mark All Present</span>
@@ -466,6 +470,15 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       ) : filteredStudents.length === 0 ? (
         <div className="glass-card p-10 rounded-3xl border border-slate-200/60 dark:border-white/5 text-center text-slate-500 text-xs italic">
           No students found matching current search.
+        </div>
+      ) : isSelectedDateHoliday && viewMode !== 'weekly' ? (
+        /* ── HOLIDAY LOCK — attendance entry disabled for this date ────── */
+        <div className="glass-card p-10 rounded-3xl border border-purple-200 dark:border-purple-500/20 bg-purple-50/50 dark:bg-purple-950/20 text-center flex flex-col items-center justify-center space-y-3">
+          <Lock className="w-10 h-10 text-purple-500" />
+          <h3 className="text-base font-bold text-slate-900 dark:text-white">{selectedDateHolidayName}</h3>
+          <p className="text-slate-600 dark:text-slate-400 text-xs max-w-sm leading-relaxed">
+            {selectedDate} is marked as a holiday. Attendance cannot be recorded for this date. Switch to the Weekly view or pick a working day to continue.
+          </p>
         </div>
       ) : viewMode === 'cards' ? (
         /* ══════════════════════════════════════════════════════════════════ */
@@ -783,11 +796,12 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
 
             <button
               onClick={onSave}
-              disabled={loading}
-              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-lg shadow-indigo-500/25 active:scale-95 text-sm"
+              disabled={loading || isSelectedDateHoliday}
+              title={isSelectedDateHoliday ? `${selectedDate} is a holiday — attendance cannot be submitted` : undefined}
+              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-700 dark:disabled:to-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-lg shadow-indigo-500/25 active:scale-95 text-sm"
             >
               <Save className="w-4 h-4" />
-              {loading ? 'Submitting...' : 'Save & Submit Attendance'}
+              {isSelectedDateHoliday ? 'Holiday — Cannot Submit' : loading ? 'Submitting...' : 'Save & Submit Attendance'}
             </button>
           </div>
         </div>
