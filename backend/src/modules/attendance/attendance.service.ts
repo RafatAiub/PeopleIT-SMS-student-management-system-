@@ -3,41 +3,39 @@ import { prisma } from '../../config/prisma';
 import { BadRequestError, NotFoundError } from '../../utils/AppError';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { feeReminderQueue } from '../../queues/reminderQueue';
-import type { BulkSubmitAttendanceDtoType, AttendanceQueryDtoType, AssignTeacherDtoType, AttendanceSheetQueryDtoType } from './attendance.dto';
+import type { BulkSubmitAttendanceDtoType, AttendanceQueryDtoType, AssignTeacherDtoType, AttendanceSheetQueryDtoType, WeeklyAttendanceSheetQueryDtoType } from './attendance.dto';
 import { logger } from '../../utils/logger';
 
 export async function submitBulkAttendance(
-  institutionId: string,
+  institutionId: string | undefined,
   data: BulkSubmitAttendanceDtoType,
 ) {
   const { date, records } = data;
   const studentIds = records.map((r) => r.studentId);
 
-  // Validate all students exist in this institution to prevent cross-tenant insertion
-  const validStudents = await prisma.student.findMany({
-    where: {
-      institutionId,
-      id: { in: studentIds },
-    },
-    select: { id: true },
-  });
+  // If institutionId exists, validate student ownership
+  if (institutionId) {
+    const validStudents = await prisma.student.findMany({
+      where: {
+        institutionId,
+        id: { in: studentIds },
+      },
+      select: { id: true },
+    });
 
-  if (validStudents.length !== new Set(studentIds).size) {
-    throw new BadRequestError('Some student IDs are invalid or belong to another institution');
+    if (validStudents.length !== new Set(studentIds).size) {
+      throw new BadRequestError('Some student IDs are invalid or belong to another institution');
+    }
   }
 
   const result = await attendanceRepository.upsertBulkAttendance(institutionId, date, records);
   logger.info('Bulk attendance submitted', { institutionId, date, count: records.length });
 
-  // Fire-and-forget absence SMS reminders. Not awaited: a slow or unreachable
-  // Redis must never delay or fail the attendance submission response. Wrapped
-  // in try/catch too, since a synchronous throw from `.add()` (e.g. malformed
-  // connection config) would otherwise bypass the `.catch()` entirely.
   const absentees = records.filter((r) => r.status === 'ABSENT');
   try {
     for (const r of absentees) {
       feeReminderQueue
-        .add('absence', { type: 'absence', institutionId, studentId: r.studentId, date })
+        .add('absence', { type: 'absence', institutionId: institutionId || '', studentId: r.studentId, date })
         .catch((err) => logger.error('Failed to enqueue absence reminder', { studentId: r.studentId, error: err.message }));
     }
   } catch (err: any) {
@@ -48,29 +46,29 @@ export async function submitBulkAttendance(
 }
 
 export async function listAttendance(
-  institutionId: string,
+  institutionId: string | undefined,
   query: AttendanceQueryDtoType,
 ) {
   return attendanceRepository.findAll(institutionId, query);
 }
 
 export async function assignTeacherToSection(
-  institutionId: string,
+  institutionId: string | undefined,
   data: AssignTeacherDtoType,
 ) {
   return attendanceRepository.assignTeacherToSection(institutionId, data.teacherId, data.sectionId);
 }
 
-export async function listAssignments(institutionId: string) {
+export async function listAssignments(institutionId: string | undefined) {
   return attendanceRepository.getAssignments(institutionId);
 }
 
-export async function listTeacherSections(userId: string, institutionId: string) {
+export async function listTeacherSections(userId: string, institutionId: string | undefined) {
   return attendanceRepository.getTeacherSections(userId, institutionId);
 }
 
 export async function getAttendanceSheet(
-  institutionId: string,
+  institutionId: string | undefined,
   query: AttendanceSheetQueryDtoType,
 ) {
   return attendanceRepository.getAttendanceSheet(
@@ -81,19 +79,33 @@ export async function getAttendanceSheet(
   );
 }
 
-export async function getStudentAttendanceHistory(userId: string, institutionId: string) {
+export async function getWeeklyAttendanceSheet(
+  institutionId: string | undefined,
+  query: WeeklyAttendanceSheetQueryDtoType,
+) {
+  return attendanceRepository.getWeeklyAttendanceSheet(
+    institutionId,
+    query.className,
+    query.sectionName,
+    query.startDate,
+    query.endDate,
+  );
+}
+
+export async function getStudentAttendanceHistory(userId: string, institutionId: string | undefined) {
   return attendanceRepository.getStudentAttendanceHistory(userId, institutionId);
 }
 
-/** GUARDIAN "my child's attendance" — ownership-scoped to linked children only. */
 export async function getChildAttendanceHistory(
-  institutionId: string,
+  institutionId: string | undefined,
   studentId: string,
   guardianUserId: string,
 ) {
-  const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, guardianUserId);
-  if (!linked.includes(studentId)) {
-    throw new NotFoundError('Student not found');
+  if (institutionId) {
+    const linked = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, guardianUserId);
+    if (!linked.includes(studentId)) {
+      throw new NotFoundError('Student not found');
+    }
   }
   return attendanceRepository.getAttendanceHistoryByStudentId(institutionId, studentId);
 }

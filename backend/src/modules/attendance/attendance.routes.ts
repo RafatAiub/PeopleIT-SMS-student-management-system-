@@ -22,6 +22,12 @@ router.post(
 );
 
 router.get(
+  '/sheet/weekly',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
+  attendanceController.getWeeklyAttendanceSheet,
+);
+
+router.get(
   '/sheet',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   attendanceController.getAttendanceSheet,
@@ -61,8 +67,7 @@ router.get(
   attendanceController.listAssignments,
 );
 
-// Fallback search route — STUDENT/GUARDIAN excluded; they must use
-// /my-attendance, which is scoped server-side to req.user.sub.
+// Fallback search route
 router.get(
   '/',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT),

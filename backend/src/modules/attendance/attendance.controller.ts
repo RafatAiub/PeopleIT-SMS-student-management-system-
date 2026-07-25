@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as attendanceService from './attendance.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
-import { AssignTeacherDto, AttendanceSheetQueryDto } from './attendance.dto';
+import { AssignTeacherDto, AttendanceSheetQueryDto, WeeklyAttendanceSheetQueryDto } from './attendance.dto';
 
 export async function submitAttendance(
   req: Request,
@@ -9,7 +9,7 @@ export async function submitAttendance(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await attendanceService.submitBulkAttendance(req.tenantId!, req.body);
+    const result = await attendanceService.submitBulkAttendance(req.tenantId, req.body);
     successResponse(res, { count: result.length }, 'Attendance records saved successfully', 201);
   } catch (error) {
     next(error);
@@ -23,7 +23,7 @@ export async function getAttendanceList(
 ): Promise<void> {
   try {
     const { records, total } = await attendanceService.listAttendance(
-      req.tenantId!,
+      req.tenantId,
       req.query as any,
     );
     paginatedResponse(
@@ -45,7 +45,7 @@ export async function assignTeacherToSection(
 ): Promise<void> {
   try {
     const validated = AssignTeacherDto.parse(req.body);
-    const result = await attendanceService.assignTeacherToSection(req.tenantId!, validated);
+    const result = await attendanceService.assignTeacherToSection(req.tenantId, validated);
     successResponse(res, result, 'Teacher assigned to section successfully');
   } catch (error) {
     next(error);
@@ -58,7 +58,7 @@ export async function listAssignments(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const list = await attendanceService.listAssignments(req.tenantId!);
+    const list = await attendanceService.listAssignments(req.tenantId);
     successResponse(res, list);
   } catch (error) {
     next(error);
@@ -71,7 +71,7 @@ export async function listTeacherSections(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const list = await attendanceService.listTeacherSections(req.user!.sub, req.tenantId!);
+    const list = await attendanceService.listTeacherSections(req.user!.sub, req.tenantId);
     successResponse(res, list);
   } catch (error) {
     next(error);
@@ -85,7 +85,21 @@ export async function getAttendanceSheet(
 ): Promise<void> {
   try {
     const query = AttendanceSheetQueryDto.parse(req.query);
-    const list = await attendanceService.getAttendanceSheet(req.tenantId!, query);
+    const list = await attendanceService.getAttendanceSheet(req.tenantId, query);
+    successResponse(res, list);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWeeklyAttendanceSheet(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const query = WeeklyAttendanceSheetQueryDto.parse(req.query);
+    const list = await attendanceService.getWeeklyAttendanceSheet(req.tenantId, query);
     successResponse(res, list);
   } catch (error) {
     next(error);
@@ -98,7 +112,7 @@ export async function getStudentAttendanceHistory(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await attendanceService.getStudentAttendanceHistory(req.user!.sub, req.tenantId!);
+    const result = await attendanceService.getStudentAttendanceHistory(req.user!.sub, req.tenantId);
     successResponse(res, result);
   } catch (error) {
     next(error);
@@ -112,7 +126,7 @@ export async function getChildAttendanceHistory(
 ): Promise<void> {
   try {
     const result = await attendanceService.getChildAttendanceHistory(
-      req.tenantId!,
+      req.tenantId,
       req.params.studentId,
       req.user!.sub,
     );

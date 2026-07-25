@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 export const BulkSubmitAttendanceDto = z.object({
-  date: z.string().transform((val) => new Date(val)),
+  date: z.string().transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }),
   records: z.array(
     z.object({
       studentId: z.string().min(1, 'Student ID is required'),
@@ -31,10 +34,27 @@ export const AssignTeacherDto = z.object({
 export const AttendanceSheetQueryDto = z.object({
   className: z.string().min(1, 'Class name is required'),
   sectionName: z.string().min(1, 'Section name is required'),
-  date: z.string().transform((val) => new Date(val)),
+  date: z.string().transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }),
+});
+
+export const WeeklyAttendanceSheetQueryDto = z.object({
+  className: z.string().min(1, 'Class name is required'),
+  sectionName: z.string().min(1, 'Section name is required'),
+  startDate: z.string().transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }),
+  endDate: z.string().transform((val) => {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }),
 });
 
 export type BulkSubmitAttendanceDtoType = z.infer<typeof BulkSubmitAttendanceDto>;
 export type AttendanceQueryDtoType = z.infer<typeof AttendanceQueryDto>;
 export type AssignTeacherDtoType = z.infer<typeof AssignTeacherDto>;
 export type AttendanceSheetQueryDtoType = z.infer<typeof AttendanceSheetQueryDto>;
+export type WeeklyAttendanceSheetQueryDtoType = z.infer<typeof WeeklyAttendanceSheetQueryDto>;

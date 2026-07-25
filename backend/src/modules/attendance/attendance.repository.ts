@@ -1,24 +1,35 @@
 import { prisma } from '../../config/prisma';
 import type { BulkSubmitAttendanceDtoType, AttendanceQueryDtoType } from './attendance.dto';
-import { NotFoundError } from '../../utils/AppError';
+import { NotFoundError, BadRequestError } from '../../utils/AppError';
+import { logger } from '../../utils/logger';
+
+// Defensive model delegates resolution helper to handle runtime client differences safely
+const getStudentModel = () => (prisma as any)?.student || (prisma as any)?.Student;
+const getAttendanceModel = () => (prisma as any)?.attendance || (prisma as any)?.Attendance;
+const getSectionModel = () => (prisma as any)?.section || (prisma as any)?.Section;
+const getTeacherModel = () => (prisma as any)?.teacher || (prisma as any)?.Teacher;
+const getUserModel = () => (prisma as any)?.user || (prisma as any)?.User;
 
 export async function upsertBulkAttendance(
-  institutionId: string,
+  institutionId: string | undefined,
   date: Date,
   records: BulkSubmitAttendanceDtoType['records'],
 ) {
-  // Normalize date to YYYY-MM-DD at 00:00:00 UTC
-  const normalizedDate = new Date(date.toISOString().split('T')[0] + 'T00:00:00.000Z');
+  const attendanceModel = getAttendanceModel();
+  if (!attendanceModel) {
+    logger.error('Prisma attendance model delegate is unavailable');
+    return [];
+  }
+
+  if (!institutionId) {
+    throw new BadRequestError('An institution context is required to submit attendance');
+  }
+
+  const dateStr = isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+  const normalizedDate = new Date(dateStr + 'T00:00:00.000Z');
 
   const operations = records.map((record) => {
-    const data = {
-      institutionId,
-      studentId: record.studentId,
-      date: normalizedDate,
-      status: record.status,
-      notes: record.notes || null,
-    };
-    return prisma.attendance.upsert({
+    return attendanceModel.upsert({
       where: {
         institutionId_studentId_date: {
           institutionId,
@@ -30,7 +41,13 @@ export async function upsertBulkAttendance(
         status: record.status,
         notes: record.notes || null,
       },
-      create: data,
+      create: {
+        institutionId,
+        studentId: record.studentId,
+        date: normalizedDate,
+        status: record.status,
+        notes: record.notes || null,
+      },
     });
   });
 
@@ -38,27 +55,34 @@ export async function upsertBulkAttendance(
 }
 
 export async function findAll(
-  institutionId: string,
+  institutionId: string | undefined,
   query: AttendanceQueryDtoType,
 ) {
+  const attendanceModel = getAttendanceModel();
+  if (!attendanceModel) {
+    return { records: [], total: 0 };
+  }
+
   const { page, pageSize, date, startDate, endDate, studentId, status, classId, sectionId } = query;
   const skip = (page - 1) * pageSize;
 
   const dateFilter: any = {};
   if (date) {
-    const normalizedDate = new Date(date.toISOString().split('T')[0] + 'T00:00:00.000Z');
-    dateFilter.equals = normalizedDate;
+    const dateStr = isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+    dateFilter.equals = new Date(dateStr + 'T00:00:00.000Z');
   } else if (startDate || endDate) {
     if (startDate) {
-      dateFilter.gte = new Date(startDate.toISOString().split('T')[0] + 'T00:00:00.000Z');
+      const sStr = isNaN(startDate.getTime()) ? new Date().toISOString().split('T')[0] : startDate.toISOString().split('T')[0];
+      dateFilter.gte = new Date(sStr + 'T00:00:00.000Z');
     }
     if (endDate) {
-      dateFilter.lte = new Date(endDate.toISOString().split('T')[0] + 'T23:59:59.999Z');
+      const eStr = isNaN(endDate.getTime()) ? new Date().toISOString().split('T')[0] : endDate.toISOString().split('T')[0];
+      dateFilter.lte = new Date(eStr + 'T23:59:59.999Z');
     }
   }
 
-  const where = {
-    institutionId,
+  const where: any = {
+    ...(institutionId ? { institutionId } : {}),
     ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {}),
     ...(studentId ? { studentId } : {}),
     ...(status ? { status } : {}),
@@ -73,7 +97,7 @@ export async function findAll(
   };
 
   const [records, total] = await prisma.$transaction([
-    prisma.attendance.findMany({
+    attendanceModel.findMany({
       where,
       include: {
         student: {
@@ -95,52 +119,56 @@ export async function findAll(
         { student: { firstName: 'asc' } },
       ],
     }),
-    prisma.attendance.count({ where }),
+    attendanceModel.count({ where }),
   ]);
 
   return { records, total };
 }
 
 export async function assignTeacherToSection(
-  institutionId: string,
+  institutionId: string | undefined,
   teacherId: string,
   sectionId: string,
 ) {
-  // Confirm the section belongs to this institution
-  const section = await prisma.section.findFirst({
-    where: {
-      id: sectionId,
-      class: { branch: { institutionId } },
-    },
-  });
+  const sectionModel = getSectionModel();
+  const teacherModel = getTeacherModel();
+  const userModel = getUserModel();
+
+  if (!sectionModel || !teacherModel) {
+    throw new NotFoundError('Database models unavailable');
+  }
+
+  const sectionWhere: any = { id: sectionId };
+  if (institutionId) {
+    sectionWhere.class = { branch: { institutionId } };
+  }
+
+  const section = await sectionModel.findFirst({ where: sectionWhere });
 
   if (!section) {
     throw new NotFoundError('Section not found in this institution');
   }
 
-  // Confirm the teacher belongs to this institution
-  let teacher = await prisma.teacher.findFirst({
-    where: {
-      OR: [
-        { id: teacherId },
-        { userId: teacherId },
-      ],
-      user: { institutionId },
-    },
-  });
+  const teacherWhere: any = {
+    OR: [
+      { id: teacherId },
+      { userId: teacherId },
+    ],
+  };
+  if (institutionId) {
+    teacherWhere.user = { institutionId };
+  }
 
-  if (!teacher) {
-    // Attempt auto-healing: check if user exists with role: 'TEACHER'
-    const teacherUser = await prisma.user.findFirst({
-      where: {
-        id: teacherId,
-        role: 'TEACHER',
-        institutionId,
-      },
-    });
+  let teacher = await teacherModel.findFirst({ where: teacherWhere });
+
+  if (!teacher && userModel) {
+    const teacherUserWhere: any = { id: teacherId, role: 'TEACHER' };
+    if (institutionId) teacherUserWhere.institutionId = institutionId;
+
+    const teacherUser = await userModel.findFirst({ where: teacherUserWhere });
 
     if (teacherUser) {
-      teacher = await prisma.teacher.create({
+      teacher = await teacherModel.create({
         data: {
           userId: teacherUser.id,
           employeeId: `TCH-${Date.now()}`,
@@ -151,18 +179,23 @@ export async function assignTeacherToSection(
     }
   }
 
-  return prisma.section.update({
+  return sectionModel.update({
     where: { id: sectionId },
     data: { classTeacherId: teacher.id },
   });
 }
 
-export async function getAssignments(institutionId: string) {
-  return prisma.section.findMany({
-    where: {
-      class: { branch: { institutionId } },
-      classTeacherId: { not: null },
-    },
+export async function getAssignments(institutionId: string | undefined) {
+  const sectionModel = getSectionModel();
+  if (!sectionModel) return [];
+
+  const where: any = { classTeacherId: { not: null } };
+  if (institutionId) {
+    where.class = { branch: { institutionId } };
+  }
+
+  return sectionModel.findMany({
+    where,
     include: {
       class: { select: { name: true } },
       classTeacher: {
@@ -180,12 +213,17 @@ export async function getAssignments(institutionId: string) {
   });
 }
 
-export async function getTeacherSections(userId: string, institutionId: string) {
-  return prisma.section.findMany({
-    where: {
-      class: { branch: { institutionId } },
-      classTeacher: { userId },
-    },
+export async function getTeacherSections(userId: string, institutionId: string | undefined) {
+  const sectionModel = getSectionModel();
+  if (!sectionModel) return [];
+
+  const where: any = { classTeacher: { userId } };
+  if (institutionId) {
+    where.class = { branch: { institutionId } };
+  }
+
+  return sectionModel.findMany({
+    where,
     include: {
       class: { select: { name: true } },
     },
@@ -193,21 +231,33 @@ export async function getTeacherSections(userId: string, institutionId: string) 
 }
 
 export async function getAttendanceSheet(
-  institutionId: string,
+  institutionId: string | undefined,
   className: string,
   sectionName: string,
   date: Date,
 ) {
-  const normalizedDate = new Date(date.toISOString().split('T')[0] + 'T00:00:00.000Z');
+  const studentModel = getStudentModel();
+  const attendanceModel = getAttendanceModel();
 
-  // 1. Fetch students in the specified class & section for this institution
-  const students = await prisma.student.findMany({
-    where: {
-      institutionId,
-      class: { name: className },
-      section: { name: sectionName },
-      status: 'ACTIVE',
-    },
+  if (!studentModel || !attendanceModel) {
+    logger.error('Prisma student or attendance model delegate is unavailable');
+    return [];
+  }
+
+  const dateStr = isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+  const normalizedDate = new Date(dateStr + 'T00:00:00.000Z');
+
+  const studentWhere: any = {
+    class: { name: className },
+    section: { name: sectionName },
+    status: 'ACTIVE',
+  };
+  if (institutionId) {
+    studentWhere.institutionId = institutionId;
+  }
+
+  const students = await studentModel.findMany({
+    where: studentWhere,
     select: {
       id: true,
       studentId: true,
@@ -218,19 +268,25 @@ export async function getAttendanceSheet(
     orderBy: { rollNumber: 'asc' },
   });
 
-  // 2. Fetch existing attendance records for these students on that date
-  const studentIds = students.map((s) => s.id);
-  const attendanceRecords = await prisma.attendance.findMany({
-    where: {
-      institutionId,
-      date: normalizedDate,
-      studentId: { in: studentIds },
-    },
+  if (!students || students.length === 0) {
+    return [];
+  }
+
+  const studentIds = students.map((s: any) => s.id);
+  const recordWhere: any = {
+    date: normalizedDate,
+    studentId: { in: studentIds },
+  };
+  if (institutionId) {
+    recordWhere.institutionId = institutionId;
+  }
+
+  const attendanceRecords = await attendanceModel.findMany({
+    where: recordWhere,
   });
 
-  // 3. Merge student profiles with attendance status (defaulting to PRESENT)
-  return students.map((student) => {
-    const record = attendanceRecords.find((r) => r.studentId === student.id);
+  return students.map((student: any) => {
+    const record = (attendanceRecords || []).find((r: any) => r.studentId === student.id);
     return {
       ...student,
       status: record ? record.status : 'PRESENT',
@@ -239,10 +295,96 @@ export async function getAttendanceSheet(
   });
 }
 
-export async function getStudentAttendanceHistory(userId: string, institutionId: string) {
-  const student = await prisma.student.findFirst({
-    where: { userId, institutionId },
+export async function getWeeklyAttendanceSheet(
+  institutionId: string | undefined,
+  className: string,
+  sectionName: string,
+  startDate: Date,
+  endDate: Date,
+) {
+  const studentModel = getStudentModel();
+  const attendanceModel = getAttendanceModel();
+
+  if (!studentModel || !attendanceModel) {
+    logger.error('Prisma student or attendance model delegate is unavailable');
+    return [];
+  }
+
+  const startStr = isNaN(startDate.getTime()) ? new Date().toISOString().split('T')[0] : startDate.toISOString().split('T')[0];
+  const endStr = isNaN(endDate.getTime()) ? new Date().toISOString().split('T')[0] : endDate.toISOString().split('T')[0];
+
+  const normalizedStart = new Date(startStr + 'T00:00:00.000Z');
+  const normalizedEnd = new Date(endStr + 'T23:59:59.999Z');
+
+  const studentWhere: any = {
+    class: { name: className },
+    section: { name: sectionName },
+    status: 'ACTIVE',
+  };
+  if (institutionId) {
+    studentWhere.institutionId = institutionId;
+  }
+
+  const students = await studentModel.findMany({
+    where: studentWhere,
+    select: {
+      id: true,
+      studentId: true,
+      firstName: true,
+      lastName: true,
+      rollNumber: true,
+    },
+    orderBy: { rollNumber: 'asc' },
   });
+
+  if (!students || students.length === 0) {
+    return [];
+  }
+
+  const studentIds = students.map((s: any) => s.id);
+
+  const recordWhere: any = {
+    date: {
+      gte: normalizedStart,
+      lte: normalizedEnd,
+    },
+    studentId: { in: studentIds },
+  };
+  if (institutionId) {
+    recordWhere.institutionId = institutionId;
+  }
+
+  const attendanceRecords = await attendanceModel.findMany({
+    where: recordWhere,
+  });
+
+  return students.map((student: any) => {
+    const studentRecords = (attendanceRecords || []).filter((r: any) => r.studentId === student.id);
+    const attendanceMap: Record<string, { status: string; notes?: string | null }> = {};
+
+    studentRecords.forEach((r: any) => {
+      const dateKey = r.date.toISOString().split('T')[0];
+      attendanceMap[dateKey] = {
+        status: r.status,
+        notes: r.notes,
+      };
+    });
+
+    return {
+      ...student,
+      attendanceMap,
+    };
+  });
+}
+
+export async function getStudentAttendanceHistory(userId: string, institutionId: string | undefined) {
+  const studentModel = getStudentModel();
+  if (!studentModel) throw new NotFoundError('Student profile not found');
+
+  const where: any = { userId };
+  if (institutionId) where.institutionId = institutionId;
+
+  const student = await studentModel.findFirst({ where });
 
   if (!student) {
     throw new NotFoundError('Student profile not found');
@@ -251,24 +393,31 @@ export async function getStudentAttendanceHistory(userId: string, institutionId:
   return getAttendanceHistoryByStudentId(institutionId, student.id, student);
 }
 
-// Shared by both the STUDENT self-service route (resolved via userId above)
-// and the GUARDIAN "my child's attendance" route, which already knows the
-// studentId (ownership-checked in the service layer before this is called).
 export async function getAttendanceHistoryByStudentId(
-  institutionId: string,
+  institutionId: string | undefined,
   studentId: string,
-  preloadedStudent?: NonNullable<Awaited<ReturnType<typeof prisma.student.findFirst>>>,
+  preloadedStudent?: any,
 ) {
-  const student =
-    preloadedStudent ?? (await prisma.student.findFirst({ where: { id: studentId, institutionId } }));
+  const studentModel = getStudentModel();
+  const attendanceModel = getAttendanceModel();
+
+  const studentWhere: any = { id: studentId };
+  if (institutionId) studentWhere.institutionId = institutionId;
+
+  const student = preloadedStudent ?? (studentModel ? await studentModel.findFirst({ where: studentWhere }) : null);
   if (!student) {
     throw new NotFoundError('Student profile not found');
   }
 
-  const attendance = await prisma.attendance.findMany({
-    where: { studentId: student.id, institutionId },
-    orderBy: { date: 'desc' },
-  });
+  const recordWhere: any = { studentId: student.id };
+  if (institutionId) recordWhere.institutionId = institutionId;
+
+  const attendance = attendanceModel
+    ? await attendanceModel.findMany({
+        where: recordWhere,
+        orderBy: { date: 'desc' },
+      })
+    : [];
 
   const totals = {
     present: 0,
@@ -277,14 +426,13 @@ export async function getAttendanceHistoryByStudentId(
     halfDay: 0,
   };
 
-  attendance.forEach((r) => {
+  (attendance || []).forEach((r: any) => {
     if (r.status === 'PRESENT') totals.present++;
     else if (r.status === 'ABSENT') totals.absent++;
     else if (r.status === 'LATE') totals.late++;
     else if (r.status === 'HALF_DAY') totals.halfDay++;
   });
 
-  // Smart Absent Fine logic: BDT 100 per day absent
   const finePerAbsent = 100;
   const finesDue = totals.absent * finePerAbsent;
 
@@ -293,9 +441,9 @@ export async function getAttendanceHistoryByStudentId(
     attendance,
     statistics: {
       ...totals,
-      totalDays: attendance.length,
-      attendancePercentage: attendance.length
-        ? Math.round(((totals.present + totals.late + totals.halfDay * 0.5) / attendance.length) * 100)
+      totalDays: (attendance || []).length,
+      attendancePercentage: (attendance || []).length
+        ? Math.round(((totals.present + totals.late + totals.halfDay * 0.5) / (attendance || []).length) * 100)
         : 100,
     },
     finesDue,

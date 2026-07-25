@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle2, XCircle, Clock, ChevronDown, Save, ShieldAlert, BadgeAlert, Coins, Users, UserCheck, Plus } from 'lucide-react';
+import { Calendar, Users, UserCheck, ShieldAlert, Coins, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { AttendanceRegisterSheet, AttendanceStatus, StudentRecord } from './AttendanceRegisterSheet';
 
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
@@ -24,8 +25,10 @@ const AttendanceEntry = () => {
   const [selectedClass, setSelectedClass] = useState('Class 8');
   const [selectedSection, setSelectedSection] = useState('A');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [attendance, setAttendance] = useState<Record<string, 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY'>>({});
+  const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [weeklyAttendance, setWeeklyAttendance] = useState<Record<string, Record<string, { status: AttendanceStatus; notes?: string }>>>({});
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
@@ -53,13 +56,11 @@ const AttendanceEntry = () => {
     try {
       setInitialLoading(true);
       if (isStudent) {
-        // Load student attendance history and absentees fines
         const res = await apiClient.get('/attendance/my-attendance');
         setStudentHistory(res.data.data.attendance || []);
         setStudentStats(res.data.data.statistics || null);
         setFinesDue(res.data.data.finesDue || 0);
       } else if (isTeacher) {
-        // Fetch teacher's assigned sections
         const res = await apiClient.get('/attendance/my-sections');
         const sections = res.data.data || [];
         setAssignedSections(sections);
@@ -71,12 +72,9 @@ const AttendanceEntry = () => {
           setHasAssignments(false);
         }
       } else if (isAdmin) {
-        // Admins can fetch all teachers for the assigner modal
         const res = await apiClient.get('/users?role=TEACHER&pageSize=100');
         setTeachersList(res.data.data || []);
       }
-      // GUARDIAN/ACCOUNTANT: no dedicated view built here yet — fall through
-      // to the message screen below rather than firing a staff-only request.
     } catch (err) {
       console.error('Failed to load initial metadata', err);
     } finally {
@@ -99,11 +97,19 @@ const AttendanceEntry = () => {
       const sheetData = res.data.data || [];
       setStudents(sheetData);
 
-      const initialAttendance: Record<string, 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY'> = {};
+      const initialAttendance: Record<string, AttendanceStatus> = {};
+      const initialNotes: Record<string, string> = {};
+
       sheetData.forEach((student: any) => {
         initialAttendance[student.id] = student.status || 'PRESENT';
+        initialNotes[student.id] = student.notes || '';
       });
+
       setAttendance(initialAttendance);
+      setNotes(initialNotes);
+
+      // Fetch weekly data concurrently
+      fetchWeeklySheet(selectedDate);
     } catch (err) {
       console.error('Failed to fetch attendance sheet', err);
       toast.error('Failed to load attendance sheet');
@@ -112,26 +118,107 @@ const AttendanceEntry = () => {
     }
   };
 
+  const fetchWeeklySheet = async (refDate: string) => {
+    try {
+      const ref = new Date(refDate);
+      const validRef = isNaN(ref.getTime()) ? new Date() : ref;
+      const dayOfWeek = validRef.getDay();
+      const distanceToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(validRef);
+      monday.setDate(validRef.getDate() + distanceToMon);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const startDateStr = monday.toISOString().split('T')[0];
+      const endDateStr = sunday.toISOString().split('T')[0];
+
+      const res = await apiClient.get(
+        `/attendance/sheet/weekly?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}&startDate=${startDateStr}&endDate=${endDateStr}`
+      );
+      const sheetData = res.data.data || [];
+      const weeklyMap: Record<string, Record<string, { status: AttendanceStatus; notes?: string }>> = {};
+
+      sheetData.forEach((s: any) => {
+        weeklyMap[s.id] = s.attendanceMap || {};
+      });
+
+      setWeeklyAttendance(weeklyMap);
+    } catch (err) {
+      console.error('Failed to fetch weekly attendance sheet', err);
+    }
+  };
+
   useEffect(() => {
     fetchAttendanceSheet();
   }, [selectedClass, selectedSection, selectedDate, hasAssignments]);
 
-  const handleStatusChange = (studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY') => {
-    setAttendance(prev => ({
+  const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+    setAttendance((prev) => ({
       ...prev,
       [studentId]: status
     }));
   };
 
+  const handleNoteChange = (studentId: string, note: string) => {
+    setNotes((prev) => ({
+      ...prev,
+      [studentId]: note
+    }));
+  };
+
+  const handleWeeklyStatusChange = async (studentId: string, dateStr: string, status: AttendanceStatus, note?: string) => {
+    setWeeklyAttendance((prev) => {
+      const studentMap = prev[studentId] || {};
+      return {
+        ...prev,
+        [studentId]: {
+          ...studentMap,
+          [dateStr]: { status, notes: note || undefined },
+        },
+      };
+    });
+
+    try {
+      await apiClient.post('/attendance/bulk', {
+        date: new Date(dateStr).toISOString(),
+        records: [{ studentId, status, notes: note || null }],
+      });
+      toast.success(`Updated status for ${dateStr}`);
+    } catch (err) {
+      toast.error('Failed to save status update');
+    }
+  };
+
+  const handleBatchSetStatus = (status: AttendanceStatus, target: 'ALL' | 'UNMARKED' = 'ALL') => {
+    setAttendance((prev) => {
+      const next = { ...prev };
+      students.forEach((s) => {
+        if (target === 'ALL' || !next[s.id]) {
+          next[s.id] = status;
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleResetAttendance = () => {
+    const defaultAttendance: Record<string, AttendanceStatus> = {};
+    students.forEach((s) => {
+      defaultAttendance[s.id] = 'PRESENT';
+    });
+    setAttendance(defaultAttendance);
+  };
+
   const handleSaveAttendance = async () => {
     setLoading(true);
     try {
-      const records = students.map(student => ({
+      const records = students.map((student) => ({
         studentId: student.id,
-        status: attendance[student.id]
+        status: attendance[student.id] || 'PRESENT',
+        notes: notes[student.id]?.trim() ? notes[student.id].trim() : null
       }));
       await apiClient.post('/attendance/bulk', { date: new Date(selectedDate).toISOString(), records });
-      toast.success(`Attendance submitted successfully for ${selectedClass}-${selectedSection}`);
+      toast.success(`Attendance register submitted successfully for ${selectedClass}-${selectedSection}`);
       fetchAttendanceSheet();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to submit attendance');
@@ -148,12 +235,10 @@ const AttendanceEntry = () => {
     }
     setAssigning(true);
     try {
-      // 1. Fetch sections metadata to find the database ID of the selected class & section
-      // In this codebase we fetch metadata from `/students/meta/classes` to get list
       const metaRes = await apiClient.get('/students/meta/classes');
       const classesMeta = metaRes.data.data || [];
       const cls = classesMeta.find((c: any) => c.name === assignForm.class);
-      
+
       let sec = null;
       if (cls) {
         const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
@@ -169,7 +254,7 @@ const AttendanceEntry = () => {
         teacherId: assignForm.teacherId,
         sectionId: sec.id
       });
-      
+
       toast.success('Teacher assigned successfully!');
       setIsAssignModalOpen(false);
       setAssignForm({ teacherId: '', class: 'Class 8', section: 'A' });
@@ -181,7 +266,12 @@ const AttendanceEntry = () => {
   };
 
   if (initialLoading) {
-    return <div className="text-slate-400 p-8 text-center">Loading Attendance Portal...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center p-16 text-slate-400">
+        <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <span>Loading Attendance Register Portal...</span>
+      </div>
+    );
   }
 
   // ── 1. STUDENT VIEW ───────────────────────────────────────────────────────
@@ -253,7 +343,7 @@ const AttendanceEntry = () => {
                     <td colSpan={4} className="p-8 text-center text-slate-500 italic">No attendance records found.</td>
                   </tr>
                 ) : (
-                  studentHistory.map(record => (
+                  studentHistory.map((record) => (
                     <tr key={record.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.01] transition-colors">
                       <td className="p-4 pl-6 font-semibold text-slate-900 dark:text-white">
                         {new Date(record.date).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -291,22 +381,22 @@ const AttendanceEntry = () => {
     );
   }
 
-  // ── 2. GUARDIAN / ACCOUNTANT (no dedicated view built yet) ────────────────
+  // ── 2. GUARDIAN / ACCOUNTANT VIEWS ────────────────────────────────────────
   if (isGuardian) {
     return (
       <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
-        <p>Your linked children's attendance is available on your Guardian Dashboard.</p>
-        <a href="/" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-indigo-500" />
+        <p>Your linked children's attendance history is available on your Guardian Dashboard.</p>
+        <a href="/" className="inline-block mt-4 text-indigo-600 dark:text-indigo-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
       </div>
     );
   }
   if (isAccountant) {
     return (
       <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40" />
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-indigo-500" />
         <p>Institution-wide attendance trends are available on the Reports page.</p>
-        <a href="/reports" className="inline-block mt-4 text-blue-600 dark:text-blue-400 font-semibold text-sm hover:underline">Go to Reports →</a>
+        <a href="/reports" className="inline-block mt-4 text-indigo-600 dark:text-indigo-400 font-semibold text-sm hover:underline">Go to Reports →</a>
       </div>
     );
   }
@@ -314,16 +404,22 @@ const AttendanceEntry = () => {
   // ── 3. TEACHER / ADMIN VIEW ───────────────────────────────────────────────
   return (
     <div className="space-y-6">
+      {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Attendance Register</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">Select class parameters to record daily attendance.</p>
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+            Digital Attendance Register
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
+            Record daily or review full week calendar matrix attendance with holiday protection.
+          </p>
         </div>
         {isAdmin && (
           <button
             onClick={() => setIsAssignModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-3 rounded-2xl transition-all shadow-lg shadow-blue-500/20 text-sm font-bold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-indigo-500/20 text-xs font-bold active:scale-[0.98]"
           >
+            <Users className="w-4 h-4" />
             Assign Class Teacher
           </button>
         )}
@@ -339,172 +435,91 @@ const AttendanceEntry = () => {
         </div>
       ) : (
         <>
-          {/* Selectors Bar */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+          {/* Class Parameter Selector Bar */}
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/60 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40 shadow-sm no-print">
             {isTeacher ? (
               <div className="flex flex-col">
-                <label className="text-xs text-slate-500 font-semibold mb-1.5">Assigned Class-Section</label>
-                <div className="relative">
-                  <select
-                    value={`${selectedClass}-${selectedSection}`}
-                    onChange={(e) => {
-                      const [cName, sName] = e.target.value.split('-');
-                      setSelectedClass(cName);
-                      setSelectedSection(sName);
-                    }}
-                    className="input-field py-2.5 min-w-[160px]"
-                  >
-                    {assignedSections.map(s => (
-                      <option key={s.id} value={`${s.class.name}-${s.name}`}>
-                        {s.class.name} - Section {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Section</label>
+                <select
+                  value={`${selectedClass}-${selectedSection}`}
+                  onChange={(e) => {
+                    const [cName, sName] = e.target.value.split('-');
+                    setSelectedClass(cName);
+                    setSelectedSection(sName);
+                  }}
+                  className="input-field py-2 font-bold min-w-[180px]"
+                >
+                  {assignedSections.map((s) => (
+                    <option key={s.id} value={`${s.class.name}-${s.name}`}>
+                      {s.class.name} — Section {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             ) : (
               <>
                 <div className="flex flex-col">
-                  <label className="text-xs text-slate-500 font-semibold mb-1.5">Select Class</label>
-                  <div className="relative">
-                    <select
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="input-field py-2.5 min-w-[140px]"
-                    >
-                      {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
-                    </select>
-                  </div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Select Class</label>
+                  <select
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="input-field py-2 font-bold min-w-[140px]"
+                  >
+                    {CLASSES.map((cls) => (
+                      <option key={cls} value={cls}>
+                        {cls}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="flex flex-col">
-                  <label className="text-xs text-slate-500 font-semibold mb-1.5">Select Section</label>
-                  <div className="relative">
-                    <select
-                      value={selectedSection}
-                      onChange={(e) => setSelectedSection(e.target.value)}
-                      className="input-field py-2.5 min-w-[120px]"
-                    >
-                      {SECTIONS.map(sec => <option key={sec} value={sec}>{sec}</option>)}
-                    </select>
-                  </div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Select Section</label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    className="input-field py-2 font-bold min-w-[120px]"
+                  >
+                    {SECTIONS.map((sec) => (
+                      <option key={sec} value={sec}>
+                        Section {sec}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </>
             )}
 
             <div className="flex flex-col">
-              <label className="text-xs text-slate-500 font-semibold mb-1.5">Date</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="input-field min-w-[150px]"
-                />
-              </div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="input-field py-2 min-w-[150px] font-bold"
+              />
             </div>
           </div>
 
-          {/* Attendance Sheet Grid */}
-          <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <tr>
-                    <th className="px-6 py-4 font-medium pl-8">Student Info</th>
-                    <th className="px-6 py-4 font-medium">Roll No</th>
-                    <th className="px-6 py-4 text-center font-medium pr-8">Attendance Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                          Loading class sheet...
-                        </div>
-                      </td>
-                    </tr>
-                  ) : students.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-6 py-12 text-center text-slate-500 italic">
-                        No students found under {selectedClass} Section {selectedSection}. Please add students or configure class parameters.
-                      </td>
-                    </tr>
-                  ) : (
-                    students.map((student) => (
-                      <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.01] transition-colors">
-                        <td className="px-6 py-4 pl-8">
-                          <div>
-                            <div className="font-semibold text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
-                            <div className="text-xs text-slate-500 font-mono">{student.studentId}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-sm font-semibold text-slate-700 dark:text-slate-300">{student.rollNumber || '—'}</td>
-                        <td className="px-6 py-4 pr-8">
-                          <div className="flex items-center justify-center gap-3">
-                            {/* Present */}
-                            <button
-                              onClick={() => handleStatusChange(student.id, 'PRESENT')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                                attendance[student.id] === 'PRESENT'
-                                  ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-500/30 shadow-sm'
-                                  : 'bg-transparent text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              Present
-                            </button>
-
-                            {/* Late */}
-                            <button
-                              onClick={() => handleStatusChange(student.id, 'LATE')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                                attendance[student.id] === 'LATE'
-                                  ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30 shadow-sm'
-                                  : 'bg-transparent text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`}
-                            >
-                              <Clock className="w-4 h-4" />
-                              Late
-                            </button>
-
-                            {/* Absent */}
-                            <button
-                              onClick={() => handleStatusChange(student.id, 'ABSENT')}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
-                                attendance[student.id] === 'ABSENT'
-                                  ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/30 shadow-sm'
-                                  : 'bg-transparent text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`}
-                            >
-                              <XCircle className="w-4 h-4" />
-                              Absent
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Action Footer */}
-            {students.length > 0 && (
-              <div className="p-5 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-200 dark:border-white/5 flex items-center justify-end">
-                <button
-                  onClick={handleSaveAttendance}
-                  disabled={loading}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 text-sm"
-                >
-                  <Save className="w-4 h-4" />
-                  {loading ? 'Submitting...' : 'Save & Submit Attendance'}
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Interactive Digital Attendance Register Sheet Component */}
+          <AttendanceRegisterSheet
+            className={selectedClass}
+            sectionName={selectedSection}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            students={students}
+            attendance={attendance}
+            notes={notes}
+            weeklyAttendance={weeklyAttendance}
+            onStatusChange={handleStatusChange}
+            onNoteChange={handleNoteChange}
+            onWeeklyStatusChange={handleWeeklyStatusChange}
+            onBatchSetStatus={handleBatchSetStatus}
+            onResetAttendance={handleResetAttendance}
+            onSave={handleSaveAttendance}
+            loading={loading}
+            isTeacher={isTeacher}
+          />
         </>
       )}
 
@@ -514,7 +529,7 @@ const AttendanceEntry = () => {
           <div className="w-full max-w-md bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 dark:border-white/5">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
-                <Users className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                <Users className="w-5 h-5 text-indigo-500" />
                 Assign Class Teacher
               </h3>
               <button
@@ -529,47 +544,49 @@ const AttendanceEntry = () => {
             <form onSubmit={handleAssignTeacherSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Select Class Teacher</label>
-                <div className="relative">
-                  <select
-                    required
-                    value={assignForm.teacherId}
-                    onChange={e => setAssignForm({ ...assignForm, teacherId: e.target.value })}
-                    className="input-field appearance-none pr-10"
-                  >
-                    <option value="">-- Choose Teacher --</option>
-                    {teachersList.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.firstName} {t.lastName} ({t.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  required
+                  value={assignForm.teacherId}
+                  onChange={(e) => setAssignForm({ ...assignForm, teacherId: e.target.value })}
+                  className="input-field py-2.5"
+                >
+                  <option value="">-- Choose Teacher --</option>
+                  {teachersList.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.firstName} {t.lastName} ({t.email})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Class</label>
-                  <div className="relative">
-                    <select
-                      value={assignForm.class}
-                      onChange={e => setAssignForm({ ...assignForm, class: e.target.value })}
-                      className="input-field appearance-none pr-10"
-                    >
-                      {CLASSES.map(cls => <option key={cls} value={cls}>{cls}</option>)}
-                    </select>
-                  </div>
+                  <select
+                    value={assignForm.class}
+                    onChange={(e) => setAssignForm({ ...assignForm, class: e.target.value })}
+                    className="input-field py-2.5"
+                  >
+                    {CLASSES.map((cls) => (
+                      <option key={cls} value={cls}>
+                        {cls}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Section</label>
-                  <div className="relative">
-                    <select
-                      value={assignForm.section}
-                      onChange={e => setAssignForm({ ...assignForm, section: e.target.value })}
-                      className="input-field appearance-none pr-10"
-                    >
-                      {SECTIONS.map(sec => <option key={sec} value={sec}>{sec}</option>)}
-                    </select>
-                  </div>
+                  <select
+                    value={assignForm.section}
+                    onChange={(e) => setAssignForm({ ...assignForm, section: e.target.value })}
+                    className="input-field py-2.5"
+                  >
+                    {SECTIONS.map((sec) => (
+                      <option key={sec} value={sec}>
+                        {sec}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -584,7 +601,7 @@ const AttendanceEntry = () => {
                 <button
                   type="submit"
                   disabled={assigning}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
+                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
                 >
                   {assigning ? 'Assigning...' : 'Confirm Assignment'}
                 </button>
