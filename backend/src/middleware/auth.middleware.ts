@@ -18,6 +18,12 @@ export interface JwtPayload {
   email: string;
   iat?: number;
   exp?: number;
+  isSupportSession?: boolean;
+  isReadOnly?: boolean;
+  originalSuperAdminId?: string;
+  supportReason?: string;
+  supportTicketId?: string;
+  sessionId?: string;
 }
 
 // Extend Express Request

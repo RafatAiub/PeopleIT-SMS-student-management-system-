@@ -4,8 +4,30 @@ import {
   LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
   MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
   LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
-  Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X
+  Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X,
+  Building2, CreditCard, LifeBuoy, ListOrdered, Activity, ShieldAlert
 } from 'lucide-react';
+
+const SUPER_ADMIN_NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Platform Control',
+    items: [
+      { to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Overview' },
+      { to: '/super-admin/institutions', icon: <Building2 className="w-4.5 h-4.5" />, label: 'Institutions' },
+      { to: '/users', icon: <Users className="w-4.5 h-4.5" />, label: 'Users' },
+      { to: '/super-admin/billing', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Billing' },
+    ],
+  },
+  {
+    label: 'Support & Ops',
+    items: [
+      { to: '/super-admin/support-access', icon: <LifeBuoy className="w-4.5 h-4.5 text-amber-500 dark:text-amber-400" />, label: 'Support Access' },
+      { to: '/super-admin/audit-logs', icon: <ListOrdered className="w-4.5 h-4.5" />, label: 'Audit Logs' },
+      { to: '/super-admin/system-health', icon: <Activity className="w-4.5 h-4.5 text-emerald-500" />, label: 'System Health' },
+    ],
+  },
+];
+
 import { useAuthStore, User } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -165,10 +187,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
-        {/* Super Admin is a platform operator confined to the SaaS control
-            panel at "/" — it has no tenant-scoped resources to navigate to,
-            so the nav is intentionally empty for this role. */}
-        {user?.role !== 'SUPER_ADMIN' && NAV_GROUPS.map((group) => {
+        {(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_GROUPS : NAV_GROUPS).map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!item.roles) return true;
             return !!user && item.roles.includes(user.role);

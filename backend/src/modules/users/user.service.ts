@@ -108,12 +108,13 @@ export class UserService {
   }
 
   static async listUsers(
-    tenantId: string,
+    tenantId: string | undefined,
     filters: {
       role?: UserRole;
       search?: string;
       page?: number;
       pageSize?: number;
+      institutionId?: string;
     }
   ) {
     const page = filters.page ?? 1;

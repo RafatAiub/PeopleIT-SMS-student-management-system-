@@ -69,3 +69,22 @@ export const SetInstitutionStatusDto = z.object({
 
 export type SetInstitutionStatusDtoType = z.infer<typeof SetInstitutionStatusDto>;
 
+export const StartSupportSessionDto = z.object({
+  institutionId: z.string().min(1, 'Institution ID is required'),
+  targetUserId: z.string().min(1, 'Target User ID is required'),
+  reason: z.string().min(5, 'Reason must be at least 5 characters'),
+  ticketId: z.string().optional().nullable(),
+  isReadOnly: z.boolean().default(true),
+});
+
+export type StartSupportSessionDtoType = z.infer<typeof StartSupportSessionDto>;
+
+export const AdminUserActionDto = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+  action: z.enum(['SEND_PASSWORD_RESET', 'FORCE_PASSWORD_RESET', 'TOGGLE_STATUS', 'REVOKE_SESSIONS']),
+  isActive: z.boolean().optional(),
+});
+
+export type AdminUserActionDtoType = z.infer<typeof AdminUserActionDto>;
+
+

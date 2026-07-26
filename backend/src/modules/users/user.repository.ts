@@ -99,10 +99,12 @@ export class UserRepository {
       search?: string;
       page: number;
       pageSize: number;
+      institutionId?: string;
     }
   ) {
     const where: any = {};
-    if (tenantId) where.institutionId = tenantId;
+    const targetInstId = tenantId || filters.institutionId;
+    if (targetInstId) where.institutionId = targetInstId;
     if (filters.role) where.role = filters.role;
     if (filters.search) {
       where.OR = [

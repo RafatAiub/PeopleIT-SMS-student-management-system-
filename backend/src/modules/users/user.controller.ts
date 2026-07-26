@@ -27,11 +27,14 @@ export class UserController {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
       const search = req.query.search as string;
-      const { total, users } = await UserService.listUsers(req.tenantId!, {
+      const targetInstitutionId = (req.query.institutionId as string) || req.tenantId;
+
+      const { total, users } = await UserService.listUsers(targetInstitutionId, {
         role: req.query.role as UserRole,
         search,
         page,
         pageSize,
+        institutionId: targetInstitutionId,
       });
       return paginatedResponse(res, users, total, page, pageSize, 'Users retrieved successfully');
     } catch (error) {

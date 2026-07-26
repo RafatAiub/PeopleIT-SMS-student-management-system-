@@ -32,6 +32,9 @@ const Reports = React.lazy(() => import('./pages/reports/Reports'));
 const Messages = React.lazy(() => import('./pages/communication/Messages'));
 const Users = React.lazy(() => import('./pages/users/Users'));
 const Settings = React.lazy(() => import('./pages/settings/Settings'));
+const SupportAccessPortal = React.lazy(() => import('./pages/superadmin/SupportAccessPortal'));
+const AuditLogsPortal = React.lazy(() => import('./pages/superadmin/AuditLogsPortal'));
+const SystemHealthPortal = React.lazy(() => import('./pages/superadmin/SystemHealthPortal'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -54,14 +57,26 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  const { supportSession } = useAuthStore();
+
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 
-  // Super Admin is a platform-level operator, not a tenant user — the only
-  // page it's allowed to see is the SaaS control panel at "/".
-  if (user?.role === 'SUPER_ADMIN' && location.pathname !== '/') {
-    return <Navigate to="/" replace />;
+  // Super Admin navigation restriction (bypassed during active support session)
+  if (user?.role === 'SUPER_ADMIN' && !supportSession) {
+    const allowedSuperAdminPaths = [
+      '/',
+      '/users',
+      '/super-admin/institutions',
+      '/super-admin/billing',
+      '/super-admin/support-access',
+      '/super-admin/audit-logs',
+      '/super-admin/system-health',
+    ];
+    if (!allowedSuperAdminPaths.some((path) => location.pathname === path || location.pathname.startsWith(path))) {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -127,6 +142,8 @@ const timeAgo = (iso: string) => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
+import { SupportBanner } from './components/common/SupportBanner';
+
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { mobileMenuOpen, toggleMobileMenu, setMobileMenuOpen, theme, setTheme, notifications, markNotificationRead, clearNotifications } = useUiStore();
   const { user } = useAuthStore();
@@ -175,6 +192,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       )}
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+        <SupportBanner />
         {/* Simple Header */}
         <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md shadow-sm border-b border-slate-200 dark:border-white/5 transition-colors duration-300">
           <div className="flex items-center">
@@ -512,6 +530,46 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <Messages />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/institutions" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <AdminDashboard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/support-access" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <SupportAccessPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/billing" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <InvoiceList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/audit-logs" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <AuditLogsPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/system-health" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <SystemHealthPortal />
             </DashboardLayout>
           </ProtectedRoute>
         } />

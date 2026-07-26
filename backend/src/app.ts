@@ -82,6 +82,8 @@ const globalLimiter = rateLimit({
 });
 app.use('/api/', globalLimiter);
 
+import { enforceReadOnly } from './middleware/readonly.middleware';
+
 // Strict rate limit for auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -93,6 +95,9 @@ const authLimiter = rateLimit({
 });
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/refresh', authLimiter);
+
+// Enforce read-only mode for active support access sessions
+app.use('/api/', enforceReadOnly);
 
 // Mount API routes
 app.use('/api/v1/auth', authRouter);

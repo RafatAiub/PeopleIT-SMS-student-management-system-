@@ -22,7 +22,15 @@ export async function setTenant(req: Request, _res: Response, next: NextFunction
       throw new UnauthorizedError('Authentication required before tenant resolution');
     }
 
-    const institutionId = req.user.institutionId;
+    let institutionId = req.user.institutionId;
+
+    // Fallback for Super Admin accessing tenant endpoints directly
+    if ((!institutionId || institutionId.trim() === '') && req.user.role === 'SUPER_ADMIN') {
+      const targetHeader = (req.headers['x-institution-id'] as string) || (req.headers['x-tenant-id'] as string) || (req.query.institutionId as string);
+      if (targetHeader && targetHeader.trim() !== '') {
+        institutionId = targetHeader.trim();
+      }
+    }
 
     if (!institutionId || institutionId.trim() === '') {
       if (req.user.role === 'SUPER_ADMIN') {
@@ -32,9 +40,6 @@ export async function setTenant(req: Request, _res: Response, next: NextFunction
       throw new UnauthorizedError('No institution associated with this account');
     }
 
-    // Suspension must take effect instantly, even for users holding an
-    // already-issued access token — so re-check isActive against the DB on
-    // every tenant-scoped request rather than trusting the JWT snapshot.
     const institution = await prisma.institution.findUnique({
       where: { id: institutionId },
       select: { isActive: true },

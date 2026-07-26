@@ -5,7 +5,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
-import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto, SetInstitutionStatusDto } from './institution.dto';
+import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto, SetInstitutionStatusDto, StartSupportSessionDto, AdminUserActionDto } from './institution.dto';
 import * as institutionController from './institution.controller';
 
 const router = Router();
@@ -20,6 +20,64 @@ router.post(
   requireRole(UserRole.SUPER_ADMIN),
   validate({ body: CreateInstitutionDto }),
   institutionController.createInstitution
+);
+
+// Global metrics for Super Admin dashboard
+router.get(
+  '/super-admin/metrics',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.getGlobalMetrics
+);
+
+// Paginated institutions for Super Admin data table
+router.get(
+  '/super-admin/paginated',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.listPaginatedInstitutions
+);
+
+// Initiate Support Access Session
+router.post(
+  '/super-admin/support-session/start',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: StartSupportSessionDto }),
+  institutionController.startSupportSession
+);
+
+// Revoke Support Access Session
+router.post(
+  '/super-admin/support-session/revoke',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.revokeSupportSession
+);
+
+// Perform Security Actions on Admin User Account
+router.post(
+  '/super-admin/admin-actions',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: AdminUserActionDto }),
+  institutionController.performAdminUserAction
+);
+
+// Global Audit Logs for Super Admin
+router.get(
+  '/super-admin/audit-logs',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.getAuditLogs
+);
+
+// Infrastructure & System Health Metrics for Super Admin
+router.get(
+  '/super-admin/system-health',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  institutionController.getSystemHealth
 );
 
 // List all institutions (Super Admin only, no tenant set yet)
@@ -40,8 +98,6 @@ router.put(
 );
 
 // Instantly activate/suspend an institution (Super Admin only, no tenant set yet).
-// Suspended institutions are frozen immediately — tenant.middleware.ts re-checks
-// isActive against the DB on every request, so live sessions are cut off too.
 router.patch(
   '/:id/status',
   authenticate,

@@ -82,6 +82,16 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // If in Support Access Mode and session token expires, exit support mode cleanly without corrupting state
+      if (useAuthStore.getState().supportSession) {
+        toast.error('Support access session expired. Returning to Super Admin view.');
+        useAuthStore.getState().exitSupportSession();
+        if (window.location.pathname !== '/') {
+          window.location.href = '/';
+        }
+        return Promise.reject(error);
+      }
+
       // Avoid infinite loop if auth/refresh itself fails or it is a login request
       const url = originalRequest.url || '';
       if (url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('auth/login') || url.includes('auth/refresh')) {
