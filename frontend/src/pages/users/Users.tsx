@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useTableParams } from '../../hooks/useTableParams';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
+import { useAuthStore } from '../../store/authStore';
 
 interface StudentOption {
   id: string;
@@ -143,6 +144,7 @@ const GuardianChildrenLinker = ({
 };
 
 const Users = () => {
+  const { user } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -596,13 +598,15 @@ const Users = () => {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">User Management</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage Admins, Teachers, Students, and Guardians.</p>
         </div>
-        <button
-          onClick={() => { setAddSelectedChildren([]); setAddErrors({}); setIsAddModalOpen(true); }}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
-        >
-          <Plus className="w-5 h-5" />
-          Add User
-        </button>
+        {user?.role !== 'SUPER_ADMIN' && (
+          <button
+            onClick={() => { setAddSelectedChildren([]); setAddErrors({}); setIsAddModalOpen(true); }}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+          >
+            <Plus className="w-5 h-5" />
+            Add User
+          </button>
+        )}
       </div>
 
       {/* Toolbar */}

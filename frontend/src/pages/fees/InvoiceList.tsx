@@ -4,8 +4,10 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
+import { useAuthStore } from '../../store/authStore';
 
 const InvoiceList = () => {
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'invoices' | 'categories'>('invoices');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [totalInvoices, setTotalInvoices] = useState(0);
@@ -323,25 +325,27 @@ const InvoiceList = () => {
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage invoice collections, payments, and fee structures.</p>
         </div>
         
-        <div className="flex items-center gap-2">
-          {activeTab === 'invoices' ? (
-            <button
-              onClick={() => { setInvoiceErrors({}); setIsAddModalOpen(true); }}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
-            >
-              <Plus className="w-4 h-4" />
-              Generate Invoice
-            </button>
-          ) : (
-            <button 
-              onClick={() => setIsCategoryModalOpen(true)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm font-semibold"
-            >
-              <Plus className="w-4 h-4" />
-              Add Category
-            </button>
-          )}
-        </div>
+        {user?.role !== 'SUPER_ADMIN' && (
+          <div className="flex items-center gap-2">
+            {activeTab === 'invoices' ? (
+              <button
+                onClick={() => { setInvoiceErrors({}); setIsAddModalOpen(true); }}
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Generate Invoice
+              </button>
+            ) : (
+              <button 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Add Category
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tabs list */}
