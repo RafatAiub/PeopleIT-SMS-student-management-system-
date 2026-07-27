@@ -50,7 +50,7 @@ export const ExamResultQueryDto = z.object({
   classId: z.string().min(1).optional(),
   sectionId: z.string().min(1).optional(),
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  pageSize: z.coerce.number().int().positive().max(1000).default(20),
 });
 
 // Staff-facing class/section marksheet (distinct from the STUDENT/GUARDIAN
@@ -68,7 +68,7 @@ export const ExamIdParamDto = z.object({
 });
 
 export const ResultIdParamDto = z.object({
-  id: z.string().cuid('Invalid result ID'),
+  id: z.string().min(1, 'Invalid result ID'),
 });
 
 export type CreateExamDtoType = z.infer<typeof CreateExamDto>;

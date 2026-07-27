@@ -36,7 +36,7 @@ export const UpdateStudentDto = CreateStudentDto.partial().extend({
 
 export const StudentQueryDto = z.object({
   page: z.coerce.number().int().positive().default(1),
-  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  pageSize: z.coerce.number().int().positive().max(1000).default(20),
   search: z.string().optional(),
   classId: z.string().min(1).optional(),
   sectionId: z.string().min(1).optional(),

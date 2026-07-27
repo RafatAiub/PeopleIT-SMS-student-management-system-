@@ -63,10 +63,18 @@ const MarksEntry = () => {
   const [selectedSection, setSelectedSection] = useState('A');
   const [selectedDepartment, setSelectedDepartment] = useState('None');
   const [availableSubjects, setAvailableSubjects] = useState<string[]>(COMMON_SUBJECTS_JUNIOR);
+  const [focusedSubject, setFocusedSubject] = useState<string>('ALL');
   const [maxMarks, setMaxMarks] = useState(100);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+
+  const displayedSubjects = useMemo(() => {
+    if (focusedSubject === 'ALL' || !availableSubjects.includes(focusedSubject)) {
+      return availableSubjects;
+    }
+    return [focusedSubject];
+  }, [focusedSubject, availableSubjects]);
   
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<{students: number, marks: number} | null>(null);
@@ -167,7 +175,7 @@ const MarksEntry = () => {
           queryParams.append('examId', selectedExam);
           if (cls) queryParams.append('classId', cls.id);
           if (sec) queryParams.append('sectionId', sec.id);
-          queryParams.append('pageSize', '500');
+          queryParams.append('pageSize', '1000');
 
           const existingRes = await apiClient.get(`/results/results-list?${queryParams.toString()}`);
           const existingRecords = existingRes.data.data || [];
@@ -263,7 +271,7 @@ const MarksEntry = () => {
       queryParams.append('examId', selectedExam);
       if (cls) queryParams.append('classId', cls.id);
       if (sec) queryParams.append('sectionId', sec.id);
-      queryParams.append('pageSize', '100');
+      queryParams.append('pageSize', '1000');
 
       const res = await apiClient.get(`/results/results-list?${queryParams.toString()}`);
       setCompleteResults(res.data.data || []);
@@ -662,6 +670,27 @@ const MarksEntry = () => {
     }
   };
 
+  const fillEmptyWithZero = () => {
+    setUnsavedChanges(true);
+    setMarks((prev) => {
+      const next = { ...prev };
+      const targets = focusedSubject === 'ALL' ? availableSubjects : [focusedSubject];
+      targets.forEach((sub) => {
+        if (!next[sub]) next[sub] = {};
+        students.forEach((student) => {
+          if (!next[sub][student.id] || next[sub][student.id].score === '') {
+            next[sub][student.id] = {
+              score: '0',
+              remarks: next[sub][student.id]?.remarks || '',
+            };
+          }
+        });
+      });
+      return next;
+    });
+    toast.success('Filled empty scores with 0.');
+  };
+
   const handleSave = async () => {
     if (!selectedExam) {
       toast.error('Please select an exam first');
@@ -670,19 +699,36 @@ const MarksEntry = () => {
     setLoading(true);
     try {
       const payload: any[] = [];
+      let invalidScoreFound = false;
+      let invalidMessage = '';
+
       Object.entries(marks).forEach(([subjectName, studentScores]) => {
         Object.entries(studentScores).forEach(([studentId, data]) => {
-          if (data.score !== '') {
-            payload.push({
-              studentId,
-              subject: subjectName,
-              marksObtained: Number(data.score),
-              maxMarks: maxMarks,
-              remarks: data.remarks || ''
-            });
+          if (data.score !== '' && !invalidScoreFound) {
+            const scoreNum = Number(data.score);
+            if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > maxMarks) {
+              invalidScoreFound = true;
+              const studentObj = students.find((s) => s.id === studentId);
+              const studentName = studentObj ? `${studentObj.firstName} ${studentObj.lastName}` : studentId;
+              invalidMessage = `Invalid mark (${data.score}) for ${studentName} in ${subjectName}. Marks must be between 0 and ${maxMarks}.`;
+            } else {
+              payload.push({
+                studentId,
+                subject: subjectName,
+                marksObtained: scoreNum,
+                maxMarks: maxMarks,
+                remarks: data.remarks || '',
+              });
+            }
           }
         });
       });
+
+      if (invalidScoreFound) {
+        toast.error(invalidMessage);
+        setLoading(false);
+        return;
+      }
 
       if (payload.length === 0) {
         toast.error('No marks entered to submit.');
@@ -691,7 +737,7 @@ const MarksEntry = () => {
       }
 
       await apiClient.post('/results/submit', { examId: selectedExam, results: payload });
-      toast.success('Grade sheets submitted successfully!');
+      toast.success(`Successfully saved ${payload.length} grade entries!`);
       setUnsavedChanges(false);
       setUploadSummary(null);
       fetchStudentsAndMarks();
@@ -849,6 +895,24 @@ const MarksEntry = () => {
             )}
 
             <div className="flex flex-col">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Focus Subject</label>
+              <div className="relative">
+                <select
+                  value={focusedSubject}
+                  onChange={(e) => setFocusedSubject(e.target.value)}
+                  className="input-field pr-10 min-w-[160px]"
+                >
+                  <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">All Subjects ({availableSubjects.length})</option>
+                  {availableSubjects.map((sub) => (
+                    <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {sub} ({subjectFillCounts[sub] || 0}/{students.length})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Max Marks</label>
               <input
                 type="number"
@@ -891,7 +955,7 @@ const MarksEntry = () => {
                     <th rowSpan={2} className="sticky left-0 z-30 px-6 py-4 font-medium align-bottom bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-white/10">
                       Student
                     </th>
-                    {availableSubjects.map(sub => (
+                    {displayedSubjects.map(sub => (
                       <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
                         <div>{sub}</div>
                         <div className="mt-0.5 font-normal normal-case text-[11px] text-slate-400 dark:text-slate-500">
@@ -901,7 +965,7 @@ const MarksEntry = () => {
                     ))}
                   </tr>
                   <tr>
-                    {availableSubjects.map(sub => (
+                    {displayedSubjects.map(sub => (
                       <React.Fragment key={sub}>
                         <th className="px-3 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 w-24 bg-slate-50 dark:bg-slate-900">Score</th>
                         <th className="px-3 py-2 font-medium text-center min-w-[220px] border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">Remarks</th>
@@ -912,13 +976,13 @@ const MarksEntry = () => {
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={1 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         Loading students...
                       </td>
                     </tr>
                   ) : students.length === 0 ? (
                     <tr>
-                      <td colSpan={1 + availableSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                         No students found.
                       </td>
                     </tr>
@@ -931,7 +995,7 @@ const MarksEntry = () => {
                             <div className="text-xs text-slate-500">{student.studentId} • Roll {student.rollNumber || '?'}</div>
                           </div>
                         </td>
-                        {availableSubjects.map(sub => {
+                        {displayedSubjects.map(sub => {
                           const generatingKey = `${sub}:${student.id}`;
                           const cellKey = `${sub}:${student.id}`;
                           const scoreVal = marks[sub]?.[student.id]?.score || '';
@@ -1010,7 +1074,30 @@ const MarksEntry = () => {
                       className="hidden"
                     />
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={fillEmptyWithZero}
+                    className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 font-medium py-2 px-3 rounded-xl transition-all text-xs"
+                    title="Fill empty score cells with 0"
+                  >
+                    Fill Empty with 0
+                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>{loading ? 'Saving Grade Sheet...' : 'Save Grade Sheet'}</span>
+                </button>
               </div>
             )}
           </div>
