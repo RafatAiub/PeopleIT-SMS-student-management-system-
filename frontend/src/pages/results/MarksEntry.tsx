@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info } from 'lucide-react';
+import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info, LayoutGrid, BookOpen, Table as TableIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -64,10 +64,19 @@ const MarksEntry = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('None');
   const [availableSubjects, setAvailableSubjects] = useState<string[]>(COMMON_SUBJECTS_JUNIOR);
   const [focusedSubject, setFocusedSubject] = useState<string>('ALL');
+  const [entryMode, setEntryMode] = useState<'cards' | 'subject' | 'matrix'>('cards');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSubjectFocus, setSelectedSubjectFocus] = useState<string>('');
   const [maxMarks, setMaxMarks] = useState(100);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (availableSubjects.length > 0 && (!selectedSubjectFocus || !availableSubjects.includes(selectedSubjectFocus))) {
+      setSelectedSubjectFocus(availableSubjects[0]);
+    }
+  }, [availableSubjects, selectedSubjectFocus]);
 
   const displayedSubjects = useMemo(() => {
     if (focusedSubject === 'ALL' || !availableSubjects.includes(focusedSubject)) {
@@ -75,7 +84,7 @@ const MarksEntry = () => {
     }
     return [focusedSubject];
   }, [focusedSubject, availableSubjects]);
-  
+
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<{students: number, marks: number} | null>(null);
 
@@ -98,6 +107,40 @@ const MarksEntry = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [marks, setMarks] = useState<Record<string, Record<string, { score: string; remarks: string }>>>({});
   const [savedMarkKeys, setSavedMarkKeys] = useState<Set<string>>(new Set());
+
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return students;
+    const q = searchQuery.toLowerCase().trim();
+    return students.filter(
+      (s) =>
+        s.firstName?.toLowerCase().includes(q) ||
+        s.lastName?.toLowerCase().includes(q) ||
+        s.studentId?.toLowerCase().includes(q) ||
+        String(s.rollNumber || '').includes(q)
+    );
+  }, [students, searchQuery]);
+
+  const studentTotalMap = useMemo(() => {
+    const map: Record<string, { totalObtained: number; totalMax: number; filledCount: number }> = {};
+    students.forEach((student) => {
+      let totalObtained = 0;
+      let totalMax = 0;
+      let filledCount = 0;
+      availableSubjects.forEach((sub) => {
+        const scoreStr = marks[sub]?.[student.id]?.score || '';
+        if (scoreStr !== '') {
+          const val = Number(scoreStr);
+          if (!isNaN(val)) {
+            totalObtained += val;
+            totalMax += maxMarks;
+            filledCount++;
+          }
+        }
+      });
+      map[student.id] = { totalObtained, totalMax, filledCount };
+    });
+    return map;
+  }, [students, availableSubjects, marks, maxMarks]);
 
   const loadInitialMetadata = async () => {
     try {
@@ -946,165 +989,437 @@ const MarksEntry = () => {
             </div>
           </div>
 
-          {/* Grade Sheet Grid */}
-          <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm bg-white dark:bg-transparent">
-            <div className="overflow-auto max-h-[65vh]">
-              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-separate border-spacing-0">
-                <thead className="sticky top-0 z-20 text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <tr>
-                    <th rowSpan={2} className="sticky left-0 z-30 px-6 py-4 font-medium align-bottom bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-white/10">
-                      Student
-                    </th>
-                    {displayedSubjects.map(sub => (
-                      <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
-                        <div>{sub}</div>
-                        <div className="mt-0.5 font-normal normal-case text-[11px] text-slate-400 dark:text-slate-500">
-                          {subjectFillCounts[sub] || 0}/{students.length} filled
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                  <tr>
-                    {displayedSubjects.map(sub => (
-                      <React.Fragment key={sub}>
-                        <th className="px-3 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 w-24 bg-slate-50 dark:bg-slate-900">Score</th>
-                        <th className="px-3 py-2 font-medium text-center min-w-[220px] border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">Remarks</th>
-                      </React.Fragment>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
-                        Loading students...
-                      </td>
-                    </tr>
-                  ) : students.length === 0 ? (
-                    <tr>
-                      <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
-                        No students found.
-                      </td>
-                    </tr>
-                  ) : (
-                    students.map((student) => (
-                      <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                        <td className="sticky left-0 z-10 px-6 py-4 bg-white dark:bg-slate-950">
-                          <div>
-                            <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
-                            <div className="text-xs text-slate-500">{student.studentId} • Roll {student.rollNumber || '?'}</div>
-                          </div>
-                        </td>
-                        {displayedSubjects.map(sub => {
-                          const generatingKey = `${sub}:${student.id}`;
-                          const cellKey = `${sub}:${student.id}`;
-                          const scoreVal = marks[sub]?.[student.id]?.score || '';
-                          const isSaved = savedMarkKeys.has(cellKey) && scoreVal !== '';
-                          const isEdited = scoreVal !== '' && !isSaved;
-                          return (
-                            <React.Fragment key={sub}>
-                              <td className="px-3 py-4 border-l border-slate-200 dark:border-white/10">
-                                <input
-                                  type="number"
-                                  placeholder="0"
-                                  value={scoreVal}
-                                  onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
-                                  title={isSaved ? 'Saved' : isEdited ? 'Not yet saved' : undefined}
-                                  className={`input-field w-16 text-center font-semibold ${
-                                    isSaved
-                                      ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-200 dark:ring-emerald-500/20'
-                                      : isEdited
-                                      ? 'border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-200 dark:ring-amber-500/20'
-                                      : ''
-                                  }`}
-                                />
-                              </td>
-                              <td className="px-3 py-4">
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="text"
-                                    placeholder="e.g. Excellent progress"
-                                    value={marks[sub]?.[student.id]?.remarks || ''}
-                                    onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
-                                    className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px]"
-                                  />
-                                  <button
-                                    onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
-                                    disabled={generatingFor === generatingKey}
-                                    type="button"
-                                    title="Generate AI Comment"
-                                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
-                                  >
-                                    {generatingFor === generatingKey ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Sparkles className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                </div>
-                              </td>
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          {/* Responsive View Mode Switcher + Mobile Search Filter */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/10 shadow-sm">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setEntryMode('cards')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  entryMode === 'cards'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Student Cards (Mobile Easy)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode('subject')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  entryMode === 'subject'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Single Subject Focus</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEntryMode('matrix')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                  entryMode === 'matrix'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+                <span>Full Table Matrix</span>
+              </button>
             </div>
 
-            {/* Action Footer */}
-            {students.length > 0 && (
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/20 border-t border-slate-200/50 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={downloadTemplate}
-                    className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 rounded-xl transition-all text-sm"
-                  >
-                    Download Template (CSV)
-                  </button>
-                  
-                  <label className="flex items-center gap-2 border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-600/10 hover:bg-indigo-100 dark:hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-4 rounded-xl transition-all text-sm cursor-pointer">
-                    <span>Upload Excel/CSV</span>
-                    <input
-                      type="file"
-                      accept=".csv, .xlsx, .xls"
-                      onChange={handleCSVImport}
-                      className="hidden"
-                    />
-                  </label>
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search student or roll..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200 pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              />
+            </div>
+          </div>
 
+          {/* MODE 1: Student Cards View (Touch & Mobile Friendly) */}
+          {entryMode === 'cards' && (
+            <div className="space-y-4">
+              {loading ? (
+                <div className="glass-card p-12 text-center text-slate-500">Loading student cards...</div>
+              ) : filteredStudents.length === 0 ? (
+                <div className="glass-card p-12 text-center text-slate-500">No students found.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredStudents.map((student) => {
+                    const summary = studentTotalMap[student.id] || { totalObtained: 0, totalMax: 0, filledCount: 0 };
+                    return (
+                      <div key={student.id} className="glass-card rounded-2xl p-4 border border-slate-200/60 dark:border-white/10 shadow-sm space-y-3 bg-white dark:bg-slate-900/40">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2.5">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900 dark:text-white text-base">
+                                {student.firstName} {student.lastName}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                                Roll #{student.rollNumber || '?'}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              ID: {student.studentId}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Marks</span>
+                            <span className="font-extrabold text-blue-600 dark:text-blue-400 text-sm">
+                              {summary.totalObtained} <span className="text-xs font-medium text-slate-400">/ {summary.filledCount * maxMarks}</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2.5 pt-1">
+                          {displayedSubjects.map((sub) => {
+                            const generatingKey = `${sub}:${student.id}`;
+                            const cellKey = `${sub}:${student.id}`;
+                            const scoreVal = marks[sub]?.[student.id]?.score || '';
+                            const isSaved = savedMarkKeys.has(cellKey) && scoreVal !== '';
+                            const isEdited = scoreVal !== '' && !isSaved;
+
+                            return (
+                              <div key={sub} className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/40 dark:border-white/5 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{sub}</span>
+                                  <span className="text-[11px] text-slate-500">Max: {maxMarks}</span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <div className="relative flex-shrink-0">
+                                    <input
+                                      type="number"
+                                      placeholder="0"
+                                      value={scoreVal}
+                                      onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
+                                      className={`input-field w-20 text-center font-bold py-1.5 text-sm ${
+                                        isSaved
+                                          ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-200 dark:ring-emerald-500/20 bg-emerald-50/30'
+                                          : isEdited
+                                          ? 'border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-200 dark:ring-amber-500/20 bg-amber-50/30'
+                                          : ''
+                                      }`}
+                                    />
+                                  </div>
+
+                                  <input
+                                    type="text"
+                                    placeholder="Remarks..."
+                                    value={marks[sub]?.[student.id]?.remarks || ''}
+                                    onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                                    className="input-field flex-1 text-xs py-1.5"
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                                    disabled={generatingFor === generatingKey}
+                                    title="AI Comment"
+                                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-colors flex-shrink-0"
+                                  >
+                                    {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MODE 2: Single Subject Focus View */}
+          {entryMode === 'subject' && (
+            <div className="space-y-4">
+              <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40">
+                <div className="flex items-center gap-3">
+                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Selected Subject:</label>
+                  <select
+                    value={selectedSubjectFocus}
+                    onChange={(e) => setSelectedSubjectFocus(e.target.value)}
+                    className="input-field min-w-[180px] font-bold text-blue-600 dark:text-blue-400"
+                  >
+                    {availableSubjects.map((sub) => (
+                      <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        {sub} ({subjectFillCounts[sub] || 0}/{students.length} filled)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={fillEmptyWithZero}
-                    className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 font-medium py-2 px-3 rounded-xl transition-all text-xs"
-                    title="Fill empty score cells with 0"
+                    onClick={() => {
+                      const idx = availableSubjects.indexOf(selectedSubjectFocus);
+                      if (idx > 0) setSelectedSubjectFocus(availableSubjects[idx - 1]);
+                    }}
+                    disabled={availableSubjects.indexOf(selectedSubjectFocus) <= 0}
+                    className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors"
                   >
-                    Fill Empty with 0
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {availableSubjects.indexOf(selectedSubjectFocus) + 1} of {availableSubjects.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = availableSubjects.indexOf(selectedSubjectFocus);
+                      if (idx < availableSubjects.length - 1) setSelectedSubjectFocus(availableSubjects[idx + 1]);
+                    }}
+                    disabled={availableSubjects.indexOf(selectedSubjectFocus) >= availableSubjects.length - 1}
+                    className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
+              </div>
+
+              <div className="space-y-2.5">
+                {loading ? (
+                  <div className="glass-card p-12 text-center text-slate-500">Loading students...</div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="glass-card p-12 text-center text-slate-500">No students found.</div>
+                ) : (
+                  filteredStudents.map((student) => {
+                    const sub = selectedSubjectFocus || availableSubjects[0];
+                    const generatingKey = `${sub}:${student.id}`;
+                    const cellKey = `${sub}:${student.id}`;
+                    const scoreVal = marks[sub]?.[student.id]?.score || '';
+                    const isSaved = savedMarkKeys.has(cellKey) && scoreVal !== '';
+                    const isEdited = scoreVal !== '' && !isSaved;
+
+                    return (
+                      <div key={student.id} className="glass-card p-3.5 rounded-2xl border border-slate-200/60 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/40">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                            {student.rollNumber || '?'}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">
+                              {student.firstName} {student.lastName}
+                            </div>
+                            <div className="text-xs text-slate-500">{student.studentId}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-1 max-w-xl">
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <input
+                              type="number"
+                              placeholder="0"
+                              value={scoreVal}
+                              onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
+                              className={`input-field w-20 text-center font-bold py-2 text-sm ${
+                                isSaved
+                                  ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-200 dark:ring-emerald-500/20 bg-emerald-50/30'
+                                  : isEdited
+                                  ? 'border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-200 dark:ring-amber-500/20 bg-amber-50/30'
+                                  : ''
+                              }`}
+                            />
+                            <span className="text-xs text-slate-400 font-medium">/ {maxMarks}</span>
+                          </div>
+
+                          <input
+                            type="text"
+                            placeholder="Remarks..."
+                            value={marks[sub]?.[student.id]?.remarks || ''}
+                            onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                            className="input-field flex-1 text-xs py-2"
+                          />
+
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                            disabled={generatingFor === generatingKey}
+                            title="Generate AI Comment"
+                            className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-colors flex-shrink-0"
+                          >
+                            {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* MODE 3: Full Table Matrix */}
+          {entryMode === 'matrix' && (
+            <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm bg-white dark:bg-transparent">
+              <div className="overflow-auto max-h-[65vh]">
+                <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-separate border-spacing-0">
+                  <thead className="sticky top-0 z-20 text-xs uppercase text-slate-500 dark:text-slate-400">
+                    <tr>
+                      <th rowSpan={2} className="sticky left-0 z-30 px-6 py-4 font-medium align-bottom bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-white/10">
+                        Student
+                      </th>
+                      {displayedSubjects.map(sub => (
+                        <th key={sub} colSpan={2} className="px-4 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">
+                          <div>{sub}</div>
+                          <div className="mt-0.5 font-normal normal-case text-[11px] text-slate-400 dark:text-slate-500">
+                            {subjectFillCounts[sub] || 0}/{students.length} filled
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                    <tr>
+                      {displayedSubjects.map(sub => (
+                        <React.Fragment key={sub}>
+                          <th className="px-3 py-2 font-medium text-center border-l border-b border-slate-200 dark:border-white/10 w-24 bg-slate-50 dark:bg-slate-900">Score</th>
+                          <th className="px-3 py-2 font-medium text-center min-w-[220px] border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900">Remarks</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                          Loading students...
+                        </td>
+                      </tr>
+                    ) : filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                          No students found.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredStudents.map((student) => (
+                        <tr key={student.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
+                          <td className="sticky left-0 z-10 px-6 py-4 bg-white dark:bg-slate-950">
+                            <div>
+                              <div className="font-medium text-slate-900 dark:text-white">{student.firstName} {student.lastName}</div>
+                              <div className="text-xs text-slate-500">{student.studentId} • Roll {student.rollNumber || '?'}</div>
+                            </div>
+                          </td>
+                          {displayedSubjects.map(sub => {
+                            const generatingKey = `${sub}:${student.id}`;
+                            const cellKey = `${sub}:${student.id}`;
+                            const scoreVal = marks[sub]?.[student.id]?.score || '';
+                            const isSaved = savedMarkKeys.has(cellKey) && scoreVal !== '';
+                            const isEdited = scoreVal !== '' && !isSaved;
+                            return (
+                              <React.Fragment key={sub}>
+                                <td className="px-3 py-4 border-l border-slate-200 dark:border-white/10">
+                                  <input
+                                    type="number"
+                                    placeholder="0"
+                                    value={scoreVal}
+                                    onChange={(e) => handleScoreChange(sub, student.id, e.target.value)}
+                                    title={isSaved ? 'Saved' : isEdited ? 'Not yet saved' : undefined}
+                                    className={`input-field w-16 text-center font-semibold ${
+                                      isSaved
+                                        ? 'border-emerald-400 dark:border-emerald-500/60 ring-1 ring-emerald-200 dark:ring-emerald-500/20'
+                                        : isEdited
+                                        ? 'border-amber-400 dark:border-amber-500/60 ring-1 ring-amber-200 dark:ring-amber-500/20'
+                                        : ''
+                                    }`}
+                                  />
+                                </td>
+                                <td className="px-3 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. Excellent progress"
+                                      value={marks[sub]?.[student.id]?.remarks || ''}
+                                      onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                                      className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px]"
+                                    />
+                                    <button
+                                      onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                                      disabled={generatingFor === generatingKey}
+                                      type="button"
+                                      title="Generate AI Comment"
+                                      className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
+                                    >
+                                      {generatingFor === generatingKey ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <Sparkles className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </td>
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Action Footer */}
+          {students.length > 0 && (
+            <div className="p-4 bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={downloadTemplate}
+                  className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 rounded-xl transition-all text-xs sm:text-sm"
+                >
+                  Download Template (CSV)
+                </button>
+                
+                <label className="flex items-center gap-2 border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-600/10 hover:bg-indigo-100 dark:hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-4 rounded-xl transition-all text-xs sm:text-sm cursor-pointer">
+                  <span>Upload Excel/CSV</span>
+                  <input
+                    type="file"
+                    accept=".csv, .xlsx, .xls"
+                    onChange={handleCSVImport}
+                    className="hidden"
+                  />
+                </label>
 
                 <button
                   type="button"
-                  onClick={handleSave}
-                  disabled={loading}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm disabled:opacity-50"
+                  onClick={fillEmptyWithZero}
+                  className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 font-medium py-2 px-3 rounded-xl transition-all text-xs"
+                  title="Fill empty score cells with 0"
                 >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  <span>{loading ? 'Saving Grade Sheet...' : 'Save Grade Sheet'}</span>
+                  Fill Empty with 0
                 </button>
               </div>
-            )}
-          </div>
+
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={loading}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                <span>{loading ? 'Saving Grade Sheet...' : 'Save Grade Sheet'}</span>
+              </button>
+            </div>
+          )}
         </>
       )}
-        </>
-      ) : activeTab === 'sheet' ? (
+    </>
+  ) : activeTab === 'sheet' ? (
         <>
           {/* COMPLETE RESULT SHEET TAB */}
           <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
