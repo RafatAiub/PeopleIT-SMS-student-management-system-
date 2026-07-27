@@ -38,15 +38,15 @@ export const StudentQueryDto = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   search: z.string().optional(),
-  classId: z.string().cuid().optional(),
-  sectionId: z.string().cuid().optional(),
-  branchId: z.string().cuid().optional(),
-  academicYearId: z.string().cuid().optional(),
+  classId: z.string().min(1).optional(),
+  sectionId: z.string().min(1).optional(),
+  branchId: z.string().min(1).optional(),
+  academicYearId: z.string().min(1).optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'GRADUATED', 'TRANSFERRED']).optional(),
 });
 
 export const StudentIdParamDto = z.object({
-  id: z.string().cuid('Invalid student ID'),
+  id: z.string().min(1, 'Invalid student ID'),
 });
 
 export const CreateStudentDocumentDto = z.object({

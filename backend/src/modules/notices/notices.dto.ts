@@ -21,7 +21,7 @@ export const NoticeQueryDto = z.object({
 });
 
 export const NoticeIdParamDto = z.object({
-  id: z.string().cuid('Invalid notice ID'),
+  id: z.string().min(1, 'Invalid notice ID'),
 });
 
 export type CreateNoticeDtoType = z.infer<typeof CreateNoticeDto>;

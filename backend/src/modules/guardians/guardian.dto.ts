@@ -24,18 +24,18 @@ export const GuardianQueryDto = z.object({
 });
 
 export const GuardianIdParamDto = z.object({
-  id: z.string().cuid('Invalid guardian ID'),
+  id: z.string().min(1, 'Invalid guardian ID'),
 });
 
 export const LinkGuardianDto = z.object({
-  guardianId: z.string().cuid('Invalid guardian ID'),
+  guardianId: z.string().min(1, 'Invalid guardian ID'),
   relationship: z.string().max(50).optional(),
   isPrimary: z.boolean().default(false),
 });
 
 export const LinkParamsDto = z.object({
-  id: z.string().cuid('Invalid student ID'),
-  guardianId: z.string().cuid('Invalid guardian ID'),
+  id: z.string().min(1, 'Invalid student ID'),
+  guardianId: z.string().min(1, 'Invalid guardian ID'),
 });
 
 export type CreateGuardianDtoType = z.infer<typeof CreateGuardianDto>;

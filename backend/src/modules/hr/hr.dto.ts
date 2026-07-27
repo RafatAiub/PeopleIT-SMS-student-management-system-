@@ -28,11 +28,11 @@ export const PayrollQueryDto = z.object({
 });
 
 export const StaffIdParamDto = z.object({
-  id: z.string().cuid('Invalid staff ID'),
+  id: z.string().min(1, 'Invalid staff ID'),
 });
 
 export const PayrollIdParamDto = z.object({
-  id: z.string().cuid('Invalid payroll ID'),
+  id: z.string().min(1, 'Invalid payroll ID'),
 });
 
 export type CreateStaffDtoType = z.infer<typeof CreateStaffDto>;

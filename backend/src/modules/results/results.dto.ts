@@ -24,7 +24,7 @@ export const ExamQueryDto = z.object({
 });
 
 export const SingleExamResultEntryDto = z.object({
-  studentId: z.string().cuid('Invalid student ID'),
+  studentId: z.string().min(1, 'Invalid student ID'),
   subject: z.string().min(1, 'Subject is required').max(100),
   marksObtained: z.number().min(0, 'Marks cannot be negative').max(1000),
   maxMarks: z.number().min(1, 'Max marks must be at least 1').max(1000).default(100),
@@ -39,16 +39,16 @@ export const SingleExamResultEntryDto = z.object({
 });
 
 export const SubmitExamResultsDto = z.object({
-  examId: z.string().cuid('Invalid exam ID'),
+  examId: z.string().min(1, 'Invalid exam ID'),
   results: z.array(SingleExamResultEntryDto).nonempty('At least one result record is required'),
 });
 
 export const ExamResultQueryDto = z.object({
-  examId: z.string().cuid().optional(),
-  studentId: z.string().cuid().optional(),
+  examId: z.string().min(1).optional(),
+  studentId: z.string().min(1).optional(),
   subject: z.string().optional(),
-  classId: z.string().cuid().optional(),
-  sectionId: z.string().cuid().optional(),
+  classId: z.string().min(1).optional(),
+  sectionId: z.string().min(1).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
 });
@@ -58,13 +58,13 @@ export const ExamResultQueryDto = z.object({
 // to match ExamResultQueryDto's existing convention above — Student's
 // classId/sectionId are real cuid FKs, not free-text names.
 export const MarksheetQueryDto = z.object({
-  examId: z.string().cuid('Invalid exam ID'),
-  classId: z.string().cuid('Invalid class ID'),
-  sectionId: z.string().cuid('Invalid section ID').optional(),
+  examId: z.string().min(1, 'Invalid exam ID'),
+  classId: z.string().min(1, 'Invalid class ID'),
+  sectionId: z.string().min(1, 'Invalid section ID').optional(),
 });
 
 export const ExamIdParamDto = z.object({
-  id: z.string().cuid('Invalid exam ID'),
+  id: z.string().min(1, 'Invalid exam ID'),
 });
 
 export const ResultIdParamDto = z.object({
