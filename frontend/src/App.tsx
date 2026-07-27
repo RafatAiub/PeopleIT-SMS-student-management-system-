@@ -220,9 +220,17 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-emerald-400">
-              PeopleIT SMS
-            </h1>
+
+            <div className="flex items-center gap-2.5">
+              {useUiStore.getState().institutionLogo && (
+                <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-0.5 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
+                  <img src={useUiStore.getState().institutionLogo!} alt="Logo" className="w-full h-full object-contain" />
+                </div>
+              )}
+              <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-emerald-400">
+                PeopleIT SMS
+              </h1>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {/* Smart Theme Toggle Button */}

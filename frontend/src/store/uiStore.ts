@@ -21,6 +21,9 @@ interface UiState {
   mobileMenuOpen: boolean;
   toggleMobileMenu: () => void;
   setMobileMenuOpen: (val: boolean) => void;
+  institutionLogo: string | null;
+  institutionName: string | null;
+  setInstitutionBranding: (logo: string | null, name?: string | null) => void;
   notifications: Notification[];
   addNotification: (n: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
   markNotificationRead: (id: string) => void;
@@ -40,6 +43,13 @@ export const useUiStore = create<UiState>()(
       toggleMobileMenu: () =>
         set((state) => ({ mobileMenuOpen: !state.mobileMenuOpen })),
       setMobileMenuOpen: (val) => set({ mobileMenuOpen: val }),
+      institutionLogo: null,
+      institutionName: null,
+      setInstitutionBranding: (logo, name) =>
+        set((state) => ({
+          institutionLogo: logo !== undefined ? logo : state.institutionLogo,
+          institutionName: name !== undefined ? name : state.institutionName,
+        })),
       notifications: [
         {
           id: '1',
@@ -91,6 +101,8 @@ export const useUiStore = create<UiState>()(
       partialize: (state) => ({
         theme: state.theme,
         sidebarCollapsed: state.sidebarCollapsed,
+        institutionLogo: state.institutionLogo,
+        institutionName: state.institutionName,
       }),
     }
   )

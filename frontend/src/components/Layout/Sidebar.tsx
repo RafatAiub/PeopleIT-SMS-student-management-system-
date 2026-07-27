@@ -152,6 +152,8 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   };
   const roleLabelText = user ? roleLabel[user.role] : 'User';
 
+  const { institutionLogo, institutionName } = useUiStore();
+
   return (
     <aside
       className={`flex flex-col h-full bg-white/95 dark:bg-[#0B0F19]/95 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
@@ -162,14 +164,20 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       {/* Logo */}
       <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo shadow-md">
-            <GraduationCap className="w-4.5 h-4.5 text-white" />
-          </div>
+          {institutionLogo ? (
+            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+              <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo shadow-md">
+              <GraduationCap className="w-4.5 h-4.5 text-white" />
+            </div>
+          )}
           {(!sidebarCollapsed || isMobile) && (
             <div>
               <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
               <span className="text-slate-600 dark:text-slate-500 text-xs">
-                {user?.institutionName || 'School Management'}
+                {institutionName || user?.institutionName || 'School Management'}
               </span>
             </div>
           )}

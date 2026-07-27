@@ -5,6 +5,7 @@ import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { compressImage } from '../../utils/imageCompressor';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
 
@@ -32,7 +33,7 @@ const Settings = () => {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const { theme, setTheme } = useUiStore();
+  const { theme, setTheme, setInstitutionBranding } = useUiStore();
 
   useEffect(() => {
     fetchSettings();
@@ -130,6 +131,10 @@ const Settings = () => {
           address: data.address || '',
           logoUrl: data.logoUrl || '',
         }));
+
+        if (data.logoUrl || data.name) {
+          setInstitutionBranding(data.logoUrl || null, data.name || null);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch settings', err);
@@ -139,7 +144,7 @@ const Settings = () => {
     }
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -148,27 +153,28 @@ const Settings = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
-      return;
-    }
+    try {
+      // Smart canvas compression: Max 300x300 WebP format, 0.82 quality
+      const { dataUrl, sizeKb } = await compressImage(file, {
+        maxWidth: 300,
+        maxHeight: 300,
+        quality: 0.82,
+        format: 'image/webp',
+      });
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (dataUrl) {
-        setSettings((prev: any) => ({ ...prev, logoUrl: dataUrl }));
-        toast.success('Institute logo loaded cleanly!');
-      }
-    };
-    reader.readAsDataURL(file);
+      setSettings((prev: any) => ({ ...prev, logoUrl: dataUrl }));
+      toast.success(`Logo compressed & optimized (${sizeKb} KB)`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to process image file');
+    }
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await apiClient.put('/institution/website', settings);
-      toast.success('Settings updated successfully');
+      setInstitutionBranding(settings.logoUrl || null, settings.name || null);
+      toast.success('Settings updated & branding synced across portal!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update settings');
     } finally {
