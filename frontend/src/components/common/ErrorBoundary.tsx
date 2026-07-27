@@ -18,6 +18,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: unknown, errorInfo: unknown) {
     console.error('Uncaught render error', error, errorInfo);
+
+    const errMessage = error instanceof Error ? error.message : String(error);
+    if (
+      errMessage.includes('Failed to fetch dynamically imported module') ||
+      errMessage.includes('Importing a module script failed')
+    ) {
+      const isRefreshed = sessionStorage.getItem('chunk_reload_retry');
+      if (!isRefreshed) {
+        sessionStorage.setItem('chunk_reload_retry', 'true');
+        window.location.reload();
+      }
+    }
   }
 
   componentDidUpdate(prevProps: ErrorBoundaryProps) {

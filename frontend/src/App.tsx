@@ -8,33 +8,50 @@ import { useUiStore } from './store/uiStore';
 import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
-// Lazy load pages for performance
-const Login = React.lazy(() => import('./pages/Login'));
-const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
-const TeacherDashboard = React.lazy(() => import('./pages/TeacherDashboard'));
-const GuardianDashboard = React.lazy(() => import('./pages/GuardianDashboard'));
-const StudentList = React.lazy(() => import('./pages/students/StudentList'));
-const InvoiceList = React.lazy(() => import('./pages/fees/InvoiceList'));
-const MyInvoices = React.lazy(() => import('./pages/fees/MyInvoices'));
-const AttendanceEntry = React.lazy(() => import('./pages/attendance/AttendanceEntry'));
-const MarksEntry = React.lazy(() => import('./pages/results/MarksEntry'));
-const MyExamResults = React.lazy(() => import('./pages/results/MyExamResults'));
-const TimetableGrid = React.lazy(() => import('./pages/timetables/TimetableGrid'));
-const NoticeBoard = React.lazy(() => import('./pages/notices/NoticeBoard'));
-const LibraryManagement = React.lazy(() => import('./pages/library/LibraryManagement'));
-const MyLibraryIssues = React.lazy(() => import('./pages/library/MyLibraryIssues'));
-const TransportManagement = React.lazy(() => import('./pages/transport/TransportManagement'));
-const MyTransportAssignment = React.lazy(() => import('./pages/transport/MyTransportAssignment'));
-const HrPayrollManagement = React.lazy(() => import('./pages/hr/HrPayrollManagement'));
-const AiInsights = React.lazy(() => import('./pages/ai/AiInsights'));
-const WebsiteBuilder = React.lazy(() => import('./pages/website/WebsiteBuilder'));
-const Reports = React.lazy(() => import('./pages/reports/Reports'));
-const Messages = React.lazy(() => import('./pages/communication/Messages'));
-const Users = React.lazy(() => import('./pages/users/Users'));
-const Settings = React.lazy(() => import('./pages/settings/Settings'));
-const SupportAccessPortal = React.lazy(() => import('./pages/superadmin/SupportAccessPortal'));
-const AuditLogsPortal = React.lazy(() => import('./pages/superadmin/AuditLogsPortal'));
-const SystemHealthPortal = React.lazy(() => import('./pages/superadmin/SystemHealthPortal'));
+// Helper wrapper for React.lazy to auto-recover when deployment chunk filenames change
+const lazyWithRetry = (importFn: () => Promise<any>) =>
+  React.lazy(async () => {
+    try {
+      const component = await importFn();
+      sessionStorage.removeItem('chunk_reload_retry');
+      return component;
+    } catch (error: any) {
+      const isRefreshed = sessionStorage.getItem('chunk_reload_retry');
+      if (!isRefreshed) {
+        sessionStorage.setItem('chunk_reload_retry', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+
+// Lazy load pages for performance with auto chunk-reload retry
+const Login = lazyWithRetry(() => import('./pages/Login'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
+const TeacherDashboard = lazyWithRetry(() => import('./pages/TeacherDashboard'));
+const GuardianDashboard = lazyWithRetry(() => import('./pages/GuardianDashboard'));
+const StudentList = lazyWithRetry(() => import('./pages/students/StudentList'));
+const InvoiceList = lazyWithRetry(() => import('./pages/fees/InvoiceList'));
+const MyInvoices = lazyWithRetry(() => import('./pages/fees/MyInvoices'));
+const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/AttendanceEntry'));
+const MarksEntry = lazyWithRetry(() => import('./pages/results/MarksEntry'));
+const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'));
+const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
+const NoticeBoard = lazyWithRetry(() => import('./pages/notices/NoticeBoard'));
+const LibraryManagement = lazyWithRetry(() => import('./pages/library/LibraryManagement'));
+const MyLibraryIssues = lazyWithRetry(() => import('./pages/library/MyLibraryIssues'));
+const TransportManagement = lazyWithRetry(() => import('./pages/transport/TransportManagement'));
+const MyTransportAssignment = lazyWithRetry(() => import('./pages/transport/MyTransportAssignment'));
+const HrPayrollManagement = lazyWithRetry(() => import('./pages/hr/HrPayrollManagement'));
+const AiInsights = lazyWithRetry(() => import('./pages/ai/AiInsights'));
+const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
+const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
+const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
+const Users = lazyWithRetry(() => import('./pages/users/Users'));
+const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
+const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
+const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
+const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
