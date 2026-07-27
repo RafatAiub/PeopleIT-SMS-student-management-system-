@@ -29,6 +29,26 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const handleClose = () => {
+    setStep(1);
+    setSubmitting(false);
+    setCreatedSummary(null);
+    setFormData({
+      name: '',
+      slug: '',
+      address: '',
+      phone: '',
+      adminFirstName: '',
+      adminLastName: '',
+      adminEmail: '',
+      adminPassword: '',
+    });
+    setErrors({});
+    setShowPassword(false);
+    setSendInvitation(true);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -134,7 +154,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
@@ -333,11 +353,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  onSuccess();
-                  onClose();
-                  setCreatedSummary(null);
-                }}
+                onClick={handleClose}
                 className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs min-h-[44px]"
               >
                 Done
