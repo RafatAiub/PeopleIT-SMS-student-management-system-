@@ -597,7 +597,9 @@ export async function getSystemHealth() {
   let redis: any = null;
   try {
     redis = require('../../config/redis').default;
-  } catch (e) {}
+  } catch (_e) {
+    // Redis optional fallback
+  }
 
   const startDb = Date.now();
   await prisma.$queryRaw`SELECT 1`;
@@ -612,7 +614,9 @@ export async function getSystemHealth() {
       const match = info.match(/used_memory_human:(.*)/);
       if (match) redisMemory = match[1].trim();
     }
-  } catch (err) {}
+  } catch (_err) {
+    // Redis memory info optional fallback
+  }
 
   const memoryUsage = process.memoryUsage();
   const heapUsedMb = (memoryUsage.heapUsed / 1024 / 1024).toFixed(2);
