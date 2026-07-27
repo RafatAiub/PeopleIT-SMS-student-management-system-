@@ -15,7 +15,7 @@ export const UpdateWebsiteConfigDto = z.object({
     .or(z.literal('')),
   email: z.string().trim().toLowerCase().email('Invalid email format').or(z.literal('')).optional().nullable(),
   address: z.string().trim().max(500).optional().nullable(),
-  logoUrl: z.string().trim().url('Invalid logo URL').or(z.literal('')).optional().nullable(),
+  logoUrl: z.string().trim().optional().nullable(),
 
   // Public website / branding fields
   themeColor: z

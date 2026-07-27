@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award, Upload, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
@@ -120,7 +120,16 @@ const Settings = () => {
     try {
       const res = await apiClient.get('/institution/website');
       if (res.data?.data) {
-        setSettings({ ...settings, ...res.data.data });
+        const data = res.data.data;
+        setSettings((prev: any) => ({
+          ...prev,
+          ...data,
+          name: data.name || user?.institutionName || '',
+          email: data.email || data.contactEmail || user?.email || '',
+          phone: data.phone || data.contactPhone || '',
+          address: data.address || '',
+          logoUrl: data.logoUrl || '',
+        }));
       }
     } catch (err) {
       console.error('Failed to fetch settings', err);
@@ -128,6 +137,31 @@ const Settings = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setSettings((prev: any) => ({ ...prev, logoUrl: dataUrl }));
+        toast.success('Institute logo loaded cleanly!');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSave = async () => {
@@ -141,6 +175,84 @@ const Settings = () => {
       setSaving(false);
     }
   };
+
+  const renderSmartLogoUploader = () => (
+    <div className="space-y-2">
+      <label className="text-sm font-medium text-slate-700 dark:text-slate-400 flex items-center justify-between">
+        <span>Institute Logo</span>
+        <span className="text-xs text-slate-400 font-normal">Upload PNG, JPG, SVG or WebP</span>
+      </label>
+
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="relative w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm group">
+          {settings.logoUrl ? (
+            <>
+              <img
+                src={settings.logoUrl}
+                alt="Logo preview"
+                className="w-full h-full object-contain p-2"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setSettings((prev: any) => ({ ...prev, logoUrl: '' }))}
+                className="absolute top-1 right-1 p-1 rounded-full bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                title="Remove logo"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </>
+          ) : (
+            <Building className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+          )}
+        </div>
+
+        <div className="flex-1 space-y-2.5 w-full">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all">
+              <Upload className="w-4 h-4" />
+              <span>Upload Image File</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileUpload}
+                className="hidden"
+              />
+            </label>
+
+            {settings.logoUrl && (
+              <button
+                type="button"
+                onClick={() => setSettings((prev: any) => ({ ...prev, logoUrl: '' }))}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove</span>
+              </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <input
+              id="settings-logoUrl"
+              type="text"
+              placeholder="Or paste direct image URL (https://...)"
+              value={settings.logoUrl || ''}
+              onChange={(e) => setSettings((prev: any) => ({ ...prev, logoUrl: e.target.value }))}
+              className="input-field text-xs py-2 pr-8"
+            />
+            {settings.logoUrl && (
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-500 text-xs font-bold flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400">Loading settings...</div>;
@@ -337,13 +449,16 @@ const Settings = () => {
                   <Building className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   Institution Profile
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-5">
+                  {renderSmartLogoUploader()}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label htmlFor="settings-name" className="text-sm font-medium text-slate-700 dark:text-slate-400">Institution Name</label>
                       <input
                         id="settings-name"
                         type="text"
+                        placeholder="e.g. MUAZ ISLAMIC SCHOOL"
                         value={settings.name || ''}
                         onChange={(e) => setSettings({ ...settings, name: e.target.value })}
                         className="input-field"
@@ -354,6 +469,7 @@ const Settings = () => {
                       <input
                         id="settings-email"
                         type="email"
+                        placeholder="admin@school.com"
                         value={settings.email || ''}
                         onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                         className="input-field"
@@ -366,6 +482,7 @@ const Settings = () => {
                     <input
                       id="settings-phone"
                       type="text"
+                      placeholder="+880 1234 56789"
                       value={settings.phone || ''}
                       onChange={(e) => setSettings({ ...settings, phone: e.target.value })}
                       className="input-field"
@@ -376,6 +493,7 @@ const Settings = () => {
                     <label htmlFor="settings-address" className="text-sm font-medium text-slate-700 dark:text-slate-400">Address</label>
                     <textarea
                       id="settings-address"
+                      placeholder="Campus Street, City, Country"
                       value={settings.address || ''}
                       onChange={(e) => setSettings({ ...settings, address: e.target.value })}
                       rows={3}
@@ -392,18 +510,8 @@ const Settings = () => {
                   <Palette className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                   Branding
                 </h3>
-                <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label htmlFor="settings-logoUrl" className="text-sm font-medium text-slate-700 dark:text-slate-400">Logo URL</label>
-                    <input
-                      id="settings-logoUrl"
-                      type="url"
-                      placeholder="https://example.com/logo.png"
-                      value={settings.logoUrl || ''}
-                      onChange={(e) => setSettings({ ...settings, logoUrl: e.target.value })}
-                      className="input-field"
-                    />
-                  </div>
+                <div className="space-y-5">
+                  {renderSmartLogoUploader()}
 
                   <div className="space-y-1.5">
                     <label htmlFor="settings-theme" className="text-sm font-medium text-slate-700 dark:text-slate-400">Theme Mode</label>

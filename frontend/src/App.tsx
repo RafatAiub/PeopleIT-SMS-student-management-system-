@@ -55,7 +55,7 @@ const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/System
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
-  const { isAuthenticated, user, hasHydrated } = useAuthStore();
+  const { isAuthenticated, user, hasHydrated, supportSession } = useAuthStore();
   const location = useLocation();
 
   // The auth store hydrates from sessionStorage asynchronously — on a hard
@@ -73,8 +73,6 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
-  const { supportSession } = useAuthStore();
 
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
