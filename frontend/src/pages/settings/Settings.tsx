@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
+import { useAuthStore } from '../../store/authStore';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
@@ -10,6 +11,9 @@ const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : 
 const emptyExamForm = { name: '', startDate: '', endDate: '', isActive: true };
 
 const Settings = () => {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+
   const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams'>('profile');
 
   const [exams, setExams] = useState<any[]>([]);
@@ -32,13 +36,14 @@ const Settings = () => {
 
   useEffect(() => {
     fetchSettings();
+    fetchExams();
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'exams') {
+    if (activeTab === 'exams' && isAdmin) {
       fetchExams();
     }
-  }, [activeTab]);
+  }, [activeTab, isAdmin]);
 
   const fetchExams = async () => {
     setExamsLoading(true);
@@ -139,6 +144,142 @@ const Settings = () => {
 
   if (loading) {
     return <div className="text-slate-500 dark:text-slate-400">Loading settings...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Institution Profile</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Official contact information, branding, and academic schedule.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Institution Identity Card */}
+          <div className="md:col-span-1 space-y-4">
+            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-lg text-center flex flex-col items-center justify-center space-y-4 relative overflow-hidden group">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600" />
+              
+              <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-inner flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-105">
+                {settings.logoUrl ? (
+                  <img 
+                    src={settings.logoUrl} 
+                    alt={`${settings.name || 'Institution'} Logo`} 
+                    className="w-full h-full object-contain p-2"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Building className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+                )}
+              </div>
+
+              <div>
+                <h3 className="font-extrabold text-slate-900 dark:text-white text-lg tracking-tight leading-snug">
+                  {settings.name || 'Institution Name'}
+                </h3>
+                <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
+                  Verified Campus
+                </span>
+              </div>
+            </div>
+
+            <div className="glass-card p-5 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-md space-y-4">
+              <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Contact Information</h4>
+              
+              <div className="space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200/20 dark:border-slate-700/60">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold text-slate-400 block">Email Address</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200 break-all">{settings.email || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200/20 dark:border-slate-700/60">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold text-slate-400 block">Phone Number</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{settings.phone || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-blue-200/20 dark:border-slate-700/60">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-semibold text-slate-400 block">Campus Address</span>
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-relaxed block whitespace-pre-wrap">{settings.address || 'N/A'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Schedule & Active Exams List */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-md space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                  Academic Calendar & Exams
+                </h3>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {exams.filter(e => e.isActive).length} Active Exams
+                </span>
+              </div>
+
+              {examsLoading ? (
+                <div className="text-center text-slate-500 py-12">Loading exams calendar...</div>
+              ) : exams.length === 0 ? (
+                <div className="text-center text-slate-500 py-12">No scheduled exams found.</div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {exams.map((exam) => (
+                    <div 
+                      key={exam.id} 
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-350 dark:hover:border-white/10 shadow-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                          exam.isActive 
+                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                            : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/5'
+                        }`}>
+                          <Award className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">{exam.name}</h4>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            {new Date(exam.startDate).toLocaleDateString()} — {new Date(exam.endDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          exam.isActive
+                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-405 border border-emerald-200/20'
+                            : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'
+                        }`}>
+                          {exam.isActive ? 'Active Schedule' : 'Completed'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
