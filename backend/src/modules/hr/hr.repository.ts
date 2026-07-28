@@ -11,11 +11,12 @@ export async function createStaff(institutionId: string, data: CreateStaffDtoTyp
   return prisma.staffProfile.create({
     data: {
       institutionId,
-      userId: data.userId,
+      userId: data.userId!,
       baseSalary: data.baseSalary,
       department: data.department,
       designation: data.designation,
-      status: 'ACTIVE',
+      status: data.status || 'ACTIVE',
+      joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
     },
     include: {
       user: {

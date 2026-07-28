@@ -1,11 +1,77 @@
 import { z } from 'zod';
 
-export const CreateStaffDto = z.object({
-  userId: z.string().min(1, 'User ID is required'),
-  baseSalary: z.number().positive('Base salary must be positive'),
-  department: z.string().min(1, 'Department is required'),
-  designation: z.string().min(1, 'Designation is required'),
-});
+export const CreateStaffDto = z
+  .object({
+    userId: z.string().optional().nullable(),
+    name: z.string().optional().nullable(),
+    email: z.string().trim().toLowerCase().email('Invalid email format').optional().nullable().or(z.literal('')),
+    phone: z.string().optional().nullable(),
+    role: z.string().optional().nullable(),
+    title: z.string().optional().nullable(),
+    designation: z.string().optional().nullable(),
+    department: z.string().optional().nullable().default('General'),
+    joiningDate: z.string().optional().nullable(),
+    baseSalary: z
+      .preprocess((val) => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const num = Number(val);
+        return isNaN(num) ? undefined : num;
+      }, z.number().positive('Base salary must be positive'))
+      .optional()
+      .nullable(),
+    basicSalary: z
+      .preprocess((val) => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const num = Number(val);
+        return isNaN(num) ? undefined : num;
+      }, z.number().positive('Basic salary must be positive'))
+      .optional()
+      .nullable(),
+    salary: z
+      .preprocess((val) => {
+        if (val === undefined || val === null || val === '') return undefined;
+        const num = Number(val);
+        return isNaN(num) ? undefined : num;
+      }, z.number().positive('Salary must be positive'))
+      .optional()
+      .nullable(),
+    allowances: z
+      .preprocess((val) => {
+        if (val === undefined || val === null || val === '') return 0;
+        const num = Number(val);
+        return isNaN(num) ? 0 : num;
+      }, z.number().nonnegative())
+      .optional()
+      .default(0),
+    deductions: z
+      .preprocess((val) => {
+        if (val === undefined || val === null || val === '') return 0;
+        const num = Number(val);
+        return isNaN(num) ? 0 : num;
+      }, z.number().nonnegative())
+      .optional()
+      .default(0),
+    status: z.string().optional().nullable().default('ACTIVE'),
+  })
+  .transform((data) => {
+    const finalSalary = data.baseSalary ?? data.basicSalary ?? data.salary ?? 0;
+    const finalDesignation = data.designation || data.role || data.title || 'Staff Member';
+    const finalStatus = (data.status || 'ACTIVE').toUpperCase();
+    return {
+      userId: data.userId || undefined,
+      name: data.name || undefined,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      role: data.role || undefined,
+      designation: finalDesignation,
+      department: data.department || 'General',
+      joiningDate: data.joiningDate || undefined,
+      baseSalary: finalSalary > 0 ? finalSalary : 1,
+      allowances: data.allowances ?? 0,
+      deductions: data.deductions ?? 0,
+      status: finalStatus,
+    };
+  });
 
 export const ProcessPayrollDto = z.object({
   payPeriod: z.string().min(1, 'Pay period is required'),

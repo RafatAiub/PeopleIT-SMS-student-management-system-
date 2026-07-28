@@ -12,22 +12,67 @@ import type {
 // --- Staff Services ---
 
 export async function createStaff(institutionId: string, data: CreateStaffDtoType) {
+  let targetUserId = data.userId;
+
+  // If userId is omitted, attempt to look up user by email or auto-create User account
+  if (!targetUserId && data.email) {
+    const existingUser = await prisma.user.findFirst({
+      where: { email: data.email.toLowerCase().trim(), institutionId },
+    });
+    if (existingUser) {
+      targetUserId = existingUser.id;
+    } else {
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash('Staff@123', 10);
+      const nameParts = (data.name || 'Staff Member').trim().split(' ');
+      const firstName = nameParts[0] || 'Staff';
+      const lastName = nameParts.slice(1).join(' ') || 'Member';
+
+      let userRole: any = 'TEACHER';
+      if (data.role && ['ADMIN', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'TEACHER'].includes(data.role.toUpperCase())) {
+        userRole = data.role.toUpperCase();
+      }
+
+      const newUser = await prisma.user.create({
+        data: {
+          institutionId,
+          email: data.email.toLowerCase().trim(),
+          passwordHash: hashedPassword,
+          firstName,
+          lastName,
+          role: userRole,
+          phone: data.phone || null,
+        },
+      });
+      targetUserId = newUser.id;
+    }
+  }
+
+  if (!targetUserId) {
+    throw new NotFoundError('User ID or registered email is required to create a staff profile');
+  }
+
   // Check if target user exists in the same institution
   const user = await prisma.user.findFirst({
-    where: { id: data.userId, institutionId },
+    where: { id: targetUserId, institutionId },
   });
   if (!user) {
-    throw new NotFoundError(`User with ID '${data.userId}' not found in this institution`);
+    throw new NotFoundError(`User with ID '${targetUserId}' not found in this institution`);
   }
 
   // Check if staff profile already exists for this user
-  const existingStaff = await hrRepository.findStaffByUserId(institutionId, data.userId);
+  const existingStaff = await hrRepository.findStaffByUserId(institutionId, targetUserId);
   if (existingStaff) {
-    throw new ConflictError(`Staff profile already exists for user ID '${data.userId}'`);
+    throw new ConflictError(`Staff profile already exists for user ID '${targetUserId}'`);
   }
 
-  const staff = await hrRepository.createStaff(institutionId, data);
-  logger.info('Staff profile created', { staffId: staff.id, userId: data.userId, institutionId });
+  const staffData = {
+    ...data,
+    userId: targetUserId,
+  };
+
+  const staff = await hrRepository.createStaff(institutionId, staffData);
+  logger.info('Staff profile created', { staffId: staff.id, userId: targetUserId, institutionId });
   return staff;
 }
 
