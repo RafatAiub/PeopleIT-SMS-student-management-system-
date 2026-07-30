@@ -45,13 +45,44 @@ export class FeeRepository {
     });
   }
 
-  static async listCategories(tenantId: string) {
-    return prisma.feeCategory.findMany({
-      where: {
-        institutionId: tenantId,
-        isActive: true,
-      },
-      orderBy: { name: 'asc' },
+  static async listCategories(tenantId: string, includeInactive: boolean) {
+    const [categories, usage] = await Promise.all([
+      prisma.feeCategory.findMany({
+        where: {
+          institutionId: tenantId,
+          ...(includeInactive ? {} : { isActive: true }),
+        },
+        include: { _count: { select: { invoiceItems: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      // Revenue actually collected per category — counts only fully-paid
+      // invoices, since partially-paid invoices can't be unambiguously
+      // attributed across their line items.
+      prisma.invoiceItem.groupBy({
+        by: ['feeCategoryId'],
+        where: { invoice: { institutionId: tenantId, status: 'PAID' } },
+        _sum: { netAmount: true },
+      }),
+    ]);
+
+    const revenueByCategory = new Map(usage.map((u) => [u.feeCategoryId, Number(u._sum.netAmount ?? 0)]));
+
+    return categories.map(({ _count, ...cat }) => ({
+      ...cat,
+      linkedInvoiceCount: _count.invoiceItems,
+      revenueCollected: revenueByCategory.get(cat.id) ?? 0,
+    }));
+  }
+
+  static async countInvoiceItemsForCategory(tenantId: string, feeCategoryId: string) {
+    return prisma.invoiceItem.count({
+      where: { feeCategoryId, invoice: { institutionId: tenantId } },
+    });
+  }
+
+  static async deleteCategory(tenantId: string, id: string) {
+    return prisma.feeCategory.delete({
+      where: { id, institutionId: tenantId },
     });
   }
 
@@ -140,17 +171,12 @@ export class FeeRepository {
     });
   }
 
-  static async listInvoices(
-    tenantId: string,
-    filters: {
-      studentId?: string;
-      studentIdIn?: string[];
-      status?: string;
-      search?: string;
-      page: number;
-      pageSize: number;
-    }
-  ) {
+  private static buildInvoiceWhere(tenantId: string, filters: {
+    studentId?: string;
+    studentIdIn?: string[];
+    status?: string;
+    search?: string;
+  }) {
     const where: any = { institutionId: tenantId };
     if (filters.studentId) where.studentId = filters.studentId;
     if (filters.studentIdIn) where.studentId = { in: filters.studentIdIn };
@@ -169,6 +195,44 @@ export class FeeRepository {
         }
       ];
     }
+    return where;
+  }
+
+  static async getInvoiceSummary(tenantId: string, filters: {
+    studentId?: string;
+    studentIdIn?: string[];
+    search?: string;
+  }) {
+    const where = FeeRepository.buildInvoiceWhere(tenantId, filters);
+
+    const [totals, overdueCount] = await prisma.$transaction([
+      prisma.invoice.aggregate({
+        where,
+        _sum: { totalAmount: true, paidAmount: true, dueAmount: true },
+      }),
+      prisma.invoice.count({ where: { ...where, status: 'OVERDUE' } }),
+    ]);
+
+    return {
+      totalInvoiced: Number(totals._sum.totalAmount ?? 0),
+      totalCollected: Number(totals._sum.paidAmount ?? 0),
+      totalOutstanding: Number(totals._sum.dueAmount ?? 0),
+      overdueCount,
+    };
+  }
+
+  static async listInvoices(
+    tenantId: string,
+    filters: {
+      studentId?: string;
+      studentIdIn?: string[];
+      status?: string;
+      search?: string;
+      page: number;
+      pageSize: number;
+    }
+  ) {
+    const where = FeeRepository.buildInvoiceWhere(tenantId, filters);
 
     const [total, invoices] = await prisma.$transaction([
       prisma.invoice.count({ where }),

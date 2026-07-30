@@ -39,6 +39,12 @@ router.get(
   FeeController.listCategories
 );
 
+router.delete(
+  '/categories/:id',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN),
+  FeeController.deleteCategory
+);
+
 // Invoices CRUD
 router.post(
   '/invoices',

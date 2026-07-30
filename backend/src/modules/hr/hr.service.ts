@@ -4,10 +4,34 @@ import { NotFoundError, ConflictError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import type {
   CreateStaffDtoType,
+  UpdateStaffDtoType,
   ProcessPayrollDtoType,
   StaffQueryDtoType,
   PayrollQueryDtoType,
 } from './hr.dto';
+
+// Flattens the joined `user` relation onto the staff profile so callers never
+// have to reach into `staff.user.firstName` — the frontend renders `name`,
+// `email`, `phone` directly off the top-level object.
+function mapStaff(staff: any) {
+  const { user, ...rest } = staff;
+  const name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+  return {
+    ...rest,
+    name: name || 'Unnamed Staff',
+    email: user?.email ?? null,
+    phone: user?.phone ?? null,
+  };
+}
+
+function mapPayroll(payroll: any) {
+  const { staff, ...rest } = payroll;
+  return {
+    ...rest,
+    staffName: staff ? mapStaff(staff).name : 'Unknown Staff',
+    designation: staff?.designation ?? null,
+  };
+}
 
 // --- Staff Services ---
 
@@ -73,7 +97,7 @@ export async function createStaff(institutionId: string, data: CreateStaffDtoTyp
 
   const staff = await hrRepository.createStaff(institutionId, staffData);
   logger.info('Staff profile created', { staffId: staff.id, userId: targetUserId, institutionId });
-  return staff;
+  return mapStaff(staff);
 }
 
 export async function getStaff(institutionId: string, id: string) {
@@ -81,11 +105,25 @@ export async function getStaff(institutionId: string, id: string) {
   if (!staff) {
     throw new NotFoundError(`Staff profile with ID '${id}' not found`);
   }
-  return staff;
+  return mapStaff(staff);
 }
 
 export async function listStaff(institutionId: string, query: StaffQueryDtoType) {
-  return hrRepository.findAllStaff(institutionId, query);
+  const [{ staff, total }, summary] = await Promise.all([
+    hrRepository.findAllStaff(institutionId, query),
+    hrRepository.getStaffSummary(institutionId),
+  ]);
+  return { staff: staff.map(mapStaff), total, summary };
+}
+
+export async function updateStaff(institutionId: string, id: string, data: UpdateStaffDtoType) {
+  const staff = await hrRepository.findStaffById(institutionId, id);
+  if (!staff) {
+    throw new NotFoundError(`Staff profile with ID '${id}' not found`);
+  }
+  const updated = await hrRepository.updateStaff(institutionId, id, data);
+  logger.info('Staff profile updated', { staffId: id, institutionId });
+  return mapStaff(updated);
 }
 
 // --- Payroll Services ---
@@ -132,7 +170,7 @@ export async function processPayroll(institutionId: string, data: ProcessPayroll
     institutionId,
   });
 
-  return payroll;
+  return mapPayroll(payroll);
 }
 
 export async function getPayroll(institutionId: string, id: string) {
@@ -140,11 +178,15 @@ export async function getPayroll(institutionId: string, id: string) {
   if (!payroll) {
     throw new NotFoundError(`Payroll record with ID '${id}' not found`);
   }
-  return payroll;
+  return mapPayroll(payroll);
 }
 
 export async function listPayrolls(institutionId: string, query: PayrollQueryDtoType) {
-  return hrRepository.findAllPayroll(institutionId, query);
+  const [{ payrolls, total }, summary] = await Promise.all([
+    hrRepository.findAllPayroll(institutionId, query),
+    hrRepository.getPayrollSummary(institutionId),
+  ]);
+  return { payrolls: payrolls.map(mapPayroll), total, summary };
 }
 
 export async function payPayroll(institutionId: string, id: string) {
@@ -159,5 +201,5 @@ export async function payPayroll(institutionId: string, id: string) {
 
   const updated = await hrRepository.updatePayrollStatus(institutionId, id, 'PAID', new Date());
   logger.info('Payroll status updated to PAID', { payrollId: id, institutionId });
-  return updated;
+  return mapPayroll(updated);
 }

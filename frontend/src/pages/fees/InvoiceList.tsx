@@ -1,25 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, DollarSign, X, Layers, Tag } from 'lucide-react';
+import { FileText, Plus, DollarSign, X, Layers, Tag, Landmark, AlertCircle, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { useAuthStore } from '../../store/authStore';
+import { StatusBadge } from '../../components/common/StatusBadge';
+import { KpiCard } from '../../components/Charts/KpiCard';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+
+interface InvoiceSummary {
+  totalInvoiced: number;
+  totalCollected: number;
+  totalOutstanding: number;
+  overdueCount: number;
+}
+
+interface CategorySummary {
+  totalCategories: number;
+  activeCount: number;
+  revenuePotential: number;
+}
 
 const InvoiceList = () => {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'invoices' | 'categories'>('invoices');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [totalInvoices, setTotalInvoices] = useState(0);
+  const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [categorySummary, setCategorySummary] = useState<CategorySummary | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryModalMode, setCategoryModalMode] = useState<'create' | 'edit'>('create');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<any>(null);
+  const [deletingCategory, setDeletingCategory] = useState(false);
+  const [togglingCategoryId, setTogglingCategoryId] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
@@ -54,6 +77,7 @@ const InvoiceList = () => {
       const response = await apiClient.get(`/fees/invoices?${queryParams.toString()}`);
       setInvoices(response.data.data || []);
       setTotalInvoices(response.data.meta?.total || 0);
+      setInvoiceSummary(response.data.summary || null);
     } catch (error: any) {
       console.error('Failed to fetch invoices', error);
       toast.error(error.response?.data?.message || 'Failed to fetch invoices');
@@ -66,14 +90,20 @@ const InvoiceList = () => {
     try {
       const [stdRes, catRes] = await Promise.all([
         apiClient.get('/students'),
-        apiClient.get('/fees/categories').catch(() => ({ data: { data: [] } }))
+        // includeInactive so the Fee Categories management tab can show and
+        // reactivate deactivated categories — the invoice-generation dropdown
+        // below filters back down to active-only via `activeCategories`.
+        apiClient.get('/fees/categories?includeInactive=true').catch(() => ({ data: { data: [], summary: null } }))
       ]);
       setStudents(stdRes.data.data || []);
       setCategories(catRes.data.data || []);
+      setCategorySummary(catRes.data.summary || null);
     } catch (error: any) {
       console.error('Failed to fetch dependencies', error);
     }
   };
+
+  const activeCategories = categories.filter((c) => c.isActive !== false);
 
   useEffect(() => {
     if (activeTab === 'invoices') {
@@ -145,21 +175,46 @@ const InvoiceList = () => {
     }
   };
 
-  const handleCreateCategory = async (e: React.FormEvent) => {
+  const openAddCategoryModal = () => {
+    setCategoryModalMode('create');
+    setEditingCategoryId(null);
+    setNewCategory({ name: '', description: '', amount: 0, frequency: 'MONTHLY' });
+    setIsCategoryModalOpen(true);
+  };
+
+  const openEditCategoryModal = (cat: any) => {
+    setCategoryModalMode('edit');
+    setEditingCategoryId(cat.id);
+    setNewCategory({
+      name: cat.name,
+      description: cat.description || '',
+      amount: Number(cat.amount),
+      frequency: cat.frequency,
+    });
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSubmitCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategory.name || newCategory.amount <= 0) {
       toast.error('Please enter a category name and a positive amount');
       return;
     }
     try {
-      await apiClient.post('/fees/categories', {
+      const payload = {
         name: newCategory.name,
         description: newCategory.description,
         amount: Number(newCategory.amount),
         frequency: newCategory.frequency,
-      });
+      };
+      if (categoryModalMode === 'edit' && editingCategoryId) {
+        await apiClient.put(`/fees/categories/${editingCategoryId}`, payload);
+        toast.success('Fee category updated successfully');
+      } else {
+        await apiClient.post('/fees/categories', payload);
+        toast.success('Fee category created successfully');
+      }
       setIsCategoryModalOpen(false);
-      toast.success('Fee category created successfully');
       fetchDependencies();
       setNewCategory({
         name: '',
@@ -168,7 +223,35 @@ const InvoiceList = () => {
         frequency: 'MONTHLY',
       });
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to create fee category');
+      toast.error(error.response?.data?.message || 'Failed to save fee category');
+    }
+  };
+
+  const handleToggleCategoryActive = async (cat: any) => {
+    setTogglingCategoryId(cat.id);
+    try {
+      await apiClient.put(`/fees/categories/${cat.id}`, { isActive: !cat.isActive });
+      toast.success(`${cat.name} is now ${cat.isActive ? 'inactive' : 'active'}.`);
+      fetchDependencies();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update category status');
+    } finally {
+      setTogglingCategoryId(null);
+    }
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setDeletingCategory(true);
+    try {
+      await apiClient.delete(`/fees/categories/${categoryToDelete.id}`);
+      toast.success(`${categoryToDelete.name} deleted.`);
+      setCategoryToDelete(null);
+      fetchDependencies();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete fee category');
+    } finally {
+      setDeletingCategory(false);
     }
   };
 
@@ -243,15 +326,7 @@ const InvoiceList = () => {
       key: 'status',
       header: 'Status',
       sortable: false,
-      render: (invoice) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-          invoice.status === 'PAID' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' :
-          invoice.status === 'OVERDUE' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20' :
-          'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-        }`}>
-          {invoice.status}
-        </span>
-      ),
+      render: (invoice) => <StatusBadge status={invoice.status} />,
     },
     {
       key: 'paymentAction',
@@ -286,7 +361,11 @@ const InvoiceList = () => {
       key: 'description',
       header: 'Description',
       sortable: false,
-      render: (cat) => <span className="text-slate-500 dark:text-slate-400 max-w-xs truncate block">{cat.description || 'N/A'}</span>,
+      render: (cat) => (
+        cat.description
+          ? <span className="text-slate-500 dark:text-slate-400 max-w-xs truncate block">{cat.description}</span>
+          : <span className="text-slate-400 dark:text-slate-600 italic">No description</span>
+      ),
     },
     {
       key: 'frequency',
@@ -305,13 +384,57 @@ const InvoiceList = () => {
       render: (cat) => <span className="font-semibold text-slate-900 dark:text-white tabular-nums">৳ {cat.amount}</span>,
     },
     {
+      key: 'usage',
+      header: 'Usage',
+      sortable: false,
+      render: (cat) => (
+        <>
+          <div className="text-xs text-slate-700 dark:text-slate-300">{cat.linkedInvoiceCount ?? 0} invoice{cat.linkedInvoiceCount === 1 ? '' : 's'}</div>
+          <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">৳ {(cat.revenueCollected ?? 0).toLocaleString()} collected</div>
+        </>
+      ),
+    },
+    {
       key: 'status',
       header: 'Status',
       sortable: false,
+      render: (cat) => <StatusBadge status={cat.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      sortable: false,
       render: (cat) => (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${cat.isActive !== false ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20'}`}>
-          {cat.isActive !== false ? 'ACTIVE' : 'INACTIVE'}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => openEditCategoryModal(cat)}
+            title="Edit category"
+            aria-label={`Edit ${cat.name}`}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleToggleCategoryActive(cat)}
+            disabled={togglingCategoryId === cat.id}
+            title={cat.isActive !== false ? 'Deactivate category' : 'Activate category'}
+            aria-label={cat.isActive !== false ? `Deactivate ${cat.name}` : `Activate ${cat.name}`}
+            className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-50 ${
+              cat.isActive !== false ? 'text-slate-500 hover:text-rose-600 dark:hover:text-red-400' : 'text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+            }`}
+          >
+            {cat.isActive !== false ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={() => cat.linkedInvoiceCount > 0 ? undefined : setCategoryToDelete(cat)}
+            disabled={cat.linkedInvoiceCount > 0}
+            title={cat.linkedInvoiceCount > 0 ? `Cannot delete — ${cat.linkedInvoiceCount} invoice(s) use this category. Deactivate instead.` : 'Delete category'}
+            aria-label={`Delete ${cat.name}`}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-slate-500"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
       ),
     },
   ];
@@ -336,8 +459,8 @@ const InvoiceList = () => {
                 Generate Invoice
               </button>
             ) : (
-              <button 
-                onClick={() => setIsCategoryModalOpen(true)}
+              <button
+                onClick={openAddCategoryModal}
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm font-semibold"
               >
                 <Plus className="w-4 h-4" />
@@ -347,6 +470,75 @@ const InvoiceList = () => {
           </div>
         )}
       </div>
+
+      {/* Summary KPIs */}
+      {activeTab === 'invoices' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            title="Total Invoiced"
+            value={invoiceSummary?.totalInvoiced ?? 0}
+            trend="up"
+            trendValue="All Matching Invoices"
+            icon={<FileText className="w-6 h-6" />}
+            color="indigo"
+            prefix="৳"
+          />
+          <KpiCard
+            title="Collected"
+            value={invoiceSummary?.totalCollected ?? 0}
+            trend="up"
+            trendValue="Payments Received"
+            icon={<DollarSign className="w-6 h-6" />}
+            color="teal"
+            prefix="৳"
+          />
+          <KpiCard
+            title="Outstanding"
+            value={invoiceSummary?.totalOutstanding ?? 0}
+            trend={invoiceSummary?.totalOutstanding ? 'down' : 'up'}
+            trendValue="Still Due"
+            icon={<Landmark className="w-6 h-6" />}
+            color="amber"
+            prefix="৳"
+          />
+          <KpiCard
+            title="Overdue Invoices"
+            value={invoiceSummary?.overdueCount ?? 0}
+            trend={invoiceSummary?.overdueCount ? 'down' : 'up'}
+            trendValue={invoiceSummary?.overdueCount ? 'Needs follow-up' : 'None overdue'}
+            icon={<AlertCircle className="w-6 h-6" />}
+            color="rose"
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <KpiCard
+            title="Total Categories"
+            value={categorySummary?.totalCategories ?? 0}
+            trend="up"
+            trendValue={`${categorySummary?.activeCount ?? 0} Active`}
+            icon={<Layers className="w-6 h-6" />}
+            color="indigo"
+          />
+          <KpiCard
+            title="Active Categories"
+            value={categorySummary?.activeCount ?? 0}
+            trend="up"
+            trendValue={`${(categorySummary?.totalCategories ?? 0) - (categorySummary?.activeCount ?? 0)} Inactive`}
+            icon={<Tag className="w-6 h-6" />}
+            color="teal"
+          />
+          <KpiCard
+            title="Revenue Potential"
+            value={categorySummary?.revenuePotential ?? 0}
+            trend="up"
+            trendValue="Sum of Active Category Fees"
+            icon={<DollarSign className="w-6 h-6" />}
+            color="amber"
+            prefix="৳"
+          />
+        </div>
+      )}
 
       {/* Tabs list */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-white/5">
@@ -441,7 +633,7 @@ const InvoiceList = () => {
                     required
                     value={newInvoice.feeCategoryId}
                     onChange={e => {
-                      const cat = categories.find(c => c.id === e.target.value);
+                      const cat = activeCategories.find(c => c.id === e.target.value);
                       setNewInvoice(prev => ({ ...prev, feeCategoryId: e.target.value, totalAmount: cat ? Number(cat.amount) : 0 }));
                       if (invoiceErrors.feeCategoryId) setInvoiceErrors(prev => ({ ...prev, feeCategoryId: '' }));
                     }}
@@ -449,7 +641,7 @@ const InvoiceList = () => {
                     className={`input-field ${invoiceErrors.feeCategoryId ? 'border-rose-500 focus:ring-rose-500' : ''}`}
                   >
                     <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">-- Choose Fee Category --</option>
-                    {categories.map(cat => (
+                    {activeCategories.map(cat => (
                       <option key={cat.id} value={cat.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cat.name} (৳ {cat.amount})</option>
                     ))}
                   </select>
@@ -508,13 +700,13 @@ const InvoiceList = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Create Fee Category</h3>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{categoryModalMode === 'edit' ? 'Edit Fee Category' : 'Create Fee Category'}</h3>
               <button onClick={() => setIsCategoryModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
-            <form onSubmit={handleCreateCategory} className="p-6 space-y-4">
+
+            <form onSubmit={handleSubmitCategory} className="p-6 space-y-4">
               <div>
                 <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Category Name *</label>
                 <input
@@ -575,13 +767,24 @@ const InvoiceList = () => {
                   type="submit"
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
                 >
-                  Create Category
+                  {categoryModalMode === 'edit' ? 'Save Changes' : 'Create Category'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!categoryToDelete}
+        title="Delete fee category"
+        message={`Are you sure you want to delete "${categoryToDelete?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingCategory}
+        onConfirm={handleConfirmDeleteCategory}
+        onCancel={() => setCategoryToDelete(null)}
+      />
 
       {/* Modal: Record Payment */}
       {isPaymentModalOpen && selectedInvoice && (

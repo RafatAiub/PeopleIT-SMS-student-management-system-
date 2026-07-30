@@ -36,8 +36,21 @@ export async function listStaff(
   try {
     const page = Number(req.query.page) || 1;
     const pageSize = Number(req.query.pageSize) || 20;
-    const { staff, total } = await hrService.listStaff(req.tenantId!, req.query as any);
-    paginatedResponse(res, staff, total, page, pageSize);
+    const { staff, total, summary } = await hrService.listStaff(req.tenantId!, req.query as any);
+    paginatedResponse(res, staff, total, page, pageSize, 'Success', { summary });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStaff(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const staff = await hrService.updateStaff(req.tenantId!, req.params.id, req.body);
+    successResponse(res, staff, 'Staff profile updated successfully');
   } catch (error) {
     next(error);
   }
@@ -77,8 +90,8 @@ export async function listPayrolls(
   try {
     const page = Number(req.query.page) || 1;
     const pageSize = Number(req.query.pageSize) || 20;
-    const { payrolls, total } = await hrService.listPayrolls(req.tenantId!, req.query as any);
-    paginatedResponse(res, payrolls, total, page, pageSize);
+    const { payrolls, total, summary } = await hrService.listPayrolls(req.tenantId!, req.query as any);
+    paginatedResponse(res, payrolls, total, page, pageSize, 'Success', { summary });
   } catch (error) {
     next(error);
   }

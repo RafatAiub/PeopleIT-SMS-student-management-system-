@@ -73,6 +73,20 @@ export const CreateStaffDto = z
     };
   });
 
+export const UpdateStaffDto = z.object({
+  department: z.string().min(1).optional(),
+  designation: z.string().min(1).optional(),
+  baseSalary: z
+    .preprocess((val) => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    }, z.number().positive('Base salary must be positive'))
+    .optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  joiningDate: z.string().optional(),
+});
+
 export const ProcessPayrollDto = z.object({
   payPeriod: z.string().min(1, 'Pay period is required'),
   staffId: z.string().min(1, 'Staff ID is required'),
@@ -102,6 +116,7 @@ export const PayrollIdParamDto = z.object({
 });
 
 export type CreateStaffDtoType = z.infer<typeof CreateStaffDto>;
+export type UpdateStaffDtoType = z.infer<typeof UpdateStaffDto>;
 export type ProcessPayrollDtoType = z.infer<typeof ProcessPayrollDto>;
 export type StaffQueryDtoType = z.infer<typeof StaffQueryDto>;
 export type PayrollQueryDtoType = z.infer<typeof PayrollQueryDto>;

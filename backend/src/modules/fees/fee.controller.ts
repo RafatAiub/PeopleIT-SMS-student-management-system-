@@ -23,8 +23,23 @@ export class FeeController {
 
   static async listCategories(req: Request, res: Response, next: NextFunction) {
     try {
-      const categories = await FeeService.listCategories(req.tenantId!);
-      return successResponse(res, categories, 'Fee categories retrieved successfully');
+      const includeInactive = req.query.includeInactive === 'true';
+      const { categories, summary } = await FeeService.listCategories(req.tenantId!, includeInactive);
+      return res.status(200).json({
+        success: true,
+        message: 'Fee categories retrieved successfully',
+        data: categories,
+        summary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteCategory(req: Request, res: Response, next: NextFunction) {
+    try {
+      await FeeService.deleteCategory(req.tenantId!, req.params.id);
+      return successResponse(res, null, 'Fee category deleted successfully');
     } catch (error) {
       next(error);
     }
@@ -53,14 +68,14 @@ export class FeeController {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
       const search = req.query.search as string;
-      const { total, invoices } = await FeeService.listInvoices(req.tenantId!, {
+      const { total, invoices, summary } = await FeeService.listInvoices(req.tenantId!, {
         studentId: req.query.studentId as string,
         status: req.query.status as string,
         search,
         page,
         pageSize,
       }, req.user!);
-      return paginatedResponse(res, invoices, total, page, pageSize, 'Invoices retrieved successfully');
+      return paginatedResponse(res, invoices, total, page, pageSize, 'Invoices retrieved successfully', { summary });
     } catch (error) {
       next(error);
     }

@@ -6,6 +6,7 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { EmptyState } from '../../components/common/EmptyState';
+import { StatusBadge } from '../../components/common/StatusBadge';
 
 interface RouteType {
   id: string;
@@ -22,7 +23,7 @@ interface VehicleType {
   registrationNumber: string;
   capacity: number;
   driverName: string;
-  status: string;
+  isActive: boolean;
 }
 
 interface AssignmentType {
@@ -162,15 +163,7 @@ export default function TransportManagement() {
       key: 'status',
       header: 'Status',
       sortable: false,
-      render: (vehicle) => (
-        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-          vehicle.status === 'Active'
-            ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-            : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-        }`}>
-          {vehicle.status}
-        </span>
-      ),
+      render: (vehicle) => <StatusBadge status={vehicle.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
     },
   ];
 

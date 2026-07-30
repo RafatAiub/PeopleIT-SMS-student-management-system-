@@ -7,6 +7,7 @@ import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
 import {
   CreateStaffDto,
+  UpdateStaffDto,
   StaffQueryDto,
   StaffIdParamDto,
   ProcessPayrollDto,
@@ -27,6 +28,7 @@ const ADMIN_AND_ACCOUNTANT_READ = requireRole(UserRole.SUPER_ADMIN, UserRole.ADM
 router.post('/staff', ADMIN_ONLY, validate({ body: CreateStaffDto }), hrController.createStaff);
 router.get('/staff', ADMIN_AND_ACCOUNTANT_READ, validate({ query: StaffQueryDto }), hrController.listStaff);
 router.get('/staff/:id', ADMIN_AND_ACCOUNTANT_READ, validate({ params: StaffIdParamDto }), hrController.getStaff);
+router.patch('/staff/:id', ADMIN_ONLY, validate({ params: StaffIdParamDto, body: UpdateStaffDto }), hrController.updateStaff);
 
 // Payroll endpoints — salary data, kept tightly scoped
 router.post('/payroll', ADMIN_ONLY, validate({ body: ProcessPayrollDto }), hrController.processPayroll);

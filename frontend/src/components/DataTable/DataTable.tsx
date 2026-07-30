@@ -187,32 +187,39 @@ export function DataTable<T extends { id: string }>({
 
   const allCols = columns.length + (selectable ? 1 : 0) + (actions?.length ? 1 : 0);
 
+  // A small, fully client-side table (no server search/pagination, and
+  // everything already fits on one page) has nothing for search or a page
+  // size selector to do — showing them just reads as unfinished UI.
+  const needsListControls = serverSearch || serverPagination || data.length > pageSize;
+
   return (
     <div className="flex flex-col gap-4">
       {/* Search */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            id="datatable-search"
-            type="text"
-            value={query}
-            onChange={(e) => handleSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="input-field pl-10 text-sm"
-          />
+      {needsListControls && (
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              id="datatable-search"
+              type="text"
+              value={query}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="input-field pl-10 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-slate-500 dark:text-slate-400">Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s}</option>)}
+            </select>
+          </div>
         </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Show</span>
-          <select
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-          >
-            {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s}</option>)}
-          </select>
-        </div>
-      </div>
+      )}
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-transparent shadow-sm dark:shadow-none">
@@ -318,7 +325,7 @@ export function DataTable<T extends { id: string }>({
       </div>
 
       {/* Pagination */}
-      {!isLoading && paginated.length > 0 && (
+      {!isLoading && paginated.length > 0 && needsListControls && (
         <div className="flex items-center justify-between text-sm">
           <span className="text-slate-500 dark:text-slate-500 font-medium">
             Showing <span className="text-slate-900 dark:text-slate-300">{((page - 1) * pageSize) + 1}</span> to <span className="text-slate-900 dark:text-slate-300">{Math.min(page * pageSize, effectiveTotal)}</span> of <span className="text-slate-900 dark:text-slate-300">{effectiveTotal}</span> results

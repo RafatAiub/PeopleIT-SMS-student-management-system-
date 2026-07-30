@@ -1,9 +1,17 @@
 import { prisma } from '../../config/prisma';
 import type {
   CreateStaffDtoType,
+  UpdateStaffDtoType,
   StaffQueryDtoType,
   PayrollQueryDtoType,
 } from './hr.dto';
+
+const STAFF_USER_SELECT = {
+  firstName: true,
+  lastName: true,
+  email: true,
+  phone: true,
+} as const;
 
 // --- Staff Profile Repository Functions ---
 
@@ -99,6 +107,47 @@ export async function findAllStaff(institutionId: string, query: StaffQueryDtoTy
   ]);
 
   return { staff, total };
+}
+
+export async function updateStaff(institutionId: string, id: string, data: UpdateStaffDtoType) {
+  return prisma.staffProfile.update({
+    where: { id, institutionId },
+    data: {
+      ...(data.department !== undefined ? { department: data.department } : {}),
+      ...(data.designation !== undefined ? { designation: data.designation } : {}),
+      ...(data.baseSalary !== undefined ? { baseSalary: data.baseSalary } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {}),
+      ...(data.joiningDate !== undefined ? { joiningDate: new Date(data.joiningDate) } : {}),
+    },
+    include: { user: { select: STAFF_USER_SELECT } },
+  });
+}
+
+export async function getStaffSummary(institutionId: string) {
+  const [totalStaff, activeCount, payrollAgg, byDepartmentRaw] = await Promise.all([
+    prisma.staffProfile.count({ where: { institutionId } }),
+    prisma.staffProfile.count({ where: { institutionId, status: 'ACTIVE' } }),
+    prisma.staffProfile.aggregate({
+      where: { institutionId, status: 'ACTIVE' },
+      _sum: { baseSalary: true },
+    }),
+    prisma.staffProfile.groupBy({
+      by: ['department'],
+      where: { institutionId },
+      _count: { _all: true },
+    }),
+  ]);
+
+  return {
+    totalStaff,
+    activeCount,
+    inactiveCount: totalStaff - activeCount,
+    totalMonthlyPayroll: Number(payrollAgg._sum.baseSalary ?? 0),
+    byDepartment: byDepartmentRaw.map((d) => ({
+      department: d.department || 'Unassigned',
+      count: d._count._all,
+    })),
+  };
 }
 
 // --- Payroll Repository Functions ---
@@ -216,10 +265,42 @@ export async function updatePayrollStatus(
   paidAt?: Date | null,
 ) {
   return prisma.payrollRecord.update({
-    where: { id },
+    where: { id, institutionId },
     data: {
       status,
       ...(paidAt !== undefined ? { paidAt } : {}),
     },
+    include: {
+      staff: {
+        include: {
+          user: { select: STAFF_USER_SELECT },
+        },
+      },
+    },
   });
+}
+
+// current pay period label, matching the "Month YYYY" format used across the
+// staff/payroll UI (e.g. "July 2026")
+function currentPayPeriod() {
+  return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+}
+
+export async function getPayrollSummary(institutionId: string) {
+  const payPeriod = currentPayPeriod();
+  const [totalStaff, pendingCount, paidThisMonthAgg] = await Promise.all([
+    prisma.staffProfile.count({ where: { institutionId } }),
+    prisma.payrollRecord.count({ where: { institutionId, status: 'UNPAID' } }),
+    prisma.payrollRecord.aggregate({
+      where: { institutionId, status: 'PAID', payPeriod },
+      _sum: { netAmount: true },
+    }),
+  ]);
+
+  return {
+    totalStaff,
+    pendingCount,
+    paidThisMonthTotal: Number(paidThisMonthAgg._sum.netAmount ?? 0),
+    currentPeriod: payPeriod,
+  };
 }

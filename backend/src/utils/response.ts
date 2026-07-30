@@ -66,6 +66,7 @@ export function paginatedResponse<T>(
   page: number,
   pageSize: number,
   message = 'Success',
+  extra?: Record<string, unknown>,
 ): Response {
   const totalPages = Math.ceil(total / pageSize);
   return res.status(200).json({
@@ -80,5 +81,6 @@ export function paginatedResponse<T>(
       hasNext: page < totalPages,
       hasPrev: page > 1,
     },
-  } satisfies ApiResponse<T[]>);
+    ...extra,
+  });
 }

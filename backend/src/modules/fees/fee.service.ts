@@ -3,7 +3,7 @@ import { generateInvoiceNumber } from '../../utils/invoiceNumber';
 import { BkashGateway } from './gateways/bkash.stub';
 import { NagadGateway } from './gateways/nagad.stub';
 import { SslCommerzGateway } from './gateways/sslcommerz.stub';
-import { NotFoundError, BadRequestError } from '../../utils/AppError';
+import { NotFoundError, BadRequestError, ConflictError } from '../../utils/AppError';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { feeReminderQueue } from '../../queues/reminderQueue';
@@ -57,8 +57,29 @@ export class FeeService {
     return FeeRepository.updateCategory(tenantId, id, data);
   }
 
-  static async listCategories(tenantId: string) {
-    return FeeRepository.listCategories(tenantId);
+  static async listCategories(tenantId: string, includeInactive = false) {
+    const categories = await FeeRepository.listCategories(tenantId, includeInactive);
+    const activeCategories = categories.filter((c) => c.isActive);
+    const summary = {
+      totalCategories: categories.length,
+      activeCount: activeCategories.length,
+      revenuePotential: activeCategories.reduce((sum, c) => sum + Number(c.amount), 0),
+    };
+    return { categories, summary };
+  }
+
+  static async deleteCategory(tenantId: string, id: string) {
+    const category = await FeeRepository.getCategoryById(tenantId, id);
+    if (!category) throw new NotFoundError('Fee category not found');
+
+    const usageCount = await FeeRepository.countInvoiceItemsForCategory(tenantId, id);
+    if (usageCount > 0) {
+      throw new ConflictError(
+        'This fee category has linked invoices and cannot be deleted — deactivate it instead',
+      );
+    }
+
+    return FeeRepository.deleteCategory(tenantId, id);
   }
 
   static async createInvoice(
@@ -161,32 +182,35 @@ export class FeeService {
 
     // STUDENT/GUARDIAN: force the studentId scope server-side, ignoring
     // whatever the client supplied in the query string.
+    let scopedFilters: { studentId?: string; studentIdIn?: string[]; status?: string; search?: string };
     if (requester.role === UserRole.STUDENT) {
       const student = await studentRepository.findByUserId(tenantId, requester.sub);
-      return FeeRepository.listInvoices(tenantId, {
+      scopedFilters = {
         status: filters.status,
         search: filters.search,
         studentId: student?.id ?? '__no-match__',
-        page,
-        pageSize,
-      });
-    }
-    if (requester.role === UserRole.GUARDIAN) {
+      };
+    } else if (requester.role === UserRole.GUARDIAN) {
       const linkedStudentIds = await guardianRepository.findLinkedStudentIdsByUserId(tenantId, requester.sub);
-      return FeeRepository.listInvoices(tenantId, {
+      scopedFilters = {
         status: filters.status,
         search: filters.search,
         studentIdIn: linkedStudentIds.length > 0 ? linkedStudentIds : ['__no-match__'],
-        page,
-        pageSize,
-      });
+      };
+    } else {
+      scopedFilters = { studentId: filters.studentId, status: filters.status, search: filters.search };
     }
 
-    return FeeRepository.listInvoices(tenantId, {
-      ...filters,
-      page,
-      pageSize,
-    });
+    const [{ total, invoices }, summary] = await Promise.all([
+      FeeRepository.listInvoices(tenantId, { ...scopedFilters, page, pageSize }),
+      FeeRepository.getInvoiceSummary(tenantId, {
+        studentId: scopedFilters.studentId,
+        studentIdIn: scopedFilters.studentIdIn,
+        search: scopedFilters.search,
+      }),
+    ]);
+
+    return { total, invoices, summary };
   }
 
   static async initiateOnlinePayment(
