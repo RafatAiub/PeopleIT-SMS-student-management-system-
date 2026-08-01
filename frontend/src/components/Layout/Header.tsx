@@ -1,10 +1,11 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Sun, Moon, Monitor, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { LogoMark } from '../common/LogoMark';
+import { getPageLabel } from './Sidebar';
 
 const notificationIcon = (type: 'info' | 'success' | 'warning' | 'error') => {
   switch (type) {
@@ -42,6 +43,13 @@ export const Header: React.FC = () => {
   // See Sidebar.tsx — a bare Super Admin shouldn't show any institution's logo.
   const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Sidebar already carries the brand identity on desktop (expanded or
+  // collapsed) — repeating it here too would just be visual noise. The
+  // header's job on desktop is to say *where you are*; on mobile, where the
+  // sidebar is hidden behind the hamburger drawer, it's the only brand
+  // touchpoint, so it shows the logo there instead.
+  const pageLabel = getPageLabel(location.pathname, user?.role);
   const [themeMenuOpen, setThemeMenuOpen] = React.useState(false);
   const themeMenuRef = React.useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = React.useState(false);
@@ -76,7 +84,9 @@ export const Header: React.FC = () => {
           <Menu className="w-6 h-6" />
         </button>
 
-        <div className="flex items-center gap-2.5">
+        {/* Brand — mobile only. The sidebar (always visible on desktop,
+            expanded or collapsed) already owns the brand identity there. */}
+        <div className="flex items-center gap-2.5 md:hidden">
           {showInstitutionBranding && institutionLogo ? (
             <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-0.5 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden hidden sm:flex">
               <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
@@ -88,6 +98,12 @@ export const Header: React.FC = () => {
             PeopleIT SMS
           </h1>
         </div>
+
+        {/* Page title — desktop only, replaces the brand repeat with
+            something actually useful: where you are right now. */}
+        <h2 className="hidden md:block text-lg font-bold text-slate-900 dark:text-white">
+          {pageLabel}
+        </h2>
       </div>
       <div className="flex items-center gap-3">
         {/* Smart Theme Toggle Button */}

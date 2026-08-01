@@ -122,6 +122,24 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+// Not a sidebar entry (reached via role-based redirect, not a direct nav
+// link) but still needs a header page title.
+const EXTRA_ROUTE_LABELS: Record<string, string> = {
+  '/teacher': 'Teacher Dashboard',
+};
+
+/** Single source of truth for "what page is this" — reused by Header so the
+ *  page title always matches the sidebar's own label for the same route,
+ *  without duplicating the nav copy in two places. */
+export const getPageLabel = (pathname: string, role?: Role): string => {
+  const groups = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_GROUPS : NAV_GROUPS;
+  for (const group of groups) {
+    const match = group.items.find((item) => item.to === pathname);
+    if (match) return match.label;
+  }
+  return EXTRA_ROUTE_LABELS[pathname] || 'Dashboard';
+};
+
 export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
   const { user, supportSession } = useAuthStore();
