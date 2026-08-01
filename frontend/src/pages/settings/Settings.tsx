@@ -6,6 +6,9 @@ import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { compressImage } from '../../utils/imageCompressor';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
 
@@ -189,8 +192,8 @@ const Settings = () => {
         <span className="text-xs text-slate-400 font-normal">Upload PNG, JPG, SVG or WebP</span>
       </label>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="relative w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm group">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="relative w-20 h-20 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-xs group">
           {settings.logoUrl ? (
             <>
               <img
@@ -217,7 +220,7 @@ const Settings = () => {
 
         <div className="flex-1 space-y-2.5 w-full">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all">
               <Upload className="w-4 h-4" />
               <span>Upload Image File</span>
               <input
@@ -276,7 +279,7 @@ const Settings = () => {
           {/* Institution Identity Card */}
           <div className="md:col-span-1 space-y-4">
             <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-lg text-center flex flex-col items-center justify-center space-y-4 relative overflow-hidden group">
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 to-indigo-600" />
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 to-primary-600" />
               
               <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-inner flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-105">
                 {settings.logoUrl ? (
@@ -362,7 +365,7 @@ const Settings = () => {
                   {exams.map((exam) => (
                     <div 
                       key={exam.id} 
-                      className="p-4 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-350 dark:hover:border-white/10 shadow-sm"
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:border-slate-350 dark:hover:border-white/10 shadow-xs"
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
@@ -381,13 +384,9 @@ const Settings = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          exam.isActive
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-405 border border-emerald-200/20'
-                            : 'bg-slate-100 dark:bg-white/5 text-slate-500 border border-transparent'
-                        }`}>
+                        <Badge variant={exam.isActive ? 'success' : 'neutral'}>
                           {exam.isActive ? 'Active Schedule' : 'Completed'}
-                        </span>
+                        </Badge>
                       </div>
                     </div>
                   ))}
@@ -547,13 +546,10 @@ const Settings = () => {
                     <GraduationCap className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                     Manage Exams
                   </h3>
-                  <button
-                    onClick={openCreateExam}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm"
-                  >
+                  <Button variant="gradient" size="sm" onClick={openCreateExam} className="px-4 py-2">
                     <Plus className="w-4 h-4" />
                     New Exam
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10">
@@ -583,13 +579,9 @@ const Settings = () => {
                             <td className="px-4 py-3">{new Date(exam.startDate).toLocaleDateString()}</td>
                             <td className="px-4 py-3">{new Date(exam.endDate).toLocaleDateString()}</td>
                             <td className="px-4 py-3">
-                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                exam.isActive
-                                  ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                  : 'bg-slate-100 dark:bg-white/5 text-slate-500'
-                              }`}>
+                              <Badge variant={exam.isActive ? 'success' : 'neutral'}>
                                 {exam.isActive ? 'Active' : 'Inactive'}
-                              </span>
+                              </Badge>
                             </td>
                             <td className="px-4 py-3">
                               <div className="flex items-center justify-end gap-2">
@@ -622,34 +614,21 @@ const Settings = () => {
 
             {activeTab !== 'exams' && (
               <div className="pt-4 flex justify-end">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50"
-                >
+                <Button variant="gradient" onClick={handleSave} isLoading={saving} className="py-2 px-5">
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Changes'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {examModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-md rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 p-6 space-y-4">
+      <Modal isOpen={examModalOpen} onClose={() => setExamModalOpen(false)} className="max-w-md space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 {editingExamId ? 'Edit Exam' : 'New Exam'}
               </h3>
-              <button
-                onClick={() => setExamModalOpen(false)}
-                aria-label="Close"
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             <div className="space-y-3">
@@ -699,31 +678,22 @@ const Settings = () => {
                   type="checkbox"
                   checked={examForm.isActive}
                   onChange={(e) => setExamForm({ ...examForm, isActive: e.target.checked })}
-                  className="rounded"
+                  className="rounded-sm"
                 />
                 Active
               </label>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setExamModalOpen(false)}
-                className="py-2 px-4 rounded-xl font-semibold text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setExamModalOpen(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={handleSaveExam}
-                disabled={savingExam}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] disabled:opacity-50 text-sm"
-              >
+              </Button>
+              <Button variant="gradient" size="sm" onClick={handleSaveExam} isLoading={savingExam} className="px-5">
                 <Save className="w-4 h-4" />
                 {savingExam ? 'Saving...' : 'Save Exam'}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <ConfirmModal
         isOpen={!!examToDelete}

@@ -165,20 +165,20 @@ export const SupportAccessPortal: React.FC = () => {
         {/* Step 2: Target User Selection */}
         {selectedInstId && (
           <div className="animate-fadeIn space-y-3">
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
-              <div className="flex items-center gap-2 font-bold text-indigo-900 dark:text-indigo-200">
-                <Sparkles className="w-4 h-4 text-indigo-500" />
+            <div className="p-3 bg-primary-50 dark:bg-primary-500/10 border border-primary-200 dark:border-primary-500/20 rounded-2xl flex items-center justify-between text-xs animate-fadeIn">
+              <div className="flex items-center gap-2 font-bold text-primary-900 dark:text-primary-200">
+                <Sparkles className="w-4 h-4 text-primary-500" />
                 <span>
                   Smartly Selected: {institutions.find(i => i.id === selectedInstId)?.name || passedInst?.name || 'Selected Institution'}
                 </span>
               </div>
-              <span className="text-[10px] font-mono uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-300 px-2.5 py-0.5 rounded-full font-extrabold">
+              <span className="text-[10px] font-mono uppercase bg-primary-100 text-primary-800 dark:bg-primary-500/20 dark:text-primary-300 px-2.5 py-0.5 rounded-full font-extrabold">
                 {users.length} Users Loaded
               </span>
             </div>
 
             <label className="block text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <User className="w-4 h-4 text-indigo-500" />
+              <User className="w-4 h-4 text-primary-500" />
               2. Select Target User (Admin, Teacher, Student, Guardian) *
             </label>
 
@@ -222,7 +222,7 @@ export const SupportAccessPortal: React.FC = () => {
                         <p className="text-slate-500">{u.email}</p>
                       </div>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                    <span className="px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                       {u.role}
                     </span>
                   </label>
@@ -253,7 +253,7 @@ export const SupportAccessPortal: React.FC = () => {
                     type="checkbox"
                     checked={isReadOnly}
                     onChange={(e) => setIsReadOnly(e.target.checked)}
-                    className="w-4 h-4 text-amber-600 rounded"
+                    className="w-4 h-4 text-amber-600 rounded-sm"
                   />
                   <div className="text-xs">
                     <span className="font-bold text-amber-900 dark:text-amber-200 block">Enforce Read-Only Mode (Recommended)</span>

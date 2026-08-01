@@ -54,12 +54,12 @@ export const SupportBanner: React.FC = () => {
 
         <span className="hidden md:inline text-white/60">•</span>
 
-        <div className="flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded text-amber-100 font-semibold">
+        <div className="flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-sm text-amber-100 font-semibold">
           <Eye className="w-3.5 h-3.5" />
           <span>{supportSession.isReadOnly ? 'Read-Only' : 'Full Control'}</span>
         </div>
 
-        <div className="flex items-center gap-1 text-amber-100 font-mono bg-black/30 px-2 py-0.5 rounded">
+        <div className="flex items-center gap-1 text-amber-100 font-mono bg-black/30 px-2 py-0.5 rounded-sm">
           <Clock className="w-3.5 h-3.5" />
           <span>Expires in {timeFormatted}</span>
         </div>
@@ -70,7 +70,7 @@ export const SupportBanner: React.FC = () => {
           exitSupportSession();
           toast.success('Exited support session');
         }}
-        className="flex items-center gap-1.5 bg-white text-slate-900 hover:bg-amber-50 px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm active:scale-95 text-xs min-h-[44px]"
+        className="flex items-center gap-1.5 bg-white text-slate-900 hover:bg-amber-50 px-3 py-1.5 rounded-xl font-bold transition-all shadow-xs active:scale-95 text-xs min-h-[44px]"
         title="Exit support session and return to Super Admin view"
       >
         <LogOut className="w-4 h-4 text-amber-700" />

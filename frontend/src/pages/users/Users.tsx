@@ -6,6 +6,9 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 import { useAuthStore } from '../../store/authStore';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 
 interface StudentOption {
   id: string;
@@ -130,7 +133,7 @@ const GuardianChildrenLinker = ({
               key={s.id}
               className="inline-flex items-center gap-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold px-3 py-1.5 rounded-xl"
             >
-              {idx === 0 && <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded">Primary</span>}
+              {idx === 0 && <span className="text-[9px] uppercase tracking-wider bg-amber-600 text-white px-1.5 py-0.5 rounded-sm">Primary</span>}
               {s.firstName} {s.lastName} ({s.studentId})
               <button type="button" onClick={() => removeStudent(s.id)} className="hover:text-rose-600">
                 <X className="w-3.5 h-3.5" />
@@ -546,7 +549,7 @@ const Users = () => {
             <img
               src={user.avatarUrl}
               alt="Avatar"
-              className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-sm"
+              className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-xs"
             />
           ) : (
             <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-slate-200 dark:border-transparent">
@@ -564,24 +567,16 @@ const Users = () => {
       key: 'role',
       header: 'Role',
       accessor: 'role',
-      render: (user) => (
-        <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-          {user.role}
-        </span>
-      ),
+      render: (user) => <Badge variant="neutral">{user.role}</Badge>,
     },
     {
       key: 'status',
       header: 'Status',
       sortable: false,
       render: (user) => (
-        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-          user.isActive !== false
-            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20'
-            : 'bg-rose-50 dark:bg-red-500/10 text-rose-700 dark:text-red-400 border border-rose-200 dark:border-red-500/20'
-        }`}>
+        <Badge variant={user.isActive !== false ? 'success' : 'danger'} motionKey={String(user.isActive)}>
           {user.isActive !== false ? 'Active' : 'Inactive'}
-        </span>
+        </Badge>
       ),
     },
   ];
@@ -599,18 +594,19 @@ const Users = () => {
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage Admins, Teachers, Students, and Guardians.</p>
         </div>
         {user?.role !== 'SUPER_ADMIN' && (
-          <button
+          <Button
+            variant="gradient"
             onClick={() => { setAddSelectedChildren([]); setAddErrors({}); setIsAddModalOpen(true); }}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]"
+            className="py-2 px-4"
           >
             <Plus className="w-5 h-5" />
             Add User
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Toolbar */}
-      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
         <div className="relative">
           <select
             value={params.filters.role || ''}
@@ -628,7 +624,7 @@ const Users = () => {
       </div>
 
       {/* Users Table */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm p-4">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs p-4">
         <DataTable
           data={users}
           columns={userColumns}
@@ -649,18 +645,9 @@ const Users = () => {
       </div>
 
       {/* Add User Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="max-w-3xl p-0 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0 rounded-t-2xl">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New User</h3>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
@@ -806,7 +793,7 @@ const Users = () => {
                 {/* Conditional Teacher Details */}
                 {formData.role === 'TEACHER' && (
                   <div className="animate-fadeIn">
-                    <h4 className="text-sm font-semibold text-indigo-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
+                    <h4 className="text-sm font-semibold text-primary-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification</label>
@@ -838,39 +825,19 @@ const Users = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3 shrink-0 rounded-b-2xl">
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-              >
+              <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                form="addUserForm"
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
-              >
+              </Button>
+              <Button type="submit" form="addUserForm" variant="gradient" isLoading={isSubmitting}>
                 {isSubmitting ? 'Creating...' : 'Create User'}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Edit User Modal */}
-      {isEditModalOpen && selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0">
+      <Modal isOpen={isEditModalOpen && !!selectedUser} onClose={() => setIsEditModalOpen(false)} className="max-w-3xl p-0 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 shrink-0 rounded-t-2xl">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit User</h3>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1">
@@ -1012,7 +979,7 @@ const Users = () => {
                 {/* Conditional Teacher Details */}
                 {editFormData.role === 'TEACHER' && (
                   <div className="animate-fadeIn">
-                    <h4 className="text-sm font-semibold text-indigo-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
+                    <h4 className="text-sm font-semibold text-primary-600 dark:text-purple-400 mb-4 uppercase tracking-wider">Teacher Details</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification</label>
@@ -1044,25 +1011,14 @@ const Users = () => {
             </div>
 
             <div className="p-6 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3 shrink-0 rounded-b-2xl">
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-              >
+              <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                form="editUserForm"
-                disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-blue-500/20"
-              >
+              </Button>
+              <Button type="submit" form="editUserForm" variant="gradient" isLoading={isSubmitting}>
                 {isSubmitting ? 'Updating...' : 'Update User'}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <ConfirmModal
         isOpen={!!userToDelete}

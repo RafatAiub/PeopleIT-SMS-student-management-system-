@@ -147,7 +147,7 @@ const MyInvoices: React.FC = () => {
               onClick={() => setSelectedChildId(child.id)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 selectedChildId === child.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
                   : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
               }`}
             >
@@ -157,7 +157,7 @@ const MyInvoices: React.FC = () => {
         </div>
       )}
 
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
             <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
@@ -202,7 +202,7 @@ const MyInvoices: React.FC = () => {
                         <button
                           onClick={() => handlePayOnline(invoice)}
                           disabled={payingId === invoice.id}
-                          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                         >
                           <CreditCard className="w-3.5 h-3.5" />
                           {payingId === invoice.id ? 'Processing...' : 'Pay Online'}

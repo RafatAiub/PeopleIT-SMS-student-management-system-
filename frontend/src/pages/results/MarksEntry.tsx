@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Button } from '../../components/ui/Button';
 
 interface MarksheetRow {
   id: string;
@@ -851,7 +852,7 @@ const MarksEntry = () => {
             </div>
           ) : (
         <>
-          <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+          <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
             <div className="flex flex-col">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Select Exam</label>
               <div className="relative">
@@ -973,7 +974,7 @@ const MarksEntry = () => {
                 <BookOpenCheck className="w-3.5 h-3.5" />
                 {selectedExamName || 'No exam selected'}
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20">
                 <Users className="w-3.5 h-3.5" />
                 {selectedClass} - Section {selectedSection}
               </span>
@@ -990,14 +991,14 @@ const MarksEntry = () => {
           </div>
 
           {/* Responsive View Mode Switcher + Mobile Search Filter */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/10 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/10 shadow-xs">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
               <button
                 type="button"
                 onClick={() => setEntryMode('cards')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   entryMode === 'cards'
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -1009,7 +1010,7 @@ const MarksEntry = () => {
                 onClick={() => setEntryMode('subject')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   entryMode === 'subject'
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -1021,7 +1022,7 @@ const MarksEntry = () => {
                 onClick={() => setEntryMode('matrix')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                   entryMode === 'matrix'
-                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-sm'
+                    ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -1054,14 +1055,14 @@ const MarksEntry = () => {
                   {filteredStudents.map((student) => {
                     const summary = studentTotalMap[student.id] || { totalObtained: 0, totalMax: 0, filledCount: 0 };
                     return (
-                      <div key={student.id} className="glass-card rounded-2xl p-4 border border-slate-200/60 dark:border-white/10 shadow-sm space-y-3 bg-white dark:bg-slate-900/40">
+                      <div key={student.id} className="glass-card rounded-2xl p-4 border border-slate-200/60 dark:border-white/10 shadow-xs space-y-3 bg-white dark:bg-slate-900/40">
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2.5">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 dark:text-white text-base">
                                 {student.firstName} {student.lastName}
                               </span>
-                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20">
                                 Roll #{student.rollNumber || '?'}
                               </span>
                             </div>
@@ -1122,7 +1123,7 @@ const MarksEntry = () => {
                                     onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
                                     disabled={generatingFor === generatingKey}
                                     title="AI Comment"
-                                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-colors flex-shrink-0"
+                                    className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 transition-colors flex-shrink-0"
                                   >
                                     {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                                   </button>
@@ -1246,7 +1247,7 @@ const MarksEntry = () => {
                             onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
                             disabled={generatingFor === generatingKey}
                             title="Generate AI Comment"
-                            className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 transition-colors flex-shrink-0"
+                            className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 transition-colors flex-shrink-0"
                           >
                             {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                           </button>
@@ -1261,7 +1262,7 @@ const MarksEntry = () => {
 
           {/* MODE 3: Full Table Matrix */}
           {entryMode === 'matrix' && (
-            <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm bg-white dark:bg-transparent">
+            <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs bg-white dark:bg-transparent">
               <div className="overflow-auto max-h-[65vh]">
                 <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-separate border-spacing-0">
                   <thead className="sticky top-0 z-20 text-xs uppercase text-slate-500 dark:text-slate-400">
@@ -1347,7 +1348,7 @@ const MarksEntry = () => {
                                       disabled={generatingFor === generatingKey}
                                       type="button"
                                       title="Generate AI Comment"
-                                      className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:dark:bg-indigo-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
+                                      className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 hover:dark:bg-primary-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
                                     >
                                       {generatingFor === generatingKey ? (
                                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -1373,15 +1374,11 @@ const MarksEntry = () => {
           {students.length > 0 && (
             <div className="p-4 bg-slate-50 dark:bg-slate-900/20 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={downloadTemplate}
-                  className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 font-semibold py-2 px-4 rounded-xl transition-all text-xs sm:text-sm"
-                >
+                <Button type="button" variant="secondary" size="sm" onClick={downloadTemplate} className="px-4 py-2">
                   Download Template (CSV)
-                </button>
-                
-                <label className="flex items-center gap-2 border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-600/10 hover:bg-indigo-100 dark:hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-semibold py-2 px-4 rounded-xl transition-all text-xs sm:text-sm cursor-pointer">
+                </Button>
+
+                <label className="flex items-center gap-2 border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-600/10 hover:bg-primary-100 dark:hover:bg-primary-600/20 text-primary-600 dark:text-primary-400 font-semibold py-2 px-4 rounded-xl transition-all text-xs sm:text-sm cursor-pointer">
                   <span>Upload Excel/CSV</span>
                   <input
                     type="file"
@@ -1391,29 +1388,28 @@ const MarksEntry = () => {
                   />
                 </label>
 
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={fillEmptyWithZero}
-                  className="flex items-center gap-2 border border-slate-200 dark:border-slate-700/50 hover:bg-slate-100 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 font-medium py-2 px-3 rounded-xl transition-all text-xs"
                   title="Fill empty score cells with 0"
+                  className="px-3 py-2"
                 >
                   Fill Empty with 0
-                </button>
+                </Button>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="gradient"
                 onClick={handleSave}
-                disabled={loading}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98] text-sm disabled:opacity-50"
+                isLoading={loading}
+                className="w-full sm:w-auto justify-center py-2.5 px-6"
               >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
+                {!loading && <Save className="w-4 h-4" />}
                 <span>{loading ? 'Saving Grade Sheet...' : 'Save Grade Sheet'}</span>
-              </button>
+              </Button>
             </div>
           )}
         </>
@@ -1422,7 +1418,7 @@ const MarksEntry = () => {
   ) : activeTab === 'sheet' ? (
         <>
           {/* COMPLETE RESULT SHEET TAB */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex flex-col">
                 <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
@@ -1498,7 +1494,7 @@ const MarksEntry = () => {
             <button
               onClick={downloadCSV}
               disabled={studentRows.length === 0}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 active:scale-[0.98] text-sm"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-accent-600 hover:from-emerald-500 hover:to-accent-500 disabled:opacity-50 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 active:scale-[0.98] text-sm"
             >
               Download CSV Sheet
             </button>
@@ -1519,7 +1515,7 @@ const MarksEntry = () => {
           </div>
 
           {/* Grid Table */}
-          <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-sm">
+          <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
@@ -1590,7 +1586,7 @@ const MarksEntry = () => {
       ) : (
         <>
           {/* STUDENT MARKSHEET TAB */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
             <div className="flex flex-col">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
               <div className="relative">
@@ -1709,7 +1705,7 @@ const MarksEntry = () => {
                 action={
                   <button
                     onClick={fetchMarksheet}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
                   >
                     Retry
                   </button>
@@ -1717,7 +1713,7 @@ const MarksEntry = () => {
               />
             </div>
           ) : (
-            <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-sm p-5">
+            <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-xs p-5">
               {selectedStudent && (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1768,7 +1764,7 @@ const MarksEntry = () => {
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-full transition-all shadow-lg shadow-blue-500/25 active:scale-[0.98]"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white font-bold py-2.5 px-6 rounded-full transition-all shadow-lg shadow-blue-500/25 active:scale-[0.98]"
             >
               <Save className="w-4 h-4" />
               {loading ? 'Saving...' : 'Confirm & Save All'}

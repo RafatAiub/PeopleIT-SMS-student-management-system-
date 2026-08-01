@@ -67,7 +67,7 @@ export const AuditLogsPortal: React.FC = () => {
     <div className="space-y-8 max-w-7xl mx-auto animate-fadeIn pb-12">
       {/* Page Header */}
       <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-teal-400" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-primary-500 to-accent-400" />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
@@ -91,10 +91,10 @@ export const AuditLogsPortal: React.FC = () => {
 
       {/* Breakdown Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm space-y-3">
+        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-3">
           <div className="flex items-center justify-between text-xs text-slate-500 font-bold uppercase tracking-wider">
             <span>Action Distribution</span>
-            <Shield className="w-4 h-4 text-indigo-500" />
+            <Shield className="w-4 h-4 text-primary-500" />
           </div>
           <div className="space-y-2">
             {meta.actionBreakdown?.slice(0, 4).map((b: any, i: number) => {
@@ -107,7 +107,7 @@ export const AuditLogsPortal: React.FC = () => {
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+                      className="h-full bg-gradient-to-r from-blue-500 to-primary-500 rounded-full"
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />
                   </div>
@@ -120,7 +120,7 @@ export const AuditLogsPortal: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm flex flex-col justify-between">
+        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs flex flex-col justify-between">
           <div>
             <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block mb-2">Audit Policy Status</span>
             <div className="p-3 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl flex items-center gap-3">
@@ -137,11 +137,11 @@ export const AuditLogsPortal: React.FC = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm flex flex-col justify-between">
+        <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs flex flex-col justify-between">
           <div>
             <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block mb-2">Quick Search Tip</span>
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Use the search bar to filter audit events by user email, institution name, resource type, or specific action names like <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-blue-500 font-mono">SUPPORT_SESSION</code>.
+              Use the search bar to filter audit events by user email, institution name, resource type, or specific action names like <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded-sm text-blue-500 font-mono">SUPPORT_SESSION</code>.
             </p>
           </div>
           <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-slate-500">

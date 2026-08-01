@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Building2, User, CheckCircle2, ChevronRight, ChevronLeft, Mail, Lock, Phone, Globe, Shield, AlertTriangle, X, Eye, EyeOff, Copy, Wand2 } from 'lucide-react';
+import { Building2, User, CheckCircle2, ChevronRight, ChevronLeft, Mail, Lock, Phone, Globe, Shield, AlertTriangle, Eye, EyeOff, Copy, Wand2 } from 'lucide-react';
 import apiClient from '@/api/client';
 import toast from 'react-hot-toast';
+import { Modal } from '../ui/Modal';
 
 interface RegistrationWizardProps {
   isOpen: boolean;
@@ -48,8 +49,6 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
     setSendInvitation(true);
     onClose();
   };
-
-  if (!isOpen) return null;
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -140,12 +139,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl overflow-y-auto max-h-[92vh]">
+    <Modal isOpen={isOpen} onClose={handleClose} className="max-w-2xl max-h-[92vh] overflow-y-auto p-6 sm:p-8">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/5 mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 text-white rounded-2xl shadow-md">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-primary-600 text-white rounded-2xl shadow-md">
               <Building2 className="w-6 h-6" />
             </div>
             <div>
@@ -153,12 +151,6 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">3-Step Onboarding Wizard</p>
             </div>
           </div>
-          <button
-            onClick={handleClose}
-            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         {/* Step Indicator */}
@@ -294,7 +286,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
                   type="checkbox"
                   checked={sendInvitation}
                   onChange={e => setSendInvitation(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="w-4 h-4 text-blue-600 rounded-sm"
                 />
                 <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
                   Send welcome notification to admin email
@@ -332,7 +324,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
                 </div>
                 <div>
                   <span className="text-xs text-slate-500 block">Password:</span>
-                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-500/20 inline-block">
+                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-sm border border-emerald-200 dark:border-emerald-500/20 inline-block">
                     {createdSummary.adminPassword}
                   </span>
                 </div>
@@ -377,7 +369,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
                 <p className="text-xs text-slate-600 dark:text-slate-400">{formData.adminEmail}</p>
                 <div>
                   <span className="text-xs text-slate-500 block">Initial Password:</span>
-                  <span className="text-xs font-mono font-bold text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">
+                  <span className="text-xs font-mono font-bold text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-sm">
                     {formData.adminPassword || '(Auto-generated)'}
                   </span>
                 </div>
@@ -412,7 +404,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
                 type="button"
                 disabled={submitting}
                 onClick={handleSubmit}
-                className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 min-h-[44px]"
+                className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-accent-600 hover:from-emerald-500 hover:to-accent-500 text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-xl shadow-emerald-500/20 transition-all disabled:opacity-50 min-h-[44px]"
               >
                 <CheckCircle2 className="w-5 h-5" />
                 {submitting ? 'Registering...' : 'Confirm & Complete Registration'}
@@ -420,8 +412,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };
 

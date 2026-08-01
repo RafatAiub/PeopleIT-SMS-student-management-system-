@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, DollarSign, X, Layers, Tag, Landmark, AlertCircle, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
+import { FileText, Plus, DollarSign, Layers, Tag, Landmark, AlertCircle, Edit2, Trash2, Power, PowerOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
@@ -8,6 +8,8 @@ import { useAuthStore } from '../../store/authStore';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { KpiCard } from '../../components/Charts/KpiCard';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 
 interface InvoiceSummary {
   totalInvoiced: number;
@@ -372,7 +374,7 @@ const InvoiceList = () => {
       header: 'Frequency',
       accessor: 'frequency',
       render: (cat) => (
-        <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-transparent">
+        <span className="px-2 py-0.5 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold border border-slate-200 dark:border-transparent">
           {cat.frequency}
         </span>
       ),
@@ -453,7 +455,7 @@ const InvoiceList = () => {
             {activeTab === 'invoices' ? (
               <button
                 onClick={() => { setInvoiceErrors({}); setIsAddModalOpen(true); }}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
+                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
               >
                 <Plus className="w-4 h-4" />
                 Generate Invoice
@@ -567,7 +569,7 @@ const InvoiceList = () => {
       </div>
 
       {/* Main card panel */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm p-4">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs p-4">
         {activeTab === 'invoices' ? (
           <DataTable
             data={invoices}
@@ -597,16 +599,11 @@ const InvoiceList = () => {
       </div>
 
       {/* Modal: Generate Invoice */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="max-w-lg p-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Generate Student Invoice</h3>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
             </div>
-            
+
             <form onSubmit={handleGenerateInvoice} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
@@ -676,36 +673,21 @@ const InvoiceList = () => {
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsAddModalOpen(false)} className="py-2 px-4 text-sm">
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm"
-                >
+                </Button>
+                <Button type="submit" variant="gradient" className="py-2 px-5 text-sm">
                   Generate Invoice
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal: Add Fee Category */}
-      {isCategoryModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+      <Modal isOpen={isCategoryModalOpen} onClose={() => setIsCategoryModalOpen(false)} className="max-w-lg p-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{categoryModalMode === 'edit' ? 'Edit Fee Category' : 'Create Fee Category'}</h3>
-              <button onClick={() => setIsCategoryModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
             </div>
-
             <form onSubmit={handleSubmitCategory} className="p-6 space-y-4">
               <div>
                 <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Category Name *</label>
@@ -756,13 +738,9 @@ const InvoiceList = () => {
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsCategoryModalOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsCategoryModalOpen(false)} className="py-2 px-4 text-sm">
                   Cancel
-                </button>
+                </Button>
                 <button
                   type="submit"
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
@@ -771,9 +749,7 @@ const InvoiceList = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <ConfirmModal
         isOpen={!!categoryToDelete}
@@ -788,15 +764,11 @@ const InvoiceList = () => {
 
       {/* Modal: Record Payment */}
       {isPaymentModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
+        <Modal isOpen onClose={() => setIsPaymentModalOpen(false)} className="max-w-md p-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Record Offline Payment</h3>
-              <button onClick={() => setIsPaymentModalOpen(false)} aria-label="Close" className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
             </div>
-            
+
             {Number(selectedInvoice.dueAmount) <= 0 || selectedInvoice.status === 'PAID' ? (
               // Defensive fallback: covers stale UI state where this modal is somehow opened
               // for an invoice that is already fully paid (e.g. list not yet refetched after
@@ -811,13 +783,9 @@ const InvoiceList = () => {
                   This invoice is already fully paid. There is no due amount left to collect.
                 </div>
                 <div className="flex items-center justify-end pt-2 border-t border-slate-100 dark:border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setIsPaymentModalOpen(false)}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
-                  >
+                  <Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)} className="py-2 px-4 text-sm">
                     Close
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -846,13 +814,9 @@ const InvoiceList = () => {
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setIsPaymentModalOpen(false)}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium py-2 px-4 rounded-xl transition-all text-sm"
-                  >
+                  <Button type="button" variant="secondary" onClick={() => setIsPaymentModalOpen(false)} className="py-2 px-4 text-sm">
                     Cancel
-                  </button>
+                  </Button>
                   <button
                     type="submit"
                     className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
@@ -862,8 +826,7 @@ const InvoiceList = () => {
                 </div>
               </form>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

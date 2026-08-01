@@ -157,7 +157,7 @@ const MyExamResults: React.FC = () => {
               onClick={() => setSelectedChildId(child.id)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 selectedChildId === child.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
                   : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
               }`}
             >
@@ -178,7 +178,7 @@ const MyExamResults: React.FC = () => {
             action={
               <button
                 onClick={fetchResults}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
               >
                 Retry
               </button>
@@ -208,7 +208,7 @@ const MyExamResults: React.FC = () => {
               </div>
               <button
                 onClick={() => downloadReportCard(group.records[0].studentId, group.examId)}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl transition-all shadow-md shadow-indigo-500/20 text-xs font-semibold active:scale-[0.98]"
+                className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 rounded-xl transition-all shadow-md shadow-primary-500/20 text-xs font-semibold active:scale-[0.98]"
               >
                 <Download className="w-3.5 h-3.5" />
                 Download Report Card

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, UserCheck, ShieldAlert, Coins, Plus } from 'lucide-react';
+import { Calendar, Users, UserCheck, ShieldAlert, Coins } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { AttendanceRegisterSheet, AttendanceStatus, StudentRecord } from './AttendanceRegisterSheet';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
@@ -268,7 +270,7 @@ const AttendanceEntry = () => {
   if (initialLoading) {
     return (
       <div className="flex flex-col items-center justify-center p-16 text-slate-400">
-        <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <div className="w-8 h-8 border-3 border-primary-500 border-t-transparent rounded-full animate-spin mb-3"></div>
         <span>Loading Attendance Register Portal...</span>
       </div>
     );
@@ -288,7 +290,7 @@ const AttendanceEntry = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-primary-500"></div>
             <div className="flex justify-between items-start mb-4">
               <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Attendance Rate</span>
               <UserCheck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -298,7 +300,7 @@ const AttendanceEntry = () => {
           </div>
 
           <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-accent-500"></div>
             <div className="flex justify-between items-start mb-4">
               <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Total Days Tracked</span>
               <Calendar className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
@@ -323,7 +325,7 @@ const AttendanceEntry = () => {
         </div>
 
         {/* History Table */}
-        <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-sm bg-white dark:bg-slate-900/20">
+        <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-xs bg-white dark:bg-slate-900/20">
           <div className="p-6 border-b border-slate-200/50 dark:border-white/5">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Attendance Log</h3>
           </div>
@@ -385,18 +387,18 @@ const AttendanceEntry = () => {
   if (isGuardian) {
     return (
       <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-indigo-500" />
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-primary-500" />
         <p>Your linked children's attendance history is available on your Guardian Dashboard.</p>
-        <a href="/" className="inline-block mt-4 text-indigo-600 dark:text-indigo-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
+        <a href="/" className="inline-block mt-4 text-primary-600 dark:text-primary-400 font-semibold text-sm hover:underline">Go to Dashboard →</a>
       </div>
     );
   }
   if (isAccountant) {
     return (
       <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-indigo-500" />
+        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-primary-500" />
         <p>Institution-wide attendance trends are available on the Reports page.</p>
-        <a href="/reports" className="inline-block mt-4 text-indigo-600 dark:text-indigo-400 font-semibold text-sm hover:underline">Go to Reports →</a>
+        <a href="/reports" className="inline-block mt-4 text-primary-600 dark:text-primary-400 font-semibold text-sm hover:underline">Go to Reports →</a>
       </div>
     );
   }
@@ -417,7 +419,7 @@ const AttendanceEntry = () => {
         {isAdmin && (
           <button
             onClick={() => setIsAssignModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-indigo-500/20 text-xs font-bold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-primary-500/20 text-xs font-bold active:scale-[0.98]"
           >
             <Users className="w-4 h-4" />
             Assign Class Teacher
@@ -436,7 +438,7 @@ const AttendanceEntry = () => {
       ) : (
         <>
           {/* Class Parameter Selector Bar */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/60 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40 shadow-sm no-print">
+          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/60 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40 shadow-xs no-print">
             {isTeacher ? (
               <div className="flex flex-col">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Section</label>
@@ -524,21 +526,12 @@ const AttendanceEntry = () => {
       )}
 
       {/* Admin Assign Teacher Modal */}
-      {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} className="max-w-md p-8">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 dark:border-white/5">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2.5">
-                <Users className="w-5 h-5 text-indigo-500" />
+                <Users className="w-5 h-5 text-primary-500" />
                 Assign Class Teacher
               </h3>
-              <button
-                onClick={() => setIsAssignModalOpen(false)}
-                aria-label="Close"
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
-              >
-                <Plus className="w-6 h-6 rotate-45" />
-              </button>
             </div>
 
             <form onSubmit={handleAssignTeacherSubmit} className="space-y-4">
@@ -591,25 +584,19 @@ const AttendanceEntry = () => {
               </div>
 
               <div className="flex justify-end gap-4 pt-4 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-xs font-bold"
-                >
+                <Button type="button" variant="ghost" onClick={() => setIsAssignModalOpen(false)} className="px-5 py-2.5 text-xs">
                   Cancel
-                </button>
+                </Button>
                 <button
                   type="submit"
                   disabled={assigning}
-                  className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
+                  className="bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
                 >
                   {assigning ? 'Assigning...' : 'Confirm Assignment'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

@@ -60,7 +60,7 @@ function SkeletonRow({ cols }: { cols: number }) {
     <tr className="border-b border-slate-100 dark:border-white/5">
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-4 py-3">
-          <div className="h-4 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" style={{ width: `${60 + Math.random() * 30}%` }} />
+          <div className="h-4 rounded-sm bg-slate-200 dark:bg-slate-800 animate-pulse" style={{ width: `${60 + Math.random() * 30}%` }} />
         </td>
       ))}
     </tr>
@@ -174,8 +174,8 @@ export function DataTable<T extends { id: string }>({
 
   const getSortIcon = (key: string) => {
     if (sortKey !== key) return <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600" />;
-    if (sortDir === 'asc') return <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />;
-    return <ChevronDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />;
+    if (sortDir === 'asc') return <ChevronUp className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />;
+    return <ChevronDown className="w-3.5 h-3.5 text-primary-600 dark:text-primary-400" />;
   };
 
   const getActionIcon = (icon?: 'view' | 'edit' | 'delete') => {
@@ -213,7 +213,7 @@ export function DataTable<T extends { id: string }>({
             <select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-              className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              className="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
             >
               {[10, 25, 50].map((s) => <option key={s} value={s} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s}</option>)}
             </select>
@@ -222,7 +222,7 @@ export function DataTable<T extends { id: string }>({
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-transparent shadow-sm dark:shadow-none">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-transparent shadow-xs dark:shadow-none">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5">
@@ -232,7 +232,7 @@ export function DataTable<T extends { id: string }>({
                     type="checkbox"
                     checked={paginated.length > 0 && paginated.every((r) => selected.has(r.id))}
                     onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-indigo-500 cursor-pointer"
+                    className="w-4 h-4 rounded-sm border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-primary-500 cursor-pointer"
                   />
                 </th>
               )}
@@ -274,7 +274,7 @@ export function DataTable<T extends { id: string }>({
                 <tr
                   key={row.id}
                   className={`border-b border-slate-100 dark:border-white/5 transition-colors duration-200 hover:bg-slate-50 dark:hover:bg-white/5 ${
-                    selected.has(row.id) ? 'bg-indigo-50 dark:bg-indigo-500/10' : ''
+                    selected.has(row.id) ? 'bg-primary-50 dark:bg-primary-500/10' : ''
                   }`}
                 >
                   {selectable && (
@@ -283,7 +283,7 @@ export function DataTable<T extends { id: string }>({
                         type="checkbox"
                         checked={selected.has(row.id)}
                         onChange={(e) => handleSelectRow(row.id, e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-indigo-500 cursor-pointer"
+                        className="w-4 h-4 rounded-sm border-slate-300 dark:border-white/20 bg-white dark:bg-white/5 accent-primary-500 cursor-pointer"
                       />
                     </td>
                   )}
@@ -308,7 +308,7 @@ export function DataTable<T extends { id: string }>({
                             className={`p-1.5 rounded-lg transition-colors ${
                               action.variant === 'danger'
                                 ? 'text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10'
-                                : 'text-slate-400 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
+                                : 'text-slate-400 hover:text-primary-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
                             }`}
                           >
                             {getActionIcon(action.icon)}
@@ -353,7 +353,7 @@ export function DataTable<T extends { id: string }>({
                   onClick={() => setPage(() => p)}
                   className={`w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200 ${
                     page === p
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                      ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20'
                       : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10'
                   }`}
                 >

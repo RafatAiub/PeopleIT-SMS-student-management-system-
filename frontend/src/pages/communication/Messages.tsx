@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Search, MessageSquare, Plus, X, User } from 'lucide-react';
+import { Send, Search, MessageSquare, Plus, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 
 const Messages = () => {
   const { user } = useAuthStore();
@@ -147,14 +149,11 @@ const Messages = () => {
 
       <div className="flex-1 flex gap-6 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-80 lg:w-96 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 shadow-sm">
+        <div className="w-80 lg:w-96 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 shadow-xs">
           <div className="p-5 border-b border-slate-200/50 dark:border-white/5">
-            <button 
-              onClick={() => setIsSearchOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-3 rounded-2xl transition-all shadow-lg shadow-blue-500/20 text-sm font-bold active:scale-[0.98]"
-            >
+            <Button variant="gradient" onClick={() => setIsSearchOpen(true)} className="w-full justify-center py-3 rounded-2xl text-sm">
               <Plus className="w-5 h-5" /> Start New Chat
-            </button>
+            </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-1">
             {conversations.length === 0 ? (
@@ -204,7 +203,7 @@ const Messages = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 relative shadow-sm">
+        <div className="flex-1 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 relative shadow-xs">
           {activeUser ? (
             <>
               <div className="p-5 border-b border-slate-200/50 dark:border-white/5 flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-10">
@@ -240,7 +239,7 @@ const Messages = () => {
                         <div className={`max-w-[70%] rounded-3xl px-5 py-3 ${
                           isMine 
                             ? 'bg-blue-600 text-white rounded-br-sm shadow-lg shadow-blue-500/20' 
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-sm border border-slate-200 dark:border-white/5 shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-sm border border-slate-200 dark:border-white/5 shadow-xs'
                         }`}>
                           <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                           <span className={`text-[10px] opacity-60 mt-1.5 block ${isMine ? 'text-right' : 'text-left'}`}>
@@ -267,7 +266,7 @@ const Messages = () => {
                   <button
                     type="submit"
                     disabled={!newMessage.trim()}
-                    className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 disabled:hover:from-blue-600 disabled:hover:to-indigo-600 text-white rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex-shrink-0"
+                    className="p-4 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 disabled:opacity-50 disabled:hover:from-blue-600 disabled:hover:to-primary-600 text-white rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex-shrink-0"
                   >
                     <Send className="w-6 h-6" />
                   </button>
@@ -287,20 +286,11 @@ const Messages = () => {
       </div>
 
       {/* New Chat Search Modal */}
-      {isSearchOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-3xl p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+      <Modal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} className="max-w-lg flex flex-col max-h-[80vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Start New Chat</h3>
-              <button 
-                onClick={() => setIsSearchOpen(false)}
-                aria-label="Close"
-                className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
-            
+
             <div className="relative mb-4">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input 
@@ -341,9 +331,7 @@ const Messages = () => {
                 <div className="text-center py-8 text-slate-500">No users found.</div>
               ) : null}
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

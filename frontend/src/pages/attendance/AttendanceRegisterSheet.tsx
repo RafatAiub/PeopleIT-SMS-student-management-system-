@@ -24,6 +24,7 @@ import {
   Check
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Table, TableHead, TableHeaderCell, TableRow, TableCell } from '../../components/ui/Table';
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY';
 
@@ -279,7 +280,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       <div className="block md:hidden no-print">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-1 flex items-center justify-between">
           <span>Tap day to view/take attendance:</span>
-          <span className="font-mono text-indigo-600 dark:text-indigo-400">{selectedDate}</span>
+          <span className="font-mono text-primary-600 dark:text-primary-400">{selectedDate}</span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none snap-x">
           {weekDays.map((day) => {
@@ -291,7 +292,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                 onClick={() => setSelectedDate(day.dateStr)}
                 className={`snap-center flex-shrink-0 flex flex-col items-center justify-center min-w-[62px] py-2.5 px-2 rounded-2xl border transition-all text-xs font-bold ${
                   isSelected
-                    ? 'bg-gradient-to-b from-indigo-600 to-indigo-700 text-white border-indigo-600 shadow-md scale-105'
+                    ? 'bg-gradient-to-b from-primary-600 to-primary-700 text-white border-primary-600 shadow-md scale-105'
                     : day.isHoliday
                     ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-500/20'
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800'
@@ -307,13 +308,13 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       </div>
 
       {/* ── 1. DESKTOP DATE & WEEK CONTROLS BAR ───────────────────────────── */}
-      <div className="hidden md:flex glass-card p-4 rounded-3xl items-center justify-between gap-4 border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/50 no-print shadow-sm">
+      <div className="hidden md:flex glass-card p-4 rounded-3xl items-center justify-between gap-4 border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/50 no-print shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+          <div className="p-2.5 rounded-2xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400">
             <CalendarDays className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 tracking-wider uppercase">
+            <div className="text-[10px] font-bold text-primary-600 dark:text-primary-400 tracking-wider uppercase">
               ATTENDANCE REGISTER
             </div>
             <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -362,7 +363,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           {!isToday && (
             <button
               onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition-all"
+              className="text-xs font-bold px-3 py-2 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-all"
             >
               This Week
             </button>
@@ -413,7 +414,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
               onBatchSetStatus('PRESENT', 'ALL');
               toast.success('Marked all students Present! ⚡');
             }}
-            className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:hover:bg-slate-300 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-all whitespace-nowrap"
+            className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:hover:bg-slate-300 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition-all whitespace-nowrap"
           >
             <CheckCheck className="w-4 h-4" />
             <span className="hidden sm:inline">Mark All Present</span>
@@ -426,7 +427,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             onClick={() => setViewMode('cards')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               viewMode === 'cards'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
                 : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Mobile Touch Cards View"
@@ -438,7 +439,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             onClick={() => setViewMode('weekly')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               viewMode === 'weekly'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
                 : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Weekly Calendar Matrix View"
@@ -450,7 +451,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             onClick={() => setViewMode('table')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               viewMode === 'table'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
                 : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Daily Register Table View"
@@ -464,7 +465,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       {/* ── 3. MAIN ATTENDANCE VIEW CONTENT ─────────────────────────────── */}
       {loading ? (
         <div className="glass-card p-12 rounded-3xl border border-slate-200/60 dark:border-white/5 text-center flex flex-col items-center justify-center space-y-3">
-          <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-xs font-semibold text-slate-500">Loading Register...</span>
         </div>
       ) : filteredStudents.length === 0 ? (
@@ -507,7 +508,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                 {/* Student Info Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-md">
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-md">
                       {student.firstName[0]}
                       {student.lastName[0]}
                     </div>
@@ -612,7 +613,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300">
-                  <th className="py-4 px-5 min-w-[200px] font-bold text-xs uppercase tracking-wider bg-slate-100/90 dark:bg-slate-800/90 sticky left-0 z-20 shadow-sm border-r border-slate-200 dark:border-white/10">
+                  <th className="py-4 px-5 min-w-[200px] font-bold text-xs uppercase tracking-wider bg-slate-100/90 dark:bg-slate-800/90 sticky left-0 z-20 shadow-xs border-r border-slate-200 dark:border-white/10">
                     <span>Student Profile</span>
                   </th>
 
@@ -625,7 +626,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                           day.isHoliday
                             ? 'bg-purple-50/80 dark:bg-purple-950/30 text-purple-950 dark:text-purple-300'
                             : isSelectedDateCol
-                            ? 'bg-indigo-50 dark:bg-indigo-600/20 text-indigo-900 dark:text-white font-extrabold ring-2 ring-indigo-500 inset-0'
+                            ? 'bg-primary-50 dark:bg-primary-600/20 text-primary-900 dark:text-white font-extrabold ring-2 ring-primary-500 inset-0'
                             : 'hover:bg-slate-100/60 dark:hover:bg-white/5'
                         }`}
                       >
@@ -722,66 +723,60 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         /* ══════════════════════════════════════════════════════════════════ */
         /* ── C. DAILY REGISTER TABLE VIEW ───────────────────────────────── */
         /* ══════════════════════════════════════════════════════════════════ */
-        <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/40 shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[600px]">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-100/80 dark:bg-slate-900/80 text-xs font-bold text-slate-500 uppercase">
-                  <th className="py-4 px-4 w-12 text-center">#</th>
-                  <th className="py-4 px-4 w-20">Roll</th>
-                  <th className="py-4 px-6">Student Details</th>
-                  <th className="py-4 px-6 text-center">Attendance Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                {filteredStudents.map((student, idx) => {
-                  const currentStatus = attendance[student.id];
+        <Table>
+          <TableHead>
+            <TableHeaderCell className="w-12 text-center">#</TableHeaderCell>
+            <TableHeaderCell className="w-20">Roll</TableHeaderCell>
+            <TableHeaderCell>Student Details</TableHeaderCell>
+            <TableHeaderCell className="text-center">Attendance Status</TableHeaderCell>
+          </TableHead>
+          <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+            {filteredStudents.map((student, idx) => {
+              const currentStatus = attendance[student.id];
 
-                  return (
-                    <tr key={student.id} className="hover:bg-slate-50/60">
-                      <td className="py-3 px-4 text-center font-mono text-xs text-slate-400 font-bold">{idx + 1}</td>
-                      <td className="py-3 px-4 font-mono font-bold text-xs">{student.rollNumber || '—'}</td>
-                      <td className="py-3 px-6 font-bold text-slate-900 dark:text-white">
-                        {student.firstName} {student.lastName}
-                      </td>
-                      <td className="py-3 px-6 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => onStatusChange(student.id, 'PRESENT')}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                              currentStatus === 'PRESENT' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            P
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onStatusChange(student.id, 'LATE')}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                              currentStatus === 'LATE' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            L
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onStatusChange(student.id, 'ABSENT')}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                              currentStatus === 'ABSENT' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            A
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              return (
+                <TableRow key={student.id} index={idx}>
+                  <TableCell className="text-center font-mono text-xs text-slate-400 font-bold">{idx + 1}</TableCell>
+                  <TableCell className="font-mono font-bold text-xs">{student.rollNumber || '—'}</TableCell>
+                  <TableCell className="font-bold text-slate-900 dark:text-white">
+                    {student.firstName} {student.lastName}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onStatusChange(student.id, 'PRESENT')}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                          currentStatus === 'PRESENT' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        P
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onStatusChange(student.id, 'LATE')}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                          currentStatus === 'LATE' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        L
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onStatusChange(student.id, 'ABSENT')}
+                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                          currentStatus === 'ABSENT' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        A
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </tbody>
+        </Table>
       )}
 
       {/* ── 4. 📱 STICKY FLOATING MOBILE BOTTOM ACTION BAR ──────────────────── */}
@@ -798,7 +793,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
               onClick={onSave}
               disabled={loading || isSelectedDateHoliday}
               title={isSelectedDateHoliday ? `${selectedDate} is a holiday — attendance cannot be submitted` : undefined}
-              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-700 dark:disabled:to-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-lg shadow-indigo-500/25 active:scale-95 text-sm"
+              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-700 dark:disabled:to-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-lg shadow-primary-500/25 active:scale-95 text-sm"
             >
               <Save className="w-4 h-4" />
               {isSelectedDateHoliday ? 'Holiday — Cannot Submit' : loading ? 'Submitting...' : 'Save & Submit Attendance'}

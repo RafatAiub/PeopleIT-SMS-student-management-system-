@@ -13,6 +13,8 @@ import toast from 'react-hot-toast';
 import { DashboardSkeleton } from '../components/common/DashboardSkeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { RegistrationWizard } from '../components/superadmin/RegistrationWizard';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
 
 const AdminDashboard = () => {
   const { user } = useAuthStore();
@@ -310,7 +312,7 @@ const AdminDashboard = () => {
       <div className="space-y-8 max-w-7xl mx-auto pb-12">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 relative overflow-hidden bg-white/40 dark:bg-slate-900/40 animate-fadeIn">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 opacity-80" />
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-primary-500 to-emerald-500 opacity-80" />
           <div>
             <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">SaaS Super Admin Control Center</h2>
             <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm leading-relaxed max-w-xl">
@@ -328,7 +330,7 @@ const AdminDashboard = () => {
 
             <button
               onClick={() => setIsWizardOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-xl shadow-blue-500/20 text-xs font-bold active:scale-[0.98] min-h-[44px]"
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-xl shadow-blue-500/20 text-xs font-bold active:scale-[0.98] min-h-[44px]"
             >
               <Plus className="w-4.5 h-4.5" />
               <span>Register Institution</span>
@@ -345,7 +347,7 @@ const AdminDashboard = () => {
                 {metrics.systemAlerts[0].message}
               </span>
             </div>
-            <span className="text-[10px] font-mono uppercase bg-amber-200 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded">
+            <span className="text-[10px] font-mono uppercase bg-amber-200 dark:bg-amber-500/20 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded-sm">
               Platform Alert
             </span>
           </div>
@@ -441,7 +443,7 @@ const AdminDashboard = () => {
                     setHideTest(e.target.checked);
                     setPage(1);
                   }}
-                  className="w-3.5 h-3.5 text-blue-600 rounded"
+                  className="w-3.5 h-3.5 text-blue-600 rounded-sm"
                 />
                 <span>Hide Demo/Test</span>
               </label>
@@ -487,7 +489,7 @@ const AdminDashboard = () => {
                           <div>
                             <p>{inst.name}</p>
                             {inst.slug.toLowerCase().includes('demo') && (
-                              <span className="text-[9px] font-mono uppercase bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 px-1.5 py-0.2 rounded">
+                              <span className="text-[9px] font-mono uppercase bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300 px-1.5 py-0.2 rounded-sm">
                                 DEMO DATA
                               </span>
                             )}
@@ -596,16 +598,12 @@ const AdminDashboard = () => {
 
         {/* View Details Drawer / Modal */}
         {isDetailsModalOpen && selectedInst && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <Modal isOpen onClose={() => setIsDetailsModalOpen(false)} className="max-w-lg space-y-6">
               <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/5">
                 <div>
                   <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedInst.name}</h3>
                   <p className="text-xs font-mono text-blue-600 dark:text-blue-400">EIIN / Code: {selectedInst.slug}</p>
                 </div>
-                <button onClick={() => setIsDetailsModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 min-h-[44px]">
-                  <X className="w-5 h-5" />
-                </button>
               </div>
 
               <div className="space-y-3 text-xs">
@@ -633,29 +631,21 @@ const AdminDashboard = () => {
               </div>
 
               <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-white/5">
-                <button
-                  onClick={() => setIsDetailsModalOpen(false)}
-                  className="px-6 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-bold text-xs min-h-[44px]"
-                >
+                <Button variant="secondary" onClick={() => setIsDetailsModalOpen(false)} className="px-6 py-2.5 text-xs min-h-[44px]">
                   Close
-                </button>
+                </Button>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
 
         {/* Refactored Edit Administrator Modal (No Direct Password Override) */}
         {isEditModalOpen && selectedInst && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <Modal isOpen onClose={() => setIsEditModalOpen(false)} className="max-w-lg space-y-6">
               <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-white/5">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Administrator Profile</h3>
                   <p className="text-xs text-slate-500 font-mono">{selectedInst.name} ({selectedInst.slug})</p>
                 </div>
-                <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-slate-400 hover:text-slate-900 min-h-[44px]">
-                  <X className="w-5 h-5" />
-                </button>
               </div>
 
               {/* Profile Edit Form */}
@@ -759,14 +749,12 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
+          </Modal>
         )}
 
         {/* Delete Confirmation Modal */}
         {deleteTarget && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-red-200 dark:border-red-500/20 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4">
+          <Modal isOpen onClose={() => setDeleteTarget(null)} className="max-w-md space-y-4">
               <div className="flex items-start gap-3">
                 <div className="p-2.5 bg-red-100 dark:bg-red-500/10 text-red-600 rounded-xl">
                   <AlertTriangle className="w-6 h-6" />
@@ -793,13 +781,9 @@ const AdminDashboard = () => {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(null)}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 min-h-[44px]"
-                >
+                <Button type="button" variant="ghost" onClick={() => setDeleteTarget(null)} className="px-5 py-2.5 text-xs min-h-[44px]">
                   Cancel
-                </button>
+                </Button>
                 <button
                   type="button"
                   disabled={deleting || deleteConfirmText.trim() !== deleteTarget.name}
@@ -809,8 +793,7 @@ const AdminDashboard = () => {
                   {deleting ? 'Deleting...' : 'Delete Permanently'}
                 </button>
               </div>
-            </div>
-          </div>
+          </Modal>
         )}
       </div>
     );

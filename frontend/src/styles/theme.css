@@ -1,0 +1,90 @@
+/*
+ * Violet Pulse design tokens.
+ * Replaces the old indigo/teal palette (previously in tailwind.config.js)
+ * with a fresh violet-indigo primary + emerald accent, plus the semantic
+ * layer (surface/border/text/status) that didn't exist before.
+ */
+@theme {
+  --font-sans: 'Inter', sans-serif;
+
+  /* Primary — violet-indigo */
+  --color-primary-50:  #F2F0FE;
+  --color-primary-100: #E5E1FD;
+  --color-primary-200: #CCC3FB;
+  --color-primary-300: #ADA0F8;
+  --color-primary-400: #9887F5;
+  --color-primary-500: #7C6AF2;
+  --color-primary-600: #6B57E8;
+  --color-primary-700: #5A45D4;
+  --color-primary-800: #4938AC;
+  --color-primary-900: #3D2F87;
+  --color-primary-950: #251D57;
+
+  /* Accent — emerald (replaces teal) */
+  --color-accent-50:  #ECFDF5;
+  --color-accent-100: #D1FAE5;
+  --color-accent-200: #A7F3D0;
+  --color-accent-300: #6EE7B7;
+  --color-accent-400: #34D399;
+  --color-accent-500: #10B981;
+  --color-accent-600: #059669;
+  --color-accent-700: #047857;
+  --color-accent-800: #065F46;
+  --color-accent-900: #064E3B;
+  --color-accent-950: #022C22;
+
+  /* Surface — slate, dark-mode-first. 950 is the sidebar's real in-use
+     tone (#0B0F19), not the old unused #020617. */
+  --color-surface-50:  #F8FAFC;
+  --color-surface-100: #F1F5F9;
+  --color-surface-200: #E2E8F0;
+  --color-surface-300: #CBD5E1;
+  --color-surface-400: #94A3B8;
+  --color-surface-500: #64748B;
+  --color-surface-600: #475569;
+  --color-surface-700: #334155;
+  --color-surface-800: #1E293B;
+  --color-surface-900: #0F172A;
+  --color-surface-950: #0B0F19;
+
+  /* Semantic aliases */
+  --color-surface-canvas: var(--color-surface-50);
+  --color-surface-canvas-dark: var(--color-surface-900);
+  --color-surface-card: #FFFFFF;
+  --color-surface-card-dark: var(--color-surface-900);
+  --color-surface-sidebar: var(--color-surface-950);
+  --color-border-default: var(--color-surface-200);
+  --color-border-default-dark: var(--color-surface-700);
+  --color-text-primary: var(--color-surface-900);
+  --color-text-secondary: var(--color-surface-600);
+  --color-text-muted: var(--color-surface-400);
+
+  --color-success: var(--color-accent-500);
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: var(--color-primary-500);
+
+  /* Animation tokens — key names match the classes already used across
+     the app (animate-fadeIn etc.) so no JSX changes are needed. */
+  --animate-fadeIn: fadeIn 0.2s ease-out;
+  --animate-slideIn: slideIn 0.2s ease-out;
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.5s infinite linear;
+}
+
+@keyframes fadeIn {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideIn {
+  0%   { opacity: 0; transform: translateX(-16px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(124, 106, 242, 0.3); }
+  50%      { box-shadow: 0 0 25px rgba(124, 106, 242, 0.6); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

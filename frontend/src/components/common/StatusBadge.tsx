@@ -1,4 +1,5 @@
 import React from 'react';
+import { Badge } from '../ui/Badge';
 
 type StatusKey =
   | 'ACTIVE' | 'INACTIVE' | 'TRANSFERRED' | 'GRADUATED'
@@ -12,37 +13,39 @@ interface StatusBadgeProps {
   className?: string;
 }
 
-const STATUS_MAP: Record<string, { label: string; className: string }> = {
-  ACTIVE:      { label: 'Active',      className: 'badge-success' },
-  INACTIVE:    { label: 'Inactive',    className: 'badge-neutral' },
-  TRANSFERRED: { label: 'Transferred', className: 'badge-warning' },
-  GRADUATED:   { label: 'Graduated',   className: 'badge-info' },
-  PAID:        { label: 'Paid',        className: 'badge-success' },
-  PARTIAL:     { label: 'Partial',     className: 'badge-warning' },
-  UNPAID:      { label: 'Unpaid',      className: 'badge-danger' },
-  OVERDUE:     { label: 'Overdue',     className: 'badge-danger' },
-  SENT:        { label: 'Sent',        className: 'badge-info' },
-  DRAFT:       { label: 'Draft',       className: 'badge-neutral' },
-  CANCELLED:   { label: 'Cancelled',   className: 'badge-neutral' },
-  PRESENT:     { label: 'Present',     className: 'badge-success' },
-  ABSENT:      { label: 'Absent',      className: 'badge-danger' },
-  LATE:        { label: 'Late',        className: 'badge-warning' },
-  PENDING:     { label: 'Pending',     className: 'badge-warning' },
-  APPROVED:    { label: 'Approved',    className: 'badge-success' },
-  REJECTED:    { label: 'Rejected',    className: 'badge-danger' },
-  ISSUED:      { label: 'Issued',      className: 'badge-info' },
-  RETURNED:    { label: 'Returned',    className: 'badge-success' },
+type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+
+const STATUS_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
+  ACTIVE:      { label: 'Active',      variant: 'success' },
+  INACTIVE:    { label: 'Inactive',    variant: 'neutral' },
+  TRANSFERRED: { label: 'Transferred', variant: 'warning' },
+  GRADUATED:   { label: 'Graduated',   variant: 'info' },
+  PAID:        { label: 'Paid',        variant: 'success' },
+  PARTIAL:     { label: 'Partial',     variant: 'warning' },
+  UNPAID:      { label: 'Unpaid',      variant: 'danger' },
+  OVERDUE:     { label: 'Overdue',     variant: 'danger' },
+  SENT:        { label: 'Sent',        variant: 'info' },
+  DRAFT:       { label: 'Draft',       variant: 'neutral' },
+  CANCELLED:   { label: 'Cancelled',   variant: 'neutral' },
+  PRESENT:     { label: 'Present',     variant: 'success' },
+  ABSENT:      { label: 'Absent',      variant: 'danger' },
+  LATE:        { label: 'Late',        variant: 'warning' },
+  PENDING:     { label: 'Pending',     variant: 'warning' },
+  APPROVED:    { label: 'Approved',    variant: 'success' },
+  REJECTED:    { label: 'Rejected',    variant: 'danger' },
+  ISSUED:      { label: 'Issued',      variant: 'info' },
+  RETURNED:    { label: 'Returned',    variant: 'success' },
 };
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = '' }) => {
   const config = STATUS_MAP[status?.toUpperCase()] || {
     label: status,
-    className: 'badge-neutral',
+    variant: 'neutral' as BadgeVariant,
   };
 
   return (
-    <span className={`${config.className} ${className}`}>
+    <Badge variant={config.variant} motionKey={status} className={className}>
       {config.label}
-    </span>
+    </Badge>
   );
 };

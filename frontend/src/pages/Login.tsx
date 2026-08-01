@@ -5,6 +5,8 @@ import { Eye, EyeOff, Mail, Lock, Building2, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
 import { REMEMBER_ME_KEY } from '../store/authStore';
+import { Modal } from '../components/ui/Modal';
+import { Button } from '../components/ui/Button';
 
 // Remembers the last institution/portal actually chosen on this browser, so a
 // returning user sees their own last selection preselected instead of the
@@ -154,7 +156,7 @@ const Login = () => {
   const loginErrorMessage = (login.error as any)?.response?.data?.message as string | undefined;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0F172A] flex items-center justify-center p-4 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-surface-900 flex items-center justify-center p-4 transition-colors duration-300">
       {/* Background gradients */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px]" />
@@ -332,7 +334,7 @@ const Login = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                className="w-4 h-4 rounded-sm border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
               />
               <label htmlFor="remember-me" className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none">
                 Keep me signed in on this device
@@ -365,13 +367,13 @@ const Login = () => {
               <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Demo Accounts (Dev Only)</h4>
               <div className="grid grid-cols-2 gap-2 text-left">
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
-                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block">Super Admin (Global)</span>
+                  <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 block">Super Admin (Global)</span>
                   <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">admin@peopleit.com</span></span>
                   <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
                   <span className="text-[9px] text-slate-500 block mt-1 italic">*Select 'Global Admin'</span>
                 </div>
                 <div className="bg-slate-50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-200 dark:border-white/5">
-                  <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 block">Teacher (School-based)</span>
+                  <span className="text-[10px] font-bold text-accent-600 dark:text-accent-400 block">Teacher (School-based)</span>
                   <span className="text-[11px] text-slate-600 dark:text-slate-400 block mt-1">Email: <span className="text-slate-700 dark:text-slate-300 font-mono">teacher@peopleit.com</span></span>
                   <span className="text-[11px] text-slate-600 dark:text-slate-400 block">Pass: <span className="text-slate-700 dark:text-slate-300 font-mono">admin123</span></span>
                   <span className="text-[9px] text-slate-500 block mt-1 italic">*Select school from dropdown</span>
@@ -383,35 +385,18 @@ const Login = () => {
         </div>
       </div>
 
-      {showForgotPassword && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="forgot-password-title"
-          onClick={() => setShowForgotPassword(false)}
-        >
-          <div
-            className="glass-card bg-white dark:bg-slate-900 max-w-sm w-full p-6 rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="forgot-password-title" className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
-              Reset your password
-            </h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">
-              Self-service password reset isn't available yet. Please contact your institution's admin
-              (or the super admin, for global-admin accounts) to have your password reset.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(false)}
-              className="btn-primary w-full justify-center py-2.5 text-sm"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
+      <Modal isOpen={showForgotPassword} onClose={() => setShowForgotPassword(false)} className="max-w-sm">
+        <h2 id="forgot-password-title" className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2">
+          Reset your password
+        </h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-5">
+          Self-service password reset isn't available yet. Please contact your institution's admin
+          (or the super admin, for global-admin accounts) to have your password reset.
+        </p>
+        <Button variant="primary" onClick={() => setShowForgotPassword(false)} className="w-full justify-center py-2.5 text-sm">
+          Got it
+        </Button>
+      </Modal>
     </div>
   );
 };

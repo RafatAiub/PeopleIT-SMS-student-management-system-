@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Search, Plus, Filter, Edit2, Trash2, ArrowRightLeft, X } from 'lucide-react';
+import { Book, Search, Plus, Filter, Edit2, Trash2, ArrowRightLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
@@ -8,6 +8,9 @@ import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 
 interface BookType {
   id: string;
@@ -208,13 +211,10 @@ export default function LibraryManagement() {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Library Management</h2>
           <p className="text-slate-600 dark:text-slate-400 text-sm">Manage books, catalogs, and issuing.</p>
         </div>
-        <button
-          onClick={() => activeTab === 'catalog' ? openAddBook() : setIsIssueBookModalOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-        >
+        <Button variant="gradient" onClick={() => activeTab === 'catalog' ? openAddBook() : setIsIssueBookModalOpen(true)} className="px-4 py-2.5 text-sm">
           <Plus className="w-4 h-4" />
           {activeTab === 'catalog' ? 'Add Book' : 'Issue Book'}
-        </button>
+        </Button>
       </div>
 
       <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1">
@@ -222,7 +222,7 @@ export default function LibraryManagement() {
           onClick={() => { setActiveTab('catalog'); setSearch(''); }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'catalog'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
               : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -232,7 +232,7 @@ export default function LibraryManagement() {
           onClick={() => { setActiveTab('issues'); setSearch(''); }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'issues'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
               : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -270,31 +270,22 @@ export default function LibraryManagement() {
                 description="Add a book to start building your library catalog."
                 icon={<Book className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
                 action={
-                  <button
-                    onClick={openAddBook}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
-                  >
+                  <Button variant="gradient" onClick={openAddBook} className="px-4 py-2 text-sm">
                     <Plus className="w-4 h-4" /> Add Book
-                  </button>
+                  </Button>
                 }
               />
             </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {books.map((book) => (
-            <div key={book.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group">
+            <div key={book.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group">
               <div className="flex justify-between items-start mb-4">
                 <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent group-hover:scale-110 transition-transform">
                   <Book className="w-6 h-6" />
                 </div>
                 <div className="flex gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    book.status === 'Available' 
-                      ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20' 
-                      : 'bg-amber-50 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20'
-                  }`}>
-                    {book.status}
-                  </span>
+                  <Badge variant={book.status === 'Available' ? 'success' : 'warning'}>{book.status}</Badge>
                 </div>
               </div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{book.title}</h3>
@@ -331,7 +322,7 @@ export default function LibraryManagement() {
           />
         </div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
           <DataTable
             data={issues}
             columns={issueColumns}
@@ -352,18 +343,9 @@ export default function LibraryManagement() {
       )}
 
       {/* Add Book Modal */}
-      {isAddBookModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
+      <Modal isOpen={isAddBookModalOpen} onClose={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }} className="max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingBookId ? 'Edit Book' : 'Add New Book'}</h3>
-              <button
-                onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }}
-                aria-label="Close"
-                className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
             <form onSubmit={handleAddBook} className="space-y-4">
               <div>
@@ -389,34 +371,20 @@ export default function LibraryManagement() {
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }} className="px-4 py-2 text-sm">
                   Cancel
-                </button>
-                <button type="submit" disabled={savingBook} className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98] disabled:opacity-50">
+                </Button>
+                <Button type="submit" variant="gradient" isLoading={savingBook} className="px-5 py-2 text-sm">
                   {savingBook ? 'Saving...' : editingBookId ? 'Save Changes' : 'Add Book'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Issue Book Modal */}
-      {isIssueBookModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
+      <Modal isOpen={isIssueBookModalOpen} onClose={() => setIsIssueBookModalOpen(false)} className="max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Issue Book</h3>
-              <button 
-                onClick={() => setIsIssueBookModalOpen(false)} 
-                className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
             <form onSubmit={handleIssueBookSubmit} className="space-y-4">
               <div>
@@ -432,19 +400,13 @@ export default function LibraryManagement() {
                 <input required type="date" value={issueData.dueDate} onChange={e => setIssueData({...issueData, dueDate: e.target.value})} className="input-field" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setIsIssueBookModalOpen(false)} 
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsIssueBookModalOpen(false)} className="px-4 py-2 text-sm">
                   Cancel
-                </button>
-                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Issue Book</button>
+                </Button>
+                <Button type="submit" variant="gradient" className="px-5 py-2 text-sm">Issue Book</Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <ConfirmModal
         isOpen={!!bookToDelete}

@@ -50,8 +50,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const getFileIcon = (file: File) => {
-    if (file.type.startsWith('image/')) return <Image className="w-4 h-4 text-teal-400" />;
-    return <FileText className="w-4 h-4 text-indigo-400" />;
+    if (file.type.startsWith('image/')) return <Image className="w-4 h-4 text-accent-400" />;
+    return <FileText className="w-4 h-4 text-primary-400" />;
   };
 
   const getPreviewUrl = (file: File) => {
@@ -65,7 +65,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         id={id}
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${
           isDragging
-            ? 'border-indigo-500 bg-indigo-500/10'
+            ? 'border-primary-500 bg-primary-500/10'
             : 'border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}

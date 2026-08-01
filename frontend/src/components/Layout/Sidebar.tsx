@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
   MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
@@ -156,7 +157,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
   return (
     <aside
-      className={`flex flex-col h-full bg-white/95 dark:bg-[#0B0F19]/95 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
+      className={`flex flex-col h-full bg-white/95 dark:bg-surface-950/95 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
         isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-60'
       }`}
       style={{ backdropFilter: 'blur(16px)' }}
@@ -165,11 +166,11 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
         <div className="flex items-center gap-3">
           {institutionLogo ? (
-            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
+            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
               <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-indigo shadow-md">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-primary shadow-md">
               <GraduationCap className="w-4.5 h-4.5 text-white" />
             </div>
           )}
@@ -194,7 +195,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-in fade-in duration-200">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-fadeIn">
         {(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_GROUPS : NAV_GROUPS).map((group) => {
           const visibleItems = group.items.filter((item) => {
             if (!item.roles) return true;
@@ -222,8 +223,19 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                     title={(sidebarCollapsed && !isMobile) ? label : undefined}
                     onClick={() => isMobile && setMobileMenuOpen(false)}
                   >
-                    <span className="flex-shrink-0">{item.icon}</span>
-                    {(!sidebarCollapsed || isMobile) && <span className="truncate">{label}</span>}
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <motion.span
+                            layoutId={isMobile ? 'sidebar-active-indicator-mobile' : 'sidebar-active-indicator'}
+                            className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-600 dark:bg-primary-500 rounded-r"
+                            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                          />
+                        )}
+                        <span className="flex-shrink-0">{item.icon}</span>
+                        {(!sidebarCollapsed || isMobile) && <span className="truncate">{label}</span>}
+                      </>
+                    )}
                   </NavLink>
                 );
               })}
@@ -239,7 +251,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       <div className="border-t border-slate-200 dark:border-white/5 p-3">
         {!sidebarCollapsed || isMobile ? (
           <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
               {initials}
             </div>
             <div className="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bus, Search, Plus, Filter, Map, Users, Settings, X } from 'lucide-react';
+import { Bus, Search, Plus, Filter, Map, Users, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
@@ -7,6 +7,8 @@ import { Pagination } from '../../components/Pagination';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 
 interface RouteType {
   id: string;
@@ -144,7 +146,7 @@ export default function TransportManagement() {
       accessor: 'id',
       render: (vehicle) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-transparent">
+          <div className="w-8 h-8 rounded-lg bg-primary-500 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
             <Bus className="w-4 h-4" />
           </div>
           <span className="text-sm font-semibold text-slate-900 dark:text-white">{vehicle.id}</span>
@@ -197,22 +199,19 @@ export default function TransportManagement() {
           <p className="text-slate-600 dark:text-slate-400 text-sm">Manage routes, vehicles, and student assignments.</p>
         </div>
         {activeTab !== 'assignments' && (
-          <button
-            onClick={() => activeTab === 'routes' ? openAddRoute() : setIsAddVehicleModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-          >
+          <Button variant="gradient" onClick={() => activeTab === 'routes' ? openAddRoute() : setIsAddVehicleModalOpen(true)} className="px-4 py-2.5 text-sm">
             <Plus className="w-4 h-4" />
             {activeTab === 'routes' ? 'Add Route' : 'Add Vehicle'}
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1 shadow-sm">
+      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1 shadow-xs">
         <button
           onClick={() => { setActiveTab('routes'); setSearch(''); }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'routes'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
               : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -222,7 +221,7 @@ export default function TransportManagement() {
           onClick={() => { setActiveTab('vehicles'); setSearch(''); }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'vehicles'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
               : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -232,7 +231,7 @@ export default function TransportManagement() {
           onClick={() => { setActiveTab('assignments'); setSearch(''); }}
           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
             activeTab === 'assignments'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
               : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -270,19 +269,16 @@ export default function TransportManagement() {
                 description="Add a route to start assigning vehicles and students."
                 icon={<Map className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
                 action={
-                  <button
-                    onClick={openAddRoute}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
-                  >
+                  <Button variant="gradient" onClick={openAddRoute} className="px-4 py-2 text-sm">
                     <Plus className="w-4 h-4" /> Add Route
-                  </button>
+                  </Button>
                 }
               />
             </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {routes.map((route) => (
-            <div key={route.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-colors">
+            <div key={route.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-colors">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
@@ -328,7 +324,7 @@ export default function TransportManagement() {
           />
         </div>
       ) : activeTab === 'vehicles' ? (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
           <DataTable
             data={vehicles}
             columns={vehicleColumns}
@@ -347,7 +343,7 @@ export default function TransportManagement() {
           />
         </div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm p-4">
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
           <DataTable
             data={assignments}
             columns={assignmentColumns}
@@ -368,18 +364,9 @@ export default function TransportManagement() {
       )}
 
       {/* Add Route Modal */}
-      {isAddRouteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
+      <Modal isOpen={isAddRouteModalOpen} onClose={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }} className="max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingRouteId ? 'Edit Route' : 'Add New Route'}</h3>
-              <button
-                onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }}
-                aria-label="Close"
-                className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
             <form onSubmit={handleAddRoute} className="space-y-4">
               <div>
@@ -411,35 +398,20 @@ export default function TransportManagement() {
                 <input required type="text" value={newRoute.vehicleId} onChange={e => setNewRoute({...newRoute, vehicleId: e.target.value})} className="input-field" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }} className="px-4 py-2 text-sm">
                   Cancel
-                </button>
-                <button type="submit" disabled={savingRoute} className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98] disabled:opacity-50">
+                </Button>
+                <Button type="submit" variant="gradient" isLoading={savingRoute} className="px-5 py-2 text-sm">
                   {savingRoute ? 'Saving...' : editingRouteId ? 'Save Changes' : 'Add Route'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Add Vehicle Modal */}
-      {isAddVehicleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/10 rounded-2xl p-6 shadow-2xl">
+      <Modal isOpen={isAddVehicleModalOpen} onClose={() => setIsAddVehicleModalOpen(false)} className="max-w-md">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Vehicle</h3>
-              <button
-                onClick={() => setIsAddVehicleModalOpen(false)}
-                aria-label="Close"
-                className="p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
             <form onSubmit={handleAddVehicle} className="space-y-4">
               <div>
@@ -455,19 +427,13 @@ export default function TransportManagement() {
                 <input required type="number" min="1" value={newVehicle.capacity} onChange={e => setNewVehicle({...newVehicle, capacity: parseInt(e.target.value)})} className="input-field" />
               </div>
               <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button" 
-                  onClick={() => setIsAddVehicleModalOpen(false)} 
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 font-medium rounded-xl transition-all text-sm"
-                >
+                <Button type="button" variant="secondary" onClick={() => setIsAddVehicleModalOpen(false)} className="px-4 py-2 text-sm">
                   Cancel
-                </button>
-                <button type="submit" className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all text-sm active:scale-[0.98]">Add Vehicle</button>
+                </Button>
+                <Button type="submit" variant="gradient" className="px-5 py-2 text-sm">Add Vehicle</Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

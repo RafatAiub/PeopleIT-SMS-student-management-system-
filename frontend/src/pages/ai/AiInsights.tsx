@@ -92,7 +92,7 @@ export default function AiInsights() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Brain className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            <Brain className="w-7 h-7 text-primary-600 dark:text-primary-400" />
             AI-Driven Insights
           </h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
@@ -102,7 +102,7 @@ export default function AiInsights() {
         <button
           onClick={handleRefreshInsights}
           disabled={loading}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50"
+          className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-violet-600 hover:from-primary-500 hover:to-violet-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50"
         >
           <Brain className={`w-4 h-4 ${loading ? 'animate-pulse' : ''}`} />
           {loading ? 'Running Analysis...' : 'Recalculate Insights'}
@@ -111,17 +111,17 @@ export default function AiInsights() {
 
       {loading ? (
         <div className="text-center text-slate-500 dark:text-slate-400 py-20 flex flex-col items-center justify-center space-y-4">
-          <Activity className="w-8 h-8 text-indigo-500 animate-pulse" />
+          <Activity className="w-8 h-8 text-primary-500 animate-pulse" />
           <p className="animate-pulse">Running advanced diagnostic models...</p>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between relative overflow-hidden group bg-white dark:bg-transparent shadow-sm">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 transition-transform group-hover:scale-110" />
+            <div className="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between relative overflow-hidden group bg-white dark:bg-transparent shadow-xs">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl -mr-20 -mt-20 transition-transform group-hover:scale-110" />
               
               <div className="relative z-10">
-                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-sm mb-4 uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 font-bold text-sm mb-4 uppercase tracking-widest">
                   <TrendingUp className="w-4.5 h-4.5" />
                   Executive Summary
                 </div>
@@ -135,7 +135,7 @@ export default function AiInsights() {
                 <div className="space-y-2 mt-4 bg-slate-50 dark:bg-slate-950/40 p-4 rounded-2xl border border-slate-200/50 dark:border-white/5">
                   {bulletPoints.map((bp, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
-                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary-500 mt-1.5 flex-shrink-0" />
                       <span>{bp.replace('-', '').trim()}</span>
                     </div>
                   ))}
@@ -148,7 +148,7 @@ export default function AiInsights() {
               </div>
             </div>
 
-            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 space-y-5 relative overflow-hidden bg-white dark:bg-transparent shadow-sm">
+            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 space-y-5 relative overflow-hidden bg-white dark:bg-transparent shadow-xs">
               <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
               <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 relative z-10">
                 <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Metrics Overview
@@ -161,7 +161,7 @@ export default function AiInsights() {
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-colors">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Active Staff</span>
-                  <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{insights.staffCount}</span>
+                  <span className="text-lg font-black text-primary-600 dark:text-primary-400">{insights.staffCount}</span>
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-slate-900/80 transition-colors">
                   <span className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wide">Outstanding Due</span>
@@ -183,7 +183,7 @@ export default function AiInsights() {
                   const content = rec.replace(/^\d+\.\s*(.*?):/, '').trim();
                   
                   return (
-                    <div key={idx} className="glass-card p-5 rounded-2xl border border-amber-200 dark:border-amber-500/10 bg-amber-50/50 dark:bg-amber-500/5 hover:border-amber-350 dark:hover:border-amber-500/20 transition-colors flex gap-4 shadow-sm">
+                    <div key={idx} className="glass-card p-5 rounded-2xl border border-amber-200 dark:border-amber-500/10 bg-amber-50/50 dark:bg-amber-500/5 hover:border-amber-350 dark:hover:border-amber-500/20 transition-colors flex gap-4 shadow-xs">
                       <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
                         <span className="font-black">{idx + 1}</span>
                       </div>
@@ -221,11 +221,11 @@ export default function AiInsights() {
                   : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20';
 
                 return (
-                  <div key={student.studentId} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 transition-colors bg-white dark:bg-slate-900/30 shadow-sm">
+                  <div key={student.studentId} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 transition-colors bg-white dark:bg-slate-900/30 shadow-xs">
                     <div className="flex flex-col lg:flex-row gap-6 justify-between">
                       <div className="flex items-start gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${
-                          isHigh ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' : 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400'
+                          isHigh ? 'bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-400' : 'bg-primary-50 dark:bg-primary-500/20 text-primary-700 dark:text-primary-400'
                         }`}>
                           {student.firstName ? student.firstName[0].toUpperCase() : '?'}
                         </div>

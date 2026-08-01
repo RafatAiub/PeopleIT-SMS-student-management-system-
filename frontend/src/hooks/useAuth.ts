@@ -13,7 +13,12 @@ export function useAuth() {
       toast.success(`স্বাগতম, ${u.firstName}!`);
     },
     onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Invalid email or password. Please try again.';
+      // No `response` means the request never reached the server (network
+      // error / cold-start) — apiClient's interceptor already shows a toast
+      // explaining that. Falling back to "Invalid email or password" here
+      // would be actively wrong: credentials were never even checked.
+      if (!error?.response) return;
+      const message = error.response.data?.message || 'Invalid email or password. Please try again.';
       toast.error(message);
     },
   });

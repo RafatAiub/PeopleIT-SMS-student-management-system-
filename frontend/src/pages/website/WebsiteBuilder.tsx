@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { Button } from '../../components/ui/Button';
 
 interface CustomizerConfig {
   themeColor: string;
@@ -104,29 +105,25 @@ export default function WebsiteBuilder() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Layout className="w-7 h-7 text-indigo-500 dark:text-indigo-400" />
+            <Layout className="w-7 h-7 text-primary-500 dark:text-primary-400" />
             Landing Page Customizer
           </h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
             Configure the public-facing landing page of your institution and preview edits instantly.
           </p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50 self-start sm:self-auto"
-        >
-          <Save className="w-4 h-4" />
+        <Button variant="gradient" onClick={handleSave} isLoading={saving} className="px-4 py-2.5 text-sm self-start sm:self-auto">
+          {!saving && <Save className="w-4 h-4" />}
           {saving ? 'Publishing...' : 'Publish Changes'}
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Side: Inputs visual configuration */}
         <div className="xl:col-span-5 space-y-6">
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Palette className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+              <Palette className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Theme &amp; Brand Styling
             </h3>
 
@@ -151,9 +148,9 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Type className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+              <Type className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Hero Section Text
             </h3>
 
@@ -182,9 +179,9 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Info className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+              <Info className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               About Institution Section
             </h3>
 
@@ -200,9 +197,9 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm space-y-4">
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Phone className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+              <Phone className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Contact Information
             </h3>
 
@@ -264,7 +261,7 @@ export default function WebsiteBuilder() {
             <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-800 selection:bg-slate-200">
 
               {/* Site Header */}
-              <nav className="bg-white px-6 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+              <nav className="bg-white px-6 py-4 flex items-center justify-between shadow-xs sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                   <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${selectedTheme.bg}`}>
                     P

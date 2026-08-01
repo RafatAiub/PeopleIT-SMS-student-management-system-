@@ -46,7 +46,7 @@ export const SystemHealthPortal: React.FC = () => {
     <div className="space-y-8 max-w-7xl mx-auto animate-fadeIn pb-12">
       {/* Page Header */}
       <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-accent-400 to-cyan-500" />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
@@ -88,7 +88,7 @@ export const SystemHealthPortal: React.FC = () => {
           {/* Key Infrastructure Gauges */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Database Health Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm space-y-4">
+            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-xl">
@@ -121,7 +121,7 @@ export const SystemHealthPortal: React.FC = () => {
             </div>
 
             {/* Redis Cache Health Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm space-y-4">
+            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-red-500/10 text-red-500 rounded-xl">
@@ -158,10 +158,10 @@ export const SystemHealthPortal: React.FC = () => {
             </div>
 
             {/* Node.js Process Memory Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-sm space-y-4">
+            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-xl">
+                  <div className="p-2.5 bg-primary-500/10 text-primary-500 rounded-xl">
                     <Cpu className="w-5 h-5" />
                   </div>
                   <div>
@@ -183,7 +183,7 @@ export const SystemHealthPortal: React.FC = () => {
                 </div>
                 <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-teal-400 to-indigo-500 rounded-full"
+                    className="h-full bg-gradient-to-r from-accent-400 to-primary-500 rounded-full"
                     style={{ width: `${Math.min(health?.systemMetrics?.heapUsagePercent || 0, 100)}%` }}
                   />
                 </div>
@@ -237,7 +237,7 @@ export const SystemHealthPortal: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-2xl flex items-center gap-3">
-                  <ShieldCheck className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                  <ShieldCheck className="w-5 h-5 text-primary-500 flex-shrink-0" />
                   <div className="text-xs">
                     <span className="font-bold text-slate-900 dark:text-white block">JWT Refresh Token Rotation</span>
                     <span className="text-slate-500">Automatic reuse detection and single-use token lifecycle</span>

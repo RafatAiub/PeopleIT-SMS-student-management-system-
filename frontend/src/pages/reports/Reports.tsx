@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { BarChart, TrendingUp, Users, DollarSign, Activity, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { Button } from '../../components/ui/Button';
 
 const Reports = () => {
   const [data, setData] = useState<any>(null);
@@ -45,12 +46,9 @@ const Reports = () => {
         <AlertCircle className="w-10 h-10 text-rose-500" />
         <h3 className="text-lg font-bold text-slate-900 dark:text-white">Couldn't load reports</h3>
         <p className="text-slate-600 dark:text-slate-400 text-sm">Something went wrong while fetching the analytics data.</p>
-        <button
-          onClick={fetchReports}
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
-        >
+        <Button variant="gradient" onClick={fetchReports} className="px-4 py-2 text-sm">
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -63,7 +61,7 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
               <Users className="w-6 h-6" />
@@ -75,7 +73,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
               <TrendingUp className="w-6 h-6" />
@@ -87,7 +85,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-violet-50 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-transparent">
               <DollarSign className="w-6 h-6" />
@@ -99,7 +97,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-transparent">
               <Activity className="w-6 h-6" />
@@ -113,7 +111,7 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
             <BarChart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Fee Collections
@@ -130,7 +128,7 @@ const Reports = () => {
           </div>
         </div>
         
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-sm">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
             <BarChart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             Attendance Trends

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Users, X, Edit2, UserCheck, BookOpen, Receipt,
+  Users, Edit2, UserCheck, BookOpen, Receipt,
   Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake, UserPlus,
 } from 'lucide-react';
 import apiClient from '../../api/client';
@@ -10,6 +10,9 @@ import { useAuthStore } from '../../store/authStore';
 import { useTableParams } from '../../hooks/useTableParams';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 
 const StudentList = () => {
   const { user } = useAuthStore();
@@ -495,8 +498,8 @@ const StudentList = () => {
     }
 
     const quickLinks = [
-      { to: '/attendance', icon: UserCheck, label: 'Attendance', desc: 'My attendance history & fines', color: 'from-emerald-500 to-teal-500' },
-      { to: '/results', icon: BookOpen, label: 'Results', desc: 'Exam marks & report cards', color: 'from-indigo-500 to-blue-500' },
+      { to: '/attendance', icon: UserCheck, label: 'Attendance', desc: 'My attendance history & fines', color: 'from-emerald-500 to-accent-500' },
+      { to: '/results', icon: BookOpen, label: 'Results', desc: 'Exam marks & report cards', color: 'from-primary-500 to-blue-500' },
       { to: '/fees', icon: Receipt, label: 'Fees & Billing', desc: 'Invoices & online payment', color: 'from-amber-500 to-orange-500' },
       { to: '/timetables', icon: Calendar, label: 'Timetable', desc: 'My class routine', color: 'from-purple-500 to-fuchsia-500' },
       { to: '/library', icon: Library, label: 'Library', desc: 'My borrowed books', color: 'from-cyan-500 to-sky-500' },
@@ -507,7 +510,7 @@ const StudentList = () => {
     return (
       <div className="space-y-6 max-w-5xl">
         {/* Hero */}
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 p-6 sm:p-8 bg-gradient-to-br from-indigo-500/5 via-transparent to-teal-500/5">
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 p-6 sm:p-8 bg-gradient-to-br from-primary-500/5 via-transparent to-accent-500/5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             {selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl ? (
               <img
@@ -516,7 +519,7 @@ const StudentList = () => {
                 className="w-24 h-24 rounded-2xl object-cover border border-slate-200/50 dark:border-white/10 shadow-lg flex-shrink-0"
               />
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center text-3xl font-bold text-white glow-indigo shadow-lg flex-shrink-0">
+              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-3xl font-bold text-white glow-primary shadow-lg flex-shrink-0">
                 {selectedStudent.firstName?.[0] || '?'}
               </div>
             )}
@@ -534,13 +537,14 @@ const StudentList = () => {
               </p>
               <p className="text-slate-600 dark:text-slate-400 text-sm mt-2">Welcome back! Here's your student hub — everything about your school life in one place.</p>
             </div>
-            <button
+            <Button
+              variant="gradient"
               onClick={() => handleOpenEditModal(selectedStudent)}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center flex-shrink-0"
+              className="px-4 py-2.5 text-sm self-start sm:self-center flex-shrink-0"
             >
               <Edit2 className="w-4 h-4" />
               Edit Personal Data
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -595,21 +599,12 @@ const StudentList = () => {
         </div>
 
         {/* Edit Student Modal (Student Version - Personal Data Only) */}
-        {isEditModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Personal Data</h3>
-                <button 
-                  onClick={() => setIsEditModalOpen(false)}
-                  aria-label="Close"
-                  className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} className="max-w-md">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Personal Data</h3>
+          </div>
 
-              <form onSubmit={handleEditSubmit} className="space-y-4">
+          <form onSubmit={handleEditSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
@@ -737,25 +732,15 @@ const StudentList = () => {
                 </div>
 
                 <div className="pt-4 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-                  >
+                  <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>
                     Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                  >
+                  </Button>
+                  <Button type="submit" variant="gradient" isLoading={isSubmitting}>
                     {isSubmitting ? 'Updating...' : 'Save Profile'}
-                  </button>
+                  </Button>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+          </form>
+        </Modal>
       </div>
     );
   }
@@ -809,13 +794,9 @@ const StudentList = () => {
       header: 'Status',
       sortable: false,
       render: (student) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          student.status === 'ACTIVE'
-            ? 'bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-500/20'
-            : 'bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-500/20'
-        }`}>
+        <Badge variant={student.status === 'ACTIVE' ? 'success' : 'danger'} motionKey={student.status}>
           {student.status || 'ACTIVE'}
-        </span>
+        </Badge>
       ),
     },
   ];
@@ -832,21 +813,18 @@ const StudentList = () => {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Students</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">Manage student enrollments and profiles.</p>
         </div>
-        <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98] self-start sm:self-center"
-        >
+        <Button variant="gradient" onClick={handleOpenCreateModal} className="px-4 py-2.5 text-sm self-start sm:self-center">
           <UserPlus className="w-4 h-4" />
           Add Student
-        </button>
+        </Button>
       </div>
 
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-sm">
+      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs">
         <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex flex-wrap items-center gap-3">
           <select
             value={params.filters.classId || ''}
             onChange={(e) => setFilter('classId', e.target.value)}
-            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 cursor-pointer transition-colors"
           >
             <option value="" className="bg-white dark:bg-slate-900">All Classes</option>
             {classes.map(c => (
@@ -856,7 +834,7 @@ const StudentList = () => {
           <select
             value={params.filters.status || ''}
             onChange={(e) => setFilter('status', e.target.value)}
-            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer transition-colors"
+            className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 cursor-pointer transition-colors"
           >
             <option value="" className="bg-white dark:bg-slate-900">All Statuses</option>
             <option value="ACTIVE" className="bg-white dark:bg-slate-900">Active</option>
@@ -888,19 +866,10 @@ const StudentList = () => {
       </div>
 
       {/* Edit Student Modal */}
-      {isEditModalOpen && selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Student Profile</h3>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <Modal isOpen={isEditModalOpen && !!selectedStudent} onClose={() => setIsEditModalOpen(false)} className="max-w-md">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Edit Student Profile</h3>
+          </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1109,39 +1078,20 @@ const StudentList = () => {
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-                >
+                <Button type="button" variant="ghost" onClick={() => setIsEditModalOpen(false)}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                >
+                </Button>
+                <Button type="submit" variant="gradient" isLoading={isSubmitting}>
                   {isSubmitting ? 'Updating...' : 'Update Student'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Create Student Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} className="max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add Student</h3>
-              <button
-                onClick={() => setIsCreateModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
@@ -1409,25 +1359,15 @@ const StudentList = () => {
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors text-sm font-medium"
-                >
+                <Button type="button" variant="ghost" onClick={() => setIsCreateModalOpen(false)}>
                   Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white transition-colors text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                >
+                </Button>
+                <Button type="submit" variant="gradient" isLoading={isSubmitting}>
                   {isSubmitting ? 'Adding...' : 'Add Student'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       <ConfirmModal
         isOpen={!!studentToDelete}
