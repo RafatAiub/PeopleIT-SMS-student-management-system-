@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Sun, Moon, Monitor, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
+import { LogoMark } from '../common/LogoMark';
 
 const notificationIcon = (type: 'info' | 'success' | 'warning' | 'error') => {
   switch (type) {
@@ -37,7 +38,9 @@ const dropdownMotion = {
 
 export const Header: React.FC = () => {
   const { toggleMobileMenu, theme, setTheme, notifications, markNotificationRead, clearNotifications, institutionLogo } = useUiStore();
-  const { user } = useAuthStore();
+  const { user, supportSession } = useAuthStore();
+  // See Sidebar.tsx — a bare Super Admin shouldn't show any institution's logo.
+  const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = React.useState(false);
   const themeMenuRef = React.useRef<HTMLDivElement>(null);
@@ -74,12 +77,14 @@ export const Header: React.FC = () => {
         </button>
 
         <div className="flex items-center gap-2.5">
-          {institutionLogo && (
-            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-0.5 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
+          {showInstitutionBranding && institutionLogo ? (
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-0.5 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden hidden sm:flex">
               <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
             </div>
+          ) : (
+            <LogoMark className="w-7 h-7 flex-shrink-0 hidden sm:block" />
           )}
-          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-primary-600 dark:from-blue-400 dark:to-emerald-400">
+          <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-600 dark:from-primary-400 dark:to-accent-400">
             PeopleIT SMS
           </h1>
         </div>

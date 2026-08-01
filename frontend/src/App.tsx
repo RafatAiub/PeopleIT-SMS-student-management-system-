@@ -9,6 +9,7 @@ import { useUiStore } from './store/uiStore';
 import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
+import apiClient from './api/client';
 
 // Helper wrapper for React.lazy to auto-recover when deployment chunk filenames change
 const lazyWithRetry = (importFn: () => Promise<any>) =>
@@ -208,8 +209,37 @@ const DashboardRouter = () => {
 
 // Route Configuration
 const App = () => {
-  const { theme } = useUiStore();
+  const { theme, setInstitutionBranding } = useUiStore();
+  const { isAuthenticated, user, supportSession } = useAuthStore();
   const location = useLocation();
+
+  // Institution branding (logo/name) is cleared on every fresh login and
+  // support-session change (authStore) to stop a previous institution's
+  // branding leaking across sessions/roles. That means something has to
+  // re-fetch it exactly once per session — relying on Settings.tsx's own
+  // mount effect left every other page branding-less until a user happened
+  // to visit Settings. A bare Super Admin (no institution context) has
+  // nothing to fetch unless actively impersonating one.
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    if (user.role === 'SUPER_ADMIN' && !supportSession) return;
+
+    let cancelled = false;
+    apiClient
+      .get('/institution/website')
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data?.data;
+        if (data) setInstitutionBranding(data.logoUrl || null, data.name || null);
+      })
+      .catch(() => {
+        // Non-critical — sidebar/header just fall back to the platform mark.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id, supportSession?.institution?.id]);
 
   useEffect(() => {
     const applyTheme = () => {

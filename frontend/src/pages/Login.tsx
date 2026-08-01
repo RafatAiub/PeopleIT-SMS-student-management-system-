@@ -7,6 +7,7 @@ import apiClient from '../api/client';
 import { REMEMBER_ME_KEY } from '../store/authStore';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
+import { LogoMark } from '../components/common/LogoMark';
 
 // Remembers the last institution/portal actually chosen on this browser, so a
 // returning user sees their own last selection preselected instead of the
@@ -171,7 +172,8 @@ const Login = () => {
 
       <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-emerald-500 dark:from-blue-400 dark:to-emerald-400 mb-2">
+          <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
+          <h1 className="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-accent-500 dark:from-primary-400 dark:to-accent-400 mb-2">
             PeopleIT SMS
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Sign in to your dashboard</p>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
+import { useUiStore } from './uiStore';
 
 export const REMEMBER_ME_KEY = 'sms_remember_me';
 
@@ -75,10 +76,17 @@ export const useAuthStore = create<AuthState>()(
       hasHydrated: false,
       supportSession: null,
       setHasHydrated: (value) => set({ hasHydrated: value }),
-      setAuth: (user, token, refreshToken) =>
-        set({ user, accessToken: token, refreshToken, isAuthenticated: true, supportSession: null }),
+      setAuth: (user, token, refreshToken) => {
+        // Institution branding is per-institution and persisted separately in
+        // uiStore — reset it on every fresh login so a new session never
+        // inherits the previous user's (or a previous institution's) logo/name
+        // before Settings has a chance to fetch the current one, if any.
+        useUiStore.getState().setInstitutionBranding(null, null);
+        set({ user, accessToken: token, refreshToken, isAuthenticated: true, supportSession: null });
+      },
       clearAuth: () => {
         localStorage.removeItem(REMEMBER_ME_KEY);
+        useUiStore.getState().setInstitutionBranding(null, null);
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false, supportSession: null });
       },
       updateToken: (token, refreshToken) => set((state) => ({
@@ -114,6 +122,10 @@ export const useAuthStore = create<AuthState>()(
         const state = get();
         if (!state.supportSession) return;
 
+        // Leaving the impersonated institution's context — drop its branding
+        // so the sidebar/header don't keep showing it once back on the
+        // Super Admin's own global platform view.
+        useUiStore.getState().setInstitutionBranding(null, null);
         set({
           user: state.supportSession.originalUser,
           accessToken: state.supportSession.originalToken,

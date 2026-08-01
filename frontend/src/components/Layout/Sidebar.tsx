@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
   MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
+  LogOut, Receipt, BarChart3, ClipboardList,
   Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X,
   Building2, CreditCard, LifeBuoy, ListOrdered, Activity, ShieldAlert
 } from 'lucide-react';
+import { LogoMark } from '../common/LogoMark';
 
 const SUPER_ADMIN_NAV_GROUPS: NavGroup[] = [
   {
@@ -123,7 +124,7 @@ const NAV_GROUPS: NavGroup[] = [
 
 export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
-  const { user } = useAuthStore();
+  const { user, supportSession } = useAuthStore();
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -154,6 +155,11 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   const roleLabelText = user ? roleLabel[user.role] : 'User';
 
   const { institutionLogo, institutionName } = useUiStore();
+  // A bare Super Admin is on the global platform view, not scoped to any one
+  // institution — only show institution branding while actively impersonating
+  // one via a support session. Otherwise always show the platform's own mark,
+  // regardless of what's cached from a previous session/institution.
+  const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
 
   return (
     <aside
@@ -165,20 +171,18 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
       {/* Logo */}
       <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
         <div className="flex items-center gap-3">
-          {institutionLogo ? (
+          {showInstitutionBranding && institutionLogo ? (
             <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
               <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center flex-shrink-0 glow-primary shadow-md">
-              <GraduationCap className="w-4.5 h-4.5 text-white" />
-            </div>
+            <LogoMark className="w-8 h-8 flex-shrink-0 glow-primary rounded-lg shadow-md" />
           )}
           {(!sidebarCollapsed || isMobile) && (
             <div>
               <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
               <span className="text-slate-600 dark:text-slate-500 text-xs">
-                {institutionName || user?.institutionName || 'School Management'}
+                {showInstitutionBranding ? (institutionName || user?.institutionName || 'School Management') : 'Platform Administration'}
               </span>
             </div>
           )}
