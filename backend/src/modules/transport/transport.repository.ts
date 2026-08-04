@@ -23,7 +23,7 @@ export async function getVehicles(
     ...(query.search
       ? {
           OR: [
-            { vehicleNumber: { contains: query.search, mode: 'insensitive' as const } },
+            { registrationNumber: { contains: query.search, mode: 'insensitive' as const } },
             { driverName: { contains: query.search, mode: 'insensitive' as const } },
           ],
         }
