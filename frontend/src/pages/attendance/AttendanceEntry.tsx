@@ -27,6 +27,15 @@ const AttendanceEntry = () => {
   const [selectedClass, setSelectedClass] = useState('Class 8');
   const [selectedSection, setSelectedSection] = useState('A');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const handleSetSelectedDate = (date: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (date > todayStr) {
+      toast.error("Cannot select a future date!");
+      return;
+    }
+    setSelectedDate(date);
+  };
   const [students, setStudents] = useState<StudentRecord[]>([]);
   const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -155,6 +164,11 @@ const AttendanceEntry = () => {
   }, [selectedClass, selectedSection, selectedDate, hasAssignments]);
 
   const handleStatusChange = (studentId: string, status: AttendanceStatus) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      toast.error("Cannot mark attendance for future dates!");
+      return;
+    }
     setAttendance((prev) => ({
       ...prev,
       [studentId]: status
@@ -162,6 +176,11 @@ const AttendanceEntry = () => {
   };
 
   const handleNoteChange = (studentId: string, note: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      toast.error("Cannot add notes for future dates!");
+      return;
+    }
     setNotes((prev) => ({
       ...prev,
       [studentId]: note
@@ -169,6 +188,11 @@ const AttendanceEntry = () => {
   };
 
   const handleWeeklyStatusChange = async (studentId: string, dateStr: string, status: AttendanceStatus, note?: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (dateStr > todayStr) {
+      toast.error("Cannot mark attendance for future dates!");
+      return;
+    }
     setWeeklyAttendance((prev) => {
       const studentMap = prev[studentId] || {};
       return {
@@ -192,6 +216,11 @@ const AttendanceEntry = () => {
   };
 
   const handleBatchSetStatus = (status: AttendanceStatus, target: 'ALL' | 'UNMARKED' = 'ALL') => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      toast.error("Cannot mark attendance for future dates!");
+      return;
+    }
     setAttendance((prev) => {
       const next = { ...prev };
       students.forEach((s) => {
@@ -204,6 +233,11 @@ const AttendanceEntry = () => {
   };
 
   const handleResetAttendance = () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      toast.error("Cannot reset attendance for future dates!");
+      return;
+    }
     const defaultAttendance: Record<string, AttendanceStatus> = {};
     students.forEach((s) => {
       defaultAttendance[s.id] = 'PRESENT';
@@ -212,6 +246,11 @@ const AttendanceEntry = () => {
   };
 
   const handleSaveAttendance = async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (selectedDate > todayStr) {
+      toast.error("Cannot submit attendance for future dates!");
+      return;
+    }
     setLoading(true);
     try {
       const records = students.map((student) => ({
@@ -497,7 +536,8 @@ const AttendanceEntry = () => {
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
+                onChange={(e) => handleSetSelectedDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="input-field py-2 min-w-[150px] font-bold"
               />
             </div>
@@ -508,7 +548,7 @@ const AttendanceEntry = () => {
             className={selectedClass}
             sectionName={selectedSection}
             selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
+            setSelectedDate={handleSetSelectedDate}
             students={students}
             attendance={attendance}
             notes={notes}

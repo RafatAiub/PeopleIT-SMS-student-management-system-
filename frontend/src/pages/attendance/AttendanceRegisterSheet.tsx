@@ -21,7 +21,8 @@ import {
   CheckCheck,
   Lock,
   Smartphone,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Table, TableHead, TableHeaderCell, TableRow, TableCell } from '../../components/ui/Table';
@@ -70,10 +71,8 @@ interface AttendanceRegisterSheetProps {
 
 const CYCLE_STATUS_MAP: Record<string, AttendanceStatus | undefined> = {
   undefined: 'PRESENT',
-  PRESENT: 'LATE',
-  LATE: 'ABSENT',
-  ABSENT: 'HALF_DAY',
-  HALF_DAY: undefined,
+  PRESENT: 'ABSENT',
+  ABSENT: 'PRESENT',
 };
 
 export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = ({
@@ -211,7 +210,13 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
   const changeWeekByDays = (days: number) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    const nextDateStr = d.toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (nextDateStr > todayStr) {
+      setSelectedDate(todayStr);
+    } else {
+      setSelectedDate(nextDateStr);
+    }
   };
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0];
@@ -348,7 +353,15 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           <input
             type="date"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              if (e.target.value > todayStr) {
+                toast.error("Cannot select a future date!");
+              } else {
+                setSelectedDate(e.target.value);
+              }
+            }}
+            max={new Date().toISOString().split('T')[0]}
             className="input-field py-1.5 px-3 text-xs font-semibold max-w-[140px]"
           />
 
@@ -409,7 +422,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           {/* Quick Mark All Present button */}
           <button
             type="button"
-            disabled={isSelectedDateHoliday}
+            disabled={isSelectedDateHoliday || selectedDate > new Date().toISOString().split('T')[0]}
             onClick={() => {
               onBatchSetStatus('PRESENT', 'ALL');
               toast.success('Marked all students Present! ⚡');
@@ -498,10 +511,6 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                     ? 'border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-500/5 ring-1 ring-emerald-500/20'
                     : currentStatus === 'ABSENT'
                     ? 'border-rose-500/50 bg-rose-50/20 dark:bg-rose-500/5 ring-1 ring-rose-500/20'
-                    : currentStatus === 'LATE'
-                    ? 'border-amber-500/50 bg-amber-50/20 dark:bg-amber-500/5 ring-1 ring-amber-500/20'
-                    : currentStatus === 'HALF_DAY'
-                    ? 'border-blue-500/50 bg-blue-50/20 dark:bg-blue-500/5 ring-1 ring-blue-500/20'
                     : 'border-slate-200/60 dark:border-white/5 bg-white dark:bg-slate-900/40'
                 }`}
               >
@@ -526,10 +535,6 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                         ? 'bg-emerald-500 text-white'
                         : currentStatus === 'ABSENT'
                         ? 'bg-rose-500 text-white'
-                        : currentStatus === 'LATE'
-                        ? 'bg-amber-500 text-white'
-                        : currentStatus === 'HALF_DAY'
-                        ? 'bg-blue-500 text-white'
                         : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
@@ -537,7 +542,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                   </span>
                 </div>
 
-                {/* ⚡ 44px+ Touch Buttons for Present, Late, Absent, Half-Day */}
+                {/* ⚡ 44px+ Touch Buttons for Present and Absent */}
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <button
                     type="button"
@@ -548,21 +553,8 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-emerald-100 active:scale-95'
                     }`}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
+                    <Check className="w-4 h-4 stroke-[3]" />
                     <span>Present</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onStatusChange(student.id, 'LATE')}
-                    className={`h-11 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-                      currentStatus === 'LATE'
-                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30 scale-[1.02]'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-amber-100 active:scale-95'
-                    }`}
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>Late</span>
                   </button>
 
                   <button
@@ -574,21 +566,8 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-100 active:scale-95'
                     }`}
                   >
-                    <XCircle className="w-4 h-4" />
+                    <X className="w-4 h-4 stroke-[3]" />
                     <span>Absent</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onStatusChange(student.id, 'HALF_DAY')}
-                    className={`h-11 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-                      currentStatus === 'HALF_DAY'
-                        ? 'bg-blue-500 text-white shadow-md shadow-blue-500/30 scale-[1.02]'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100 active:scale-95'
-                    }`}
-                  >
-                    <MinusCircle className="w-4 h-4" />
-                    <span>Half Day</span>
                   </button>
                 </div>
 
@@ -640,6 +619,11 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                             <Lock className="w-2.5 h-2.5" />
                             <span>Holiday</span>
                           </div>
+                        ) : day.dateStr > new Date().toISOString().split('T')[0] ? (
+                          <div className="mt-1 flex items-center justify-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
+                            <Lock className="w-2.5 h-2.5 opacity-60" />
+                            <span>Locked</span>
+                          </div>
                         ) : (
                           <button
                             type="button"
@@ -671,11 +655,21 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                       {weekDays.map((day) => {
                         const dayRecord = studentWeeklyMap[day.dateStr] || (day.dateStr === selectedDate ? { status: attendance[student.id], notes: notes[student.id] } : undefined);
                         const status = dayRecord?.status;
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        const isFuture = day.dateStr > todayStr;
 
                         if (day.isHoliday) {
                           return (
                             <td key={day.dateStr} className="py-3 px-2 text-center border-r bg-purple-50/30 dark:bg-purple-950/10 text-purple-600">
                               <Lock className="w-3.5 h-3.5 mx-auto opacity-60" />
+                            </td>
+                          );
+                        }
+
+                        if (isFuture) {
+                          return (
+                            <td key={day.dateStr} className="py-3 px-2 text-center border-r bg-slate-50/30 dark:bg-slate-900/10 text-slate-400 dark:text-slate-600" title="Future Date">
+                              <Lock className="w-3.5 h-3.5 mx-auto opacity-30" />
                             </td>
                           );
                         }
@@ -686,29 +680,17 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                             onClick={() => handleCellCycleStatus(student.id, day.dateStr, status)}
                             className="py-2 px-2 text-center border-r transition-all cursor-pointer hover:bg-slate-100/50"
                           >
-                            <span
-                              className={`px-2 py-1 rounded-xl text-[11px] font-bold inline-block ${
-                                status === 'PRESENT'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : status === 'ABSENT'
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : status === 'LATE'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : status === 'HALF_DAY'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'text-slate-400'
-                              }`}
-                            >
-                              {status === 'PRESENT'
-                                ? 'On time'
-                                : status === 'ABSENT'
-                                ? 'Absent'
-                                : status === 'LATE'
-                                ? 'Late'
-                                : status === 'HALF_DAY'
-                                ? 'Half'
-                                : '—'}
-                            </span>
+                            {status === 'PRESENT' ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                <Check className="w-3.5 h-3.5 stroke-[3]" />
+                              </span>
+                            ) : status === 'ABSENT' ? (
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400">
+                                <X className="w-3.5 h-3.5 stroke-[3]" />
+                              </span>
+                            ) : (
+                              <span className="text-slate-300 dark:text-slate-700 text-xs">—</span>
+                            )}
                           </td>
                         );
                       })}
@@ -742,33 +724,30 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
                     {student.firstName} {student.lastName}
                   </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="flex items-center justify-center gap-2">
                       <button
                         type="button"
                         onClick={() => onStatusChange(student.id, 'PRESENT')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                          currentStatus === 'PRESENT' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'
+                        title="Mark Present"
+                        className={`p-2 rounded-xl transition-all ${
+                          currentStatus === 'PRESENT'
+                            ? 'bg-emerald-500 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
                         }`}
                       >
-                        P
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onStatusChange(student.id, 'LATE')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                          currentStatus === 'LATE' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        L
+                        <Check className="w-4 h-4 stroke-[3]" />
                       </button>
                       <button
                         type="button"
                         onClick={() => onStatusChange(student.id, 'ABSENT')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
-                          currentStatus === 'ABSENT' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-600'
+                        title="Mark Absent"
+                        className={`p-2 rounded-xl transition-all ${
+                          currentStatus === 'ABSENT'
+                            ? 'bg-rose-500 text-white shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10'
                         }`}
                       >
-                        A
+                        <X className="w-4 h-4 stroke-[3]" />
                       </button>
                     </div>
                   </TableCell>
