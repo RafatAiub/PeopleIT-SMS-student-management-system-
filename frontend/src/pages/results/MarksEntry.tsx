@@ -108,6 +108,7 @@ const MarksEntry = () => {
   const [students, setStudents] = useState<any[]>([]);
   const [marks, setMarks] = useState<Record<string, Record<string, { score: string; remarks: string }>>>({});
   const [savedMarkKeys, setSavedMarkKeys] = useState<Set<string>>(new Set());
+  const [rosterError, setRosterError] = useState(false);
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
@@ -184,6 +185,7 @@ const MarksEntry = () => {
     if (isTeacher && !hasAssignments) return;
     try {
       setLoading(true);
+      setRosterError(false);
       // Reusing attendance sheet endpoint to easily fetch students by class/section name
       const res = await apiClient.get(
         `/attendance/sheet?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}&date=${new Date().toISOString()}`
@@ -244,6 +246,9 @@ const MarksEntry = () => {
       setSavedMarkKeys(savedKeys);
     } catch (err) {
       console.error('Failed to fetch students', err);
+      setStudents([]);
+      setRosterError(true);
+      toast.error('Failed to load the student roster for this class/section. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -1048,6 +1053,16 @@ const MarksEntry = () => {
             <div className="space-y-4">
               {loading ? (
                 <div className="glass-card p-12 text-center text-slate-500">Loading student cards...</div>
+              ) : rosterError ? (
+                <div className="glass-card p-12 text-center text-slate-500 space-y-3">
+                  <p>Failed to load students for this class/section.</p>
+                  <button
+                    onClick={fetchStudentsAndMarks}
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : filteredStudents.length === 0 ? (
                 <div className="glass-card p-12 text-center text-slate-500">No students found.</div>
               ) : (
@@ -1191,6 +1206,16 @@ const MarksEntry = () => {
               <div className="space-y-2.5">
                 {loading ? (
                   <div className="glass-card p-12 text-center text-slate-500">Loading students...</div>
+                ) : rosterError ? (
+                  <div className="glass-card p-12 text-center text-slate-500 space-y-3">
+                    <p>Failed to load students for this class/section.</p>
+                    <button
+                      onClick={fetchStudentsAndMarks}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
+                    >
+                      Retry
+                    </button>
+                  </div>
                 ) : filteredStudents.length === 0 ? (
                   <div className="glass-card p-12 text-center text-slate-500">No students found.</div>
                 ) : (
@@ -1293,6 +1318,20 @@ const MarksEntry = () => {
                       <tr>
                         <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
                           Loading students...
+                        </td>
+                      </tr>
+                    ) : rosterError ? (
+                      <tr>
+                        <td colSpan={1 + displayedSubjects.length * 2} className="px-6 py-12 text-center text-slate-500">
+                          <div className="space-y-3">
+                            <p>Failed to load students for this class/section.</p>
+                            <button
+                              onClick={fetchStudentsAndMarks}
+                              className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
+                            >
+                              Retry
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ) : filteredStudents.length === 0 ? (
@@ -1680,7 +1719,23 @@ const MarksEntry = () => {
             </div>
           </div>
 
-          {students.length === 0 ? (
+          {rosterError ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title="Failed to load students"
+                description="Something went wrong while fetching the student roster for this class/section."
+                icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+                action={
+                  <button
+                    onClick={fetchStudentsAndMarks}
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
+                  >
+                    Retry
+                  </button>
+                }
+              />
+            </div>
+          ) : students.length === 0 ? (
             <div className="glass-card p-8">
               <EmptyState
                 title="No students found"
