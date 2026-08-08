@@ -42,7 +42,7 @@ If this is your first day on this codebase, do these in order:
    - Backend: `backend/src/modules/students/student.routes.ts` → `student.controller.ts` → `student.service.ts` → `student.repository.ts` → Prisma → PostgreSQL.
    - This exact 5-file chain (`routes → controller → service → repository → Prisma`) repeats for every module. Once you understand it for `students`, you understand it for `fees`, `attendance`, `library`, etc.
 5. **Before writing any backend code**, read the multi-tenancy rule in [Coding Rules & Common Pitfalls](#-coding-rules--common-pitfalls). It is the single most important rule in this codebase — getting it wrong leaks one school's data into another school's dashboard.
-6. **Before opening a PR**, run `npm run typecheck` from the repo root and see [Testing & Verification](#-testing--verification) — there is currently no automated test suite, so manual verification matters more here than in most projects.
+6. **Before opening a PR**, run `npm run typecheck` and `npm run test --workspace=backend` and see [Testing & Verification](#-testing--verification) — CI runs both, plus a frontend build, on every push and PR to `main`.
 
 ---
 
@@ -544,7 +544,7 @@ graph TD
 | **Messages** | ❌ | ✅ Full | ✏️ Own | ✏️ Own | ✏️ Own | ✏️ Own | ✏️ Own |
 | **Audit Logs** | ✅ Full | 👁️ Read | ❌ | ❌ | ❌ | ❌ | ❌ |
 
-> This matrix describes the *intended* access model. The frontend's `GUARDIAN` role currently has a minimal, limited UI (Notices + Messages only) — see [Known Limitations](#-known-limitations--roadmap).
+> This matrix describes the *intended* access model. The frontend now has a dedicated `GuardianDashboard.tsx` (routed in `App.tsx` for the `GUARDIAN` role) rather than the old bare Notices-page landing.
 
 ---
 
@@ -604,7 +604,7 @@ stateDiagram-v2
 | **ORM** | Prisma 5 (PostgreSQL) |
 | **Database** | PostgreSQL — Neon Serverless in production, plain Postgres via Docker locally |
 | **Cache / Rate Limiting** | Redis — Upstash in production, plain Redis via Docker locally |
-| **Background Jobs** | BullMQ + ioredis (currently one queue, `feeReminders` — see [Known Limitations](#-known-limitations--roadmap)) |
+| **Background Jobs** | BullMQ + ioredis — one queue, `feeReminders`, sends real SMS via the Greenweb (Bangladesh) API when `SMS_ENABLED=true`, otherwise logs a mock notification |
 | **Auth** | JWT Access Token (15 min) + Refresh Token (7 days, rotated on use, hash-only storage) |
 | **File Handling** | Client-side image compression → Base64 → stored in DB as a data URL (no object storage yet) |
 | **Deployment** | Frontend → Vercel, Backend → Render.com |
@@ -686,7 +686,7 @@ frontend/
 │   ├── api/              # client.ts (axios instance + auth interceptors), auth.api.ts, students.api.ts, fees.api.ts
 │   ├── components/
 │   │   ├── Charts/        # KpiCard, BarChart, DonutChart, LineChart (Recharts wrappers)
-│   │   ├── DataTable/     # Generic table component (not yet used by real pages — see Known Limitations)
+│   │   ├── DataTable/     # Generic table component — used by 8 pages (fees, hr, library ×2, results, students, transport, users)
 │   │   ├── Forms/         # FormField, Select, FileUpload (not yet used by real pages — see Known Limitations)
 │   │   ├── Layout/         # Sidebar (role-aware nav)
 │   │   └── common/         # ConfirmModal, LoadingSpinner, EmptyState, DashboardSkeleton, StatusBadge
@@ -707,14 +707,15 @@ frontend/
 │   │   ├── ai/                 # AiInsights
 │   │   ├── reports/          # Reports
 │   │   ├── website/          # WebsiteBuilder (public landing-page customizer)
-│   │   ├── AdminDashboard.tsx / TeacherDashboard.tsx
+│   │   ├── superadmin/       # AuditLogsPortal, SupportAccessPortal, SystemHealthPortal (SUPER_ADMIN-only tooling)
+│   │   ├── AdminDashboard.tsx / TeacherDashboard.tsx / GuardianDashboard.tsx
 │   │   └── Login.tsx
 │   ├── store/                  # authStore.ts (user/tokens, sessionStorage), uiStore.ts (theme/sidebar/notifications)
 │   ├── App.tsx                # Routing, ProtectedRoute, role-based DashboardRouter
 │   └── main.tsx                # Vite entrypoint, QueryClientProvider, BrowserRouter
 ```
 
-> **A pattern you'll notice:** several well-built pieces exist but aren't wired up yet — `hooks/useStudents.ts`, `hooks/useFees.ts`, `api/students.api.ts`, `api/fees.api.ts`, `components/DataTable/`, `components/Forms/*`. Real pages like `StudentList.tsx` fetch data with `apiClient` directly inside `useState`/`useEffect` instead. **Follow the pattern the page you're editing already uses** rather than mixing both styles in one file. If you want to migrate a page onto the React Query hooks, that's a great, well-scoped contribution — just do it as its own PR.
+> **A pattern you'll notice:** some well-built pieces still aren't wired up — `hooks/useStudents.ts`, `hooks/useFees.ts`, `api/students.api.ts`, `api/fees.api.ts`, `components/Forms/*`. Real pages like `StudentList.tsx` fetch data with `apiClient` directly inside `useState`/`useEffect` instead. `components/DataTable/` is the exception — it *is* now used by 8 pages (fees, hr, library ×2, results, students, transport, users), so prefer it for any new list page. **Follow the pattern the page you're editing already uses** rather than mixing both styles in one file. If you want to migrate a page onto the React Query hooks, that's a great, well-scoped contribution — just do it as its own PR.
 
 ---
 
@@ -793,7 +794,10 @@ This mirrors `backend/src/config/env.ts`, which validates every variable at star
 | `JWT_REFRESH_EXPIRES_IN` | No | `7d` | |
 | `BCRYPT_ROUNDS` | No | `12` | Clamped 10–14 |
 | `BKASH_ENABLED` / `NAGAD_ENABLED` / `SSLCOMMERZ_ENABLED` | No | `false` | Gateways are stub implementations regardless — see [Known Limitations](#-known-limitations--roadmap) |
-| `SMS_ENABLED`, `TWILIO_*` | No | `false` / unset | SMS sending is not actually implemented yet (the one BullMQ worker just logs) |
+| `SMS_ENABLED` | No | `false` | Gates the `feeReminders` worker's real send path |
+| `GREENWEB_API_TOKEN` / `GREENWEB_BASE_URL` | No | unset / greenweb default URL | Bangladesh SMS gateway — the actual implemented provider. When `SMS_ENABLED=false` or the token is unset, the worker just logs a mock notification instead of sending |
+| `TWILIO_*` / `SMS_PROVIDER` | No | unset | Declared in `env.ts` but not wired to any send path — Greenweb is what `reminderWorker.ts` actually calls |
+| `APP_NAME` | No | `PeopleIT SMS` | |
 | `LOG_LEVEL` / `LOG_FORMAT` | No | `info` / `json` | Winston config |
 
 > **Never commit real values for `DATABASE_URL` or `REDIS_URL` into `.env.example`.** If you ever see real-looking credentials in a tracked file, treat it as a live incident — rotate the credentials immediately and sanitize the file.
@@ -881,7 +885,7 @@ paginatedResponse(res, array, total, page, pageSize)     // Paginated list — i
 ### 5. TypeScript Type Safety
 - Write Zod schemas in `*.dto.ts` and infer types with `z.infer<typeof Schema>` — don't hand-write a parallel interface that can drift out of sync.
 - Avoid `any` where you reasonably can (the codebase isn't 100% strict about this today — don't make it worse).
-- **Run `npm run typecheck` from the repo root before every PR.** There is no CI running this for you yet (see [Testing & Verification](#-testing--verification)), so it's on you.
+- **Run `npm run typecheck` from the repo root before every PR.** CI (`.github/workflows/ci.yml`) also runs this on every push/PR to `main`, so a failure blocks the PR — see [Testing & Verification](#-testing--verification).
 
 ### 6. Self-Healing Data (know this exists, don't copy the pattern)
 The sections API (`GET /students/meta/sections?classId=`) auto-creates missing sections (A–G) the first time it's called for a class with none. This is intentional — but it means a plain `GET` request has database write side effects, which is unusual and easy to be surprised by. Don't extend this pattern to new endpoints without a good reason; prefer explicit seed/setup steps instead.
@@ -916,14 +920,15 @@ Say you're adding a `library-fines` module. Copy the shape of an existing simple
 
 ## ✅ Testing & Verification
 
-**There is currently no automated test suite and no CI pipeline in this repo** (no `test` script, no `.github/workflows`, no Jest/Vitest config). Don't assume tests exist — verify manually:
+**There is a backend Jest suite and a CI pipeline** — `backend/tests/*.test.ts` (attendance, authorization, fee payment validation, HR DTOs, institution profile, library edge cases, ownership, reports, results marksheets, super-admin support sessions, timetable branch resolution, transport DTOs) hit a real Postgres via Prisma, no mocking (see `backend/jest.config.js` and `backend/tests/helpers/fixtures.ts`). `.github/workflows/ci.yml` runs three jobs on every push/PR to `main`: lint + typecheck, backend tests (against a disposable Postgres service container), and a frontend production build. The frontend has no test suite of its own yet — only a build check in CI.
 
 1. `npm run typecheck` from the repo root (runs both backend and frontend `tsc --noEmit`).
-2. Start the app (`npm run dev`) and manually exercise the flow you changed, ideally as more than one role (an Admin action often has different consequences for a Student/Guardian view).
-3. If you touched multi-tenant logic, verify with **two different institutions** — log in as Institution A, confirm you can't see or affect Institution B's data.
-4. `npm run lint` scripts exist in `package.json` but **no ESLint config file currently exists in this repo** — expect this to fail until one is added. Don't spend time debugging it as if it's your fault.
+2. `npm run test --workspace=backend` — point `DATABASE_URL` at a **disposable** test database first; the suite writes real rows and never point it at production data.
+3. Start the app (`npm run dev`) and manually exercise the flow you changed, ideally as more than one role (an Admin action often has different consequences for a Student/Guardian view).
+4. If you touched multi-tenant logic, verify with **two different institutions** — log in as Institution A, confirm you can't see or affect Institution B's data. There's already an `ownership.test.ts` and `authorization.test.ts` covering parts of this — extend them rather than relying on manual checks alone if you can.
+5. `npm run lint` — `backend/eslint.config.js` and `frontend/eslint.config.mjs` both exist now and run in CI, so a lint failure blocks the PR.
 
-If you're adding meaningful new logic, adding real tests (Jest/Vitest + Supertest for the API is a reasonable choice) is a welcome and high-value contribution.
+If you're adding a new module or endpoint, adding a Jest test alongside it (following the pattern of an existing `backend/tests/*.test.ts` file) is expected, not just a nice-to-have.
 
 ---
 
@@ -932,7 +937,7 @@ If you're adding meaningful new logic, adding real tests (Jest/Vitest + Supertes
 1. **Branch naming:** `feature/short-description`, `fix/short-description`, or `chore/short-description`.
 2. **Before you start:** if your change is more than a few lines, open an issue or say what you're about to do — this avoids duplicate work.
 3. **Before opening a PR:**
-   - `npm run typecheck` passes.
+   - `npm run typecheck` and `npm run lint` pass, and `npm run test --workspace=backend` passes if you touched backend code — CI (`.github/workflows/ci.yml`) re-runs all three plus a frontend build, so a failure here blocks the PR.
    - You manually verified the change (see [Testing & Verification](#-testing--verification)).
    - If you touched a Prisma model, the migration is included and named descriptively.
    - If you touched anything tenant-scoped, you double-checked the [multi-tenant isolation rule](#-coding-rules--common-pitfalls).
@@ -946,14 +951,12 @@ If you're adding meaningful new logic, adding real tests (Jest/Vitest + Supertes
 
 Being upfront about these saves you from re-discovering them the hard way:
 
-- **No automated tests or CI.** See [Testing & Verification](#-testing--verification).
-- **No ESLint config**, despite `lint` scripts existing in `package.json`.
+- **Backend test coverage is real but partial.** `backend/tests/` covers auth/ownership, attendance, fees, HR, institution, library, reports, results, super-admin, timetables, and transport — but not every module (e.g. `students`, `notices`, `messages`, `ai` have no dedicated test file yet), and there's no frontend test suite at all. See [Testing & Verification](#-testing--verification).
 - **AI module is rule-based, not an LLM.** `backend/src/modules/ai/ai.service.ts` uses fixed thresholds and string templates — there's no OpenAI/Anthropic/etc. SDK dependency anywhere in the repo. The `.antigravity/skills/ai-predictive-analytics.md` doc describes a fuller LLM-integration design that hasn't been built yet.
 - **Payment gateways are stubs.** `bkash.stub.ts`, `nagad.stub.ts`, `sslcommerz.stub.ts` don't call real payment provider APIs. Wiring up a real gateway is a substantial, valuable contribution.
-- **The `feeReminders` BullMQ worker is a no-op.** It logs a "mock notification" instead of sending real SMS/email, even though Twilio env vars are defined.
+- **SMS sending only has one real provider wired up.** The `feeReminders` BullMQ worker calls Greenweb (a Bangladesh SMS gateway) when `SMS_ENABLED=true` and a token is set; `TWILIO_*` env vars are declared in `env.ts` but not actually wired to any send path. Without `SMS_ENABLED`, the worker just logs a mock notification.
 - **`Permission` table / `requirePermission` middleware is unused.** Fine-grained RBAC is modeled in the schema but every route currently uses the coarser `requireRole` check instead.
-- **Frontend has two parallel data-fetching patterns.** React Query hooks (`useStudents`, `useFees`) and typed API modules exist but aren't used by the real pages, which fetch via `apiClient` + `useState`/`useEffect` directly. Pick whichever pattern the file you're editing already uses; don't mix both in one file.
-- **`GUARDIAN` role has a minimal frontend.** No guardian-specific dashboard exists yet — guardians land on the Notices page after login.
+- **Frontend has two parallel data-fetching patterns for some resources.** `hooks/useStudents.ts`, `hooks/useFees.ts`, `api/students.api.ts`, `api/fees.api.ts` exist but aren't used by the real pages, which fetch via `apiClient` + `useState`/`useEffect` directly. (`components/DataTable/` is *not* in this bucket anymore — it's now the standard list-rendering component, used by 8 pages.) Pick whichever pattern the file you're editing already uses; don't mix both in one file.
 - **Auth token storage doesn't fully match the "httpOnly cookie" design implied by the architecture diagram** — see the note under [Authentication & Tenant Verification Sequence](#authentication--tenant-verification-sequence).
 - **No object storage integration.** Uploaded images are Base64-encoded directly into the database.
 
@@ -981,8 +984,8 @@ See [Environment Variables Reference](#-environment-variables-reference) for the
 **Q: The dashboard shows a weird number like `৳025002500` instead of a real amount.**
 A: That was a real bug (see [pitfall #2](#-coding-rules--common-pitfalls)) — Prisma `Decimal` fields arrive as strings over JSON, and `+=` on strings concatenates instead of adding. Always `Number()` a money field before summing it.
 
-**Q: `npm run lint` fails immediately, did I break something?**
-A: No — there's currently no ESLint config in this repo at all. See [Known Limitations](#-known-limitations--roadmap).
+**Q: `npm run test --workspace=backend` fails with connection errors.**
+A: The backend Jest suite hits a real Postgres via Prisma — no mocking. Point `DATABASE_URL` at a disposable local/test database (not production) before running it; CI spins up its own Postgres service container for this.
 
 **Q: I created 15 teachers but the dashboard still says 0.**
 A: Check whether the code reads `array.length` from a paginated fetch instead of `response.meta.total` — see [pitfall #3](#-coding-rules--common-pitfalls).
