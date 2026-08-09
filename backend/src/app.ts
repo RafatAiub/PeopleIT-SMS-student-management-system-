@@ -23,6 +23,7 @@ import aiRouter from './modules/ai/ai.routes';
 import institutionRouter from './modules/institution/institution.routes';
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
+import curriculumRouter from './modules/curriculum/curriculum.routes';
 
 const app = express();
 
@@ -116,6 +117,7 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
+app.use('/api/v1/curriculum', curriculumRouter);
 
 // Base route health check
 app.get('/health', (_req, res) => {

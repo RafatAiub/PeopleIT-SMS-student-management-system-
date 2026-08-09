@@ -21,36 +21,57 @@ interface MarksheetRow {
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
   'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
+  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
+  'Class 11', 'Class 12'
 ];
 
 const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 const DEPARTMENTS = ['Science', 'Commerce', 'Arts', 'None'];
 
-const COMMON_SUBJECTS_JUNIOR = [
+// Fallback only — the real subject list now comes from GET
+// /curriculum/subjects (NCTB-aligned, per class + group; see the
+// `curriculum` backend module). These arrays exist purely so the sheet
+// still works if that endpoint errors, or for an institution the
+// curriculum seed hasn't been run for yet.
+const FALLBACK_SUBJECTS_JUNIOR = [
   'Bangla', 'English', 'Mathematics', 'General Science', 'Social Science', 'Religion & Moral Education', 'ICT'
 ];
 
-const COMPULSORY_SUBJECTS_SENIOR = [
+const FALLBACK_COMPULSORY_SENIOR = [
   'Bangla 1st Paper', 'Bangla 2nd Paper', 'English 1st Paper', 'English 2nd Paper', 'General Mathematics', 'Religion & Moral Education', 'ICT'
 ];
 
-const SCIENCE_SUBJECTS = ['Physics', 'Chemistry', 'Higher Mathematics', 'Biology'];
-const COMMERCE_SUBJECTS = ['Accounting', 'Finance & Banking', 'Business Entrepreneurship', 'General Science'];
-const ARTS_SUBJECTS = ['History', 'Geography', 'Economics', 'Civics', 'General Science'];
+const FALLBACK_SCIENCE_SUBJECTS = ['Physics', 'Chemistry', 'Higher Mathematics', 'Biology'];
+const FALLBACK_COMMERCE_SUBJECTS = ['Accounting', 'Finance & Banking', 'Business Entrepreneurship', 'General Science'];
+const FALLBACK_ARTS_SUBJECTS = ['History', 'Geography', 'Economics', 'Civics', 'General Science'];
 
-const getSubjectsForClassAndDept = (className: string, dept: string) => {
-  const isSenior = className.includes('9') || className.includes('10');
+const getFallbackSubjects = (className: string, dept: string) => {
+  const isSenior = className.includes('9') || className.includes('10') || className.includes('11') || className.includes('12');
   if (!isSenior || dept === 'None') {
-    return COMMON_SUBJECTS_JUNIOR;
+    return FALLBACK_SUBJECTS_JUNIOR;
   }
-  
-  if (dept === 'Science') return [...COMPULSORY_SUBJECTS_SENIOR, ...SCIENCE_SUBJECTS];
-  if (dept === 'Commerce') return [...COMPULSORY_SUBJECTS_SENIOR, ...COMMERCE_SUBJECTS];
-  if (dept === 'Arts') return [...COMPULSORY_SUBJECTS_SENIOR, ...ARTS_SUBJECTS];
-  
-  return COMMON_SUBJECTS_JUNIOR;
+
+  if (dept === 'Science') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_SCIENCE_SUBJECTS];
+  if (dept === 'Commerce') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_COMMERCE_SUBJECTS];
+  if (dept === 'Arts') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_ARTS_SUBJECTS];
+
+  return FALLBACK_SUBJECTS_JUNIOR;
+};
+
+// Mirrors computeGrade() in backend/src/utils/grading.ts — the AI comment
+// endpoint requires a `grade` field, and marks are always server-graded on
+// save, so this is only a client-side estimate to pass along with the
+// generation request, never persisted as the real grade.
+const computeGradeClient = (marksObtained: number, maxMarks: number): string => {
+  const percentage = maxMarks > 0 ? (marksObtained / maxMarks) * 100 : 0;
+  if (percentage >= 80) return 'A+';
+  if (percentage >= 70) return 'A';
+  if (percentage >= 60) return 'A-';
+  if (percentage >= 50) return 'B';
+  if (percentage >= 40) return 'C';
+  if (percentage >= 33) return 'D';
+  return 'F';
 };
 
 const MarksEntry = () => {
@@ -63,7 +84,7 @@ const MarksEntry = () => {
   const [selectedClass, setSelectedClass] = useState('Class 8');
   const [selectedSection, setSelectedSection] = useState('A');
   const [selectedDepartment, setSelectedDepartment] = useState('None');
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>(COMMON_SUBJECTS_JUNIOR);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>(FALLBACK_SUBJECTS_JUNIOR);
   const [focusedSubject, setFocusedSubject] = useState<string>('ALL');
   const [entryMode, setEntryMode] = useState<'cards' | 'subject' | 'matrix'>('cards');
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,15 +92,29 @@ const MarksEntry = () => {
   // Per-subject, not global — different subjects legitimately have different
   // max marks (e.g. ICT out of 50, others out of 100). A single shared value
   // here previously caused valid marks in one subject to be rejected using
-  // another subject's max. Subjects with no entry yet default to 100 via
-  // getSubjectMaxMarks(), matching the backend/schema default.
+  // another subject's max. subjectMaxMarks holds explicit values (loaded
+  // from already-saved ExamResult rows, or a manual edit in the per-subject
+  // strip); curriculumDefaults holds the NCTB default max marks fetched from
+  // GET /curriculum/subjects for subjects with no saved marks yet. Kept as
+  // two separate state slices (rather than merging one into the other) so
+  // the two independent fetches that populate them can resolve in either
+  // order without a race — the getter below just tries the more specific
+  // source first.
   const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, number>>({});
-  const getSubjectMaxMarks = (subject: string) => subjectMaxMarks[subject] ?? 100;
+  const [curriculumDefaults, setCurriculumDefaults] = useState<Record<string, number>>({});
+  const getSubjectMaxMarks = (subject: string) => subjectMaxMarks[subject] ?? curriculumDefaults[subject] ?? 100;
   const handleSubjectMaxMarksChange = (subject: string, val: string) => {
     const num = parseInt(val, 10);
     setSubjectMaxMarks((prev) => ({ ...prev, [subject]: isNaN(num) ? 100 : num }));
     setUnsavedChanges(true);
   };
+  // Remarks used to live in a single-line <input>, which silently scrolled
+  // long text out of view with no indication there was more to read/edit.
+  // Grows the textarea with the content instead, capped so one huge remark
+  // can't blow out the row — resize-y still lets a teacher pull it taller.
+  const getRemarksRows = (text: string) =>
+    Math.min(6, Math.max(1, text.split('\n').length, Math.ceil(text.length / 40)));
+
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -204,7 +239,13 @@ const MarksEntry = () => {
       const studentsData = res.data.data || [];
       setStudents(studentsData);
 
-      const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
+      // Reads whatever the subject-offerings effect has currently loaded for
+      // this class/department. Purely a head start for rendering blank
+      // cells immediately — every read of `marks` elsewhere already falls
+      // back to '' for a subject key that isn't pre-seeded here, and the
+      // existingRecords overlay below creates any missing subject key
+      // anyway, so a stale value here (e.g. mid class-switch) is harmless.
+      const subjects = availableSubjects;
 
       // Start with a blank grid for every subject/student pair.
       const nextMarks: Record<string, Record<string, { score: string; remarks: string }>> = {};
@@ -271,9 +312,37 @@ const MarksEntry = () => {
     fetchStudentsAndMarks();
   }, [selectedClass, selectedSection, selectedDepartment, selectedExam, hasAssignments, classesMeta]);
 
+  const fetchSubjectOfferings = async () => {
+    try {
+      const isSenior =
+        selectedClass.includes('9') || selectedClass.includes('10') ||
+        selectedClass.includes('11') || selectedClass.includes('12');
+      const params: Record<string, string> = { className: selectedClass };
+      if (isSenior && selectedDepartment !== 'None') {
+        params.group = selectedDepartment.toUpperCase();
+      }
+      const res = await apiClient.get('/curriculum/subjects', { params });
+      const offerings = res.data?.data || [];
+      if (offerings.length > 0) {
+        setAvailableSubjects(offerings.map((o: any) => o.label));
+        setCurriculumDefaults(
+          Object.fromEntries(offerings.map((o: any) => [o.label, o.defaultMaxMarks])),
+        );
+        return;
+      }
+    } catch (err) {
+      console.warn('Failed to load curriculum subjects, using fallback list', err);
+    }
+    // Either the request failed, or this institution has no SubjectOffering
+    // rows seeded yet for this class/group — fall back rather than showing
+    // an empty sheet.
+    setAvailableSubjects(getFallbackSubjects(selectedClass, selectedDepartment));
+    setCurriculumDefaults({});
+  };
+
   useEffect(() => {
-    const subjects = getSubjectsForClassAndDept(selectedClass, selectedDepartment);
-    setAvailableSubjects(subjects);
+    fetchSubjectOfferings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, selectedDepartment]);
 
   // Keep the marksheet tab's selected student in sync with the currently
@@ -290,7 +359,9 @@ const MarksEntry = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [students]);
 
-  const isSeniorClass = selectedClass.includes('9') || selectedClass.includes('10');
+  const isSeniorClass =
+    selectedClass.includes('9') || selectedClass.includes('10') ||
+    selectedClass.includes('11') || selectedClass.includes('12');
 
   const subjectFillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -724,11 +795,10 @@ const MarksEntry = () => {
     const generatingKey = `${subject}:${studentId}`;
     setGeneratingFor(generatingKey);
     try {
-      const response = await apiClient.post('/ai/comments', {
-        score: Number(score),
-        maxMarks: getSubjectMaxMarks(subject),
+      const response = await apiClient.post('/ai/comment', {
         subject,
-        studentId: studentId
+        marks: Number(score),
+        grade: computeGradeClient(Number(score), getSubjectMaxMarks(subject)),
       });
       const aiComment = response.data?.data?.comment || response.data?.data?.remarks || response.data?.comment || response.data?.remarks || 'Excellent work and dedication.';
       handleRemarksChange(subject, studentId, aiComment);
@@ -1020,7 +1090,7 @@ const MarksEntry = () => {
                     min={1}
                     value={getSubjectMaxMarks(sub)}
                     onChange={(e) => handleSubjectMaxMarksChange(sub, e.target.value)}
-                    className="input-field w-14 text-center text-xs py-1"
+                    className="input-field w-16 text-center text-xs px-1.5 py-1"
                   />
                 </div>
               ))}
@@ -1180,12 +1250,12 @@ const MarksEntry = () => {
                                     />
                                   </div>
 
-                                  <input
-                                    type="text"
+                                  <textarea
                                     placeholder="Remarks..."
                                     value={marks[sub]?.[student.id]?.remarks || ''}
                                     onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
-                                    className="input-field flex-1 text-xs py-1.5"
+                                    rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
+                                    className="input-field flex-1 text-xs py-1.5 resize-y leading-snug"
                                   />
 
                                   <button
@@ -1314,12 +1384,12 @@ const MarksEntry = () => {
                             <span className="text-xs text-slate-400 font-medium">/ {getSubjectMaxMarks(sub)}</span>
                           </div>
 
-                          <input
-                            type="text"
+                          <textarea
                             placeholder="Remarks..."
                             value={marks[sub]?.[student.id]?.remarks || ''}
                             onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
-                            className="input-field flex-1 text-xs py-2"
+                            rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
+                            className="input-field flex-1 text-xs py-2 resize-y leading-snug"
                           />
 
                           <button
@@ -1430,12 +1500,12 @@ const MarksEntry = () => {
                                 </td>
                                 <td className="px-3 py-4">
                                   <div className="flex items-center gap-2">
-                                    <input
-                                      type="text"
+                                    <textarea
                                       placeholder="e.g. Excellent progress"
                                       value={marks[sub]?.[student.id]?.remarks || ''}
                                       onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
-                                      className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px]"
+                                      rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
+                                      className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px] resize-y leading-snug"
                                     />
                                     <button
                                       onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}

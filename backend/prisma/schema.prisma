@@ -47,6 +47,8 @@ model Institution {
   staffProfiles  StaffProfile[]
   payrollRecords PayrollRecord[]
   messages       Message[]
+  subjects          Subject[]
+  subjectOfferings  SubjectOffering[]
 }
 
 // ── Branch / Campus ──────────────────────────────────────────────────
@@ -101,6 +103,64 @@ model Section {
 
   @@index([classId])
   @@index([classTeacherId])
+}
+
+// ── Curriculum (NCTB-aligned subject offerings) ────────────────────────
+// Additive, institution-scoped catalogue driving the Results module's
+// subject list + default max marks per class/group/paper — replaces what
+// was previously a hardcoded frontend array (see MarksEntry.tsx). Keyed by
+// className (not a Class.id FK), matching the free-text class convention
+// already used by TimetableSlot.className/sectionName, rather than
+// requiring every institution's Class rows to be pre-resolved for seeding.
+// Does not touch ExamResult — that keeps storing subject as a plain string
+// (e.g. "Bangla 1st Paper"), so no existing results data is migrated.
+enum StudentGroup {
+  NONE // Class 1-8 — no group split
+  SCIENCE
+  COMMERCE
+  ARTS
+}
+
+enum SubjectPaper {
+  NONE // single combined mark
+  FIRST
+  SECOND
+}
+
+model Subject {
+  id            String            @id @default(cuid())
+  institutionId String
+  institution   Institution       @relation(fields: [institutionId], references: [id])
+  name          String // e.g. "Bangla", "Physics"
+  offerings     SubjectOffering[]
+  createdAt     DateTime          @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model SubjectOffering {
+  id              String       @id @default(cuid())
+  institutionId   String
+  institution     Institution  @relation(fields: [institutionId], references: [id])
+  className       String // e.g. "Class 8" — matches Class.name
+  group           StudentGroup @default(NONE) // Class 9+ selects by group; NONE applies to all
+  subjectId       String
+  subject         Subject      @relation(fields: [subjectId], references: [id])
+  paper           SubjectPaper @default(NONE)
+  defaultMaxMarks Decimal      @default(100.00) @db.Decimal(5, 2)
+  isGraded        Boolean      @default(true) // false = co-curricular/pass-fail, excluded from numeric mark entry
+  displayOrder    Int          @default(0)
+  createdAt       DateTime     @default(now())
+
+  // Explicit map: the field list is long enough that Prisma's default name
+  // exceeds Postgres's 63-byte identifier limit and would get silently
+  // truncated by Postgres in a way that doesn't match what a hand-written
+  // migration can predict — pinned explicitly so schema and migration.sql
+  // are guaranteed to agree.
+
+  @@unique([institutionId, className, group, subjectId, paper], map: "SubjectOffering_unique_offering")
+  @@index([institutionId, className, group])
 }
 
 // ── User & Role Management ───────────────────────────────────────────

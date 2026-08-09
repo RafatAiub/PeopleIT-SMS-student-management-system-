@@ -18,6 +18,20 @@
   .dark ::-webkit-scrollbar-thumb { @apply bg-surface-700; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-primary-500; }
   .dark ::-webkit-scrollbar-thumb:hover { @apply bg-primary-600; }
+
+  /* Native number-input spin buttons eat into the visible digits in the
+     compact mark-entry boxes throughout the app (a 3-digit value like "100"
+     rendering as clipped "10"). No numeric field here benefits from
+     click-to-increment, so spinners are disabled globally rather than
+     per-field. */
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 }
 
 @layer components {
