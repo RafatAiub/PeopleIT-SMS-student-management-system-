@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronDown, Plus, GraduationCap, UserCircle, Download } from 'lucide-react';
+import { Calendar, ChevronDown, Plus, GraduationCap, UserCircle, Download, X } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../../components/ui/Modal';
@@ -15,6 +28,29 @@ const TIME_SLOTS = [
   { start: '11:30 AM', end: '12:15 PM', label: 'Period 4' },
   { start: '12:15 PM', end: '01:00 PM', label: 'Period 5' },
 ];
+type TimeSlot = typeof TIME_SLOTS[number];
+
+interface RoutineEntry {
+  id: string;
+  subject: string;
+  teacher: string;
+  className?: string;
+  sectionName?: string;
+}
+
+interface PaletteBlockType {
+  id: string;
+  subject: string;
+  teacherUserId: string;
+  teacherName: string;
+}
+
+const BLOCK_COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
+function colorForId(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return BLOCK_COLORS[hash % BLOCK_COLORS.length];
+}
 
 // Convert 12hr time to 24hr for the backend matching
 const to24 = (timeStr: string) => {
@@ -31,15 +67,98 @@ const to24 = (timeStr: string) => {
   return `${hours.padStart(2, '0')}:${minutes}`;
 };
 
+function PaletteChip({ block, onRemove }: { block: PaletteBlockType; onRemove: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `palette-${block.id}`,
+    data: { type: 'palette' as const, block },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{ transform: transform ? CSS.Translate.toString(transform) : undefined, borderLeftColor: colorForId(block.id) }}
+      className={`group flex items-center gap-2 pl-3 pr-2 py-2 rounded-lg border-l-4 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-white/10 shadow-xs cursor-grab active:cursor-grabbing select-none touch-none ${isDragging ? 'opacity-40' : ''}`}
+    >
+      <div>
+        <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{block.subject}</div>
+        <div className="text-[10px] text-slate-500 dark:text-slate-400">{block.teacherName}</div>
+      </div>
+      <button
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={onRemove}
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
+function EmptyCell({ day, timeSlot }: { day: string; timeSlot: TimeSlot }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `cell-${day}-${timeSlot.label}`,
+    data: { day, timeSlot },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`h-full w-full flex items-center justify-center rounded-xl transition-colors ${isOver ? 'bg-blue-100/60 dark:bg-blue-500/10 ring-2 ring-blue-400/50' : 'opacity-30'}`}
+    >
+      <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center italic">{isOver ? 'Drop here' : 'Free'}</span>
+    </div>
+  );
+}
+
+function PlacedPeriodCard({
+  day,
+  timeSlot,
+  entry,
+  onDelete,
+}: {
+  day: string;
+  timeSlot: TimeSlot;
+  entry: RoutineEntry;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `slot-${entry.id}`,
+    data: { type: 'slot' as const, entry, day, timeSlot },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{ transform: transform ? CSS.Translate.toString(transform) : undefined }}
+      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border border-blue-200 dark:border-blue-500/20 shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-blue-400/30 transition-all ${isDragging ? 'opacity-30' : ''}`}
+    >
+      <button
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={onDelete}
+        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 bg-white/80 dark:bg-slate-900/80 rounded-full p-0.5"
+      >
+        <X className="w-3 h-3" />
+      </button>
+      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{entry.subject}</span>
+      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
+        {entry.teacher}
+      </span>
+    </div>
+  );
+}
+
 const TimetableGrid = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const isTeacher = user?.role === 'TEACHER';
   const isStudent = user?.role === 'STUDENT';
-  
+
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
-  const [routine, setRoutine] = useState<Record<string, Record<string, { subject: string; teacher: string; className?: string; sectionName?: string }>>>({});
+  const [routine, setRoutine] = useState<Record<string, Record<string, RoutineEntry>>>({});
   const [loading, setLoading] = useState(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -61,6 +180,16 @@ const TimetableGrid = () => {
     teacherUserId: ''
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Drag-and-drop routine builder: a palette of reusable subject+teacher
+  // "blocks" the admin drags onto the grid. Palette state is local/session
+  // only (no backend model for it) and persists across class/section
+  // switches so the same block can be reused for multiple sections.
+  const [paletteBlocks, setPaletteBlocks] = useState<PaletteBlockType[]>([]);
+  const [newBlockSubject, setNewBlockSubject] = useState('');
+  const [newBlockTeacherUserId, setNewBlockTeacherUserId] = useState('');
+  const [activeDragData, setActiveDragData] = useState<any>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Shared by fetchTimetables and the PDF download so the two never drift.
   const buildQueryParams = () => {
@@ -85,20 +214,21 @@ const TimetableGrid = () => {
 
       const response = await apiClient.get(`/timetables${buildQueryParams()}`);
       const slots = Array.isArray(response.data.data) ? response.data.data : [];
-      
+
       const formattedRoutine: any = {};
-      
+
       slots.forEach((slot: any) => {
         // Convert MONDAY to Monday
         const dayFormatted = slot.dayOfWeek.charAt(0).toUpperCase() + slot.dayOfWeek.slice(1).toLowerCase();
-        
+
         // Find matching period label
         const timeSlotInfo = TIME_SLOTS.find(ts => to24(ts.start) === slot.startTime);
-        
+
         if (timeSlotInfo) {
           if (!formattedRoutine[dayFormatted]) formattedRoutine[dayFormatted] = {};
-          
+
           formattedRoutine[dayFormatted][timeSlotInfo.label] = {
+            id: slot.id,
             subject: slot.subject,
             teacher: slot.teacher?.user ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}` : 'Unassigned',
             className: slot.className,
@@ -106,7 +236,7 @@ const TimetableGrid = () => {
           };
         }
       });
-      
+
       setRoutine(formattedRoutine);
     } catch (error) {
       console.error('Failed to fetch timetables', error);
@@ -222,7 +352,85 @@ const TimetableGrid = () => {
     }
   };
 
+  const addPaletteBlock = () => {
+    if (!newBlockSubject.trim() || !newBlockTeacherUserId) return;
+    const teacher = teachers.find((t: any) => t.id === newBlockTeacherUserId);
+    if (!teacher) return;
+    setPaletteBlocks(prev => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        subject: newBlockSubject.trim(),
+        teacherUserId: newBlockTeacherUserId,
+        teacherName: `${teacher.firstName} ${teacher.lastName}`,
+      },
+    ]);
+    setNewBlockSubject('');
+    setNewBlockTeacherUserId('');
+  };
+
+  const removePaletteBlock = (id: string) => setPaletteBlocks(prev => prev.filter(b => b.id !== id));
+
+  const deleteSlot = async (slotId: string) => {
+    try {
+      await apiClient.delete(`/timetables/${slotId}`);
+      toast.success('Period removed');
+      fetchTimetables();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to remove period');
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => setActiveDragData(event.active.data.current);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragData(null);
+    const { active, over } = event;
+    if (!over) return; // dropped outside any valid cell (incl. a filled cell/break) -> no-op
+
+    const { day, timeSlot } = over.data.current as { day: string; timeSlot: TimeSlot };
+    const startTime = to24(timeSlot.start);
+    const endTime = to24(timeSlot.end);
+    const dragData = active.data.current as any;
+
+    if (dragData?.type === 'palette') {
+      if (!branchId || !selectedClass || !selectedSection) {
+        toast.error('Select a class and section first');
+        return;
+      }
+      const { subject, teacherUserId } = dragData.block as PaletteBlockType;
+      try {
+        await apiClient.post('/timetables', {
+          branchId,
+          className: selectedClass,
+          sectionName: selectedSection,
+          dayOfWeek: day.toUpperCase(),
+          startTime,
+          endTime,
+          subject,
+          teacherUserId,
+        });
+        fetchTimetables();
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Failed to place block');
+      }
+    } else if (dragData?.type === 'slot') {
+      const { entry } = dragData as { entry: RoutineEntry };
+      try {
+        await apiClient.put(`/timetables/${entry.id}`, {
+          dayOfWeek: day.toUpperCase(),
+          startTime,
+          endTime,
+        });
+        fetchTimetables();
+      } catch (err: any) {
+        toast.error(err.response?.data?.message || 'Failed to move period');
+      }
+    }
+  };
+
   return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -299,6 +507,66 @@ const TimetableGrid = () => {
         </div>
       )}
 
+      {/* Routine Builder Palette - Admin Only */}
+      {isAdmin && (
+        <div className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Routine Builder Palette</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Define a subject + teacher once, then drag it onto the grid below as many times as needed. Drag a placed period to move it, or hover it and click × to remove it.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</label>
+              <input
+                type="text"
+                value={newBlockSubject}
+                onChange={(e) => setNewBlockSubject(e.target.value)}
+                placeholder="e.g. Mathematics"
+                className="input-field text-sm py-2 w-40"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Teacher</label>
+              <select
+                value={newBlockTeacherUserId}
+                onChange={(e) => setNewBlockTeacherUserId(e.target.value)}
+                className="input-field text-sm py-2 w-48"
+              >
+                <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Select a teacher</option>
+                {teachers.map((t: any) => (
+                  <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{t.firstName} {t.lastName}</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={addPaletteBlock}
+              disabled={!newBlockSubject.trim() || !newBlockTeacherUserId}
+              className="px-4 py-2 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Block
+            </Button>
+          </div>
+
+          {paletteBlocks.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200/60 dark:border-white/5">
+              {paletteBlocks.map(block => (
+                <PaletteChip key={block.id} block={block} onRemove={() => removePaletteBlock(block.id)} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 dark:text-slate-500 italic pt-3 border-t border-slate-200/60 dark:border-white/5">
+              No blocks yet — add one above, then drag it onto a period below.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Timetable Grid View */}
       <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-xs relative bg-white dark:bg-slate-900/10">
         {loading && (
@@ -332,25 +600,31 @@ const TimetableGrid = () => {
                       </div>
                     );
                   }
-                  
-                  const period = routine[day]?.[slot.label];
+
+                  const entry = routine[day]?.[slot.label];
                   return (
                     <div key={day} className="p-2.5 flex flex-col justify-center min-h-[90px]">
-                      {period ? (
-                        <div className="h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border border-blue-200 dark:border-blue-500/20 shadow-xs flex flex-col items-center justify-center p-2 group hover:border-blue-400/30 transition-all">
-                          <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{period.subject}</span>
-                          
-                          {/* Admin/Student shows Teacher name. Teacher shows Class name */}
-                          {isTeacher ? (
-                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center">
-                              {period.className} - {period.sectionName}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
-                              {period.teacher}
-                            </span>
-                          )}
-                        </div>
+                      {entry ? (
+                        isAdmin ? (
+                          <PlacedPeriodCard day={day} timeSlot={slot} entry={entry} onDelete={() => deleteSlot(entry.id)} />
+                        ) : (
+                          <div className="h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border border-blue-200 dark:border-blue-500/20 shadow-xs flex flex-col items-center justify-center p-2 group hover:border-blue-400/30 transition-all">
+                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{entry.subject}</span>
+
+                            {/* Teacher shows Class name, Student shows Teacher */}
+                            {isTeacher ? (
+                              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center">
+                                {entry.className} - {entry.sectionName}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
+                                {entry.teacher}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      ) : isAdmin ? (
+                        <EmptyCell day={day} timeSlot={slot} />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center opacity-30">
                           <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center italic">Free</span>
@@ -378,7 +652,7 @@ const TimetableGrid = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Day</label>
-                  <select 
+                  <select
                     value={formData.day}
                     onChange={e => setFormData({ ...formData, day: e.target.value })}
                     className="input-field"
@@ -388,7 +662,7 @@ const TimetableGrid = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Period</label>
-                  <select 
+                  <select
                     value={formData.period}
                     onChange={e => setFormData({ ...formData, period: e.target.value })}
                     className="input-field"
@@ -399,11 +673,11 @@ const TimetableGrid = () => {
                   </select>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Subject Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="e.g. Mathematics"
                   value={formData.subject}
@@ -414,7 +688,7 @@ const TimetableGrid = () => {
 
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Teacher Name</label>
-                <select 
+                <select
                   required
                   value={formData.teacherUserId}
                   onChange={e => setFormData({ ...formData, teacherUserId: e.target.value })}
@@ -437,7 +711,28 @@ const TimetableGrid = () => {
               </div>
             </form>
       </Modal>
+
+      <DragOverlay>
+        {activeDragData?.type === 'palette' && (
+          <div
+            className="flex items-center gap-2 pl-3 pr-3 py-2 rounded-lg border-l-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-lg"
+            style={{ borderLeftColor: colorForId(activeDragData.block.id) }}
+          >
+            <div>
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{activeDragData.block.subject}</div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400">{activeDragData.block.teacherName}</div>
+            </div>
+          </div>
+        )}
+        {activeDragData?.type === 'slot' && (
+          <div className="rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/30 shadow-lg p-3">
+            <div className="text-xs font-bold text-blue-700 dark:text-blue-300">{activeDragData.entry.subject}</div>
+            <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{activeDragData.entry.teacher}</div>
+          </div>
+        )}
+      </DragOverlay>
     </div>
+    </DndContext>
   );
 };
 
