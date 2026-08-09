@@ -68,7 +68,18 @@ const MarksEntry = () => {
   const [entryMode, setEntryMode] = useState<'cards' | 'subject' | 'matrix'>('cards');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubjectFocus, setSelectedSubjectFocus] = useState<string>('');
-  const [maxMarks, setMaxMarks] = useState(100);
+  // Per-subject, not global — different subjects legitimately have different
+  // max marks (e.g. ICT out of 50, others out of 100). A single shared value
+  // here previously caused valid marks in one subject to be rejected using
+  // another subject's max. Subjects with no entry yet default to 100 via
+  // getSubjectMaxMarks(), matching the backend/schema default.
+  const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, number>>({});
+  const getSubjectMaxMarks = (subject: string) => subjectMaxMarks[subject] ?? 100;
+  const handleSubjectMaxMarksChange = (subject: string, val: string) => {
+    const num = parseInt(val, 10);
+    setSubjectMaxMarks((prev) => ({ ...prev, [subject]: isNaN(num) ? 100 : num }));
+    setUnsavedChanges(true);
+  };
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
@@ -134,7 +145,7 @@ const MarksEntry = () => {
           const val = Number(scoreStr);
           if (!isNaN(val)) {
             totalObtained += val;
-            totalMax += maxMarks;
+            totalMax += getSubjectMaxMarks(sub);
             filledCount++;
           }
         }
@@ -142,7 +153,7 @@ const MarksEntry = () => {
       map[student.id] = { totalObtained, totalMax, filledCount };
     });
     return map;
-  }, [students, availableSubjects, marks, maxMarks]);
+  }, [students, availableSubjects, marks, subjectMaxMarks]);
 
   const loadInitialMetadata = async () => {
     try {
@@ -208,6 +219,7 @@ const MarksEntry = () => {
       // this, reloading the page always showed a blank sheet even though
       // the marks were submitted successfully and safely stored server-side.
       const savedKeys = new Set<string>();
+      const nextSubjectMaxMarks: Record<string, number> = {};
       if (selectedExam) {
         try {
           const cls = classesMeta.find((c: any) => c.name === selectedClass);
@@ -225,7 +237,6 @@ const MarksEntry = () => {
 
           const existingRes = await apiClient.get(`/results/results-list?${queryParams.toString()}`);
           const existingRecords = existingRes.data.data || [];
-          let detectedMaxMarks: number | null = null;
           existingRecords.forEach((record: any) => {
             if (!record.student) return;
             if (!nextMarks[record.subject]) nextMarks[record.subject] = {};
@@ -234,9 +245,10 @@ const MarksEntry = () => {
               remarks: record.remarks || ''
             };
             savedKeys.add(`${record.subject}:${record.student.id}`);
-            if (detectedMaxMarks === null) detectedMaxMarks = Number(record.maxMarks);
+            // Every result row for a subject shares the same max marks, so
+            // last-write-wins here is equivalent to reading any one of them.
+            nextSubjectMaxMarks[record.subject] = Number(record.maxMarks);
           });
-          if (detectedMaxMarks !== null) setMaxMarks(detectedMaxMarks);
         } catch (err) {
           console.error('Failed to fetch previously saved marks', err);
         }
@@ -244,6 +256,7 @@ const MarksEntry = () => {
 
       setMarks(nextMarks);
       setSavedMarkKeys(savedKeys);
+      setSubjectMaxMarks(nextSubjectMaxMarks);
     } catch (err) {
       console.error('Failed to fetch students', err);
       setStudents([]);
@@ -713,7 +726,7 @@ const MarksEntry = () => {
     try {
       const response = await apiClient.post('/ai/comments', {
         score: Number(score),
-        maxMarks: maxMarks,
+        maxMarks: getSubjectMaxMarks(subject),
         subject,
         studentId: studentId
       });
@@ -723,7 +736,7 @@ const MarksEntry = () => {
     } catch (error) {
       console.warn('AI comment API error, using smart fallback logic:', error);
       const numericScore = Number(score);
-      const percent = (numericScore / maxMarks) * 100;
+      const percent = (numericScore / getSubjectMaxMarks(subject)) * 100;
       let mockComment = 'Shows consistent efforts and participates actively in class discussions.';
       if (percent >= 90) {
         mockComment = 'Outstanding performance! Demonstrates exceptional mastery of the concepts and analytical skills.';
@@ -778,20 +791,21 @@ const MarksEntry = () => {
       let invalidMessage = '';
 
       Object.entries(marks).forEach(([subjectName, studentScores]) => {
+        const maxForSubject = getSubjectMaxMarks(subjectName);
         Object.entries(studentScores).forEach(([studentId, data]) => {
           if (data.score !== '' && !invalidScoreFound) {
             const scoreNum = Number(data.score);
-            if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > maxMarks) {
+            if (isNaN(scoreNum) || scoreNum < 0 || scoreNum > maxForSubject) {
               invalidScoreFound = true;
               const studentObj = students.find((s) => s.id === studentId);
               const studentName = studentObj ? `${studentObj.firstName} ${studentObj.lastName}` : studentId;
-              invalidMessage = `Invalid mark (${data.score}) for ${studentName} in ${subjectName}. Marks must be between 0 and ${maxMarks}.`;
+              invalidMessage = `Invalid mark (${data.score}) for ${studentName} in ${subjectName}. Marks must be between 0 and ${maxForSubject}.`;
             } else {
               payload.push({
                 studentId,
                 subject: subjectName,
                 marksObtained: scoreNum,
-                maxMarks: maxMarks,
+                maxMarks: maxForSubject,
                 remarks: data.remarks || '',
               });
             }
@@ -987,14 +1001,29 @@ const MarksEntry = () => {
               </div>
             </div>
 
-            <div className="flex flex-col">
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Max Marks</label>
-              <input
-                type="number"
-                value={maxMarks}
-                onChange={(e) => setMaxMarks(parseInt(e.target.value, 10) || 100)}
-                className="input-field w-20"
-              />
+          </div>
+
+          {/* Max Marks per Subject — each subject can have a different max
+              (e.g. ICT out of 50, others out of 100), so this is the single
+              place to configure it per subject rather than one shared value. */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Max Marks per Subject</label>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {availableSubjects.map((sub) => (
+                <div
+                  key={sub}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/10 flex-shrink-0"
+                >
+                  <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">{sub}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={getSubjectMaxMarks(sub)}
+                    onChange={(e) => handleSubjectMaxMarksChange(sub, e.target.value)}
+                    className="input-field w-14 text-center text-xs py-1"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1114,7 +1143,7 @@ const MarksEntry = () => {
                           <div className="text-right">
                             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Marks</span>
                             <span className="font-extrabold text-blue-600 dark:text-blue-400 text-sm">
-                              {summary.totalObtained} <span className="text-xs font-medium text-slate-400">/ {summary.filledCount * maxMarks}</span>
+                              {summary.totalObtained} <span className="text-xs font-medium text-slate-400">/ {summary.totalMax}</span>
                             </span>
                           </div>
                         </div>
@@ -1131,7 +1160,7 @@ const MarksEntry = () => {
                               <div key={sub} className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-950/40 border border-slate-200/40 dark:border-white/5 space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{sub}</span>
-                                  <span className="text-[11px] text-slate-500">Max: {maxMarks}</span>
+                                  <span className="text-[11px] text-slate-500">Max: {getSubjectMaxMarks(sub)}</span>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -1282,7 +1311,7 @@ const MarksEntry = () => {
                                   : ''
                               }`}
                             />
-                            <span className="text-xs text-slate-400 font-medium">/ {maxMarks}</span>
+                            <span className="text-xs text-slate-400 font-medium">/ {getSubjectMaxMarks(sub)}</span>
                           </div>
 
                           <input
