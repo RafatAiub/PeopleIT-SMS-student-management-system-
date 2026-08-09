@@ -1,5 +1,9 @@
+import PDFDocument from 'pdfkit';
+import { drawInstitutionHeader, type PdfInstitution } from '../../utils/pdfHeader';
+import { computeGrade } from '../../utils/grading';
+
 interface ReportCardData {
-  institutionName: string;
+  institution: PdfInstitution;
   student: {
     studentId: string;
     firstName: string;
@@ -15,119 +19,165 @@ interface ReportCardData {
   overallPercentage: number;
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
+const NAVY = '#1e3a8a';
+const INK = '#0f172a';
+const MUTED = '#64748b';
+const BORDER = '#e2e8f0';
+
+function gradeColor(grade: string): string {
+  if (grade === 'A+' || grade === 'A' || grade === 'A-') return '#059669';
+  if (grade === 'B' || grade === 'C') return '#d97706';
+  return '#dc2626';
 }
 
-function buildHtml(data: ReportCardData): string {
-  const rows = data.results
-    .map(
-      (r) => `
-      <tr>
-        <td>${escapeHtml(r.subject)}</td>
-        <td class="num">${r.marksObtained}</td>
-        <td class="num">${r.maxMarks}</td>
-        <td class="grade">${escapeHtml(r.grade)}</td>
-        <td>${escapeHtml(r.remarks)}</td>
-      </tr>`,
-    )
-    .join('');
+function drawLabelValue(doc: PDFKit.PDFDocument, label: string, value: string, x: number, y: number, width: number) {
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED).text(label.toUpperCase(), x, y, { width });
+  doc.font('Helvetica').fontSize(10).fillColor(INK).text(value || '-', x, y + 11, { width });
+}
 
-  const dateRange = `${data.exam.startDate.toDateString()} – ${data.exam.endDate.toDateString()}`;
+const COLS = [
+  { key: 'subject', label: 'Subject', width: 0.36, align: 'left' as const },
+  { key: 'obtained', label: 'Obtained', width: 0.13, align: 'right' as const },
+  { key: 'max', label: 'Max', width: 0.13, align: 'right' as const },
+  { key: 'grade', label: 'Grade', width: 0.12, align: 'center' as const },
+  { key: 'remarks', label: 'Remarks', width: 0.26, align: 'left' as const },
+];
 
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  * { box-sizing: border-box; font-family: 'Helvetica Neue', Arial, sans-serif; }
-  body { margin: 0; padding: 32px; color: #0f172a; }
-  .header { text-align: center; border-bottom: 3px solid #4f46e5; padding-bottom: 16px; margin-bottom: 24px; }
-  .header h1 { margin: 0; font-size: 22px; color: #4f46e5; }
-  .header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
-  .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
-  .meta div { line-height: 1.6; }
-  .meta strong { color: #334155; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-  th { background: #4f46e5; color: white; text-align: left; padding: 8px 10px; font-size: 12px; text-transform: uppercase; }
-  td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-  td.num, th.num { text-align: center; }
-  td.grade { font-weight: bold; text-align: center; }
-  .summary { display: flex; justify-content: flex-end; gap: 32px; font-size: 14px; margin-bottom: 40px; }
-  .summary div { text-align: right; }
-  .summary strong { display: block; font-size: 18px; color: #4f46e5; }
-  .footer { display: flex; justify-content: space-between; margin-top: 60px; font-size: 12px; color: #64748b; }
-  .footer .line { border-top: 1px solid #94a3b8; width: 160px; padding-top: 6px; text-align: center; }
-</style>
-</head>
-<body>
-  <div class="header">
-    <h1>${escapeHtml(data.institutionName)}</h1>
-    <p>Academic Report Card — ${escapeHtml(data.exam.name)}</p>
-  </div>
-
-  <div class="meta">
-    <div>
-      <strong>Student:</strong> ${escapeHtml(data.student.firstName)} ${escapeHtml(data.student.lastName)}<br/>
-      <strong>Student ID:</strong> ${escapeHtml(data.student.studentId)}<br/>
-      <strong>Roll No:</strong> ${escapeHtml(data.student.rollNumber ?? '-')}
-    </div>
-    <div>
-      <strong>Class:</strong> ${escapeHtml(data.student.class?.name ?? '-')}<br/>
-      <strong>Section:</strong> ${escapeHtml(data.student.section?.name ?? '-')}<br/>
-      <strong>Exam Period:</strong> ${escapeHtml(dateRange)}
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th>Subject</th>
-        <th class="num">Obtained</th>
-        <th class="num">Max</th>
-        <th class="num">Grade</th>
-        <th>Remarks</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
-
-  <div class="summary">
-    <div><strong>${data.totalObtained} / ${data.totalMax}</strong>Total Marks</div>
-    <div><strong>${data.overallPercentage}%</strong>Overall Percentage</div>
-  </div>
-
-  <div class="footer">
-    <div class="line">Class Teacher</div>
-    <div class="line">Guardian</div>
-    <div class="line">Principal</div>
-  </div>
-</body>
-</html>`;
+function drawTableHeader(doc: PDFKit.PDFDocument, startX: number, y: number, contentWidth: number) {
+  const rowHeight = 22;
+  doc.rect(startX, y, contentWidth, rowHeight).fill(NAVY);
+  let x = startX;
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff');
+  for (const col of COLS) {
+    const w = contentWidth * col.width;
+    doc.text(col.label, x + 8, y + 6, { width: w - 12, align: col.align });
+    x += w;
+  }
+  return y + rowHeight;
 }
 
 /**
- * Renders a report card to PDF via a headless browser (HTML/CSS -> PDF),
- * reusing the same styling approach as the rest of the app rather than a
- * programmatic PDF-drawing library.
+ * Renders a report-card PDF via pdfkit (pure JS, no headless browser —
+ * Puppeteer/Chromium could not launch on the hosted Node environment).
  */
 export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer> {
-  // Dynamic import — puppeteer ships as an ESM-only package ("type":
-  // "module"), which a static `import` compiled to CommonJS `require()`
-  // cannot load. Dynamic import() works from CJS to ESM.
-  const { default: puppeteer } = await import('puppeteer');
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk) => chunks.push(chunk));
+  const finished = new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
   });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(buildHtml(data), { waitUntil: 'load' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', bottom: '20px' } });
-    return Buffer.from(pdf);
-  } finally {
-    await browser.close();
+
+  const startX = doc.page.margins.left;
+  const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
+
+  // Page border frame — classic report-card letterhead touch.
+  doc.rect(18, 18, doc.page.width - 36, doc.page.height - 36).lineWidth(1).strokeColor(BORDER).stroke();
+
+  const dateRange = `${data.exam.startDate.toDateString()} - ${data.exam.endDate.toDateString()}`;
+  await drawInstitutionHeader(doc, data.institution, 'Academic Report Card', `${data.exam.name}  |  ${dateRange}`);
+
+  // Student info box
+  const infoBoxY = doc.y;
+  const infoBoxHeight = 92;
+  doc.rect(startX, infoBoxY, contentWidth, infoBoxHeight).fillAndStroke('#f8fafc', BORDER);
+  const leftX = startX + 14;
+  const rightX = startX + contentWidth / 2 + 6;
+  const colWidth = contentWidth / 2 - 24;
+  const rowY = infoBoxY + 12;
+  drawLabelValue(doc, 'Student Name', `${data.student.firstName} ${data.student.lastName}`, leftX, rowY, colWidth);
+  drawLabelValue(doc, 'Student ID', data.student.studentId, leftX, rowY + 28, colWidth);
+  drawLabelValue(doc, 'Roll No', data.student.rollNumber ?? '-', leftX, rowY + 56, colWidth);
+  drawLabelValue(doc, 'Class', data.student.class?.name ?? '-', rightX, rowY, colWidth);
+  drawLabelValue(doc, 'Section', data.student.section?.name ?? '-', rightX, rowY + 28, colWidth);
+  drawLabelValue(doc, 'Exam', data.exam.name, rightX, rowY + 56, colWidth);
+  doc.y = infoBoxY + infoBoxHeight + 18;
+
+  // Results table
+  let cursorY = drawTableHeader(doc, startX, doc.y, contentWidth);
+  const rowHeight = 22;
+
+  data.results.forEach((r, i) => {
+    if (cursorY + rowHeight > pageBottom - 110) {
+      doc.addPage();
+      cursorY = doc.page.margins.top;
+      cursorY = drawTableHeader(doc, startX, cursorY, contentWidth);
+    }
+    if (i % 2 === 1) {
+      doc.rect(startX, cursorY, contentWidth, rowHeight).fill('#f8fafc');
+    }
+    let x = startX;
+    const cells: Record<string, string> = {
+      subject: r.subject,
+      obtained: String(r.marksObtained),
+      max: String(r.maxMarks),
+      grade: r.grade,
+      remarks: r.remarks || '-',
+    };
+    for (const col of COLS) {
+      const w = contentWidth * col.width;
+      doc
+        .font(col.key === 'grade' ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(9)
+        .fillColor(col.key === 'grade' ? gradeColor(r.grade) : INK)
+        .text(cells[col.key], x + 8, cursorY + 6, { width: w - 12, align: col.align });
+      x += w;
+    }
+    doc
+      .moveTo(startX, cursorY + rowHeight)
+      .lineTo(startX + contentWidth, cursorY + rowHeight)
+      .lineWidth(0.5)
+      .strokeColor(BORDER)
+      .stroke();
+    cursorY += rowHeight;
+  });
+
+  doc.y = cursorY + 18;
+
+  // Summary strip
+  if (doc.y + 60 > pageBottom - 60) {
+    doc.addPage();
+    doc.y = doc.page.margins.top;
   }
+  const overallGrade = computeGrade(data.overallPercentage, 100);
+  const summaryY = doc.y;
+  const summaryHeight = 54;
+  doc.rect(startX, summaryY, contentWidth, summaryHeight).fillAndStroke('#eff6ff', '#bfdbfe');
+  const thirdWidth = contentWidth / 3;
+  const summaryCells: Array<[string, string, string?]> = [
+    ['Total Marks', `${data.totalObtained} / ${data.totalMax}`],
+    ['Percentage', `${data.overallPercentage}%`],
+    ['Overall Grade', overallGrade, gradeColor(overallGrade)],
+  ];
+  summaryCells.forEach(([label, value, color], i) => {
+    const x = startX + i * thirdWidth;
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(MUTED).text(label.toUpperCase(), x, summaryY + 10, { width: thirdWidth, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(18).fillColor(color ?? NAVY).text(value, x, summaryY + 24, { width: thirdWidth, align: 'center' });
+  });
+  doc.y = summaryY + summaryHeight + 40;
+
+  // Signature footer
+  if (doc.y + 40 > pageBottom) {
+    doc.addPage();
+    doc.y = doc.page.margins.top + 20;
+  }
+  const sigWidth = contentWidth / 3;
+  const sigY = doc.y;
+  ['Class Teacher', 'Guardian', 'Principal'].forEach((label, i) => {
+    const x = startX + i * sigWidth + 10;
+    const w = sigWidth - 20;
+    doc.moveTo(x, sigY).lineTo(x + w, sigY).lineWidth(0.75).strokeColor('#94a3b8').stroke();
+    doc.font('Helvetica').fontSize(9).fillColor(MUTED).text(label, x, sigY + 4, { width: w, align: 'center' });
+  });
+
+  doc
+    .font('Helvetica')
+    .fontSize(7.5)
+    .fillColor('#94a3b8')
+    .text(`Generated on ${new Date().toDateString()}`, startX, pageBottom - 20, { width: contentWidth, align: 'right' });
+
+  doc.end();
+  return finished;
 }

@@ -94,13 +94,24 @@ describe('Timetable PDF export + exact-match/update-validation fixes', () => {
     expect(res.body.data.every((s: any) => s.className === 'Class 1')).toBe(true);
   }, 20_000);
 
-  // Full PDF rendering (renderTimetablePdf -> puppeteer) is intentionally not
-  // exercised here: puppeteer ships ESM-only, and dynamic import('puppeteer')
-  // fails under ts-jest's CommonJS-based module loader ("Unexpected token
-  // 'export'") even though it works fine under the real app runtime
-  // (ts-node-dev / compiled dist + node) — the same pre-existing gap already
-  // affects the untested report-card PDF endpoint. Verified manually outside
-  // Jest instead: generateTimetablePdf() returns a real %PDF- buffer.
+  it('PDF export: GET /timetables/pdf returns a valid PDF buffer for a class/section', async () => {
+    const res = await request(app)
+      .get('/api/v1/timetables/pdf')
+      .query({ className: 'Class 1', sectionName: 'A' })
+      .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(Buffer.isBuffer(res.body)).toBe(true);
+    expect(res.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+  }, 20_000);
+
   it('PDF export: requires className+sectionName, teacherUserId, or studentUserId', async () => {
     const res = await request(app)
       .get('/api/v1/timetables/pdf')

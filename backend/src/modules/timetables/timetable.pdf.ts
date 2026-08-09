@@ -1,3 +1,6 @@
+import PDFDocument from 'pdfkit';
+import { drawInstitutionHeader, type PdfInstitution } from '../../utils/pdfHeader';
+
 // Mirrors the DAYS/TIME_SLOTS grid hardcoded in
 // frontend/src/pages/timetables/TimetableGrid.tsx — there is no Period/Break
 // model in the schema, so the weekly grid shape lives as a constant on both
@@ -21,111 +24,96 @@ interface TimetablePdfSlot {
 }
 
 interface TimetablePdfData {
-  institutionName: string;
+  institution: PdfInstitution;
   title: string;
   subtitle: string;
   slots: TimetablePdfSlot[];
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
-}
-
-function buildHtml(data: TimetablePdfData): string {
-  const generatedOn = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-
-  const rows = PERIODS.map((period) => {
-    const timeCell = `<td class="time"><div class="period-label">${escapeHtml(period.label)}</div><div class="period-range">${escapeHtml(period.display)}</div></td>`;
-
-    if (period.isBreak) {
-      const breakCells = DAYS.map(() => `<td class="break">Break</td>`).join('');
-      return `<tr class="break-row">${timeCell}${breakCells}</tr>`;
-    }
-
-    const dayCells = DAYS.map((day) => {
-      const slot = data.slots.find(
-        (s) => s.dayOfWeek === day.toUpperCase() && s.startTime === period.startTime,
-      );
-      if (!slot) {
-        return `<td class="free">Free</td>`;
-      }
-      return `<td class="filled"><div class="subject">${escapeHtml(slot.subject)}</div>${
-        slot.teacherName ? `<div class="teacher">${escapeHtml(slot.teacherName)}</div>` : ''
-      }</td>`;
-    }).join('');
-
-    return `<tr>${timeCell}${dayCells}</tr>`;
-  }).join('');
-
-  const dayHeaders = DAYS.map((d) => `<th>${escapeHtml(d)}</th>`).join('');
-
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<style>
-  * { box-sizing: border-box; font-family: 'Helvetica Neue', Arial, sans-serif; }
-  body { margin: 0; padding: 28px; color: #0f172a; }
-  .header { text-align: center; border-bottom: 3px solid #4f46e5; padding-bottom: 14px; margin-bottom: 18px; }
-  .header h1 { margin: 0; font-size: 20px; color: #4f46e5; }
-  .header p { margin: 4px 0 0; color: #64748b; font-size: 13px; }
-  .meta { text-align: right; font-size: 11px; color: #94a3b8; margin-bottom: 12px; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  th { background: #4f46e5; color: white; text-align: center; padding: 8px 6px; font-size: 11px; text-transform: uppercase; }
-  th.time-col { width: 13%; }
-  td { border: 1px solid #e2e8f0; padding: 6px; font-size: 11px; text-align: center; vertical-align: middle; height: 52px; }
-  td.time { background: #f8fafc; text-align: left; }
-  .period-label { font-weight: bold; color: #0f172a; }
-  .period-range { color: #64748b; font-size: 9px; margin-top: 2px; }
-  td.break { background: repeating-linear-gradient(45deg, #f1f5f9, #f1f5f9 8px, #e2e8f0 8px, #e2e8f0 16px); color: #94a3b8; font-style: italic; text-transform: uppercase; letter-spacing: 1px; font-size: 9px; }
-  td.free { color: #cbd5e1; font-style: italic; }
-  td.filled { background: #eef2ff; }
-  .subject { font-weight: bold; color: #4338ca; }
-  .teacher { color: #64748b; font-size: 9px; margin-top: 2px; }
-</style>
-</head>
-<body>
-  <div class="header">
-    <h1>${escapeHtml(data.institutionName)}</h1>
-    <p>${escapeHtml(data.title)} — ${escapeHtml(data.subtitle)}</p>
-  </div>
-  <div class="meta">Generated on ${escapeHtml(generatedOn)}</div>
-  <table>
-    <thead>
-      <tr>
-        <th class="time-col">Time Slot</th>
-        ${dayHeaders}
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
-</body>
-</html>`;
-}
+const NAVY = '#4f46e5';
+const INK = '#0f172a';
+const MUTED = '#64748b';
+const BORDER = '#e2e8f0';
 
 /**
- * Renders a class/teacher/student routine to PDF via a headless browser,
- * mirroring the report-card PDF approach in results/reportCard.pdf.ts.
+ * Renders a class/teacher/student routine to PDF via pdfkit (pure JS, no
+ * headless browser — Puppeteer/Chromium could not launch on the hosted
+ * Node environment).
  */
 export async function renderTimetablePdf(data: TimetablePdfData): Promise<Buffer> {
-  const { default: puppeteer } = await import('puppeteer');
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 30 });
+  const chunks: Buffer[] = [];
+  doc.on('data', (chunk) => chunks.push(chunk));
+  const finished = new Promise<Buffer>((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
   });
-  try {
-    const page = await browser.newPage();
-    await page.setContent(buildHtml(data), { waitUntil: 'load' });
-    const pdf = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      printBackground: true,
-      margin: { top: '20px', bottom: '20px', left: '16px', right: '16px' },
-    });
-    return Buffer.from(pdf);
-  } finally {
-    await browser.close();
+
+  const startX = doc.page.margins.left;
+  const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+  doc.rect(14, 14, doc.page.width - 28, doc.page.height - 28).lineWidth(1).strokeColor(BORDER).stroke();
+
+  await drawInstitutionHeader(doc, data.institution, data.title, data.subtitle);
+
+  const timeColWidth = contentWidth * 0.13;
+  const dayColWidth = (contentWidth - timeColWidth) / DAYS.length;
+  const headerRowHeight = 22;
+  const rowHeight = 46;
+
+  // Table header
+  let y = doc.y;
+  doc.rect(startX, y, contentWidth, headerRowHeight).fill(NAVY);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff');
+  doc.text('TIME SLOT', startX + 6, y + 6, { width: timeColWidth - 12 });
+  DAYS.forEach((day, i) => {
+    const x = startX + timeColWidth + i * dayColWidth;
+    doc.text(day.toUpperCase(), x, y + 6, { width: dayColWidth, align: 'center' });
+  });
+  y += headerRowHeight;
+
+  for (const period of PERIODS) {
+    // Time column cell
+    doc.rect(startX, y, timeColWidth, rowHeight).fillAndStroke('#f8fafc', BORDER);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(INK).text(period.label, startX + 6, y + 10, { width: timeColWidth - 12 });
+    doc.font('Helvetica').fontSize(7).fillColor(MUTED).text(period.display, startX + 6, y + 24, { width: timeColWidth - 12 });
+
+    if (period.isBreak) {
+      const x = startX + timeColWidth;
+      doc.rect(x, y, dayColWidth * DAYS.length, rowHeight).fillAndStroke('#f1f5f9', BORDER);
+      doc
+        .font('Helvetica-BoldOblique')
+        .fontSize(9)
+        .fillColor('#94a3b8')
+        .text('BREAK', x, y + rowHeight / 2 - 5, { width: dayColWidth * DAYS.length, align: 'center' });
+    } else {
+      DAYS.forEach((day, i) => {
+        const x = startX + timeColWidth + i * dayColWidth;
+        const slot = data.slots.find((s) => s.dayOfWeek === day.toUpperCase() && s.startTime === period.startTime);
+        doc.rect(x, y, dayColWidth, rowHeight).fillAndStroke(slot ? '#eef2ff' : '#ffffff', BORDER);
+        if (slot) {
+          doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#4338ca').text(slot.subject, x + 4, y + 8, { width: dayColWidth - 8, align: 'center' });
+          if (slot.teacherName) {
+            doc.font('Helvetica').fontSize(7).fillColor(MUTED).text(slot.teacherName, x + 4, y + 24, { width: dayColWidth - 8, align: 'center' });
+          }
+        } else {
+          doc.font('Helvetica-Oblique').fontSize(8).fillColor('#cbd5e1').text('Free', x, y + rowHeight / 2 - 5, { width: dayColWidth, align: 'center' });
+        }
+      });
+    }
+
+    y += rowHeight;
   }
+
+  doc
+    .font('Helvetica')
+    .fontSize(7.5)
+    .fillColor('#94a3b8')
+    .text(`Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`, startX, y + 10, {
+      width: contentWidth,
+      align: 'right',
+    });
+
+  doc.end();
+  return finished;
 }

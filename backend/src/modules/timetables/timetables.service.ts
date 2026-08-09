@@ -249,7 +249,7 @@ export async function generateTimetablePdf(
 
   const institution = await prisma.institution.findUnique({
     where: { id: institutionId },
-    select: { name: true },
+    select: { name: true, logoUrl: true },
   });
 
   let title = 'Class Routine Timetable';
@@ -283,7 +283,7 @@ export async function generateTimetablePdf(
   const { slots } = await timetablesRepository.findAll(institutionId, { ...query, page: 1, pageSize: 100 });
 
   const pdf = await renderTimetablePdf({
-    institutionName: institution?.name ?? '',
+    institution: { name: institution?.name ?? '', logoUrl: institution?.logoUrl ?? null },
     title,
     subtitle,
     slots: slots.map((slot: any) => ({

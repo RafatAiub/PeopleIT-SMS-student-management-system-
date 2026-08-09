@@ -286,8 +286,17 @@ export async function generateReportCard(
   const totalMax = results.reduce((sum, r) => sum + Number(r.maxMarks), 0);
   const overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 10000) / 100 : 0;
 
+  const institution = await prisma.institution.findUnique({
+    where: { id: institutionId },
+    select: { name: true, logoUrl: true, address: true },
+  });
+
   const pdf = await renderReportCardPdf({
-    institutionName: (await prisma.institution.findUnique({ where: { id: institutionId }, select: { name: true } }))?.name ?? '',
+    institution: {
+      name: institution?.name ?? '',
+      logoUrl: institution?.logoUrl ?? null,
+      address: institution?.address ?? null,
+    },
     student,
     exam,
     results: results.map((r) => ({

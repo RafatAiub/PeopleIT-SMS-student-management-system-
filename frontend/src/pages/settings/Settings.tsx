@@ -157,12 +157,14 @@ const Settings = () => {
     }
 
     try {
-      // Smart canvas compression: Max 300x300 WebP format, 0.82 quality
+      // Smart canvas compression: Max 300x300 PNG (lossless, keeps
+      // transparency, and is the format pdfkit can embed in generated PDFs —
+      // report cards/timetables draw this logo server-side).
       const { dataUrl, sizeKb } = await compressImage(file, {
         maxWidth: 300,
         maxHeight: 300,
         quality: 0.82,
-        format: 'image/webp',
+        format: 'image/png',
       });
 
       setSettings((prev: any) => ({ ...prev, logoUrl: dataUrl }));
