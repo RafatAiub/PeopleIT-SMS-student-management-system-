@@ -97,9 +97,28 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
 
   // Results table
   let cursorY = drawTableHeader(doc, startX, doc.y, contentWidth);
-  const rowHeight = 22;
+  const MIN_ROW_HEIGHT = 22;
+  const ROW_VPADDING = 12; // matches the 6px top text offset below + a matching 6px bottom gap
 
   data.results.forEach((r, i) => {
+    const cells: Record<string, string> = {
+      subject: r.subject,
+      obtained: String(r.marksObtained),
+      max: String(r.maxMarks),
+      grade: r.grade,
+      remarks: r.remarks || '-',
+    };
+
+    // Multi-line remarks (or a long subject name) need more than the 22px
+    // minimum — measure every column at its actual draw width and size the
+    // row to the tallest one, so wrapped text can never bleed into the row
+    // below.
+    doc.font('Helvetica').fontSize(9);
+    const rowHeight = Math.max(
+      MIN_ROW_HEIGHT,
+      ...COLS.map((col) => doc.heightOfString(cells[col.key], { width: contentWidth * col.width - 12 }) + ROW_VPADDING),
+    );
+
     if (cursorY + rowHeight > pageBottom - 110) {
       doc.addPage();
       cursorY = doc.page.margins.top;
@@ -109,13 +128,6 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
       doc.rect(startX, cursorY, contentWidth, rowHeight).fill('#f8fafc');
     }
     let x = startX;
-    const cells: Record<string, string> = {
-      subject: r.subject,
-      obtained: String(r.marksObtained),
-      max: String(r.maxMarks),
-      grade: r.grade,
-      remarks: r.remarks || '-',
-    };
     for (const col of COLS) {
       const w = contentWidth * col.width;
       doc

@@ -53,7 +53,7 @@ export async function drawInstitutionHeader(
     const logoBuffer = await resolveLogoBuffer(institution.logoUrl);
     if (logoBuffer) {
       try {
-        doc.image(logoBuffer, startX, startY, { width: LOGO_SIZE, height: LOGO_SIZE, fit: [LOGO_SIZE, LOGO_SIZE] });
+        doc.image(logoBuffer, startX, startY, { fit: [LOGO_SIZE, LOGO_SIZE] });
         textX = startX + LOGO_SIZE + 14;
       } catch {
         // Unsupported/corrupt image — fall through to text-only header.
