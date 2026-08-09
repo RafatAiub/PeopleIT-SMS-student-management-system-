@@ -100,13 +100,43 @@ const MarksEntry = () => {
   // the two independent fetches that populate them can resolve in either
   // order without a race — the getter below just tries the more specific
   // source first.
-  const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, number>>({});
+  // Stored as the raw typed string, not a parsed number — parsing on every
+  // keystroke and writing the result straight back into a controlled
+  // input's `value` meant clearing the box to type a new number (e.g.
+  // select-all then "50") got forced back to "100" mid-edit, fighting
+  // whatever the user was typing. getSubjectMaxMarks() below is what
+  // resolves this (and curriculumDefaults) down to an actual number for
+  // every non-editing use — validation, totals, display elsewhere.
+  const [subjectMaxMarks, setSubjectMaxMarks] = useState<Record<string, string>>({});
   const [curriculumDefaults, setCurriculumDefaults] = useState<Record<string, number>>({});
-  const getSubjectMaxMarks = (subject: string) => subjectMaxMarks[subject] ?? curriculumDefaults[subject] ?? 100;
+  const getSubjectMaxMarks = (subject: string): number => {
+    const raw = subjectMaxMarks[subject];
+    if (raw !== undefined) {
+      const n = parseInt(raw, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+    return curriculumDefaults[subject] ?? 100;
+  };
+  // What the per-subject chip input itself should show — the exact raw
+  // string being typed (which may be '' mid-edit), falling back to the
+  // resolved default only when there's no in-progress edit at all.
+  const getSubjectMaxMarksInputValue = (subject: string): string =>
+    subjectMaxMarks[subject] ?? String(curriculumDefaults[subject] ?? 100);
   const handleSubjectMaxMarksChange = (subject: string, val: string) => {
-    const num = parseInt(val, 10);
-    setSubjectMaxMarks((prev) => ({ ...prev, [subject]: isNaN(num) ? 100 : num }));
+    setSubjectMaxMarks((prev) => ({ ...prev, [subject]: val }));
     setUnsavedChanges(true);
+  };
+  // Once the teacher clicks away, clean up an empty/invalid box back to the
+  // resolved default rather than leaving it visibly blank.
+  const handleSubjectMaxMarksBlur = (subject: string, val: string) => {
+    const n = parseInt(val, 10);
+    if (val.trim() === '' || isNaN(n) || n <= 0) {
+      setSubjectMaxMarks((prev) => {
+        const next = { ...prev };
+        delete next[subject];
+        return next;
+      });
+    }
   };
   // Remarks used to live in a single-line <input>, which silently scrolled
   // long text out of view with no indication there was more to read/edit.
@@ -260,7 +290,7 @@ const MarksEntry = () => {
       // this, reloading the page always showed a blank sheet even though
       // the marks were submitted successfully and safely stored server-side.
       const savedKeys = new Set<string>();
-      const nextSubjectMaxMarks: Record<string, number> = {};
+      const nextSubjectMaxMarks: Record<string, string> = {};
       if (selectedExam) {
         try {
           const cls = classesMeta.find((c: any) => c.name === selectedClass);
@@ -288,7 +318,7 @@ const MarksEntry = () => {
             savedKeys.add(`${record.subject}:${record.student.id}`);
             // Every result row for a subject shares the same max marks, so
             // last-write-wins here is equivalent to reading any one of them.
-            nextSubjectMaxMarks[record.subject] = Number(record.maxMarks);
+            nextSubjectMaxMarks[record.subject] = String(Number(record.maxMarks));
           });
         } catch (err) {
           console.error('Failed to fetch previously saved marks', err);
@@ -1088,8 +1118,9 @@ const MarksEntry = () => {
                   <input
                     type="number"
                     min={1}
-                    value={getSubjectMaxMarks(sub)}
+                    value={getSubjectMaxMarksInputValue(sub)}
                     onChange={(e) => handleSubjectMaxMarksChange(sub, e.target.value)}
+                    onBlur={(e) => handleSubjectMaxMarksBlur(sub, e.target.value)}
                     className="input-field w-16 text-center text-xs px-1.5 py-1"
                   />
                 </div>
