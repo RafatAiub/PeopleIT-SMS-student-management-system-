@@ -2,6 +2,8 @@ import * as timetablesRepository from './timetables.repository';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import { isEndAfterStart } from './timetables.dto';
+import { renderTimetablePdf } from './timetable.pdf';
 import type {
   CreateTimetableSlotDtoType,
   UpdateTimetableSlotDtoType,
@@ -151,6 +153,10 @@ export async function updateSlot(
   const roomNumber = data.roomNumber !== undefined ? data.roomNumber : existing.roomNumber;
   const teacherId = data.teacherId !== undefined ? data.teacherId : existing.teacherId;
 
+  if (!isEndAfterStart(startTime, endTime)) {
+    throw new BadRequestError('End time must be after start time');
+  }
+
   if (teacherId) {
     const teacherConflict = await prisma.timetableSlot.findFirst({
       where: {
@@ -228,4 +234,67 @@ export async function deleteSlot(institutionId: string, id: string) {
   }
   await timetablesRepository.remove(institutionId, id);
   logger.info('Timetable slot deleted', { slotId: id, institutionId });
+}
+
+export async function generateTimetablePdf(
+  institutionId: string,
+  query: TimetableSlotQueryDtoType,
+): Promise<{ pdf: Buffer; filename: string }> {
+  const hasClassSection = !!(query.className && query.sectionName);
+  if (!hasClassSection && !query.teacherUserId && !query.studentUserId) {
+    throw new BadRequestError(
+      'Provide className & sectionName, teacherUserId, or studentUserId to generate a timetable PDF',
+    );
+  }
+
+  const institution = await prisma.institution.findUnique({
+    where: { id: institutionId },
+    select: { name: true },
+  });
+
+  let title = 'Class Routine Timetable';
+  let subtitle = '';
+  let slugParts = ['timetable'];
+
+  if (query.studentUserId) {
+    const student = await prisma.student.findUnique({
+      where: { userId: query.studentUserId },
+      include: { class: true, section: true },
+    });
+    title = 'My Class Schedule';
+    subtitle = student
+      ? `${student.firstName} ${student.lastName} — ${student.class?.name ?? ''} ${student.section?.name ?? ''}`.trim()
+      : 'Student Schedule';
+    slugParts = ['timetable', student ? `${student.firstName}-${student.lastName}` : 'student'];
+  } else if (query.teacherUserId) {
+    const teacher = await prisma.teacher.findFirst({
+      where: { userId: query.teacherUserId, user: { institutionId } },
+      include: { user: { select: { firstName: true, lastName: true } } },
+    });
+    title = 'My Teaching Schedule';
+    subtitle = teacher ? `${teacher.user.firstName} ${teacher.user.lastName}` : 'Teacher Schedule';
+    slugParts = ['timetable', teacher ? `${teacher.user.firstName}-${teacher.user.lastName}` : 'teacher'];
+  } else {
+    title = 'Class Routine Timetable';
+    subtitle = `${query.className} — Section ${query.sectionName}`;
+    slugParts = ['timetable', query.className!, query.sectionName!];
+  }
+
+  const { slots } = await timetablesRepository.findAll(institutionId, { ...query, page: 1, pageSize: 100 });
+
+  const pdf = await renderTimetablePdf({
+    institutionName: institution?.name ?? '',
+    title,
+    subtitle,
+    slots: slots.map((slot: any) => ({
+      dayOfWeek: slot.dayOfWeek,
+      startTime: slot.startTime,
+      subject: slot.subject,
+      teacherName: slot.teacher?.user ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}` : null,
+    })),
+  });
+
+  const filename = `${slugParts.join('-').replace(/[^a-zA-Z0-9-]+/g, '_')}.pdf`;
+
+  return { pdf, filename };
 }

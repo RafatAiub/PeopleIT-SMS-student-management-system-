@@ -60,6 +60,21 @@ export async function listSlots(
   }
 }
 
+export async function downloadTimetablePdf(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { pdf, filename } = await timetablesService.generateTimetablePdf(req.tenantId!, req.query as any);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function deleteSlot(
   req: Request,
   res: Response,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronDown, Plus, GraduationCap, UserCircle } from 'lucide-react';
+import { Calendar, ChevronDown, Plus, GraduationCap, UserCircle, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -15,14 +15,6 @@ const TIME_SLOTS = [
   { start: '11:30 AM', end: '12:15 PM', label: 'Period 4' },
   { start: '12:15 PM', end: '01:00 PM', label: 'Period 5' },
 ];
-
-const CLASSES = [
-  'KG', 'Nursery', 'Junior One',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
-];
-
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 // Convert 12hr time to 24hr for the backend matching
 const to24 = (timeStr: string) => {
@@ -45,16 +37,21 @@ const TimetableGrid = () => {
   const isTeacher = user?.role === 'TEACHER';
   const isStudent = user?.role === 'STUDENT';
   
-  const [selectedClass, setSelectedClass] = useState('Class 8');
-  const [selectedSection, setSelectedSection] = useState('A');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [routine, setRoutine] = useState<Record<string, Record<string, { subject: string; teacher: string; className?: string; sectionName?: string }>>>({});
   const [loading, setLoading] = useState(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
-  // Resolved from `/students/meta/classes` (the same metadata endpoint used
-  // elsewhere in the app, e.g. AttendanceEntry/Users/StudentList) rather than
-  // hardcoded — that endpoint is tenant-scoped and self-heals a default
-  // "Main Branch" for institutions that haven't set up multi-branch yet.
+  // Classes/sections are fetched from `/students/meta/classes` and
+  // `/students/meta/sections` (the same tenant-scoped, self-healing metadata
+  // endpoints used elsewhere in the app, e.g. AttendanceEntry/Users/StudentList)
+  // rather than hardcoded, so the dropdowns always reflect real Class/Section
+  // records instead of letting an admin pick a combination that doesn't exist.
+  const [classes, setClasses] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+  const [sectionsLoading, setSectionsLoading] = useState(false);
   const [branchId, setBranchId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -65,21 +62,28 @@ const TimetableGrid = () => {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Shared by fetchTimetables and the PDF download so the two never drift.
+  const buildQueryParams = () => {
+    if (isAdmin) {
+      return `?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}`;
+    } else if (isTeacher) {
+      return `?teacherUserId=${user!.id}`;
+    } else if (isStudent) {
+      return `?studentUserId=${user!.id}`;
+    }
+    return '';
+  };
+
   const fetchTimetables = async () => {
     if (!user) return;
+    // Admin view is class/section driven — wait until a real class/section
+    // has been resolved from /students/meta/classes rather than querying
+    // with an empty className (which would just return nothing).
+    if (isAdmin && (!selectedClass || !selectedSection)) return;
     try {
       setLoading(true);
-      
-      let queryParams = '';
-      if (isAdmin) {
-        queryParams = `?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}`;
-      } else if (isTeacher) {
-        queryParams = `?teacherUserId=${user.id}`;
-      } else if (isStudent) {
-        queryParams = `?studentUserId=${user.id}`;
-      }
 
-      const response = await apiClient.get(`/timetables${queryParams}`);
+      const response = await apiClient.get(`/timetables${buildQueryParams()}`);
       const slots = Array.isArray(response.data.data) ? response.data.data : [];
       
       const formattedRoutine: any = {};
@@ -112,22 +116,80 @@ const TimetableGrid = () => {
     }
   };
 
+  // One-time (per user) load of teachers + the real class list — decoupled
+  // from selectedClass/selectedSection so switching dropdowns doesn't
+  // re-fetch the whole class list on every change.
+  useEffect(() => {
+    if (!isAdmin) {
+      setClassesLoading(false);
+      return;
+    }
+    setClassesLoading(true);
+
+    apiClient.get('/users?role=TEACHER&pageSize=100')
+      .then(res => setTeachers(res.data.data || []))
+      .catch(console.error);
+
+    apiClient.get('/students/meta/classes')
+      .then(res => {
+        const classList = (res.data.data || []).slice().sort((a: any, b: any) => (a.level ?? 0) - (b.level ?? 0));
+        setClasses(classList);
+        setSelectedClass(prev => (classList.some((c: any) => c.name === prev) ? prev : (classList[0]?.name ?? '')));
+      })
+      .catch(console.error)
+      .finally(() => setClassesLoading(false));
+  }, [isAdmin, user]);
+
+  // Sections + branchId follow the selected class, resolved from the real
+  // Class record rather than a hardcoded A-G list — keeps the branch correct
+  // for multi-branch institutions and prevents picking a section that
+  // doesn't actually exist under this class.
+  useEffect(() => {
+    if (!isAdmin || !selectedClass) return;
+    const cls = classes.find(c => c.name === selectedClass);
+    if (!cls) return;
+
+    setBranchId(cls.branchId ?? null);
+    setSectionsLoading(true);
+    apiClient.get(`/students/meta/sections?classId=${cls.id}`)
+      .then(res => {
+        const sectionList = res.data.data || [];
+        setSections(sectionList);
+        setSelectedSection(prev => (sectionList.some((s: any) => s.name === prev) ? prev : (sectionList[0]?.name ?? '')));
+      })
+      .catch(console.error)
+      .finally(() => setSectionsLoading(false));
+  }, [isAdmin, selectedClass, classes]);
+
   useEffect(() => {
     fetchTimetables();
-    
-    if (isAdmin) {
-      apiClient.get('/users?role=TEACHER&pageSize=100')
-        .then(res => setTeachers(res.data.data || []))
-        .catch(console.error);
-
-      apiClient.get('/students/meta/classes')
-        .then(res => {
-          const classes = res.data.data || [];
-          setBranchId(classes[0]?.branchId ?? null);
-        })
-        .catch(console.error);
-    }
   }, [selectedClass, selectedSection, user]);
+
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const downloadPdf = async () => {
+    if (!user) return;
+    if (isAdmin && (!selectedClass || !selectedSection)) {
+      toast.error('Select a class and section first');
+      return;
+    }
+    setDownloadingPdf(true);
+    try {
+      const response = await apiClient.get(`/timetables/pdf${buildQueryParams()}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = isAdmin
+        ? `timetable-${selectedClass}-${selectedSection}.pdf`
+        : 'my-schedule.pdf';
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to download timetable PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,12 +238,24 @@ const TimetableGrid = () => {
             {isStudent && 'View your daily class routine and subject teachers.'}
           </p>
         </div>
-        {isAdmin && (
-          <Button variant="gradient" onClick={() => setIsAddModalOpen(true)} className="px-5 py-2.5 text-sm">
-            <Plus className="w-4 h-4" />
-            Add Slot Mapping
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={downloadPdf}
+            disabled={downloadingPdf || loading || (isAdmin && (!selectedClass || !selectedSection))}
+            isLoading={downloadingPdf}
+            className="px-5 py-2.5 text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
           </Button>
-        )}
+          {isAdmin && (
+            <Button variant="gradient" onClick={() => setIsAddModalOpen(true)} className="px-5 py-2.5 text-sm">
+              <Plus className="w-4 h-4" />
+              Add Slot Mapping
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Selectors Bar - Admin Only */}
@@ -195,9 +269,12 @@ const TimetableGrid = () => {
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
+                disabled={classesLoading || classes.length === 0}
                 className="input-field pr-10"
               >
-                {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
+                {classesLoading && <option value="">Loading classes...</option>}
+                {!classesLoading && classes.length === 0 && <option value="">No classes found</option>}
+                {classes.map(cls => <option key={cls.id} value={cls.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls.name}</option>)}
               </select>
             </div>
           </div>
@@ -210,9 +287,12 @@ const TimetableGrid = () => {
               <select
                 value={selectedSection}
                 onChange={(e) => setSelectedSection(e.target.value)}
+                disabled={sectionsLoading || sections.length === 0}
                 className="input-field pr-10"
               >
-                {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
+                {sectionsLoading && <option value="">Loading sections...</option>}
+                {!sectionsLoading && sections.length === 0 && <option value="">No sections found</option>}
+                {sections.map((sec: any) => <option key={sec.id} value={sec.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec.name}</option>)}
               </select>
             </div>
           </div>

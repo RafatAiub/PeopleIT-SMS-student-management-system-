@@ -23,16 +23,21 @@ export const CreateTimetableSlotBaseDto = z.object({
   teacherUserId: z.string().min(1, 'Invalid teacher user ID').optional().nullable(),
 });
 
-export const CreateTimetableSlotDto = CreateTimetableSlotBaseDto.refine((data) => {
-  const [startHour, startMin] = data.startTime.split(':').map(Number);
-  const [endHour, endMin] = data.endTime.split(':').map(Number);
+export function isEndAfterStart(startTime: string, endTime: string): boolean {
+  const [startHour, startMin] = startTime.split(':').map(Number);
+  const [endHour, endMin] = endTime.split(':').map(Number);
   const start = startHour * 60 + startMin;
   const end = endHour * 60 + endMin;
   return end > start;
-}, {
-  message: 'End time must be after start time',
-  path: ['endTime'],
-});
+}
+
+export const CreateTimetableSlotDto = CreateTimetableSlotBaseDto.refine(
+  (data) => isEndAfterStart(data.startTime, data.endTime),
+  {
+    message: 'End time must be after start time',
+    path: ['endTime'],
+  },
+);
 
 export const UpdateTimetableSlotDto = CreateTimetableSlotBaseDto.partial();
 

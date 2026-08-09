@@ -24,6 +24,8 @@ const WRITE_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN);
 // teachers/students/guardians) reads the timetable, per the README matrix.
 router.post('/', WRITE_ROLES, validate({ body: CreateTimetableSlotDto }), timetablesController.createSlot);
 router.get('/', validate({ query: TimetableSlotQueryDto }), timetablesController.listSlots);
+// Static path, must stay above the `/:id` wildcard below.
+router.get('/pdf', validate({ query: TimetableSlotQueryDto }), timetablesController.downloadTimetablePdf);
 router.get('/:id', validate({ params: TimetableSlotIdParamDto }), timetablesController.getSlot);
 router.put('/:id', WRITE_ROLES, validate({ params: TimetableSlotIdParamDto, body: UpdateTimetableSlotDto }), timetablesController.updateSlot);
 router.delete('/:id', WRITE_ROLES, validate({ params: TimetableSlotIdParamDto }), timetablesController.deleteSlot);
