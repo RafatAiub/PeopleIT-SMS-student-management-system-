@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info, LayoutGrid, BookOpen, Table as TableIcon, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info, LayoutGrid, BookOpen, Table as TableIcon, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -384,6 +384,32 @@ const MarksEntry = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, selectedExam, selectedClass, selectedSection, classesMeta]);
+
+  // Staff-facing report card download — same GET /results/:studentId/report-card
+  // endpoint the student/guardian self-service view uses (MyExamResults.tsx),
+  // just reachable here too since ADMIN/TEACHER previously had no report card
+  // UI at all despite the backend already allowing staff to fetch one.
+  const [downloadingReportCard, setDownloadingReportCard] = useState(false);
+  const downloadReportCard = async () => {
+    if (!selectedStudent || !selectedExam) return;
+    setDownloadingReportCard(true);
+    try {
+      const res = await apiClient.get(`/results/${selectedStudent.id}/report-card`, {
+        params: { examId: selectedExam },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `report-card-${selectedStudent.studentId || selectedStudent.id}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Report card not available for this exam yet');
+    } finally {
+      setDownloadingReportCard(false);
+    }
+  };
 
   // Construct complete result matrix
   const uniqueSubjects = Array.from(new Set(completeResults.map(r => r.subject)));
@@ -1780,12 +1806,25 @@ const MarksEntry = () => {
                     </p>
                   </div>
                   {marksheetRows.length > 0 && (
-                    <div className="text-right">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Total</span>
-                      <span className="text-blue-600 dark:text-blue-400 font-extrabold text-sm">
-                        {marksheetRows.reduce((sum, r) => sum + r.marksObtained, 0)}
-                        <span className="text-slate-500 text-xs">/{marksheetRows.reduce((sum, r) => sum + r.maxMarks, 0)}</span>
-                      </span>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Total</span>
+                        <span className="text-blue-600 dark:text-blue-400 font-extrabold text-sm">
+                          {marksheetRows.reduce((sum, r) => sum + r.marksObtained, 0)}
+                          <span className="text-slate-500 text-xs">/{marksheetRows.reduce((sum, r) => sum + r.maxMarks, 0)}</span>
+                        </span>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={downloadReportCard}
+                        disabled={downloadingReportCard}
+                        isLoading={downloadingReportCard}
+                        className="text-xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download Report Card
+                      </Button>
                     </div>
                   )}
                 </div>
