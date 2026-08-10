@@ -248,11 +248,11 @@ export class UserService {
   }
 
   static async deleteUser(tenantId: string, id: string) {
+    const { prisma } = require('../../config/prisma');
     const user = await UserRepository.getUserById(tenantId, id);
     if (!user) throw new NotFoundError('User not found');
 
     if (user.role === 'STUDENT') {
-      const { prisma } = require('../../config/prisma');
       const student = await prisma.student.findFirst({ where: { userId: id } });
       if (student) {
         await prisma.attendance.deleteMany({ where: { studentId: student.id } });
@@ -269,7 +269,6 @@ export class UserService {
     }
 
     if (user.role === 'TEACHER') {
-      const { prisma } = require('../../config/prisma');
       const teacher = await prisma.teacher.findFirst({ where: { userId: id } });
       if (teacher) {
         await prisma.section.updateMany({
@@ -285,13 +284,25 @@ export class UserService {
     }
 
     if (user.role === 'GUARDIAN') {
-      const { prisma } = require('../../config/prisma');
       const guardian = await prisma.guardian.findFirst({ where: { userId: id } });
       if (guardian) {
         await prisma.guardianStudent.deleteMany({ where: { guardianId: guardian.id } });
         await prisma.guardian.delete({ where: { id: guardian.id } });
       }
     }
+
+    // HR staff (Admin/Accountant/Librarian/Transport Officer/Management) profile
+    const staff = await prisma.staffProfile.findFirst({ where: { userId: id } });
+    if (staff) {
+      await prisma.payrollRecord.deleteMany({ where: { staffId: staff.id } });
+      await prisma.staffProfile.delete({ where: { id: staff.id } });
+    }
+
+    // Records that reference the user account directly - would otherwise block
+    // deletion with a foreign key constraint regardless of role
+    await prisma.refreshToken.deleteMany({ where: { userId: id } });
+    await prisma.auditLog.deleteMany({ where: { userId: id } });
+    await prisma.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
 
     return UserRepository.deleteUser(tenantId, id);
   }

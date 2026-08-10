@@ -63,6 +63,15 @@ export function globalErrorHandler(
       return errorResponse(res, 'Resource not found', 404);
     }
 
+    if (prismaErr.code === 'P2003') {
+      logger.warn('Prisma foreign key constraint violation', { path: req.path });
+      return errorResponse(
+        res,
+        'This item is linked to other records and cannot be deleted. Remove the related records first, or contact support.',
+        409,
+      );
+    }
+
     logger.error('Prisma error', { code: prismaErr.code, path: req.path });
     return errorResponse(res, 'Database error', 500);
   }
