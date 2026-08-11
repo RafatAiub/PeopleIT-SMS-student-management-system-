@@ -18,6 +18,7 @@ import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { DEPARTMENTS, FALLBACK_SUBJECTS_JUNIOR, isSeniorClass, getFallbackSubjects } from '../../utils/curriculum';
 
 const DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 const TIME_SLOTS = [
@@ -158,6 +159,7 @@ const TimetableGrid = () => {
 
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('None');
   const [routine, setRoutine] = useState<Record<string, Record<string, RoutineEntry>>>({});
   const [loading, setLoading] = useState(true);
 
@@ -186,6 +188,11 @@ const TimetableGrid = () => {
   // only (no backend model for it) and persists across class/section
   // switches so the same block can be reused for multiple sections.
   const [paletteBlocks, setPaletteBlocks] = useState<PaletteBlockType[]>([]);
+  // Subjects offered for the selected class (+ department, for Class 9-12)
+  // — sourced from GET /curriculum/subjects (the same NCTB-aligned catalogue
+  // MarksEntry.tsx uses), falling back to a static list so the palette still
+  // works for an institution that hasn't seeded SubjectOffering rows yet.
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>(FALLBACK_SUBJECTS_JUNIOR);
   const [newBlockSubject, setNewBlockSubject] = useState('');
   const [newBlockTeacherUserId, setNewBlockTeacherUserId] = useState('');
   const [activeDragData, setActiveDragData] = useState<any>(null);
@@ -290,6 +297,44 @@ const TimetableGrid = () => {
       .catch(console.error)
       .finally(() => setSectionsLoading(false));
   }, [isAdmin, selectedClass, classes]);
+
+  // Subject list for the palette follows the selected class/department, same
+  // pattern as MarksEntry.tsx's fetchSubjectOfferings.
+  useEffect(() => {
+    if (!isAdmin || !selectedClass) return;
+    let cancelled = false;
+
+    const fetchSubjects = async () => {
+      try {
+        const params: Record<string, string> = { className: selectedClass };
+        if (isSeniorClass(selectedClass) && selectedDepartment !== 'None') {
+          params.group = selectedDepartment.toUpperCase();
+        }
+        const res = await apiClient.get('/curriculum/subjects', { params });
+        const offerings = res.data?.data || [];
+        if (cancelled) return;
+        if (offerings.length > 0) {
+          setAvailableSubjects(offerings.map((o: any) => o.label));
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load curriculum subjects, using fallback list', err);
+      }
+      if (!cancelled) setAvailableSubjects(getFallbackSubjects(selectedClass, selectedDepartment));
+    };
+
+    fetchSubjects();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, selectedClass, selectedDepartment]);
+
+  // Keep the palette form's subject selection valid as the offered list
+  // changes (new class/department picked) — default to the first offering
+  // rather than leaving a stale/invalid subject selected.
+  useEffect(() => {
+    setNewBlockSubject(prev => (availableSubjects.includes(prev) ? prev : (availableSubjects[0] ?? '')));
+  }, [availableSubjects]);
 
   useEffect(() => {
     fetchTimetables();
@@ -504,6 +549,23 @@ const TimetableGrid = () => {
               </select>
             </div>
           </div>
+
+          {isSeniorClass(selectedClass) && (
+            <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider">
+                Department
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="input-field pr-10"
+                >
+                  {DEPARTMENTS.map(dept => <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{dept}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -520,13 +582,17 @@ const TimetableGrid = () => {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-              <input
-                type="text"
+              <select
                 value={newBlockSubject}
                 onChange={(e) => setNewBlockSubject(e.target.value)}
-                placeholder="e.g. Mathematics"
-                className="input-field text-sm py-2 w-40"
-              />
+                disabled={availableSubjects.length === 0}
+                className="input-field text-sm py-2 w-48"
+              >
+                {availableSubjects.length === 0 && <option value="">No subjects found</option>}
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sub}</option>
+                ))}
+              </select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Teacher</label>

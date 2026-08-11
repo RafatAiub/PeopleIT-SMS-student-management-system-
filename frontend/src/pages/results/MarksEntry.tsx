@@ -8,6 +8,7 @@ import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/ui/Button';
+import { DEPARTMENTS, FALLBACK_SUBJECTS_JUNIOR, isSeniorClass as isSeniorClassName, getFallbackSubjects } from '../../utils/curriculum';
 
 interface MarksheetRow {
   id: string;
@@ -26,38 +27,6 @@ const CLASSES = [
 ];
 
 const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-
-const DEPARTMENTS = ['Science', 'Commerce', 'Arts', 'None'];
-
-// Fallback only — the real subject list now comes from GET
-// /curriculum/subjects (NCTB-aligned, per class + group; see the
-// `curriculum` backend module). These arrays exist purely so the sheet
-// still works if that endpoint errors, or for an institution the
-// curriculum seed hasn't been run for yet.
-const FALLBACK_SUBJECTS_JUNIOR = [
-  'Bangla', 'English', 'Mathematics', 'General Science', 'Social Science', 'Religion & Moral Education', 'ICT'
-];
-
-const FALLBACK_COMPULSORY_SENIOR = [
-  'Bangla 1st Paper', 'Bangla 2nd Paper', 'English 1st Paper', 'English 2nd Paper', 'General Mathematics', 'Religion & Moral Education', 'ICT'
-];
-
-const FALLBACK_SCIENCE_SUBJECTS = ['Physics', 'Chemistry', 'Higher Mathematics', 'Biology'];
-const FALLBACK_COMMERCE_SUBJECTS = ['Accounting', 'Finance & Banking', 'Business Entrepreneurship', 'General Science'];
-const FALLBACK_ARTS_SUBJECTS = ['History', 'Geography', 'Economics', 'Civics', 'General Science'];
-
-const getFallbackSubjects = (className: string, dept: string) => {
-  const isSenior = className.includes('9') || className.includes('10') || className.includes('11') || className.includes('12');
-  if (!isSenior || dept === 'None') {
-    return FALLBACK_SUBJECTS_JUNIOR;
-  }
-
-  if (dept === 'Science') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_SCIENCE_SUBJECTS];
-  if (dept === 'Commerce') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_COMMERCE_SUBJECTS];
-  if (dept === 'Arts') return [...FALLBACK_COMPULSORY_SENIOR, ...FALLBACK_ARTS_SUBJECTS];
-
-  return FALLBACK_SUBJECTS_JUNIOR;
-};
 
 // Mirrors computeGrade() in backend/src/utils/grading.ts — the AI comment
 // endpoint requires a `grade` field, and marks are always server-graded on
@@ -344,11 +313,8 @@ const MarksEntry = () => {
 
   const fetchSubjectOfferings = async () => {
     try {
-      const isSenior =
-        selectedClass.includes('9') || selectedClass.includes('10') ||
-        selectedClass.includes('11') || selectedClass.includes('12');
       const params: Record<string, string> = { className: selectedClass };
-      if (isSenior && selectedDepartment !== 'None') {
+      if (isSeniorClassName(selectedClass) && selectedDepartment !== 'None') {
         params.group = selectedDepartment.toUpperCase();
       }
       const res = await apiClient.get('/curriculum/subjects', { params });
@@ -389,9 +355,7 @@ const MarksEntry = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [students]);
 
-  const isSeniorClass =
-    selectedClass.includes('9') || selectedClass.includes('10') ||
-    selectedClass.includes('11') || selectedClass.includes('12');
+  const isSeniorClass = isSeniorClassName(selectedClass);
 
   const subjectFillCounts = useMemo(() => {
     const counts: Record<string, number> = {};
