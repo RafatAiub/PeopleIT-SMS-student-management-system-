@@ -934,16 +934,20 @@ If you're adding a new module or endpoint, adding a Jest test alongside it (foll
 
 ## 🤝 Contributing
 
+`main` is protected and deploys to production on every merge — direct pushes to `main` are disabled. All work happens on a branch + PR.
+
 1. **Branch naming:** `feature/short-description`, `fix/short-description`, or `chore/short-description`.
 2. **Before you start:** if your change is more than a few lines, open an issue or say what you're about to do — this avoids duplicate work.
 3. **Before opening a PR:**
-   - `npm run typecheck` and `npm run lint` pass, and `npm run test --workspace=backend` passes if you touched backend code — CI (`.github/workflows/ci.yml`) re-runs all three plus a frontend build, so a failure here blocks the PR.
-   - You manually verified the change (see [Testing & Verification](#-testing--verification)).
-   - If you touched a Prisma model, the migration is included and named descriptively.
+   - `npm run typecheck` and `npm run lint` pass, and `npm run test --workspace=backend` passes if you touched backend code — CI (`.github/workflows/ci.yml`) re-runs all three plus a frontend build, and these checks are **required** to merge.
+   - You manually verified the change (see [Testing & Verification](#-testing--verification)) — use the PR's auto-generated Vercel preview URL to check frontend changes against a real deployment before merge, not just locally.
+   - If you touched a Prisma model, the migration is included and named descriptively, and you ran it against a throwaway [Neon branch](https://neon.tech/docs/introduction/branching) first (`prisma migrate deploy` against a branch DB, not local-only) — Neon branching is free and instant, use it instead of guessing.
    - If you touched anything tenant-scoped, you double-checked the [multi-tenant isolation rule](#-coding-rules--common-pitfalls).
 4. **Commit messages:** describe the *why*, not just the *what* — "fix invoice total using string concatenation instead of addition" beats "fix bug."
-5. **PR description:** what changed, why, and how you tested it. Screenshots/GIFs are appreciated for UI changes.
-6. **Secrets:** never commit real credentials anywhere, including `.env.example`. If you accidentally do, treat it as urgent — rotate immediately, don't just delete the line in a follow-up commit (git history keeps it).
+5. **PR description:** what changed, why, and how you tested it. Screenshots/GIFs are appreciated for UI changes. The PR template checklist covers the essentials.
+6. **Review:** at least 1 approval is required before merging, in addition to CI passing.
+7. **Secrets:** never commit real credentials anywhere, including `.env.example`. If you accidentally do, treat it as urgent — rotate immediately, don't just delete the line in a follow-up commit (git history keeps it).
+8. **Applying migrations to production:** don't run `prisma migrate deploy` against prod from your laptop. Use the `Migrate Production Database` GitHub Action (Actions tab → `workflow_dispatch`), which runs it in a logged, auditable way using a secret scoped to CI.
 
 ---
 
@@ -973,7 +977,7 @@ If you want a well-scoped first contribution, picking off any one of these (with
 | **Database** | Neon.tech (or any managed Postgres) | `npx prisma migrate deploy` — do **not** use `migrate dev` in production |
 | **Cache** | Upstash Redis (or any managed Redis) | No deployment needed (managed) |
 
-After any change to `schema.prisma`, remember to run `npx prisma migrate deploy` (and `npx prisma generate`) against the production database — pushing code alone does **not** apply pending migrations.
+After any change to `schema.prisma`, pushing code alone does **not** apply pending migrations — trigger the `Migrate Production Database` GitHub Action (`.github/workflows/migrate-production.yml`, manual `workflow_dispatch`) to run `prisma migrate deploy` against production. It reads `DATABASE_URL` from a GitHub Actions secret scoped to the `production` environment, so no one needs the raw production DB credential on their own machine.
 
 See [Environment Variables Reference](#-environment-variables-reference) for the full list of variables the backend needs in production. At minimum: `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `NODE_ENV=production`.
 
