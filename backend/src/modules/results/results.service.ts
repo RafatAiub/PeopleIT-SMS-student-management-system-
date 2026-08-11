@@ -5,7 +5,7 @@ import { logger } from '../../utils/logger';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
-import { UserRole } from '@prisma/client';
+import { UserRole, StudentGroup } from '@prisma/client';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -266,8 +266,17 @@ export async function generateReportCard(
         firstName: true,
         lastName: true,
         rollNumber: true,
-        class: { select: { name: true } },
-        section: { select: { name: true } },
+        dateOfBirth: true,
+        sectionId: true,
+        department: true,
+        academicYear: { select: { label: true, startDate: true, endDate: true } },
+        class: { select: { id: true, name: true } },
+        section: {
+          select: {
+            name: true,
+            classTeacher: { select: { user: { select: { firstName: true, lastName: true } } } },
+          },
+        },
       },
     }),
     prisma.exam.findFirst({ where: { id: examId, institutionId }, select: { name: true, startDate: true, endDate: true } }),
@@ -282,22 +291,118 @@ export async function generateReportCard(
   if (!exam) throw new NotFoundError('Exam not found');
   if (results.length === 0) throw new NotFoundError('No results found for this student in this exam');
 
-  const totalObtained = results.reduce((sum, r) => sum + Number(r.marksObtained), 0);
-  const totalMax = results.reduce((sum, r) => sum + Number(r.maxMarks), 0);
+  // isCore per subject — best-effort match against the curriculum catalogue
+  // (a subject offered with isGraded:false is co-curricular/pass-fail and
+  // excluded from the totals below). Computed before the totals since it
+  // determines which results count toward them. Falls back to treating
+  // every subject as core on any mismatch/failure — never lets this
+  // optional enrichment block report card generation.
+  let isCoreBySubject = new Map<string, boolean>();
+  try {
+    if (student.class?.name) {
+      const groupRaw = student.department?.toUpperCase();
+      const group = groupRaw && (Object.values(StudentGroup) as string[]).includes(groupRaw) ? (groupRaw as StudentGroup) : undefined;
+      const offerings = await prisma.subjectOffering.findMany({
+        where: {
+          institutionId,
+          className: student.class.name,
+          ...(group ? { group: { in: [StudentGroup.NONE, group] } } : {}),
+        },
+        select: { paper: true, isGraded: true, subject: { select: { name: true } } },
+      });
+      isCoreBySubject = new Map(
+        offerings.map((o) => {
+          const label =
+            o.paper === 'FIRST' ? `${o.subject.name} 1st Paper` : o.paper === 'SECOND' ? `${o.subject.name} 2nd Paper` : o.subject.name;
+          return [label, o.isGraded] as const;
+        }),
+      );
+    }
+  } catch (err) {
+    logger.warn('Failed to resolve subject core status for report card', { studentId, examId, error: (err as Error).message });
+  }
+  const isCore = (subject: string) => isCoreBySubject.get(subject) ?? true;
+
+  const coreResults = results.filter((r) => isCore(r.subject));
+  const totalObtained = coreResults.reduce((sum, r) => sum + Number(r.marksObtained), 0);
+  const totalMax = coreResults.reduce((sum, r) => sum + Number(r.maxMarks), 0);
   const overallPercentage = totalMax > 0 ? Math.round((totalObtained / totalMax) * 10000) / 100 : 0;
 
   const institution = await prisma.institution.findUnique({
     where: { id: institutionId },
-    select: { name: true, logoUrl: true, address: true },
+    select: { name: true, logoUrl: true, address: true, phone: true, email: true },
   });
+
+  // Attendance — scoped to the student's own AcademicYear window (falls
+  // back to the institution's current one), not the exam's own few-day
+  // window, since attendance is tracked year-round. Never blocks report
+  // card generation — no period found or zero rows just means no section.
+  let attendance: {
+    totalDays: number; present: number; absent: number; late: number; halfDay: number; rate: number;
+  } | null = null;
+  try {
+    const period = student.academicYear
+      ?? (await prisma.academicYear.findFirst({
+        where: { institutionId, isCurrent: true },
+        select: { label: true, startDate: true, endDate: true },
+      }));
+    if (period) {
+      const dateFilter = { gte: period.startDate, lte: period.endDate };
+      const [totalDays, present, absent, late, halfDay] = await Promise.all([
+        prisma.attendance.count({ where: { institutionId, studentId, date: dateFilter } }),
+        prisma.attendance.count({ where: { institutionId, studentId, status: 'PRESENT', date: dateFilter } }),
+        prisma.attendance.count({ where: { institutionId, studentId, status: 'ABSENT', date: dateFilter } }),
+        prisma.attendance.count({ where: { institutionId, studentId, status: 'LATE', date: dateFilter } }),
+        prisma.attendance.count({ where: { institutionId, studentId, status: 'HALF_DAY', date: dateFilter } }),
+      ]);
+      if (totalDays > 0) {
+        attendance = {
+          totalDays, present, absent, late, halfDay,
+          rate: Math.round(((present + late + halfDay * 0.5) / totalDays) * 100),
+        };
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to compute attendance for report card', { studentId, examId, error: (err as Error).message });
+  }
+
+  // Class rank — this student's total-marks position among classmates in
+  // the same class + section for this exam.
+  let classRank: { rank: number; totalStudents: number } | null = null;
+  try {
+    if (student.class?.id) {
+      const totals = await resultsRepository.findClassTotalsForExam(institutionId, examId, student.class.id, student.sectionId);
+      const sorted = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+      const position = sorted.findIndex(([sid]) => sid === studentId);
+      if (position !== -1) {
+        classRank = { rank: position + 1, totalStudents: sorted.length };
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to compute class rank for report card', { studentId, examId, error: (err as Error).message });
+  }
 
   const pdf = await renderReportCardPdf({
     institution: {
       name: institution?.name ?? '',
       logoUrl: institution?.logoUrl ?? null,
       address: institution?.address ?? null,
+      phone: institution?.phone ?? null,
+      email: institution?.email ?? null,
     },
-    student,
+    student: {
+      studentId: student.studentId,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      rollNumber: student.rollNumber,
+      dateOfBirth: student.dateOfBirth,
+      class: student.class,
+      section: student.section ? { name: student.section.name } : null,
+      classTeacherName: student.section?.classTeacher?.user
+        ? `${student.section.classTeacher.user.firstName} ${student.section.classTeacher.user.lastName}`
+        : null,
+      academicYearLabel: student.academicYear?.label ?? null,
+    },
     exam,
     results: results.map((r) => ({
       subject: r.subject,
@@ -305,10 +410,13 @@ export async function generateReportCard(
       maxMarks: Number(r.maxMarks),
       grade: r.grade ?? '-',
       remarks: r.remarks ?? '',
+      isCore: isCore(r.subject),
     })),
     totalObtained,
     totalMax,
     overallPercentage,
+    attendance,
+    classRank,
   });
 
   logger.info('Report card generated', { institutionId, studentId, examId });
