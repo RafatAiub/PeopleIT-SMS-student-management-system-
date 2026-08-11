@@ -18,6 +18,7 @@ import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { DEPARTMENTS, FALLBACK_SUBJECTS_JUNIOR, isSeniorClass, getFallbackSubjects } from '../../utils/curriculum';
 
 const DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
 const TIME_SLOTS = [
@@ -122,17 +123,30 @@ function PlacedPeriodCard({
   entry: RoutineEntry;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `slot-${entry.id}`,
     data: { type: 'slot' as const, entry, day, timeSlot },
   });
+  // Filled cells are droppable too — not just empty ones — so dragging a
+  // new block onto an occupied period replaces it instead of silently doing
+  // nothing (which is exactly what looked like "drag and drop isn't
+  // working" when someone tried to fix a wrong subject that way).
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `filled-${day}-${timeSlot.label}`,
+    data: { day, timeSlot, entry },
+  });
+  const setRefs = (node: HTMLDivElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       {...listeners}
       {...attributes}
       style={{ transform: transform ? CSS.Translate.toString(transform) : undefined }}
-      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border border-blue-200 dark:border-blue-500/20 shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-blue-400/30 transition-all ${isDragging ? 'opacity-30' : ''}`}
+      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-blue-400/30 transition-all ${isDragging ? 'opacity-30' : ''} ${isOver ? 'ring-2 ring-amber-400/70 border-amber-400/70' : 'border-blue-200 dark:border-blue-500/20'}`}
+      title={isOver ? 'Drop to replace this period' : undefined}
     >
       <button
         type="button"
@@ -142,7 +156,7 @@ function PlacedPeriodCard({
       >
         <X className="w-3 h-3" />
       </button>
-      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{entry.subject}</span>
+      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-snug mb-1 break-words">{entry.subject}</span>
       <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
         {entry.teacher}
       </span>
@@ -158,6 +172,7 @@ const TimetableGrid = () => {
 
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('None');
   const [routine, setRoutine] = useState<Record<string, Record<string, RoutineEntry>>>({});
   const [loading, setLoading] = useState(true);
 
@@ -186,21 +201,32 @@ const TimetableGrid = () => {
   // only (no backend model for it) and persists across class/section
   // switches so the same block can be reused for multiple sections.
   const [paletteBlocks, setPaletteBlocks] = useState<PaletteBlockType[]>([]);
+  // Subjects offered for the selected class (+ department, for Class 9-12)
+  // — sourced from GET /curriculum/subjects (the same NCTB-aligned catalogue
+  // MarksEntry.tsx uses), falling back to a static list so the palette still
+  // works for an institution that hasn't seeded SubjectOffering rows yet.
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>(FALLBACK_SUBJECTS_JUNIOR);
   const [newBlockSubject, setNewBlockSubject] = useState('');
   const [newBlockTeacherUserId, setNewBlockTeacherUserId] = useState('');
   const [activeDragData, setActiveDragData] = useState<any>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Shared by fetchTimetables and the PDF download so the two never drift.
+  // pageSize=100 is required, not cosmetic: the list endpoint defaults to 20,
+  // and a near-full week (6 days x 5 periods = up to 30 slots) exceeds that —
+  // dayOfWeek is sorted alphabetically server-side (FRIDAY, MONDAY, SATURDAY,
+  // SUNDAY, THURSDAY, TUESDAY, WEDNESDAY), so WEDNESDAY sorts last and was
+  // silently getting cut off the grid while the PDF (which already requested
+  // pageSize=100) still showed it — that's the PDF/website mismatch bug.
   const buildQueryParams = () => {
     if (isAdmin) {
-      return `?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}`;
+      return `?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}&pageSize=100`;
     } else if (isTeacher) {
-      return `?teacherUserId=${user!.id}`;
+      return `?teacherUserId=${user!.id}&pageSize=100`;
     } else if (isStudent) {
-      return `?studentUserId=${user!.id}`;
+      return `?studentUserId=${user!.id}&pageSize=100`;
     }
-    return '';
+    return '?pageSize=100';
   };
 
   const fetchTimetables = async () => {
@@ -290,6 +316,44 @@ const TimetableGrid = () => {
       .catch(console.error)
       .finally(() => setSectionsLoading(false));
   }, [isAdmin, selectedClass, classes]);
+
+  // Subject list for the palette follows the selected class/department, same
+  // pattern as MarksEntry.tsx's fetchSubjectOfferings.
+  useEffect(() => {
+    if (!isAdmin || !selectedClass) return;
+    let cancelled = false;
+
+    const fetchSubjects = async () => {
+      try {
+        const params: Record<string, string> = { className: selectedClass };
+        if (isSeniorClass(selectedClass) && selectedDepartment !== 'None') {
+          params.group = selectedDepartment.toUpperCase();
+        }
+        const res = await apiClient.get('/curriculum/subjects', { params });
+        const offerings = res.data?.data || [];
+        if (cancelled) return;
+        if (offerings.length > 0) {
+          setAvailableSubjects(offerings.map((o: any) => o.label));
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load curriculum subjects, using fallback list', err);
+      }
+      if (!cancelled) setAvailableSubjects(getFallbackSubjects(selectedClass, selectedDepartment));
+    };
+
+    fetchSubjects();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, selectedClass, selectedDepartment]);
+
+  // Keep the palette form's subject selection valid as the offered list
+  // changes (new class/department picked) — default to the first offering
+  // rather than leaving a stale/invalid subject selected.
+  useEffect(() => {
+    setNewBlockSubject(prev => (availableSubjects.includes(prev) ? prev : (availableSubjects[0] ?? '')));
+  }, [availableSubjects]);
 
   useEffect(() => {
     fetchTimetables();
@@ -386,9 +450,13 @@ const TimetableGrid = () => {
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragData(null);
     const { active, over } = event;
-    if (!over) return; // dropped outside any valid cell (incl. a filled cell/break) -> no-op
+    if (!over) return; // dropped outside any valid cell (incl. a break row) -> no-op
 
-    const { day, timeSlot } = over.data.current as { day: string; timeSlot: TimeSlot };
+    const { day, timeSlot, entry: targetEntry } = over.data.current as {
+      day: string;
+      timeSlot: TimeSlot;
+      entry?: RoutineEntry;
+    };
     const startTime = to24(timeSlot.start);
     const endTime = to24(timeSlot.end);
     const dragData = active.data.current as any;
@@ -400,22 +468,37 @@ const TimetableGrid = () => {
       }
       const { subject, teacherUserId } = dragData.block as PaletteBlockType;
       try {
-        await apiClient.post('/timetables', {
-          branchId,
-          className: selectedClass,
-          sectionName: selectedSection,
-          dayOfWeek: day.toUpperCase(),
-          startTime,
-          endTime,
-          subject,
-          teacherUserId,
-        });
+        if (targetEntry) {
+          // Dropped onto an already-filled period — replace it in place via
+          // a single update rather than delete-then-create, so a failure
+          // (e.g. teacher conflict) can never leave the period empty.
+          await apiClient.put(`/timetables/${targetEntry.id}`, { subject, teacherUserId });
+        } else {
+          await apiClient.post('/timetables', {
+            branchId,
+            className: selectedClass,
+            sectionName: selectedSection,
+            dayOfWeek: day.toUpperCase(),
+            startTime,
+            endTime,
+            subject,
+            teacherUserId,
+          });
+        }
         fetchTimetables();
       } catch (err: any) {
         toast.error(err.response?.data?.message || 'Failed to place block');
       }
     } else if (dragData?.type === 'slot') {
       const { entry } = dragData as { entry: RoutineEntry };
+      if (targetEntry && targetEntry.id === entry.id) return; // dropped back onto itself -> no-op
+      if (targetEntry) {
+        // Moving one placed period onto a different filled one is blocked —
+        // unlike a palette drop, there's no single safe atomic update for
+        // "swap these two periods" — but say so instead of a silent no-op.
+        toast.error('That period is already filled. Drag a palette block onto it to replace it, or remove it first.');
+        return;
+      }
       try {
         await apiClient.put(`/timetables/${entry.id}`, {
           dayOfWeek: day.toUpperCase(),
@@ -504,6 +587,23 @@ const TimetableGrid = () => {
               </select>
             </div>
           </div>
+
+          {isSeniorClass(selectedClass) && (
+            <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider">
+                Department
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedDepartment}
+                  onChange={(e) => setSelectedDepartment(e.target.value)}
+                  className="input-field pr-10"
+                >
+                  {DEPARTMENTS.map(dept => <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{dept}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -520,13 +620,17 @@ const TimetableGrid = () => {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-              <input
-                type="text"
+              <select
                 value={newBlockSubject}
                 onChange={(e) => setNewBlockSubject(e.target.value)}
-                placeholder="e.g. Mathematics"
-                className="input-field text-sm py-2 w-40"
-              />
+                disabled={availableSubjects.length === 0}
+                className="input-field text-sm py-2 w-48"
+              >
+                {availableSubjects.length === 0 && <option value="">No subjects found</option>}
+                {availableSubjects.map((sub) => (
+                  <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sub}</option>
+                ))}
+              </select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Teacher</label>

@@ -207,6 +207,35 @@ export async function findMarksheetRows(institutionId: string, params: Marksheet
   });
 }
 
+// Per-student total marks across a class/section for one exam — used by the
+// report card to compute class rank. Sums in JS rather than a groupBy/_sum
+// query since the row count here (class size x subject count) is small and
+// this avoids a second round trip for the per-student total.
+export async function findClassTotalsForExam(
+  institutionId: string,
+  examId: string,
+  classId: string,
+  sectionId?: string | null,
+): Promise<Map<string, number>> {
+  const rows = await prisma.examResult.findMany({
+    where: {
+      institutionId,
+      examId,
+      student: {
+        classId,
+        ...(sectionId ? { sectionId } : {}),
+      },
+    },
+    select: { studentId: true, marksObtained: true },
+  });
+
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    totals.set(row.studentId, (totals.get(row.studentId) ?? 0) + Number(row.marksObtained));
+  }
+  return totals;
+}
+
 // Per-subject highest mark across a class/section for one exam — lighter
 // variant of findMarksheetRows used by the STUDENT/GUARDIAN self-service
 // getMyResults() to annotate each of the requester's own result rows with

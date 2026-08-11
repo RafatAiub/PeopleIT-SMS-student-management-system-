@@ -97,4 +97,88 @@ describe('Report card PDF generation (pdfkit, no headless browser)', () => {
     expect(res.status).toBe(200);
     expect(res.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
   }, 20_000);
+
+  describe('with class, attendance, and classmate data (rank/attendance enrichment)', () => {
+    let classId: string;
+    let sectionId: string;
+    let secondStudentId: string;
+
+    beforeAll(async () => {
+      // Self-heal a real Branch + default Class/Section rows, same pattern
+      // used by the timetable tests, then attach the fixture student to one.
+      const classesRes = await request(app)
+        .get('/api/v1/students/meta/classes')
+        .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`);
+      const cls = classesRes.body.data[0];
+      classId = cls.id;
+
+      const sectionsRes = await request(app)
+        .get(`/api/v1/students/meta/sections?classId=${classId}`)
+        .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`);
+      sectionId = sectionsRes.body.data[0].id;
+
+      await prisma.student.update({
+        where: { id: fixture.studentId },
+        data: { classId, sectionId },
+      });
+
+      // A classmate in the same class+section, with their own results for
+      // the same exam, so class rank is actually meaningful (not "1 of 1").
+      const secondStudent = await prisma.student.create({
+        data: {
+          institutionId: fixture.institutionId,
+          studentId: `STU-second-${Date.now()}`,
+          firstName: 'Second',
+          lastName: 'Student',
+          classId,
+          sectionId,
+        },
+      });
+      secondStudentId = secondStudent.id;
+      await prisma.examResult.create({
+        data: {
+          institutionId: fixture.institutionId,
+          examId,
+          studentId: secondStudentId,
+          subject: 'Mathematics',
+          marksObtained: 60,
+          maxMarks: 100,
+          grade: 'A-',
+        },
+      });
+
+      // A current AcademicYear with a handful of attendance rows for the
+      // fixture student, so the attendance block has real data to show.
+      const academicYear = await prisma.academicYear.create({
+        data: {
+          institutionId: fixture.institutionId,
+          label: 'Test Year',
+          startDate: new Date('2026-01-01'),
+          endDate: new Date('2026-12-31'),
+          isCurrent: true,
+        },
+      });
+      await prisma.student.update({ where: { id: fixture.studentId }, data: { academicYearId: academicYear.id } });
+      await prisma.attendance.createMany({
+        data: [
+          { institutionId: fixture.institutionId, studentId: fixture.studentId, date: new Date('2026-04-02'), status: 'PRESENT' },
+          { institutionId: fixture.institutionId, studentId: fixture.studentId, date: new Date('2026-04-03'), status: 'PRESENT' },
+          { institutionId: fixture.institutionId, studentId: fixture.studentId, date: new Date('2026-04-04'), status: 'ABSENT' },
+        ],
+      });
+    }, 30_000);
+
+    afterAll(async () => {
+      await prisma.examResult.deleteMany({ where: { studentId: secondStudentId } });
+      await prisma.attendance.deleteMany({ where: { studentId: fixture.studentId } });
+      await prisma.student.delete({ where: { id: secondStudentId } }).catch(() => {});
+    }, 30_000);
+
+    it('still returns a valid PDF once class rank and real attendance data are available', async () => {
+      const res = await fetchReportCardBuffer(fixture.usersByRole[UserRole.ADMIN].token);
+      expect(res.status).toBe(200);
+      expect(res.body.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+      expect(res.body.length).toBeGreaterThan(500);
+    }, 20_000);
+  });
 });

@@ -144,4 +144,56 @@ describe('Timetable PDF export + exact-match/update-validation fixes', () => {
     expect(updated.status).toBe(400);
     expect(updated.body.message).toContain('End time must be after start time');
   }, 20_000);
+
+  it('teacher conflict check: same teacher CAN take different subjects the same day at non-overlapping periods', async () => {
+    const morning = await request(app)
+      .post('/api/v1/timetables')
+      .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`)
+      .send({
+        branchId,
+        className: 'Class 1',
+        sectionName: 'C',
+        dayOfWeek: 'WEDNESDAY',
+        startTime: '09:00',
+        endTime: '09:45',
+        subject: 'Mathematics',
+        teacherUserId: fixture.usersByRole[UserRole.TEACHER].userId,
+      });
+    expect(morning.status).toBe(201);
+    createdSlotIds.push(morning.body.data.id);
+
+    const laterSameDay = await request(app)
+      .post('/api/v1/timetables')
+      .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`)
+      .send({
+        branchId,
+        className: 'Class 1',
+        sectionName: 'D',
+        dayOfWeek: 'WEDNESDAY',
+        startTime: '10:30',
+        endTime: '11:15',
+        subject: 'General Science',
+        teacherUserId: fixture.usersByRole[UserRole.TEACHER].userId,
+      });
+    expect(laterSameDay.status).toBe(201);
+    createdSlotIds.push(laterSameDay.body.data.id);
+
+    // The boundary is real, not blanket-permissive: the same teacher CANNOT
+    // be double-booked at an overlapping time on that same day.
+    const overlapping = await request(app)
+      .post('/api/v1/timetables')
+      .set('Authorization', `Bearer ${fixture.usersByRole[UserRole.ADMIN].token}`)
+      .send({
+        branchId,
+        className: 'Class 1',
+        sectionName: 'E',
+        dayOfWeek: 'WEDNESDAY',
+        startTime: '09:15',
+        endTime: '10:00',
+        subject: 'English',
+        teacherUserId: fixture.usersByRole[UserRole.TEACHER].userId,
+      });
+    expect(overlapping.status).toBe(400);
+    expect(overlapping.body.message).toContain('Teacher schedule conflict');
+  }, 20_000);
 });
