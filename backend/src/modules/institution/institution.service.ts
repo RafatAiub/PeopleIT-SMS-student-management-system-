@@ -261,7 +261,18 @@ export async function updateWebsiteConfig(
   return updated;
 }
 
-export async function createInstitution(data: any, actorUserId: string) {
+// Shared by createInstitution (Super Admin typing everything in directly) and
+// institution-application.service.approveApplication (Super Admin approving a
+// public self-service application) — both need the same
+// institution + default branch + ADMIN user transaction.
+export async function provisionInstitutionAndAdmin(data: {
+  name: string;
+  slug: string;
+  adminEmail: string;
+  adminPassword: string;
+  adminFirstName: string;
+  adminLastName: string;
+}) {
   const { prisma } = require('../../config/prisma');
   const bcrypt = require('bcryptjs');
   const { ConflictError } = require('../../utils/AppError');
@@ -328,6 +339,14 @@ export async function createInstitution(data: any, actorUserId: string) {
     institutionId: result.institution.id,
     slug: result.institution.slug,
   });
+
+  return result;
+}
+
+export async function createInstitution(data: any, actorUserId: string) {
+  const { prisma } = require('../../config/prisma');
+
+  const result = await provisionInstitutionAndAdmin(data);
 
   // Super-admin actions run before the tenant/audit middleware chain (there is
   // no tenant yet at request time), so log explicitly here instead.

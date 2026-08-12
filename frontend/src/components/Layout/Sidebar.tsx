@@ -16,6 +16,7 @@ const SUPER_ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Overview' },
       { to: '/super-admin/institutions', icon: <Building2 className="w-4.5 h-4.5" />, label: 'Institutions' },
+      { to: '/super-admin/applications', icon: <FileText className="w-4.5 h-4.5" />, label: 'Applications' },
       { to: '/users', icon: <Users className="w-4.5 h-4.5" />, label: 'Users' },
       { to: '/super-admin/billing', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Billing' },
     ],
