@@ -55,6 +55,8 @@ const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
+const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
+const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -91,6 +93,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
       '/super-admin/support-access',
       '/super-admin/audit-logs',
       '/super-admin/system-health',
+      '/super-admin/applications',
     ];
     if (!allowedSuperAdminPaths.some((path) => location.pathname === path || location.pathname.startsWith(path))) {
       return <Navigate to="/" replace />;
@@ -281,7 +284,8 @@ const App = () => {
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
-        
+        <Route path="/apply" element={<ApplyInstitution />} />
+
         {/* Protected Dashboard Routes */}
         <Route path="/" element={
           <ProtectedRoute>
@@ -438,6 +442,14 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
             <DashboardLayout>
               <SystemHealthPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/applications" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <InstitutionApplications />
             </DashboardLayout>
           </ProtectedRoute>
         } />

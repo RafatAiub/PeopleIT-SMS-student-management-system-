@@ -21,6 +21,7 @@ import transportRouter from './modules/transport/transport.routes';
 import hrRouter from './modules/hr/hr.routes';
 import aiRouter from './modules/ai/ai.routes';
 import institutionRouter from './modules/institution/institution.routes';
+import institutionApplicationRouter from './modules/institution-application/institution-application.routes';
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
@@ -97,6 +98,17 @@ const authLimiter = rateLimit({
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/refresh', authLimiter);
 
+// Strict rate limit for the public, unauthenticated institute application form
+const applicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 100 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/institution-applications/apply', applicationLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
@@ -115,6 +127,7 @@ app.use('/api/v1/transport', transportRouter);
 app.use('/api/v1/hr', hrRouter);
 app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
+app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);

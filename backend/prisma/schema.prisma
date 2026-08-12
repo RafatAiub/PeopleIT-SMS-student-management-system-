@@ -51,6 +51,37 @@ model Institution {
   subjectOfferings  SubjectOffering[]
 }
 
+// ── Institution Applications (public self-service onboarding) ─────────
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model InstitutionApplication {
+  id                   String            @id @default(cuid())
+  institutionName      String
+  slug                 String // proposed EIIN/code, same numeric convention as Institution.slug
+  address              String?
+  phone                String?
+  applicantFirstName   String
+  applicantLastName    String
+  applicantEmail       String
+  applicantPhone       String?
+  message              String?           @db.Text
+  status               ApplicationStatus @default(PENDING)
+  rejectionReason      String?
+  reviewedByUserId     String?
+  reviewedBy           User?             @relation(fields: [reviewedByUserId], references: [id])
+  reviewedAt           DateTime?
+  createdInstitutionId String? // set on approval, for traceability
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([status])
+  @@index([applicantEmail])
+}
+
 // ── Branch / Campus ──────────────────────────────────────────────────
 model Branch {
   id            String          @id @default(cuid())
@@ -201,6 +232,7 @@ model User {
   refreshTokens   RefreshToken[]
   sentMessages    Message[]      @relation("SentMessages")
   receivedMessages Message[]     @relation("ReceivedMessages")
+  reviewedApplications InstitutionApplication[]
 
   @@index([institutionId])
   @@index([email])
