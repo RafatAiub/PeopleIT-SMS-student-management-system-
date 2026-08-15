@@ -72,6 +72,8 @@ const NAV_GROUPS: NavGroup[] = [
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
       { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
+      // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
+      { to: '/lectures', icon: <GraduationCap className="w-4.5 h-4.5" />, label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {

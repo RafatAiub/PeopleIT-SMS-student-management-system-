@@ -37,6 +37,8 @@ const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/Attendanc
 const MarksEntry = lazyWithRetry(() => import('./pages/results/MarksEntry'));
 const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'));
 const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
+const Lacture = lazyWithRetry(() => import('./pages/lacture/Lacture'));
+const MyLectureMaterials = lazyWithRetry(() => import('./pages/lacture/MyLectureMaterials'));
 const NoticeBoard = lazyWithRetry(() => import('./pages/notices/NoticeBoard'));
 const LibraryManagement = lazyWithRetry(() => import('./pages/library/LibraryManagement'));
 const MyLibraryIssues = lazyWithRetry(() => import('./pages/library/MyLibraryIssues'));
@@ -122,6 +124,15 @@ const ResultsRoute = () => {
     return <MyExamResults />;
   }
   return <MarksEntry />;
+};
+
+// Lecture materials route branches by role: staff (admin/teacher) manage materials, students/guardians see a read-only view scoped to their own class/section
+const LectureRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyLectureMaterials />;
+  }
+  return <Lacture />;
 };
 
 // Fees route branches by role: staff/accountant manage invoices & categories, students/guardians see a read-only "my invoices" + pay view
@@ -490,6 +501,14 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <TimetableGrid />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/lectures" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <LectureRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />
