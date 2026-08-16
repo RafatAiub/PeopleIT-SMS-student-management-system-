@@ -10,6 +10,8 @@ import {
   UpdateLectureMaterialDto,
   LectureMaterialQueryDto,
   LectureMaterialIdParamDto,
+  CreateCommentDto,
+  CommentIdParamDto,
 } from './lecture.dto';
 import * as lectureController from './lecture.controller';
 
@@ -22,6 +24,9 @@ router.use(authenticate, setTenant, auditLog);
 const BROWSE_ROLES = requireRole(UserRole.ADMIN, UserRole.TEACHER);
 // Only Teacher and Student may upload/edit/delete lecture materials.
 const WRITE_ROLES = requireRole(UserRole.TEACHER, UserRole.STUDENT);
+// Anyone who can see lecture materials at all may read the comment thread;
+// the service scopes a Student/Guardian to their own class/section.
+const COMMENT_READ_ROLES = requireRole(UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN);
 
 // Self-service — STUDENT/GUARDIAN view materials for their own (or linked
 // child's) class/section, scoped server-side. Declared before ':id' routes.
@@ -41,6 +46,26 @@ router.delete(
   WRITE_ROLES,
   validate({ params: LectureMaterialIdParamDto }),
   lectureController.deleteMaterial,
+);
+
+// ── Comments (Teacher/Student only write; read follows material visibility) ──
+router.get(
+  '/:id/comments',
+  COMMENT_READ_ROLES,
+  validate({ params: LectureMaterialIdParamDto }),
+  lectureController.listComments,
+);
+router.post(
+  '/:id/comments',
+  WRITE_ROLES,
+  validate({ params: LectureMaterialIdParamDto, body: CreateCommentDto }),
+  lectureController.addComment,
+);
+router.delete(
+  '/:id/comments/:commentId',
+  WRITE_ROLES,
+  validate({ params: CommentIdParamDto }),
+  lectureController.deleteComment,
 );
 
 export default router;

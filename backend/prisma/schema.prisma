@@ -9,45 +9,46 @@ datasource db {
 
 // ── Multi-tenant anchor ──────────────────────────────────────────────
 model Institution {
-  id                   String                @id @default(cuid())
-  name                 String
-  slug                 String                @unique
-  logoUrl              String?
-  address              String?
-  phone                String?
-  email                String?
-  country              String                @default("BD")
-  isActive             Boolean               @default(true)
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  branches             Branch[]
-  users                User[]
-  students             Student[]
-  feeCategories        FeeCategory[]
-  invoices             Invoice[]
-  auditLogs            AuditLog[]
-  studentDocs          StudentDocument[]
-  guardians            Guardian[]
-  attendances          Attendance[]
-  exams                Exam[]
-  examResults          ExamResult[]
-  timetableSlots       TimetableSlot[]
-  notices              Notice[]
-  libraryBooks         LibraryBook[]
-  libraryIssues        LibraryIssue[]
-  vehicles             TransportVehicle[]
-  routes               TransportRoute[]
-  transportAssignments TransportAssignment[]
-  themeColor           String?               @default("#0f172a")
-  heroTitle            String?               @default("Welcome to Our School")
-  heroSubtitle         String?               @default("Empowering students for a better tomorrow.")
-  aboutText            String?               @db.Text
-  contactEmail         String?
-  contactPhone         String?
-  staffProfiles        StaffProfile[]
-  payrollRecords       PayrollRecord[]
-  messages             Message[]
-  lectureMaterials     LectureMaterial[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String                   @unique
+  logoUrl                 String?
+  address                 String?
+  phone                   String?
+  email                   String?
+  country                 String                   @default("BD")
+  isActive                Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  branches                Branch[]
+  users                   User[]
+  students                Student[]
+  feeCategories           FeeCategory[]
+  invoices                Invoice[]
+  auditLogs               AuditLog[]
+  studentDocs             StudentDocument[]
+  guardians               Guardian[]
+  attendances             Attendance[]
+  exams                   Exam[]
+  examResults             ExamResult[]
+  timetableSlots          TimetableSlot[]
+  notices                 Notice[]
+  libraryBooks            LibraryBook[]
+  libraryIssues           LibraryIssue[]
+  vehicles                TransportVehicle[]
+  routes                  TransportRoute[]
+  transportAssignments    TransportAssignment[]
+  themeColor              String?                  @default("#0f172a")
+  heroTitle               String?                  @default("Welcome to Our School")
+  heroSubtitle            String?                  @default("Empowering students for a better tomorrow.")
+  aboutText               String?                  @db.Text
+  contactEmail            String?
+  contactPhone            String?
+  staffProfiles           StaffProfile[]
+  payrollRecords          PayrollRecord[]
+  messages                Message[]
+  lectureMaterials        LectureMaterial[]
+  lectureMaterialComments LectureMaterialComment[]
 }
 
 // ── Branch / Campus ──────────────────────────────────────────────────
@@ -119,31 +120,32 @@ enum UserRole {
 }
 
 model User {
-  id                       String            @id @default(cuid())
+  id                       String                   @id @default(cuid())
   institutionId            String?
-  institution              Institution?      @relation(fields: [institutionId], references: [id])
-  email                    String            @unique
+  institution              Institution?             @relation(fields: [institutionId], references: [id])
+  email                    String                   @unique
   passwordHash             String
   role                     UserRole
   firstName                String
   lastName                 String
   phone                    String?
   avatarUrl                String?
-  isActive                 Boolean           @default(true)
+  isActive                 Boolean                  @default(true)
   lastLoginAt              DateTime?
-  failedLoginAttempts      Int               @default(0)
+  failedLoginAttempts      Int                      @default(0)
   lockedUntil              DateTime?
-  createdAt                DateTime          @default(now())
-  updatedAt                DateTime          @updatedAt
-  studentProfile           Student?          @relation("StudentUser")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  studentProfile           Student?                 @relation("StudentUser")
   teacherProfile           Teacher?
   guardianProfile          Guardian?
-  staffProfile             StaffProfile?     @relation("StaffUser")
+  staffProfile             StaffProfile?            @relation("StaffUser")
   auditLogs                AuditLog[]
   refreshTokens            RefreshToken[]
-  sentMessages             Message[]         @relation("SentMessages")
-  receivedMessages         Message[]         @relation("ReceivedMessages")
+  sentMessages             Message[]                @relation("SentMessages")
+  receivedMessages         Message[]                @relation("ReceivedMessages")
   uploadedLectureMaterials LectureMaterial[]
+  lectureMaterialComments  LectureMaterialComment[]
 
   @@index([institutionId])
   @@index([email])
@@ -456,26 +458,47 @@ model TimetableSlot {
 
 // ── Lecture Materials (per-class/section resource library) ────────────
 model LectureMaterial {
-  id               String      @id @default(cuid())
+  id               String                   @id @default(cuid())
   institutionId    String
-  institution      Institution @relation(fields: [institutionId], references: [id])
+  institution      Institution              @relation(fields: [institutionId], references: [id])
   branchId         String
-  branch           Branch      @relation(fields: [branchId], references: [id])
+  branch           Branch                   @relation(fields: [branchId], references: [id])
   className        String // e.g. "Class 8"
   sectionName      String // e.g. "A"
   subject          String // e.g. "Mathematics"
   title            String
-  description      String?     @db.Text
-  resourceType     String      @default("NOTE") // NOTE, SLIDE, VIDEO, PDF, LINK
+  description      String?                  @db.Text
+  resourceType     String                   @default("NOTE") // NOTE, SLIDE, VIDEO, PDF, LINK
   fileUrl          String // external link (Drive/YouTube/hosted file/etc.)
   uploadedByUserId String
-  uploadedBy       User        @relation(fields: [uploadedByUserId], references: [id])
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  uploadedBy       User                     @relation(fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  comments         LectureMaterialComment[]
 
   @@index([institutionId])
   @@index([branchId])
   @@index([uploadedByUserId])
+}
+
+// Google-Classroom-style comment thread under a single lecture material.
+// Read by anyone who can see the material; posted by Teacher/Student only
+// (enforced in lecture.routes.ts) — Admin stays read-only, Guardian too.
+model LectureMaterialComment {
+  id                String          @id @default(cuid())
+  institutionId     String
+  institution       Institution     @relation(fields: [institutionId], references: [id])
+  lectureMaterialId String
+  lectureMaterial   LectureMaterial @relation(fields: [lectureMaterialId], references: [id], onDelete: Cascade)
+  authorUserId      String
+  author            User            @relation(fields: [authorUserId], references: [id])
+  content           String          @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([institutionId])
+  @@index([lectureMaterialId])
+  @@index([authorUserId])
 }
 
 // ── Phase 2: Communication Hub (Notice Board) ─────────────────────────

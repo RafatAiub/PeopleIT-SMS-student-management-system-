@@ -145,3 +145,88 @@ export async function getMyMaterials(
 
   return { materials: [], total: 0 };
 }
+
+// ── Comments (Google-Classroom-style thread under a material) ─────────────
+
+// Verifies the requester is allowed to read/comment on this specific
+// material. Admin/Teacher can reach any material (same as the browse
+// endpoint); a Student must belong to the material's own class/section; a
+// Guardian must be viewing through a linked child in that class/section.
+// Mirrors "never trust client input for a student's own scope" used above —
+// a mismatch reads as NotFound rather than Forbidden so it doesn't confirm
+// whether a material outside the caller's scope exists.
+async function assertCommentAccess(
+  institutionId: string,
+  requester: RequestingUser,
+  material: { className: string; sectionName: string },
+  query: { studentId?: string } = {},
+): Promise<void> {
+  if (requester.role === UserRole.ADMIN || requester.role === UserRole.TEACHER) return;
+
+  if (requester.role === UserRole.STUDENT) {
+    const own = await studentRepository.findByUserId(institutionId, requester.sub);
+    const student = own ? await studentRepository.findById(institutionId, own.id) : null;
+    if (student?.class?.name !== material.className || student?.section?.name !== material.sectionName) {
+      throw new NotFoundError('Lecture material not found');
+    }
+    return;
+  }
+
+  if (requester.role === UserRole.GUARDIAN) {
+    const linkedStudentIds = await guardianRepository.findLinkedStudentIdsByUserId(institutionId, requester.sub);
+    if (!query.studentId || !linkedStudentIds.includes(query.studentId)) {
+      throw new NotFoundError('Lecture material not found');
+    }
+    const student = await studentRepository.findById(institutionId, query.studentId);
+    if (student?.class?.name !== material.className || student?.section?.name !== material.sectionName) {
+      throw new NotFoundError('Lecture material not found');
+    }
+    return;
+  }
+
+  throw new ForbiddenError('Not allowed');
+}
+
+export async function listComments(
+  institutionId: string,
+  requester: RequestingUser,
+  materialId: string,
+  query: { studentId?: string } = {},
+) {
+  const material = await lectureRepository.findById(institutionId, materialId);
+  if (!material) throw new NotFoundError(`Lecture material with ID '${materialId}' not found`);
+  await assertCommentAccess(institutionId, requester, material, query);
+  return lectureRepository.findComments(institutionId, materialId);
+}
+
+// Only Teacher/Student can post (enforced in lecture.routes.ts); a Student
+// may only comment on materials for their own class/section.
+export async function addComment(
+  institutionId: string,
+  requester: RequestingUser,
+  materialId: string,
+  content: string,
+) {
+  const material = await lectureRepository.findById(institutionId, materialId);
+  if (!material) throw new NotFoundError(`Lecture material with ID '${materialId}' not found`);
+  await assertCommentAccess(institutionId, requester, material);
+  return lectureRepository.createComment(institutionId, materialId, requester.sub, content);
+}
+
+// Only the comment's own author may delete it — no teacher/admin
+// moderation override, matching the material ownership model above.
+export async function deleteComment(
+  institutionId: string,
+  requester: RequestingUser,
+  materialId: string,
+  commentId: string,
+) {
+  const comment = await lectureRepository.findCommentById(institutionId, commentId);
+  if (!comment || comment.lectureMaterialId !== materialId) {
+    throw new NotFoundError(`Comment with ID '${commentId}' not found`);
+  }
+  if (comment.authorUserId !== requester.sub) {
+    throw new ForbiddenError('You can only delete comments you posted');
+  }
+  await lectureRepository.removeComment(institutionId, commentId);
+}

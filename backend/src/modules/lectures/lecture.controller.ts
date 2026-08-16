@@ -75,3 +75,45 @@ export async function getMyMaterials(req: Request, res: Response, next: NextFunc
     next(error);
   }
 }
+
+export async function listComments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await lectureService.listComments(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.params.id,
+      req.query as any,
+    );
+    successResponse(res, result, 'Comments fetched successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function addComment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await lectureService.addComment(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.params.id,
+      req.body.content,
+    );
+    successResponse(res, result, 'Comment posted successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteComment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await lectureService.deleteComment(
+      req.tenantId!,
+      { sub: req.user!.sub, role: req.user!.role },
+      req.params.id,
+      req.params.commentId,
+    );
+    successResponse(res, null, 'Comment deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}

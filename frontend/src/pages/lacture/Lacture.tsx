@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   GraduationCap, Plus, Search, X, FileText, Video, Link2, Presentation,
-  Edit2, Trash2, ExternalLink, BookOpen, Eye,
+  Edit2, Trash2, ExternalLink, BookOpen, Eye, MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
@@ -10,6 +10,7 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { EmptyState } from '../../components/common/EmptyState';
+import MaterialDetailModal from './MaterialDetailModal';
 
 const CLASSES = [
   'KG', 'Nursery', 'Junior One',
@@ -39,6 +40,7 @@ interface LectureMaterial {
   fileUrl: string;
   createdAt: string;
   uploadedBy: { id: string; firstName: string; lastName: string; role: string };
+  _count?: { comments: number };
 }
 
 const emptyForm = {
@@ -72,6 +74,7 @@ export default function Lacture() {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<LectureMaterial | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewingMaterial, setViewingMaterial] = useState<LectureMaterial | null>(null);
 
   const fetchMaterials = async () => {
     setLoading(true);
@@ -259,7 +262,14 @@ export default function Lacture() {
               const meta = resourceMeta(material.resourceType);
               const Icon = meta.icon;
               return (
-                <div key={material.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group">
+                <div
+                  key={material.id}
+                  onClick={() => setViewingMaterial(material)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setViewingMaterial(material)}
+                  className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group cursor-pointer"
+                >
                   <div className="flex justify-between items-start mb-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center border group-hover:scale-110 transition-transform ${meta.color}`}>
                       <Icon className="w-6 h-6" />
@@ -283,15 +293,19 @@ export default function Lacture() {
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
-                    <span className="truncate max-w-[45%]" title={`${material.uploadedBy?.firstName || ''} ${material.uploadedBy?.lastName || ''}`}>
+                    <span className="truncate max-w-[35%]" title={`${material.uploadedBy?.firstName || ''} ${material.uploadedBy?.lastName || ''}`}>
                       {material.uploadedBy?.firstName} {material.uploadedBy?.lastName}
                       {material.uploadedBy?.role === 'STUDENT' && <span className="ml-1 text-slate-400">(Student)</span>}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
+                      <span className="flex items-center gap-1 px-1.5 text-slate-400" title="Comments">
+                        <MessageSquare className="w-3.5 h-3.5" /> {material._count?.comments ?? 0}
+                      </span>
                       <a
                         href={material.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         aria-label={`Open ${material.title}`}
                         title="Open material"
                         className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -300,10 +314,10 @@ export default function Lacture() {
                       </a>
                       {canManage(material) && (
                         <>
-                          <button onClick={() => openEdit(material)} aria-label={`Edit ${material.title}`} title="Edit material" className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                          <button onClick={(e) => { e.stopPropagation(); openEdit(material); }} aria-label={`Edit ${material.title}`} title="Edit material" className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setToDelete(material)} aria-label={`Delete ${material.title}`} title="Delete material" className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
+                          <button onClick={(e) => { e.stopPropagation(); setToDelete(material); }} aria-label={`Delete ${material.title}`} title="Delete material" className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
@@ -417,6 +431,15 @@ export default function Lacture() {
         onConfirm={handleConfirmDelete}
         onCancel={() => setToDelete(null)}
       />
+
+      {viewingMaterial && (
+        <MaterialDetailModal
+          material={viewingMaterial}
+          currentUserId={user?.id}
+          canComment={user?.role === 'TEACHER'}
+          onClose={() => setViewingMaterial(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   GraduationCap, Users, FileText, Video, Link2, Presentation, ExternalLink,
-  BookOpen, Plus, X, Edit2, Trash2,
+  BookOpen, Plus, X, Edit2, Trash2, MessageSquare,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import MaterialDetailModal from './MaterialDetailModal';
 
 const RESOURCE_TYPES = [
   { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
@@ -29,6 +30,7 @@ interface LectureMaterial {
   fileUrl: string;
   createdAt: string;
   uploadedBy: { id: string; firstName: string; lastName: string; role: string };
+  _count?: { comments: number };
 }
 
 interface ChildSummary {
@@ -68,6 +70,7 @@ const MyLectureMaterials: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<LectureMaterial | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewingMaterial, setViewingMaterial] = useState<LectureMaterial | null>(null);
 
   useEffect(() => {
     if (!isGuardian) return;
@@ -289,30 +292,45 @@ const MyLectureMaterials: React.FC = () => {
             return (
               <div
                 key={material.id}
-                className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group"
+                onClick={() => setViewingMaterial(material)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setViewingMaterial(material)}
+                className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group cursor-pointer"
               >
-                <a href={material.fileUrl} target="_blank" rel="noopener noreferrer" className="block">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center border group-hover:scale-110 transition-transform ${meta.color}`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                    <ExternalLink className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                <div className="flex justify-between items-start mb-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center border group-hover:scale-110 transition-transform ${meta.color}`}>
+                    <Icon className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{material.title}</h3>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 line-clamp-2">{material.description || material.subject}</p>
-                </a>
+                  <a
+                    href={material.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Open ${material.title}`}
+                    title="Open material"
+                    className="text-slate-400 hover:text-blue-500 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{material.title}</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mb-4 line-clamp-2">{material.description || material.subject}</p>
                 <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[55%]">{material.subject}</span>
-                  <div className="flex items-center gap-1">
-                    <span className="truncate max-w-[120px]" title={`${material.uploadedBy?.firstName || ''} ${material.uploadedBy?.lastName || ''}`}>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[40%]">{material.subject}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 text-slate-400" title="Comments">
+                      <MessageSquare className="w-3.5 h-3.5" /> {material._count?.comments ?? 0}
+                    </span>
+                    <span className="truncate max-w-[110px]" title={`${material.uploadedBy?.firstName || ''} ${material.uploadedBy?.lastName || ''}`}>
                       {material.uploadedBy?.firstName} {material.uploadedBy?.lastName}
                     </span>
                     {canManage(material) && (
                       <>
-                        <button onClick={() => openEdit(material)} aria-label={`Edit ${material.title}`} title="Edit material" className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); openEdit(material); }} aria-label={`Edit ${material.title}`} title="Edit material" className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setToDelete(material)} aria-label={`Delete ${material.title}`} title="Delete material" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); setToDelete(material); }} aria-label={`Delete ${material.title}`} title="Delete material" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </>
@@ -407,6 +425,16 @@ const MyLectureMaterials: React.FC = () => {
         onConfirm={handleConfirmDelete}
         onCancel={() => setToDelete(null)}
       />
+
+      {viewingMaterial && (
+        <MaterialDetailModal
+          material={viewingMaterial}
+          currentUserId={user?.id}
+          canComment={canUpload}
+          guardianStudentId={isGuardian ? selectedChildId ?? undefined : undefined}
+          onClose={() => setViewingMaterial(null)}
+        />
+      )}
     </div>
   );
 };

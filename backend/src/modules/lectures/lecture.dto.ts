@@ -37,3 +37,13 @@ export type LectureMaterialQueryDtoType = z.infer<typeof LectureMaterialQueryDto
 export const LectureMaterialIdParamDto = z.object({
   id: z.string().min(1, 'Invalid lecture material ID'),
 });
+
+export const CreateCommentDto = z.object({
+  content: z.string().min(1, 'Comment cannot be empty').max(2000),
+});
+export type CreateCommentInput = z.infer<typeof CreateCommentDto>;
+
+export const CommentIdParamDto = z.object({
+  id: z.string().min(1, 'Invalid lecture material ID'),
+  commentId: z.string().min(1, 'Invalid comment ID'),
+});

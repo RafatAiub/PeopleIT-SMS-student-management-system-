@@ -10,6 +10,7 @@ const uploaderInclude = {
     select: { id: true, firstName: true, lastName: true, role: true },
   },
   branch: { select: { id: true, name: true } },
+  _count: { select: { comments: true } },
 };
 
 export async function create(
@@ -106,5 +107,41 @@ export async function findAll(
 export async function remove(institutionId: string, id: string) {
   return prisma.lectureMaterial.deleteMany({
     where: { id, institutionId },
+  });
+}
+
+const commentAuthorInclude = {
+  author: { select: { id: true, firstName: true, lastName: true, role: true } },
+};
+
+export async function createComment(
+  institutionId: string,
+  lectureMaterialId: string,
+  authorUserId: string,
+  content: string,
+) {
+  return prisma.lectureMaterialComment.create({
+    data: { institutionId, lectureMaterialId, authorUserId, content },
+    include: commentAuthorInclude,
+  });
+}
+
+export async function findComments(institutionId: string, lectureMaterialId: string) {
+  return prisma.lectureMaterialComment.findMany({
+    where: { institutionId, lectureMaterialId },
+    include: commentAuthorInclude,
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function findCommentById(institutionId: string, commentId: string) {
+  return prisma.lectureMaterialComment.findFirst({
+    where: { id: commentId, institutionId },
+  });
+}
+
+export async function removeComment(institutionId: string, commentId: string) {
+  return prisma.lectureMaterialComment.deleteMany({
+    where: { id: commentId, institutionId },
   });
 }
