@@ -121,6 +121,16 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
+  {
+    label: 'ID Cards',
+    items: [
+      // Template design + card issuance: Admin Full (Super Admin only while impersonating via a support session, per ProtectedRoute's support-session bypass)
+      { to: '/id-cards/builder', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
+      { to: '/id-cards/mine', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
+    ],
+  },
 ];
 
 // Not a sidebar entry (reached via role-based redirect, not a direct nav

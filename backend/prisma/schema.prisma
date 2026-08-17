@@ -49,6 +49,8 @@ model Institution {
   messages       Message[]
   subjects          Subject[]
   subjectOfferings  SubjectOffering[]
+  idCardTemplates   IdCardTemplate[]
+  idCards           IdCard[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -290,6 +292,7 @@ model Student {
   ExamResult     ExamResult[]
   libraryIssues  LibraryIssue[]
   transportAssignments TransportAssignment[]
+  idCards        IdCard[]
 
   @@index([institutionId])
   @@index([branchId])
@@ -665,6 +668,7 @@ model StaffProfile {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   payrolls       PayrollRecord[]
+  idCards        IdCard[]
 
   @@index([institutionId])
   @@index([userId])
@@ -707,4 +711,62 @@ model Message {
   @@index([institutionId])
   @@index([senderId])
   @@index([receiverId])
+}
+
+// ── Smart Dynamic ID Cards ──────────────────────────────────────────
+enum IdCardUserType {
+  STUDENT
+  STAFF
+}
+
+model IdCardTemplate {
+  id              String          @id @default(cuid())
+  institutionId   String
+  institution     Institution     @relation(fields: [institutionId], references: [id])
+  title           String
+  applicableTo    IdCardUserType
+  layout          String          @default("VERTICAL")
+  widthMm         Int             @default(57)
+  heightMm        Int             @default(89)
+  backgroundImage String?         @db.Text
+  logoImage       String?         @db.Text
+  signatureImage  String?         @db.Text
+  photoStyle      String          @default("CIRCLE")
+  photoWidthMm    Int             @default(21)
+  photoHeightMm   Int             @default(21)
+  primaryColor    String          @default("#7c3aed")
+  secondaryColor  String          @default("#0f172a")
+  showFields      Json            @default("{\"admissionNo\":true,\"name\":true,\"class\":true,\"fatherName\":true,\"motherName\":true,\"address\":true,\"dob\":true,\"bloodGroup\":true}")
+  layoutMode      String          @default("SIMPLE") // SIMPLE | ADVANCED
+  canvasElements  Json?           // CanvasElement[] — only meaningful when layoutMode = ADVANCED
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  cards           IdCard[]
+
+  @@index([institutionId])
+}
+
+model IdCard {
+  id             String          @id @default(cuid())
+  institutionId  String
+  institution    Institution     @relation(fields: [institutionId], references: [id])
+  templateId     String
+  template       IdCardTemplate  @relation(fields: [templateId], references: [id])
+  userType       IdCardUserType
+  studentId      String?
+  student        Student?        @relation(fields: [studentId], references: [id])
+  staffId        String?
+  staff          StaffProfile?   @relation(fields: [staffId], references: [id])
+  cardNumber     String          @unique
+  verifyToken    String          @unique @default(cuid())
+  issuedAt       DateTime        @default(now())
+  expiresAt      DateTime?
+  status         String          @default("ACTIVE")
+  createdAt      DateTime        @default(now())
+
+  @@index([institutionId])
+  @@index([studentId])
+  @@index([staffId])
+  @@index([verifyToken])
 }

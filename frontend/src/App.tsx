@@ -57,6 +57,11 @@ const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogs
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
+const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
+const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
+const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
+const MyIdCard = lazyWithRetry(() => import('./pages/idcards/MyIdCard'));
+const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -285,6 +290,7 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
+        <Route path="/verify/:token" element={<VerifyIdCard />} />
 
         {/* Protected Dashboard Routes */}
         <Route path="/" element={
@@ -331,6 +337,38 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <ResultsRoute />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/builder" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardTemplateBuilder />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/designer" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardDesigner />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/generate" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardGenerate />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/mine" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <MyIdCard />
             </DashboardLayout>
           </ProtectedRoute>
         } />
