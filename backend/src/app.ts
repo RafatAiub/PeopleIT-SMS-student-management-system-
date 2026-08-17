@@ -17,6 +17,7 @@ import resultsRouter from './modules/results/results.routes';
 import timetablesRouter from './modules/timetables/timetables.routes';
 import noticesRouter from './modules/notices/notices.routes';
 import libraryRouter from './modules/library/library.routes';
+import lectureRouter from './modules/lectures/lecture.routes';
 import transportRouter from './modules/transport/transport.routes';
 import hrRouter from './modules/hr/hr.routes';
 import aiRouter from './modules/ai/ai.routes';
@@ -25,6 +26,8 @@ import institutionApplicationRouter from './modules/institution-application/inst
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
+import idCardRouter from './modules/idcards/idcard.routes';
+import idCardPublicRouter from './modules/idcards/idcard.public.routes';
 
 const app = express();
 
@@ -123,6 +126,7 @@ app.use('/api/v1/results', resultsRouter);
 app.use('/api/v1/timetables', timetablesRouter);
 app.use('/api/v1/notices', noticesRouter);
 app.use('/api/v1/library', libraryRouter);
+app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/transport', transportRouter);
 app.use('/api/v1/hr', hrRouter);
 app.use('/api/v1/ai', aiRouter);
@@ -131,6 +135,11 @@ app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
+// Public verification route mounted BEFORE the authenticated id-cards router
+// so an unauthenticated QR-code scan of /verify/:token never hits the
+// authenticate/setTenant middleware chain the main router applies below.
+app.use('/api/v1/id-cards', idCardPublicRouter);
+app.use('/api/v1/id-cards', idCardRouter);
 
 // Base route health check
 app.get('/health', (_req, res) => {

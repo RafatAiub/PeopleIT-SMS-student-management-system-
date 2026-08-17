@@ -40,6 +40,8 @@ const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/Attendanc
 const MarksEntry = lazyWithRetry(() => import('./pages/results/MarksEntry'));
 const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'));
 const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
+const Lacture = lazyWithRetry(() => import('./pages/lacture/Lacture'));
+const MyLectureMaterials = lazyWithRetry(() => import('./pages/lacture/MyLectureMaterials'));
 const NoticeBoard = lazyWithRetry(() => import('./pages/notices/NoticeBoard'));
 const LibraryManagement = lazyWithRetry(() => import('./pages/library/LibraryManagement'));
 const MyLibraryIssues = lazyWithRetry(() => import('./pages/library/MyLibraryIssues'));
@@ -57,6 +59,11 @@ const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogs
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
+const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
+const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
+const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
+const MyIdCard = lazyWithRetry(() => import('./pages/idcards/MyIdCard'));
+const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -128,6 +135,15 @@ const ResultsRoute = () => {
     return <MyExamResults />;
   }
   return <MarksEntry />;
+};
+
+// Lecture materials route branches by role: staff (admin/teacher) manage materials, students/guardians see a read-only view scoped to their own class/section
+const LectureRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
+    return <MyLectureMaterials />;
+  }
+  return <Lacture />;
 };
 
 // Fees route branches by role: staff/accountant manage invoices & categories, students/guardians see a read-only "my invoices" + pay view
@@ -285,6 +301,7 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
+        <Route path="/verify/:token" element={<VerifyIdCard />} />
 
         {/* Protected Dashboard Routes */}
         <Route path="/" element={
@@ -335,10 +352,50 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/id-cards/builder" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardTemplateBuilder />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/designer" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardDesigner />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/generate" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <IdCardGenerate />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/id-cards/mine" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <MyIdCard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/timetables" element={
           <ProtectedRoute>
             <DashboardLayout>
               <TimetableGrid />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/lectures" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <LectureRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
   MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, Receipt, BarChart3, ClipboardList,
+  LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
   Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X,
   Building2, CreditCard, LifeBuoy, ListOrdered, Activity, ShieldAlert
 } from 'lucide-react';
@@ -75,6 +75,8 @@ const NAV_GROUPS: NavGroup[] = [
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
       { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
+      // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
+      { to: '/lectures', icon: <GraduationCap className="w-4.5 h-4.5" />, label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
@@ -119,6 +121,16 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
       // Transport: Admin Full, Transport Officer Full, Student/Guardian Own Only
       { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+    ],
+  },
+  {
+    label: 'ID Cards',
+    items: [
+      // Template design + card issuance: Admin Full (Super Admin only while impersonating via a support session, per ProtectedRoute's support-session bypass)
+      { to: '/id-cards/builder', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
+      { to: '/id-cards/mine', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
     ],
   },
 ];

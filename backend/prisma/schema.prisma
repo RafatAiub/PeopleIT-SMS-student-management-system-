@@ -9,46 +9,50 @@ datasource db {
 
 // ── Multi-tenant anchor ──────────────────────────────────────────────
 model Institution {
-  id             String            @id @default(cuid())
-  name           String
-  slug           String            @unique
-  logoUrl        String?
-  address        String?
-  phone          String?
-  email          String?
-  country        String            @default("BD")
-  isActive       Boolean           @default(true)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  branches       Branch[]
-  users          User[]
-  students       Student[]
-  feeCategories  FeeCategory[]
-  invoices       Invoice[]
-  auditLogs      AuditLog[]
-  studentDocs    StudentDocument[]
-  guardians      Guardian[]
-  attendances    Attendance[]
-  exams          Exam[]
-  examResults    ExamResult[]
-  timetableSlots TimetableSlot[]
-  notices        Notice[]
-  libraryBooks   LibraryBook[]
-  libraryIssues  LibraryIssue[]
-  vehicles       TransportVehicle[]
-  routes         TransportRoute[]
-  transportAssignments TransportAssignment[]
-  themeColor     String?           @default("#0f172a")
-  heroTitle      String?           @default("Welcome to Our School")
-  heroSubtitle   String?           @default("Empowering students for a better tomorrow.")
-  aboutText      String?           @db.Text
-  contactEmail   String?
-  contactPhone   String?
-  staffProfiles  StaffProfile[]
-  payrollRecords PayrollRecord[]
-  messages       Message[]
-  subjects          Subject[]
-  subjectOfferings  SubjectOffering[]
+  id                      String                   @id @default(cuid())
+  name                    String
+  slug                    String                   @unique
+  logoUrl                 String?
+  address                 String?
+  phone                   String?
+  email                   String?
+  country                 String                   @default("BD")
+  isActive                Boolean                  @default(true)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  branches                Branch[]
+  users                   User[]
+  students                Student[]
+  feeCategories           FeeCategory[]
+  invoices                Invoice[]
+  auditLogs               AuditLog[]
+  studentDocs             StudentDocument[]
+  guardians               Guardian[]
+  attendances             Attendance[]
+  exams                   Exam[]
+  examResults             ExamResult[]
+  timetableSlots          TimetableSlot[]
+  notices                 Notice[]
+  libraryBooks            LibraryBook[]
+  libraryIssues           LibraryIssue[]
+  vehicles                TransportVehicle[]
+  routes                  TransportRoute[]
+  transportAssignments    TransportAssignment[]
+  themeColor              String?                  @default("#0f172a")
+  heroTitle               String?                  @default("Welcome to Our School")
+  heroSubtitle            String?                  @default("Empowering students for a better tomorrow.")
+  aboutText               String?                  @db.Text
+  contactEmail            String?
+  contactPhone            String?
+  staffProfiles           StaffProfile[]
+  payrollRecords          PayrollRecord[]
+  messages                Message[]
+  subjects                Subject[]
+  subjectOfferings        SubjectOffering[]
+  idCardTemplates         IdCardTemplate[]
+  idCards                 IdCard[]
+  lectureMaterials        LectureMaterial[]
+  lectureMaterialComments LectureMaterialComment[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -84,16 +88,17 @@ model InstitutionApplication {
 
 // ── Branch / Campus ──────────────────────────────────────────────────
 model Branch {
-  id            String          @id @default(cuid())
-  institutionId String
-  institution   Institution     @relation(fields: [institutionId], references: [id])
-  name          String
-  address       String?
-  isActive      Boolean         @default(true)
-  createdAt     DateTime        @default(now())
-  classes       Class[]
-  students      Student[]
-  TimetableSlot TimetableSlot[]
+  id               String            @id @default(cuid())
+  institutionId    String
+  institution      Institution       @relation(fields: [institutionId], references: [id])
+  name             String
+  address          String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  classes          Class[]
+  students         Student[]
+  TimetableSlot    TimetableSlot[]
+  lectureMaterials LectureMaterial[]
 
   @@index([institutionId])
 }
@@ -124,13 +129,13 @@ model Class {
 }
 
 model Section {
-  id              String    @id @default(cuid())
-  classId         String
-  class           Class     @relation(fields: [classId], references: [id])
-  name            String // e.g. "A", "B"
-  students        Student[]
-  classTeacherId  String?
-  classTeacher    Teacher?  @relation(name: "ClassTeacher", fields: [classTeacherId], references: [id])
+  id             String    @id @default(cuid())
+  classId        String
+  class          Class     @relation(fields: [classId], references: [id])
+  name           String // e.g. "A", "B"
+  students       Student[]
+  classTeacherId String?
+  classTeacher   Teacher?  @relation(name: "ClassTeacher", fields: [classTeacherId], references: [id])
 
   @@index([classId])
   @@index([classTeacherId])
@@ -208,31 +213,33 @@ enum UserRole {
 }
 
 model User {
-  id              String         @id @default(cuid())
-  institutionId   String?
-  institution     Institution?   @relation(fields: [institutionId], references: [id])
-  email           String         @unique
-  passwordHash    String
-  role            UserRole
-  firstName       String
-  lastName        String
-  phone           String?
-  avatarUrl       String?
-  isActive        Boolean        @default(true)
-  lastLoginAt     DateTime?
-  failedLoginAttempts Int        @default(0)
-  lockedUntil     DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  studentProfile  Student?       @relation("StudentUser")
-  teacherProfile  Teacher?
-  guardianProfile Guardian?
-  staffProfile    StaffProfile?  @relation("StaffUser")
-  auditLogs       AuditLog[]
-  refreshTokens   RefreshToken[]
-  sentMessages    Message[]      @relation("SentMessages")
-  receivedMessages Message[]     @relation("ReceivedMessages")
-  reviewedApplications InstitutionApplication[]
+  id                       String                   @id @default(cuid())
+  institutionId            String?
+  institution              Institution?             @relation(fields: [institutionId], references: [id])
+  email                    String                   @unique
+  passwordHash             String
+  role                     UserRole
+  firstName                String
+  lastName                 String
+  phone                    String?
+  avatarUrl                String?
+  isActive                 Boolean                  @default(true)
+  lastLoginAt              DateTime?
+  failedLoginAttempts      Int                      @default(0)
+  lockedUntil              DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  studentProfile           Student?                 @relation("StudentUser")
+  teacherProfile           Teacher?
+  guardianProfile          Guardian?
+  staffProfile             StaffProfile?            @relation("StaffUser")
+  auditLogs                AuditLog[]
+  refreshTokens            RefreshToken[]
+  sentMessages             Message[]                @relation("SentMessages")
+  receivedMessages         Message[]                @relation("ReceivedMessages")
+  reviewedApplications     InstitutionApplication[]
+  uploadedLectureMaterials LectureMaterial[]
+  lectureMaterialComments  LectureMaterialComment[]
 
   @@index([institutionId])
   @@index([email])
@@ -252,44 +259,45 @@ model Permission {
 
 // ── Student Information ──────────────────────────────────────────────
 model Student {
-  id             String            @id @default(cuid())
-  institutionId  String
-  institution    Institution       @relation(fields: [institutionId], references: [id])
-  branchId       String?
-  branch         Branch?           @relation(fields: [branchId], references: [id])
-  classId        String?
-  class          Class?            @relation(fields: [classId], references: [id])
-  sectionId      String?
-  section        Section?          @relation(fields: [sectionId], references: [id])
-  academicYearId String?
-  academicYear   AcademicYear?     @relation(fields: [academicYearId], references: [id])
-  userId         String?           @unique
-  user           User?             @relation("StudentUser", fields: [userId], references: [id])
-  studentId      String // e.g. Admissions/Student Registration No
-  rollNumber     String?
-  firstName      String
-  lastName       String
-  dateOfBirth    DateTime?
-  gender         String?
-  email          String?
-  phone          String?
-  address        String?
-  bloodGroup     String?
-  religion       String?
-  nationality    String            @default("Bangladeshi")
-  department     String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
-  avatarUrl      String?
-  admissionDate  DateTime          @default(now())
-  status         String            @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  guardians      GuardianStudent[]
-  invoices       Invoice[]
-  documents      StudentDocument[]
-  Attendance     Attendance[]
-  ExamResult     ExamResult[]
-  libraryIssues  LibraryIssue[]
+  id                   String                @id @default(cuid())
+  institutionId        String
+  institution          Institution           @relation(fields: [institutionId], references: [id])
+  branchId             String?
+  branch               Branch?               @relation(fields: [branchId], references: [id])
+  classId              String?
+  class                Class?                @relation(fields: [classId], references: [id])
+  sectionId            String?
+  section              Section?              @relation(fields: [sectionId], references: [id])
+  academicYearId       String?
+  academicYear         AcademicYear?         @relation(fields: [academicYearId], references: [id])
+  userId               String?               @unique
+  user                 User?                 @relation("StudentUser", fields: [userId], references: [id])
+  studentId            String // e.g. Admissions/Student Registration No
+  rollNumber           String?
+  firstName            String
+  lastName             String
+  dateOfBirth          DateTime?
+  gender               String?
+  email                String?
+  phone                String?
+  address              String?
+  bloodGroup           String?
+  religion             String?
+  nationality          String                @default("Bangladeshi")
+  department           String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
+  avatarUrl            String?
+  admissionDate        DateTime              @default(now())
+  status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  guardians            GuardianStudent[]
+  invoices             Invoice[]
+  documents            StudentDocument[]
+  Attendance           Attendance[]
+  ExamResult           ExamResult[]
+  libraryIssues        LibraryIssue[]
   transportAssignments TransportAssignment[]
+  idCards        IdCard[]
 
   @@index([institutionId])
   @@index([branchId])
@@ -543,6 +551,51 @@ model TimetableSlot {
   @@index([branchId])
 }
 
+// ── Lecture Materials (per-class/section resource library) ────────────
+model LectureMaterial {
+  id               String                   @id @default(cuid())
+  institutionId    String
+  institution      Institution              @relation(fields: [institutionId], references: [id])
+  branchId         String
+  branch           Branch                   @relation(fields: [branchId], references: [id])
+  className        String // e.g. "Class 8"
+  sectionName      String // e.g. "A"
+  subject          String // e.g. "Mathematics"
+  title            String
+  description      String?                  @db.Text
+  resourceType     String                   @default("NOTE") // NOTE, SLIDE, VIDEO, PDF, LINK
+  fileUrl          String // external link (Drive/YouTube/hosted file/etc.)
+  uploadedByUserId String
+  uploadedBy       User                     @relation(fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  comments         LectureMaterialComment[]
+
+  @@index([institutionId])
+  @@index([branchId])
+  @@index([uploadedByUserId])
+}
+
+// Google-Classroom-style comment thread under a single lecture material.
+// Read by anyone who can see the material; posted by Teacher/Student only
+// (enforced in lecture.routes.ts) — Admin stays read-only, Guardian too.
+model LectureMaterialComment {
+  id                String          @id @default(cuid())
+  institutionId     String
+  institution       Institution     @relation(fields: [institutionId], references: [id])
+  lectureMaterialId String
+  lectureMaterial   LectureMaterial @relation(fields: [lectureMaterialId], references: [id], onDelete: Cascade)
+  authorUserId      String
+  author            User            @relation(fields: [authorUserId], references: [id])
+  content           String          @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([institutionId])
+  @@index([lectureMaterialId])
+  @@index([authorUserId])
+}
+
 // ── Phase 2: Communication Hub (Notice Board) ─────────────────────────
 model Notice {
   id            String      @id @default(cuid())
@@ -560,18 +613,18 @@ model Notice {
 
 // ── Phase 3: Library Management ──────────────────────────────────────
 model LibraryBook {
-  id             String         @id @default(cuid())
-  institutionId  String
-  institution    Institution    @relation(fields: [institutionId], references: [id])
-  title          String
-  author         String
-  isbn           String?
-  publisher      String?
-  totalCopies    Int            @default(1)
-  availableCopies Int           @default(1)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  issues         LibraryIssue[]
+  id              String         @id @default(cuid())
+  institutionId   String
+  institution     Institution    @relation(fields: [institutionId], references: [id])
+  title           String
+  author          String
+  isbn            String?
+  publisher       String?
+  totalCopies     Int            @default(1)
+  availableCopies Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  issues          LibraryIssue[]
 
   @@index([institutionId])
 }
@@ -665,26 +718,27 @@ model StaffProfile {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   payrolls       PayrollRecord[]
+  idCards        IdCard[]
 
   @@index([institutionId])
   @@index([userId])
 }
 
 model PayrollRecord {
-  id             String       @id @default(cuid())
-  institutionId  String
-  institution    Institution  @relation(fields: [institutionId], references: [id])
-  staffId        String
-  staff          StaffProfile @relation(fields: [staffId], references: [id])
-  payPeriod      String // e.g., "June 2026"
-  baseSalary     Decimal      @db.Decimal(12, 2)
-  allowances     Decimal      @default(0) @db.Decimal(12, 2)
-  deductions     Decimal      @default(0) @db.Decimal(12, 2)
-  netAmount      Decimal      @db.Decimal(12, 2)
-  status         String       @default("UNPAID") // PAID, UNPAID, PENDING
-  paidAt         DateTime?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  institutionId String
+  institution   Institution  @relation(fields: [institutionId], references: [id])
+  staffId       String
+  staff         StaffProfile @relation(fields: [staffId], references: [id])
+  payPeriod     String // e.g., "June 2026"
+  baseSalary    Decimal      @db.Decimal(12, 2)
+  allowances    Decimal      @default(0) @db.Decimal(12, 2)
+  deductions    Decimal      @default(0) @db.Decimal(12, 2)
+  netAmount     Decimal      @db.Decimal(12, 2)
+  status        String       @default("UNPAID") // PAID, UNPAID, PENDING
+  paidAt        DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([institutionId])
   @@index([staffId])
@@ -707,4 +761,62 @@ model Message {
   @@index([institutionId])
   @@index([senderId])
   @@index([receiverId])
+}
+
+// ── Smart Dynamic ID Cards ──────────────────────────────────────────
+enum IdCardUserType {
+  STUDENT
+  STAFF
+}
+
+model IdCardTemplate {
+  id              String          @id @default(cuid())
+  institutionId   String
+  institution     Institution     @relation(fields: [institutionId], references: [id])
+  title           String
+  applicableTo    IdCardUserType
+  layout          String          @default("VERTICAL")
+  widthMm         Int             @default(57)
+  heightMm        Int             @default(89)
+  backgroundImage String?         @db.Text
+  logoImage       String?         @db.Text
+  signatureImage  String?         @db.Text
+  photoStyle      String          @default("CIRCLE")
+  photoWidthMm    Int             @default(21)
+  photoHeightMm   Int             @default(21)
+  primaryColor    String          @default("#7c3aed")
+  secondaryColor  String          @default("#0f172a")
+  showFields      Json            @default("{\"admissionNo\":true,\"name\":true,\"class\":true,\"fatherName\":true,\"motherName\":true,\"address\":true,\"dob\":true,\"bloodGroup\":true}")
+  layoutMode      String          @default("SIMPLE") // SIMPLE | ADVANCED
+  canvasElements  Json?           // CanvasElement[] — only meaningful when layoutMode = ADVANCED
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  cards           IdCard[]
+
+  @@index([institutionId])
+}
+
+model IdCard {
+  id             String          @id @default(cuid())
+  institutionId  String
+  institution    Institution     @relation(fields: [institutionId], references: [id])
+  templateId     String
+  template       IdCardTemplate  @relation(fields: [templateId], references: [id])
+  userType       IdCardUserType
+  studentId      String?
+  student        Student?        @relation(fields: [studentId], references: [id])
+  staffId        String?
+  staff          StaffProfile?   @relation(fields: [staffId], references: [id])
+  cardNumber     String          @unique
+  verifyToken    String          @unique @default(cuid())
+  issuedAt       DateTime        @default(now())
+  expiresAt      DateTime?
+  status         String          @default("ACTIVE")
+  createdAt      DateTime        @default(now())
+
+  @@index([institutionId])
+  @@index([studentId])
+  @@index([staffId])
+  @@index([verifyToken])
 }
