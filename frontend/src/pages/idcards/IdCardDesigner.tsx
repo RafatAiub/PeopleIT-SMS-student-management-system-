@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutTemplate, Type, User, ImageIcon, PenTool, QrCode, Trash2, Image as ImageIcon2, X, ChevronUp, ChevronDown, Layers } from 'lucide-react';
+import { LayoutTemplate, Type, User, ImageIcon, PenTool, QrCode, Trash2, Image as ImageIcon2, X, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import {
-  IdCardPreview,
   IdCardTemplate,
   IdCardPreviewData,
   CanvasElement,
@@ -16,6 +15,7 @@ import {
   TEXT_DATA_KEYS,
   TEXT_DATA_KEY_LABELS,
   TEXT_DATA_KEY_DEFAULT_PRINT_LABELS,
+  resolveTextData,
   MM_TO_PX,
 } from './IdCardPreview';
 import { SAMPLE_STUDENT_DATA, SAMPLE_STAFF_DATA } from './IdCardTemplateBuilder';
@@ -26,6 +26,12 @@ import { SAMPLE_STUDENT_DATA, SAMPLE_STAFF_DATA } from './IdCardTemplateBuilder'
 // space the backend PDF renderer (idcard.pdf.ts renderAdvancedCard) and the
 // read-only IdCardPreview component's ADVANCED branch already interpret —
 // this page is the only one that lets an admin *write* that shape.
+//
+// The canvas below renders each element with its REAL font size/color/
+// alignment and REAL sample data (not an abstract placeholder box) — that's
+// what makes the editing surface itself print-accurate, so there's no
+// separate "preview" section to scroll down to and no spacing mismatch
+// between what you edit and what you get.
 // =============================================================================
 
 interface DesignerFormState {
@@ -141,13 +147,13 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-9 h-8 rounded-md border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent p-0.5"
+          className="w-9 h-8 rounded-md border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent p-0.5 flex-shrink-0"
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="input-field font-mono text-xs"
+          className="input-field font-mono text-xs min-w-0"
           maxLength={7}
         />
       </div>
@@ -168,6 +174,7 @@ export default function IdCardDesigner() {
   const [loading, setLoading] = useState(!!templateId);
   const [saving, setSaving] = useState(false);
   const [addDataKey, setAddDataKey] = useState<TextDataKey>('name');
+  const [showGuides, setShowGuides] = useState(true);
 
   const dragRef = useRef<DragMode | null>(null);
 
@@ -277,28 +284,11 @@ export default function IdCardDesigner() {
     if (selectedId === id) setSelectedId(null);
   };
 
-  // Swaps zIndex with the neighbouring element in stacking order — 'up'
-  // brings the element forward (higher on top), 'down' sends it backward.
-  // This is what makes the Layers panel's reorder arrows meaningful, and is
-  // the only reliable way to pick a specific element out of a pile that's
-  // still fully overlapping on the canvas.
-  const reorderElement = (id: string, direction: 'up' | 'down') => {
-    setElements((prev) => {
-      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
-      const idx = sorted.findIndex((el) => el.id === id);
-      const swapIdx = direction === 'up' ? idx + 1 : idx - 1;
-      if (idx === -1 || swapIdx < 0 || swapIdx >= sorted.length) return prev;
-      const a = sorted[idx];
-      const b = sorted[swapIdx];
-      return prev.map((el) => {
-        if (el.id === a.id) return { ...el, zIndex: b.zIndex };
-        if (el.id === b.id) return { ...el, zIndex: a.zIndex };
-        return el;
-      });
-    });
-  };
-
   // ---- drag / resize -------------------------------------------------------
+  // Pointer events (not mouse events) so this works identically with mouse,
+  // touch, and pen input — touchAction:'none' on the draggable elements
+  // (set inline below) stops the browser from also trying to scroll the
+  // page while a finger drags an element on a touchscreen.
 
   const handlePointerMove = (e: PointerEvent) => {
     const drag = dragRef.current;
@@ -319,13 +309,18 @@ export default function IdCardDesigner() {
 
   const handlePointerUp = () => {
     dragRef.current = null;
+    document.body.style.userSelect = '';
     window.removeEventListener('pointermove', handlePointerMove);
     window.removeEventListener('pointerup', handlePointerUp);
   };
 
   const startDrag = (kind: 'move' | 'resize', el: CanvasElement, e: React.PointerEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     setSelectedId(el.id);
+    // Prevents the classic "highlighting text on the page" glitch that
+    // happens when a drag gesture starts inside/near text content.
+    document.body.style.userSelect = 'none';
     dragRef.current = { kind, elementId: el.id, startX: e.clientX, startY: e.clientY, startEl: el };
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
@@ -374,30 +369,6 @@ export default function IdCardDesigner() {
     }
   };
 
-  const previewTemplate: IdCardTemplate = {
-    id: templateId || 'preview',
-    institutionId: '',
-    title: form.title,
-    applicableTo: form.applicableTo,
-    layout: 'VERTICAL',
-    widthMm: form.widthMm,
-    heightMm: form.heightMm,
-    backgroundImage: form.backgroundImage,
-    logoImage: form.logoImage,
-    signatureImage: form.signatureImage,
-    photoStyle: 'CIRCLE',
-    photoWidthMm: 21,
-    photoHeightMm: 21,
-    primaryColor: form.primaryColor,
-    secondaryColor: form.secondaryColor,
-    showFields: {},
-    layoutMode: 'ADVANCED',
-    canvasElements: elements,
-    isActive: form.isActive,
-    createdAt: '',
-    updatedAt: '',
-  };
-
   const sampleData: IdCardPreviewData = form.applicableTo === 'STUDENT' ? SAMPLE_STUDENT_DATA : SAMPLE_STAFF_DATA;
 
   const widthPx = Math.round(form.widthMm * MM_TO_PX);
@@ -418,17 +389,17 @@ export default function IdCardDesigner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <LayoutTemplate className="w-6 h-6 text-primary-500" />
+            <LayoutTemplate className="w-6 h-6 text-primary-500 flex-shrink-0" />
             Advanced ID Card Designer
           </h2>
           <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Drag, resize and bind data fields to build a fully custom card layout.
+            Drag, resize and bind data fields — the card below is exactly what will print.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-shrink-0">
           <Button type="button" variant="ghost" onClick={() => navigate('/id-cards/builder')}>
             Cancel
           </Button>
@@ -439,10 +410,10 @@ export default function IdCardDesigner() {
       </div>
 
       {/* Template-level fields */}
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
+      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Template Details</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="col-span-2 space-y-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="sm:col-span-2 space-y-1.5">
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Title</label>
             <input
               type="text"
@@ -513,7 +484,7 @@ export default function IdCardDesigner() {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Canvas + toolbar */}
-        <div className="xl:col-span-3 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
+        <div className="xl:col-span-3 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={addDataKey}
@@ -546,12 +517,21 @@ export default function IdCardDesigner() {
               <QrCode className="w-3.5 h-3.5" />
               Add QR Code
             </Button>
+            <button
+              type="button"
+              onClick={() => setShowGuides((v) => !v)}
+              title={showGuides ? 'Hide edit guides for a clean look' : 'Show edit guides'}
+              className="ml-auto flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
+            >
+              {showGuides ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              {showGuides ? 'Hide Guides' : 'Show Guides'}
+            </button>
           </div>
 
           <div className="flex justify-center py-4 bg-slate-100 dark:bg-slate-950/50 rounded-xl overflow-auto">
             <div
               onPointerDown={() => setSelectedId(null)}
-              className="relative border border-slate-300 dark:border-white/10 shadow-lg bg-white flex-shrink-0"
+              className="relative border border-slate-300 dark:border-white/10 shadow-lg bg-white flex-shrink-0 select-none"
               style={{
                 width: widthPx,
                 height: heightPx,
@@ -572,25 +552,32 @@ export default function IdCardDesigner() {
                     height: Math.round(el.heightMm * MM_TO_PX),
                     zIndex: el.zIndex,
                     transform: el.rotationDeg ? `rotate(${el.rotationDeg}deg)` : undefined,
-                    outline: isSelected ? '2px solid #7c3aed' : '1px dashed rgba(100,116,139,0.5)',
+                    outline: isSelected
+                      ? '2px solid #7c3aed'
+                      : showGuides
+                        ? '1px dashed rgba(100,116,139,0.4)'
+                        : 'none',
                     cursor: 'move',
                     boxSizing: 'border-box',
+                    touchAction: 'none',
                   };
                   return (
                     <div key={el.id} style={style} onPointerDown={(e) => startDrag('move', el, e)}>
-                      <ElementLabel el={el} />
+                      <CanvasElementContent el={el} data={sampleData} template={form} />
                       {isSelected && (
                         <div
                           onPointerDown={(e) => startDrag('resize', el, e)}
                           style={{
                             position: 'absolute',
-                            right: -4,
-                            bottom: -4,
-                            width: 10,
-                            height: 10,
+                            right: -7,
+                            bottom: -7,
+                            width: 14,
+                            height: 14,
                             background: '#7c3aed',
-                            borderRadius: 2,
+                            border: '2px solid white',
+                            borderRadius: 3,
                             cursor: 'nwse-resize',
+                            touchAction: 'none',
                           }}
                         />
                       )}
@@ -605,137 +592,107 @@ export default function IdCardDesigner() {
         </div>
 
         {/* Inspector */}
-        <div className="xl:col-span-2 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-primary-500" />
-              Layers
-            </h3>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Click a row to select it — the easiest way to pick an element that's covered by another one.
+        <div className="xl:col-span-2 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4 min-w-0">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Element Inspector</h3>
+          {!selectedElement ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Click any element on the card to edit it, or drag it to reposition. Sample text is shown so you can see exactly how it'll look — it's replaced with each student or staff member's real data when a card is generated.
             </p>
-          </div>
-          <LayersPanel
-            elements={elements}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onReorder={reorderElement}
-          />
-
-          <div className="pt-4 border-t border-slate-100 dark:border-white/5">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Element Inspector</h3>
-            {!selectedElement ? (
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Click an element (on the canvas or in Layers above) to edit it, or drag it to reposition.
-              </p>
-            ) : (
-              <ElementInspector
-                element={selectedElement}
-                cardWidthMm={form.widthMm}
-                cardHeightMm={form.heightMm}
-                onChange={(patch) => updateElement(selectedElement.id, patch)}
-                onDelete={() => deleteElement(selectedElement.id)}
-              />
-            )}
-          </div>
+          ) : (
+            <ElementInspector
+              element={selectedElement}
+              cardWidthMm={form.widthMm}
+              cardHeightMm={form.heightMm}
+              onChange={(patch) => updateElement(selectedElement.id, patch)}
+              onDelete={() => deleteElement(selectedElement.id)}
+            />
+          )}
         </div>
       </div>
-
-      {/* Live preview */}
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 p-6 flex flex-col items-center gap-4">
-        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider self-start">
-          True Preview (print-accurate)
-        </p>
-        <IdCardPreview template={previewTemplate} data={sampleData} />
-      </div>
     </div>
   );
 }
 
-// Shared by the on-canvas overlay and the Layers panel so an element reads
-// the same everywhere — prefers a TEXT element's own printed label (what the
-// admin actually typed, e.g. "D.O.B") over the generic data-field name, so
-// two text fields bound to the same key are still distinguishable at a
-// glance once they've been given different labels.
-function elementDisplayName(el: CanvasElement): string {
-  if (el.type === 'TEXT') return el.label?.trim() || TEXT_DATA_KEY_LABELS[el.dataKey];
-  if (el.type === 'PHOTO') return 'Photo';
-  if (el.type === 'LOGO') return 'Logo';
-  if (el.type === 'SIGNATURE') return 'Signature';
-  return 'QR Code';
-}
-
-function ElementLabel({ el }: { el: CanvasElement }) {
-  return (
-    <div className="w-full h-full flex items-center justify-center bg-primary-50/60 dark:bg-primary-500/10 overflow-hidden">
-      <span className="text-[9px] text-primary-700 dark:text-primary-300 font-medium px-1 truncate select-none pointer-events-none">
-        {elementDisplayName(el)}
-      </span>
-    </div>
-  );
-}
-
-function LayersPanel({
-  elements,
-  selectedId,
-  onSelect,
-  onReorder,
+// WYSIWYG element renderer — the same "what does this element look like"
+// logic the shared IdCardPreview component's ADVANCED branch uses (real
+// font size, weight, color, alignment, "Label : value" formatting), just
+// fed sample data here instead of a real student/staff record. Rendering
+// the canvas and the final card through matching logic is what keeps them
+// in agreement — a separate placeholder representation is exactly what
+// caused the editor and the old "True Preview" panel to visually disagree.
+function CanvasElementContent({
+  el,
+  data,
+  template,
 }: {
-  elements: CanvasElement[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onReorder: (id: string, direction: 'up' | 'down') => void;
+  el: CanvasElement;
+  data: IdCardPreviewData;
+  template: { primaryColor: string; logoImage: string | null; signatureImage: string | null };
 }) {
-  const sorted = [...elements].sort((a, b) => b.zIndex - a.zIndex); // top-most first
-
-  if (sorted.length === 0) {
-    return <p className="text-xs text-slate-400 dark:text-slate-500 italic">No elements yet — add one from the toolbar above the canvas.</p>;
+  if (el.type === 'TEXT') {
+    const value = resolveTextData(data, el.dataKey);
+    const hasValue = !!value;
+    const shown = hasValue ? value : TEXT_DATA_KEY_LABELS[el.dataKey];
+    const display = el.label ? `${el.label} : ${shown}` : shown;
+    return (
+      <div
+        className="w-full h-full overflow-hidden pointer-events-none select-none"
+        style={{
+          fontSize: `${el.fontSizePt * 1.1}px`,
+          fontWeight: el.fontWeight === 'bold' ? 700 : 400,
+          color: el.color,
+          textAlign: el.align,
+          opacity: hasValue ? 1 : 0.45,
+          fontStyle: hasValue ? 'normal' : 'italic',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+          lineHeight: 1.15,
+        }}
+      >
+        {display}
+      </div>
+    );
   }
 
+  if (el.type === 'PHOTO') {
+    const shapeClass = el.shape === 'CIRCLE' ? 'rounded-full' : el.shape === 'ROUNDED' ? 'rounded-xl' : 'rounded-none';
+    return (
+      <div
+        className={`w-full h-full overflow-hidden border-2 bg-slate-100 flex items-center justify-center pointer-events-none select-none ${shapeClass}`}
+        style={{ borderColor: template.primaryColor }}
+      >
+        {data.photoUrl ? (
+          <img src={data.photoUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-slate-400 text-[8px]">Photo</span>
+        )}
+      </div>
+    );
+  }
+
+  if (el.type === 'LOGO') {
+    return template.logoImage ? (
+      <img src={template.logoImage} alt="Logo" className="w-full h-full object-contain pointer-events-none select-none" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 text-[8px] pointer-events-none select-none">Logo</div>
+    );
+  }
+
+  if (el.type === 'SIGNATURE') {
+    return template.signatureImage ? (
+      <img src={template.signatureImage} alt="Signature" className="w-full h-full object-contain pointer-events-none select-none" />
+    ) : (
+      <div className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400 text-[8px] pointer-events-none select-none">Signature</div>
+    );
+  }
+
+  // QR
   return (
-    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-      {sorted.map((el, i) => {
-        const isSelected = el.id === selectedId;
-        return (
-          <div
-            key={el.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onSelect(el.id)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(el.id)}
-            className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
-              isSelected
-                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 ring-1 ring-primary-500/40'
-                : 'bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/70'
-            }`}
-          >
-            <span className="truncate flex items-center gap-1.5">
-              <span className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-slate-500 flex-shrink-0">{el.type}</span>
-              {elementDisplayName(el)}
-            </span>
-            <span className="flex items-center gap-0.5 flex-shrink-0">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onReorder(el.id, 'up'); }}
-                disabled={i === 0}
-                title="Bring forward"
-                className="p-0.5 rounded hover:text-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronUp className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onReorder(el.id, 'down'); }}
-                disabled={i === sorted.length - 1}
-                title="Send backward"
-                className="p-0.5 rounded hover:text-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-            </span>
-          </div>
-        );
-      })}
+    <div
+      className="w-full h-full border rounded flex items-center justify-center bg-white pointer-events-none select-none"
+      style={{ borderColor: template.primaryColor }}
+    >
+      <QrCode className="w-3/4 h-3/4" style={{ color: template.primaryColor }} />
     </div>
   );
 }

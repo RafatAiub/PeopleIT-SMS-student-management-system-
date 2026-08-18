@@ -163,7 +163,12 @@ export interface IdCardPreviewData {
   phone?: string | null;
 }
 
-function resolveTextData(data: IdCardPreviewData, key: TextDataKey): string {
+// Exported so the canvas designer can render each TEXT element's real bound
+// value while editing — using this exact same lookup (instead of a generic
+// placeholder badge) is what keeps the editor's spacing/line-height
+// identical to what actually prints, instead of an abstract stand-in that
+// only approximately matches.
+export function resolveTextData(data: IdCardPreviewData, key: TextDataKey): string {
   switch (key) {
     case 'name':
       return data.name || '';
