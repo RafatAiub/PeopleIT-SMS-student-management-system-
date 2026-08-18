@@ -40,6 +40,7 @@ const StudentList = () => {
     classId: '',
     sectionId: '',
     rollNumber: '',
+    department: '',
     status: 'ACTIVE',
     address: '',
     bloodGroup: '',
@@ -141,20 +142,25 @@ const StudentList = () => {
 
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
 
-  const validateEditField = (name: string, value: string): string => {
+  const validateEditField = (name: string, value: string, formState = editFormData): string => {
     if (name === 'firstName' && !value.trim()) return 'First name is required';
     if (name === 'lastName' && !value.trim()) return 'Last name is required';
     if (name === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Enter a valid email address';
+    if (name === 'department' && !value.trim() && isDepartmentRequiredForClass(formState.classId)) {
+      return 'Department is required for Class 9 & 10 students';
+    }
     return '';
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({ ...prev, [name]: value }));
+    const nextFormState = { ...editFormData, [name]: value };
+    setEditFormData(nextFormState);
     if (editErrors[name]) setEditErrors(prev => ({ ...prev, [name]: '' }));
 
     if (name === 'classId') {
       fetchSectionsForEdit(value, true);
+      setEditErrors(prev => ({ ...prev, department: validateEditField('department', nextFormState.department, nextFormState) }));
     }
   };
 
@@ -241,6 +247,7 @@ const StudentList = () => {
       classId: studentClassId,
       sectionId: student.section?.id || '',
       rollNumber: student.rollNumber || '',
+      department: student.department || '',
       status: student.status || 'ACTIVE',
       address: student.address || '',
       bloodGroup: student.bloodGroup || '',
@@ -255,7 +262,7 @@ const StudentList = () => {
     e.preventDefault();
     if (!selectedStudent) return;
 
-    const fieldsToValidate = ['firstName', 'lastName', 'email'];
+    const fieldsToValidate = isStudent ? ['firstName', 'lastName', 'email'] : ['firstName', 'lastName', 'email', 'department'];
     const nextErrors: Record<string, string> = {};
     for (const field of fieldsToValidate) {
       const err = validateEditField(field, (editFormData as any)[field] || '');
@@ -294,6 +301,7 @@ const StudentList = () => {
           phone: editFormData.phone || undefined,
           gender: editFormData.gender,
           rollNumber: editFormData.rollNumber || undefined,
+          department: editFormData.department || undefined,
           status: editFormData.status,
           classId: editFormData.classId || undefined,
           sectionId: editFormData.sectionId || undefined,
@@ -962,6 +970,32 @@ const StudentList = () => {
                   </select>
                 </div>
               </div>
+
+              {isDepartmentRequiredForClass(editFormData.classId) && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Department <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    name="department"
+                    required
+                    value={editFormData.department}
+                    onChange={handleEditChange}
+                    onBlur={handleEditBlur}
+                    className={`input-field ${editErrors.department ? 'border-rose-500 focus:ring-rose-500' : ''}`}
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Science">Science</option>
+                    <option value="Commerce">Commerce</option>
+                    <option value="Arts">Arts</option>
+                  </select>
+                  {editErrors.department ? (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{editErrors.department}</p>
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Required for Class 9 &amp; 10 students</p>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
