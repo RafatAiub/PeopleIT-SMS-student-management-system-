@@ -30,13 +30,14 @@ interface MyCardDetail {
     dateOfBirth: string | null;
     bloodGroup: string | null;
     address: string | null;
+    phone: string | null;
     guardians: Guardian[];
   } | null;
   staff: {
     employeeId: string | null;
     department: string | null;
     designation: string | null;
-    user: { firstName: string; lastName: string; avatarUrl: string | null };
+    user: { firstName: string; lastName: string; avatarUrl: string | null; phone: string | null };
   } | null;
 }
 
@@ -121,6 +122,7 @@ export default function MyIdCard() {
     ? {
         name: `${card.student.firstName} ${card.student.lastName}`,
         subtitle: `${card.student.class?.name ?? ''}${card.student.section?.name ? ' - ' + card.student.section.name : ''}`,
+        classText: `${card.student.class?.name ?? ''}${card.student.section?.name ? ' - ' + card.student.section.name : ''}`,
         cardNumber: card.cardNumber,
         photoUrl: card.student.avatarUrl,
         admissionNo: card.student.studentId,
@@ -129,6 +131,7 @@ export default function MyIdCard() {
         address: card.student.address,
         dob: card.student.dateOfBirth ? new Date(card.student.dateOfBirth).toLocaleDateString() : null,
         bloodGroup: card.student.bloodGroup,
+        phone: card.student.phone,
       }
     : {
         name: `${card.staff?.user.firstName ?? ''} ${card.staff?.user.lastName ?? ''}`,
@@ -136,6 +139,9 @@ export default function MyIdCard() {
         cardNumber: card.cardNumber,
         photoUrl: card.staff?.user.avatarUrl,
         admissionNo: card.staff?.employeeId || undefined,
+        designation: card.staff?.designation ?? null,
+        department: card.staff?.department ?? null,
+        phone: card.staff?.user.phone ?? null,
       };
 
   const isExpired = card.expiresAt ? new Date(card.expiresAt) < new Date() : false;

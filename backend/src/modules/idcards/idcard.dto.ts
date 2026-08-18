@@ -34,6 +34,7 @@ const TEXT_DATA_KEYS = [
   'cardNumber',
   'designation',
   'department',
+  'phone',
 ] as const;
 
 const BoxFieldsDto = {
@@ -50,6 +51,9 @@ const TextCanvasElementDto = z.object({
   ...BoxFieldsDto,
   type: z.literal('TEXT'),
   dataKey: z.enum(TEXT_DATA_KEYS),
+  // Optional "Label : value" prefix (e.g. "D.O.B", "Adm. No") — rendered by
+  // both the PDF and the React preview when set, left off when not.
+  label: z.string().max(40).optional().nullable(),
   fontSizePt: z.coerce.number().positive().max(72).default(10),
   fontWeight: z.enum(['normal', 'bold']).default('normal'),
   color: HexColorDto.default('#0f172a'),

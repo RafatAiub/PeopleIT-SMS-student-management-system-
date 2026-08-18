@@ -35,7 +35,8 @@ export type TextDataKey =
   | 'bloodGroup'
   | 'cardNumber'
   | 'designation'
-  | 'department';
+  | 'department'
+  | 'phone';
 
 export const TEXT_DATA_KEYS: TextDataKey[] = [
   'name',
@@ -49,6 +50,7 @@ export const TEXT_DATA_KEYS: TextDataKey[] = [
   'cardNumber',
   'designation',
   'department',
+  'phone',
 ];
 
 export const TEXT_DATA_KEY_LABELS: Record<TextDataKey, string> = {
@@ -63,6 +65,26 @@ export const TEXT_DATA_KEY_LABELS: Record<TextDataKey, string> = {
   cardNumber: 'Card Number',
   designation: 'Designation',
   department: 'Department',
+  phone: 'Phone Number',
+};
+
+// Sensible default "Label : value" prefixes offered when a text field is
+// added or its data key changes — matches the printed-label convention most
+// real ID cards use (e.g. "Adm. No : 3633", "D.O.B : 09-12-2005"). Editable
+// afterwards via the designer's label input.
+export const TEXT_DATA_KEY_DEFAULT_PRINT_LABELS: Record<TextDataKey, string> = {
+  name: 'Name',
+  admissionNo: 'Adm. No',
+  class: 'Class',
+  fatherName: 'Father',
+  motherName: 'Mother',
+  address: 'Address',
+  dob: 'D.O.B',
+  bloodGroup: 'Blood Group',
+  cardNumber: 'Card No',
+  designation: 'Designation',
+  department: 'Department',
+  phone: 'Phone',
 };
 
 interface CanvasElementBase {
@@ -78,6 +100,8 @@ interface CanvasElementBase {
 export interface TextCanvasElement extends CanvasElementBase {
   type: 'TEXT';
   dataKey: TextDataKey;
+  /** Optional "Label : value" prefix (e.g. "D.O.B", "Adm. No"). Omit to print just the value. */
+  label?: string | null;
   fontSizePt: number;
   fontWeight: 'normal' | 'bold';
   color: string;
@@ -136,6 +160,7 @@ export interface IdCardPreviewData {
   classText?: string | null;
   designation?: string | null;
   department?: string | null;
+  phone?: string | null;
 }
 
 function resolveTextData(data: IdCardPreviewData, key: TextDataKey): string {
@@ -162,6 +187,8 @@ function resolveTextData(data: IdCardPreviewData, key: TextDataKey): string {
       return data.designation || '';
     case 'department':
       return data.department || '';
+    case 'phone':
+      return data.phone || '';
     default:
       return '';
   }
@@ -216,10 +243,12 @@ const AdvancedCardPreview: React.FC<{ template: IdCardTemplate; data: IdCardPrev
                 color: el.color,
                 textAlign: el.align,
                 overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                textOverflow: 'ellipsis',
                 lineHeight: 1.15,
               }}
             >
-              {value}
+              {el.label ? `${el.label} : ${value}` : value}
             </div>
           );
         }

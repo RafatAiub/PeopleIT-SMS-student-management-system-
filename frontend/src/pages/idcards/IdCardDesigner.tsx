@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutTemplate, Type, User, ImageIcon, PenTool, QrCode, Trash2, Image as ImageIcon2, X } from 'lucide-react';
+import { LayoutTemplate, Type, User, ImageIcon, PenTool, QrCode, Trash2, Image as ImageIcon2, X, ChevronUp, ChevronDown, Layers } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
@@ -15,6 +15,7 @@ import {
   TextDataKey,
   TEXT_DATA_KEYS,
   TEXT_DATA_KEY_LABELS,
+  TEXT_DATA_KEY_DEFAULT_PRINT_LABELS,
   MM_TO_PX,
 } from './IdCardPreview';
 import { SAMPLE_STUDENT_DATA, SAMPLE_STAFF_DATA } from './IdCardTemplateBuilder';
@@ -220,18 +221,31 @@ export default function IdCardDesigner() {
     return { xMm: x, yMm: y, widthMm: w, heightMm: h };
   };
 
+  // Every newly-added element is stacked just below whatever's already on
+  // the card, instead of always landing at the same fixed spot — that's
+  // what made every new text field pile up directly on top of the last one.
+  // Nothing here is a "smart layout" — it's just "don't start on top of
+  // something else" so a fresh element is always immediately visible and
+  // selectable.
+  const nextStackY = (heightMm: number) => {
+    const maxBottom = elements.length ? Math.max(...elements.map((el) => el.yMm + el.heightMm)) : 0;
+    const y = elements.length ? maxBottom + 2 : 6;
+    return Math.min(y, Math.max(form.heightMm - heightMm, 0));
+  };
+
   const addTextElement = () => {
+    const heightMm = 6;
+    const widthMm = Math.min(form.widthMm - 8, 48);
+    const box = clampBox(4, nextStackY(heightMm), widthMm, heightMm);
     const el: TextCanvasElement = {
       id: crypto.randomUUID(),
       type: 'TEXT',
-      xMm: 5,
-      yMm: 5,
-      widthMm: 30,
-      heightMm: 8,
+      ...box,
       rotationDeg: 0,
       zIndex: nextZIndex(),
       dataKey: addDataKey,
-      fontSizePt: 10,
+      label: TEXT_DATA_KEY_DEFAULT_PRINT_LABELS[addDataKey],
+      fontSizePt: 8,
       fontWeight: 'normal',
       color: '#0f172a',
       align: 'left',
@@ -242,15 +256,10 @@ export default function IdCardDesigner() {
 
   const addSingletonElement = (type: 'PHOTO' | 'LOGO' | 'SIGNATURE' | 'QR') => {
     if (elements.some((el) => el.type === type)) return;
-    const base = {
-      id: crypto.randomUUID(),
-      xMm: 5,
-      yMm: 5,
-      widthMm: type === 'PHOTO' ? 21 : 15,
-      heightMm: type === 'PHOTO' ? 21 : 15,
-      rotationDeg: 0,
-      zIndex: nextZIndex(),
-    };
+    const size = type === 'PHOTO' ? 21 : 15;
+    const x = type === 'PHOTO' ? (form.widthMm - size) / 2 : 4;
+    const box = clampBox(x, nextStackY(size), size, size);
+    const base = { id: crypto.randomUUID(), ...box, rotationDeg: 0, zIndex: nextZIndex() };
     const el: CanvasElement =
       type === 'PHOTO'
         ? ({ ...base, type: 'PHOTO', shape: 'CIRCLE' } as PhotoCanvasElement)
@@ -266,6 +275,27 @@ export default function IdCardDesigner() {
   const deleteElement = (id: string) => {
     setElements((prev) => prev.filter((el) => el.id !== id));
     if (selectedId === id) setSelectedId(null);
+  };
+
+  // Swaps zIndex with the neighbouring element in stacking order — 'up'
+  // brings the element forward (higher on top), 'down' sends it backward.
+  // This is what makes the Layers panel's reorder arrows meaningful, and is
+  // the only reliable way to pick a specific element out of a pile that's
+  // still fully overlapping on the canvas.
+  const reorderElement = (id: string, direction: 'up' | 'down') => {
+    setElements((prev) => {
+      const sorted = [...prev].sort((a, b) => a.zIndex - b.zIndex);
+      const idx = sorted.findIndex((el) => el.id === id);
+      const swapIdx = direction === 'up' ? idx + 1 : idx - 1;
+      if (idx === -1 || swapIdx < 0 || swapIdx >= sorted.length) return prev;
+      const a = sorted[idx];
+      const b = sorted[swapIdx];
+      return prev.map((el) => {
+        if (el.id === a.id) return { ...el, zIndex: b.zIndex };
+        if (el.id === b.id) return { ...el, zIndex: a.zIndex };
+        return el;
+      });
+    });
   };
 
   // ---- drag / resize -------------------------------------------------------
@@ -540,6 +570,7 @@ export default function IdCardDesigner() {
                     top: Math.round(el.yMm * MM_TO_PX),
                     width: Math.round(el.widthMm * MM_TO_PX),
                     height: Math.round(el.heightMm * MM_TO_PX),
+                    zIndex: el.zIndex,
                     transform: el.rotationDeg ? `rotate(${el.rotationDeg}deg)` : undefined,
                     outline: isSelected ? '2px solid #7c3aed' : '1px dashed rgba(100,116,139,0.5)',
                     cursor: 'move',
@@ -575,20 +606,38 @@ export default function IdCardDesigner() {
 
         {/* Inspector */}
         <div className="xl:col-span-2 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Element Inspector</h3>
-          {!selectedElement ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Click an element to edit it, or drag it to reposition.
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-primary-500" />
+              Layers
+            </h3>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+              Click a row to select it — the easiest way to pick an element that's covered by another one.
             </p>
-          ) : (
-            <ElementInspector
-              element={selectedElement}
-              cardWidthMm={form.widthMm}
-              cardHeightMm={form.heightMm}
-              onChange={(patch) => updateElement(selectedElement.id, patch)}
-              onDelete={() => deleteElement(selectedElement.id)}
-            />
-          )}
+          </div>
+          <LayersPanel
+            elements={elements}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onReorder={reorderElement}
+          />
+
+          <div className="pt-4 border-t border-slate-100 dark:border-white/5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Element Inspector</h3>
+            {!selectedElement ? (
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Click an element (on the canvas or in Layers above) to edit it, or drag it to reposition.
+              </p>
+            ) : (
+              <ElementInspector
+                element={selectedElement}
+                cardWidthMm={form.widthMm}
+                cardHeightMm={form.heightMm}
+                onChange={(patch) => updateElement(selectedElement.id, patch)}
+                onDelete={() => deleteElement(selectedElement.id)}
+              />
+            )}
+          </div>
         </div>
       </div>
 
@@ -603,22 +652,90 @@ export default function IdCardDesigner() {
   );
 }
 
+// Shared by the on-canvas overlay and the Layers panel so an element reads
+// the same everywhere — prefers a TEXT element's own printed label (what the
+// admin actually typed, e.g. "D.O.B") over the generic data-field name, so
+// two text fields bound to the same key are still distinguishable at a
+// glance once they've been given different labels.
+function elementDisplayName(el: CanvasElement): string {
+  if (el.type === 'TEXT') return el.label?.trim() || TEXT_DATA_KEY_LABELS[el.dataKey];
+  if (el.type === 'PHOTO') return 'Photo';
+  if (el.type === 'LOGO') return 'Logo';
+  if (el.type === 'SIGNATURE') return 'Signature';
+  return 'QR Code';
+}
+
 function ElementLabel({ el }: { el: CanvasElement }) {
-  const labelText =
-    el.type === 'TEXT'
-      ? TEXT_DATA_KEY_LABELS[el.dataKey]
-      : el.type === 'PHOTO'
-      ? 'Photo'
-      : el.type === 'LOGO'
-      ? 'Logo'
-      : el.type === 'SIGNATURE'
-      ? 'Signature'
-      : 'QR Code';
   return (
     <div className="w-full h-full flex items-center justify-center bg-primary-50/60 dark:bg-primary-500/10 overflow-hidden">
       <span className="text-[9px] text-primary-700 dark:text-primary-300 font-medium px-1 truncate select-none pointer-events-none">
-        {labelText}
+        {elementDisplayName(el)}
       </span>
+    </div>
+  );
+}
+
+function LayersPanel({
+  elements,
+  selectedId,
+  onSelect,
+  onReorder,
+}: {
+  elements: CanvasElement[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onReorder: (id: string, direction: 'up' | 'down') => void;
+}) {
+  const sorted = [...elements].sort((a, b) => b.zIndex - a.zIndex); // top-most first
+
+  if (sorted.length === 0) {
+    return <p className="text-xs text-slate-400 dark:text-slate-500 italic">No elements yet — add one from the toolbar above the canvas.</p>;
+  }
+
+  return (
+    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+      {sorted.map((el, i) => {
+        const isSelected = el.id === selectedId;
+        return (
+          <div
+            key={el.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(el.id)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSelect(el.id)}
+            className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition ${
+              isSelected
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 ring-1 ring-primary-500/40'
+                : 'bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/70'
+            }`}
+          >
+            <span className="truncate flex items-center gap-1.5">
+              <span className="text-[9px] uppercase tracking-wider text-slate-400 dark:text-slate-500 flex-shrink-0">{el.type}</span>
+              {elementDisplayName(el)}
+            </span>
+            <span className="flex items-center gap-0.5 flex-shrink-0">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onReorder(el.id, 'up'); }}
+                disabled={i === 0}
+                title="Bring forward"
+                className="p-0.5 rounded hover:text-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onReorder(el.id, 'down'); }}
+                disabled={i === sorted.length - 1}
+                title="Send backward"
+                className="p-0.5 rounded hover:text-primary-500 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -653,7 +770,17 @@ function ElementInspector({
             <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Data Field</label>
             <select
               value={element.dataKey}
-              onChange={(e) => onChange({ dataKey: e.target.value as TextDataKey })}
+              onChange={(e) => {
+                const newKey = e.target.value as TextDataKey;
+                // Only auto-sync the printed label if it still matches the
+                // old field's default — once an admin has customized it,
+                // switching the bound data shouldn't silently overwrite it.
+                const hasCustomLabel = element.label && element.label !== TEXT_DATA_KEY_DEFAULT_PRINT_LABELS[element.dataKey];
+                onChange({
+                  dataKey: newKey,
+                  ...(hasCustomLabel ? {} : { label: TEXT_DATA_KEY_DEFAULT_PRINT_LABELS[newKey] }),
+                });
+              }}
               className="input-field"
             >
               {TEXT_DATA_KEYS.map((key) => (
@@ -662,6 +789,22 @@ function ElementInspector({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">
+              Printed Label <span className="normal-case text-slate-400 font-normal">(optional — e.g. "D.O.B")</span>
+            </label>
+            <input
+              type="text"
+              value={element.label || ''}
+              onChange={(e) => onChange({ label: e.target.value || null })}
+              placeholder="Leave blank to print just the value"
+              className="input-field"
+              maxLength={40}
+            />
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              {element.label ? `Prints as "${element.label} : value"` : 'Prints as just the value, no label.'}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <NumberField label="Font Size (pt)" value={element.fontSizePt} min={4} max={72} onChange={(v) => onChange({ fontSizePt: v })} />

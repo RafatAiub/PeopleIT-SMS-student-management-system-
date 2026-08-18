@@ -50,6 +50,7 @@ export interface IdCardPdfData {
     dateOfBirth: Date | null;
     bloodGroup: string | null;
     address: string | null;
+    phone: string | null;
     class: { name: string } | null;
     section: { name: string } | null;
     guardians: Array<{
@@ -61,7 +62,7 @@ export interface IdCardPdfData {
     employeeId: string | null;
     department: string | null;
     designation: string | null;
-    user: { firstName: string; lastName: string; avatarUrl: string | null };
+    user: { firstName: string; lastName: string; avatarUrl: string | null; phone: string | null };
   } | null;
 }
 
@@ -141,6 +142,8 @@ function resolveDataKey(card: IdCardPdfData, dataKey: string): string | null {
       return card.userType === 'STUDENT' ? formatDate(card.student?.dateOfBirth ?? null) : null;
     case 'bloodGroup':
       return card.userType === 'STUDENT' ? card.student?.bloodGroup ?? null : null;
+    case 'phone':
+      return card.userType === 'STUDENT' ? card.student?.phone ?? null : card.staff?.user.phone ?? null;
     default:
       return null;
   }
@@ -330,11 +333,12 @@ async function renderAdvancedCard(doc: PDFKit.PDFDocument, card: IdCardPdfData) 
       if (el.type === 'TEXT') {
         const value = resolveDataKey(card, el.dataKey);
         if (!value) continue;
+        const text = el.label ? `${el.label} : ${value}` : value;
         doc
           .font(el.fontWeight === 'bold' ? 'Helvetica-Bold' : 'Helvetica')
           .fontSize(el.fontSizePt)
           .fillColor(el.color)
-          .text(value, x, y, { width, height, align: el.align });
+          .text(text, x, y, { width, height, align: el.align });
       } else if (el.type === 'PHOTO') {
         const buffer = resolveImageBuffer(holderPhoto);
         if (buffer) {

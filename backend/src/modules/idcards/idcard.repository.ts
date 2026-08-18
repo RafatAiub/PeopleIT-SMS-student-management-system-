@@ -65,7 +65,7 @@ export const cardListSelect = {
       employeeId: true,
       department: true,
       designation: true,
-      user: { select: { firstName: true, lastName: true, avatarUrl: true } },
+      user: { select: { firstName: true, lastName: true, avatarUrl: true, phone: true } },
     },
   },
 } as const;
@@ -83,6 +83,7 @@ export const cardDetailSelect = {
       dateOfBirth: true,
       bloodGroup: true,
       address: true,
+      phone: true,
       class: { select: { id: true, name: true } },
       section: { select: { id: true, name: true } },
       guardians: {
@@ -99,7 +100,7 @@ export const cardDetailSelect = {
       employeeId: true,
       department: true,
       designation: true,
-      user: { select: { firstName: true, lastName: true, avatarUrl: true } },
+      user: { select: { firstName: true, lastName: true, avatarUrl: true, phone: true } },
     },
   },
 } as const;

@@ -22,6 +22,7 @@ export const SAMPLE_STUDENT_DATA = {
   address: '123 Green Road, Dhaka, Bangladesh',
   dob: '2012-05-14',
   bloodGroup: 'O+',
+  phone: '01700-000000',
 };
 
 export const SAMPLE_STAFF_DATA = {
@@ -36,6 +37,7 @@ export const SAMPLE_STAFF_DATA = {
   address: '45 College Road, Dhaka, Bangladesh',
   dob: '1988-03-02',
   bloodGroup: 'A+',
+  phone: '01800-000000',
 };
 
 const SHOW_FIELD_OPTIONS: { key: keyof IdCardShowFields; label: string }[] = [
