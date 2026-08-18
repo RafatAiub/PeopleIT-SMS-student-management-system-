@@ -241,7 +241,10 @@ export default function IdCardDesigner() {
   };
 
   const addTextElement = () => {
-    const heightMm = 6;
+    // Address routinely wraps onto a second line once a real value is
+    // filled in — starting it with only single-line room just recreates the
+    // clipped-text problem, so give it visibly more height by default.
+    const heightMm = addDataKey === 'address' ? 11 : 6;
     const widthMm = Math.min(form.widthMm - 8, 48);
     const box = clampBox(4, nextStackY(heightMm), widthMm, heightMm);
     const el: TextCanvasElement = {
@@ -636,7 +639,7 @@ function CanvasElementContent({
     const display = el.label ? `${el.label} : ${shown}` : shown;
     return (
       <div
-        className="w-full h-full overflow-hidden pointer-events-none select-none"
+        className="w-full pointer-events-none select-none"
         style={{
           fontSize: `${el.fontSizePt * 1.1}px`,
           fontWeight: el.fontWeight === 'bold' ? 700 : 400,
@@ -644,8 +647,13 @@ function CanvasElementContent({
           textAlign: el.align,
           opacity: hasValue ? 1 : 0.45,
           fontStyle: hasValue ? 'normal' : 'italic',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
+          // No nowrap/ellipsis — matches the PDF, which wraps long values
+          // (e.g. Address) across multiple lines instead of cutting them
+          // off, and the editor has to show that same overflow so what you
+          // see while dragging still matches what prints.
+          whiteSpace: 'normal',
+          wordBreak: 'break-word',
+          overflow: 'visible',
           lineHeight: 1.15,
         }}
       >

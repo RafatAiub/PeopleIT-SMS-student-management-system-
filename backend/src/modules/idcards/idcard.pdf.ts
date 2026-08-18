@@ -89,6 +89,15 @@ function formatDate(date: Date | null): string {
   return new Date(date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// For optional, user-editable dates (date of birth) where "not on file" should
+// hide the whole line — same convention every other optional field (address,
+// blood group, father/mother name) already follows. formatDate() itself keeps
+// returning '-' for the always-present system dates (Issued/Expires), which
+// should never actually hit the null case.
+function formatOptionalDate(date: Date | null): string | null {
+  return date ? formatDate(date) : null;
+}
+
 type GuardianList = NonNullable<IdCardPdfData['student']>['guardians'];
 
 function findGuardianName(guardians: GuardianList, relationship: 'FATHER' | 'MOTHER'): string | null {
@@ -139,7 +148,7 @@ function resolveDataKey(card: IdCardPdfData, dataKey: string): string | null {
     case 'address':
       return card.userType === 'STUDENT' ? card.student?.address ?? null : null;
     case 'dob':
-      return card.userType === 'STUDENT' ? formatDate(card.student?.dateOfBirth ?? null) : null;
+      return card.userType === 'STUDENT' ? formatOptionalDate(card.student?.dateOfBirth ?? null) : null;
     case 'bloodGroup':
       return card.userType === 'STUDENT' ? card.student?.bloodGroup ?? null : null;
     case 'phone':
@@ -268,7 +277,7 @@ async function renderSimpleCard(doc: PDFKit.PDFDocument, card: IdCardPdfData, wi
     if (showFields.motherName !== false) {
       drawLine('Mother', findGuardianName(card.student.guardians, 'MOTHER'));
     }
-    if (showFields.dob !== false) drawLine('DOB', formatDate(card.student.dateOfBirth));
+    if (showFields.dob !== false) drawLine('DOB', formatOptionalDate(card.student.dateOfBirth));
     if (showFields.bloodGroup !== false) drawLine('Blood Group', card.student.bloodGroup);
     if (showFields.address !== false) address = card.student.address;
   } else if (card.userType === 'STAFF' && card.staff) {
@@ -334,11 +343,17 @@ async function renderAdvancedCard(doc: PDFKit.PDFDocument, card: IdCardPdfData) 
         const value = resolveDataKey(card, el.dataKey);
         if (!value) continue;
         const text = el.label ? `${el.label} : ${value}` : value;
+        // Deliberately no `height` here — pdfkit clips text that overflows a
+        // constrained height instead of wrapping it, which is what was
+        // silently truncating longer values like Address mid-sentence. With
+        // only `width` set, it wraps to as many lines as it needs and flows
+        // downward past the element's nominal box — better to spill visibly
+        // than to lose part of the text.
         doc
           .font(el.fontWeight === 'bold' ? 'Helvetica-Bold' : 'Helvetica')
           .fontSize(el.fontSizePt)
           .fillColor(el.color)
-          .text(text, x, y, { width, height, align: el.align });
+          .text(text, x, y, { width, align: el.align });
       } else if (el.type === 'PHOTO') {
         const buffer = resolveImageBuffer(holderPhoto);
         if (buffer) {

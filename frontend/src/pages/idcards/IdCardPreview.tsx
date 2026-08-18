@@ -247,9 +247,14 @@ const AdvancedCardPreview: React.FC<{ template: IdCardTemplate; data: IdCardPrev
                 fontWeight: el.fontWeight === 'bold' ? 700 : 400,
                 color: el.color,
                 textAlign: el.align,
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                textOverflow: 'ellipsis',
+                // No nowrap/ellipsis/clip here — the PDF renderer wraps long
+                // values (e.g. Address) across multiple lines rather than
+                // cutting them off, so this has to visually match: wrap the
+                // same way and let it overflow its nominal box downward
+                // instead of silently hiding text the printed card shows.
+                whiteSpace: 'normal',
+                wordBreak: 'break-word',
+                overflow: 'visible',
                 lineHeight: 1.15,
               }}
             >
