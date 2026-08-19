@@ -226,7 +226,7 @@ export async function createCardTx(
 }
 
 export async function findCards(institutionId: string, query: IdCardQueryDtoType) {
-  const { page, pageSize, classId, department, userType, status } = query;
+  const { page, pageSize, classId, department, userType, status, search } = query;
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.IdCardWhereInput = {
@@ -235,6 +235,19 @@ export async function findCards(institutionId: string, query: IdCardQueryDtoType
     ...(status ? { status } : {}),
     ...(classId ? { student: { classId } } : {}),
     ...(department ? { staff: { department } } : {}),
+    ...(search
+      ? {
+          OR: [
+            { cardNumber: { contains: search, mode: 'insensitive' } },
+            { student: { is: { studentId: { contains: search, mode: 'insensitive' } } } },
+            { student: { is: { firstName: { contains: search, mode: 'insensitive' } } } },
+            { student: { is: { lastName: { contains: search, mode: 'insensitive' } } } },
+            { staff: { is: { employeeId: { contains: search, mode: 'insensitive' } } } },
+            { staff: { is: { user: { is: { firstName: { contains: search, mode: 'insensitive' } } } } } },
+            { staff: { is: { user: { is: { lastName: { contains: search, mode: 'insensitive' } } } } } },
+          ],
+        }
+      : {}),
   };
 
   const [cards, total] = await prisma.$transaction([

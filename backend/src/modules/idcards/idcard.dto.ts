@@ -117,6 +117,8 @@ export const IdCardQueryDto = z.object({
   department: z.string().min(1).optional(),
   userType: z.enum(['STUDENT', 'STAFF']).optional(),
   status: z.enum(['ACTIVE', 'REVOKED']).optional(),
+  // Matches card number, student/staff name, admission/employee no.
+  search: z.string().min(1).max(100).optional(),
 });
 
 export const IdParamDto = z.object({
