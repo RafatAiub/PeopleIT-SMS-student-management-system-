@@ -185,6 +185,10 @@ export async function countCardsForInstitution(institutionId: string) {
   return prisma.idCard.count({ where: { institutionId } });
 }
 
+export async function countCardsForTemplate(institutionId: string, templateId: string) {
+  return prisma.idCard.count({ where: { institutionId, templateId } });
+}
+
 export async function findActiveCardForStudent(institutionId: string, studentId: string) {
   return prisma.idCard.findFirst({
     where: { institutionId, studentId, status: 'ACTIVE' },

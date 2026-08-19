@@ -1,6 +1,6 @@
 import * as idCardRepository from './idcard.repository';
 import { prisma } from '../../config/prisma';
-import { NotFoundError, BadRequestError, ForbiddenError } from '../../utils/AppError';
+import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { renderIdCardPdf, type IdCardPdfData } from './idcard.pdf';
 import type {
@@ -47,6 +47,20 @@ export async function deleteTemplate(institutionId: string, id: string) {
   const existing = await idCardRepository.findTemplateById(institutionId, id);
   if (!existing) {
     throw new NotFoundError(`ID card template with ID '${id}' not found`);
+  }
+
+  // The database's own FK constraint (IdCard.templateId -> IdCardTemplate,
+  // ON DELETE RESTRICT) already refuses this at the SQL level — on purpose,
+  // since a scanned/verified physical card must keep resolving even after
+  // its template is retired. Checking here first turns that into a clear,
+  // actionable error instead of a raw Postgres constraint-violation message
+  // (which `prisma.deleteMany()` doesn't classify as cleanly as `delete()`
+  // does, and was leaking straight through to the client as a 500).
+  const issuedCount = await idCardRepository.countCardsForTemplate(institutionId, id);
+  if (issuedCount > 0) {
+    throw new ConflictError(
+      `This template has already been used to generate ${issuedCount} ID card${issuedCount === 1 ? '' : 's'}, so deleting it would break verification for those cards. Switch it to inactive instead, or revoke those cards first if you really need to remove it.`,
+    );
   }
 
   await idCardRepository.removeTemplate(institutionId, id);

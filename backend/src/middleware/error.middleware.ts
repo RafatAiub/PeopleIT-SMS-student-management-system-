@@ -1,9 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 import { AppError, ValidationError, LockedError } from '../utils/AppError';
 import { errorResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
+
+// Postgres SQLSTATE codes for a foreign-key constraint blocking the query —
+// 23503 is the general "foreign_key_violation", 23001 is specifically
+// "restrict_violation" (an ON DELETE RESTRICT relation, e.g. deleting an
+// IdCardTemplate that still has IdCard rows pointing at it).
+const FK_VIOLATION_SQLSTATES = ['23503', '23001'];
 
 // =============================================================================
 // Global Error Handler Middleware
@@ -50,20 +57,24 @@ export function globalErrorHandler(
   }
 
   // ── Prisma errors ──────────────────────────────────────────────────────────
-  if (err.name === 'PrismaClientKnownRequestError') {
-    const prismaErr = err as Error & { code?: string; meta?: { target?: string[] } };
-
-    if (prismaErr.code === 'P2002') {
-      const fields = prismaErr.meta?.target?.join(', ') ?? 'unknown field';
+  // instanceof against Prisma's own error classes (not a string compare on
+  // err.name) — deleteMany() in particular doesn't always get wrapped as a
+  // clean PrismaClientKnownRequestError the way delete() does; a
+  // FK-constraint violation from it can surface as PrismaClientUnknownRequestError
+  // instead, whose .message is the raw query-engine/Postgres error text
+  // (including internal file paths) — that must never reach the client.
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      const fields = (err.meta?.target as string[] | undefined)?.join(', ') ?? 'unknown field';
       logger.warn('Prisma unique constraint violation', { fields, path: req.path });
       return errorResponse(res, `Duplicate value for: ${fields}`, 409);
     }
 
-    if (prismaErr.code === 'P2025') {
+    if (err.code === 'P2025') {
       return errorResponse(res, 'Resource not found', 404);
     }
 
-    if (prismaErr.code === 'P2003') {
+    if (err.code === 'P2003') {
       logger.warn('Prisma foreign key constraint violation', { path: req.path });
       return errorResponse(
         res,
@@ -72,7 +83,21 @@ export function globalErrorHandler(
       );
     }
 
-    logger.error('Prisma error', { code: prismaErr.code, path: req.path });
+    logger.error('Prisma error', { code: err.code, path: req.path });
+    return errorResponse(res, 'Database error', 500);
+  }
+
+  if (err instanceof Prisma.PrismaClientUnknownRequestError) {
+    if (FK_VIOLATION_SQLSTATES.some((sqlstate) => err.message.includes(sqlstate))) {
+      logger.warn('Prisma foreign key constraint violation (unclassified)', { path: req.path });
+      return errorResponse(
+        res,
+        'This item is linked to other records and cannot be deleted. Remove the related records first, or contact support.',
+        409,
+      );
+    }
+
+    logger.error('Unclassified Prisma error', { path: req.path });
     return errorResponse(res, 'Database error', 500);
   }
 
