@@ -53,6 +53,7 @@ model Institution {
   idCards                 IdCard[]
   lectureMaterials        LectureMaterial[]
   lectureMaterialComments LectureMaterialComment[]
+  assignments             Assignment[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -99,6 +100,7 @@ model Branch {
   students         Student[]
   TimetableSlot    TimetableSlot[]
   lectureMaterials LectureMaterial[]
+  assignments      Assignment[]
 
   @@index([institutionId])
 }
@@ -240,6 +242,7 @@ model User {
   reviewedApplications     InstitutionApplication[]
   uploadedLectureMaterials LectureMaterial[]
   lectureMaterialComments  LectureMaterialComment[]
+  createdAssignments       Assignment[]
 
   @@index([institutionId])
   @@index([email])
@@ -297,7 +300,7 @@ model Student {
   ExamResult           ExamResult[]
   libraryIssues        LibraryIssue[]
   transportAssignments TransportAssignment[]
-  idCards        IdCard[]
+  idCards              IdCard[]
 
   @@index([institutionId])
   @@index([branchId])
@@ -596,6 +599,32 @@ model LectureMaterialComment {
   @@index([authorUserId])
 }
 
+// ── Classwork (teacher/student-assigned homework — separate from the
+// Stream's free-form LectureMaterial posts; not shown in the Stream feed) ──
+model Assignment {
+  id              String      @id @default(cuid())
+  institutionId   String
+  institution     Institution @relation(fields: [institutionId], references: [id])
+  branchId        String
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  className       String // e.g. "Class 8"
+  sectionName     String // e.g. "A"
+  subject         String // e.g. "Mathematics"
+  title           String
+  instructions    String?     @db.Text
+  resourceType    String? // NOTE, SLIDE, VIDEO, PDF, LINK, IMAGE — optional attachment
+  fileUrl         String? // optional attachment link
+  dueDate         DateTime
+  createdByUserId String
+  createdBy       User        @relation(fields: [createdByUserId], references: [id])
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([institutionId])
+  @@index([branchId])
+  @@index([createdByUserId])
+}
+
 // ── Phase 2: Communication Hub (Notice Board) ─────────────────────────
 model Notice {
   id            String      @id @default(cuid())
@@ -704,21 +733,21 @@ model TransportAssignment {
 
 // ── Final Phase: HR & Payroll ────────────────────────────────────────
 model StaffProfile {
-  id             String          @id @default(cuid())
-  institutionId  String
-  institution    Institution     @relation(fields: [institutionId], references: [id])
-  userId         String          @unique
-  user           User            @relation("StaffUser", fields: [userId], references: [id])
-  employeeId     String?
-  department     String?
-  designation    String?
-  joiningDate    DateTime?
-  baseSalary     Decimal         @db.Decimal(12, 2)
-  status         String          @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  payrolls       PayrollRecord[]
-  idCards        IdCard[]
+  id            String          @id @default(cuid())
+  institutionId String
+  institution   Institution     @relation(fields: [institutionId], references: [id])
+  userId        String          @unique
+  user          User            @relation("StaffUser", fields: [userId], references: [id])
+  employeeId    String?
+  department    String?
+  designation   String?
+  joiningDate   DateTime?
+  baseSalary    Decimal         @db.Decimal(12, 2)
+  status        String          @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  payrolls      PayrollRecord[]
+  idCards       IdCard[]
 
   @@index([institutionId])
   @@index([userId])
@@ -770,50 +799,50 @@ enum IdCardUserType {
 }
 
 model IdCardTemplate {
-  id              String          @id @default(cuid())
+  id              String         @id @default(cuid())
   institutionId   String
-  institution     Institution     @relation(fields: [institutionId], references: [id])
+  institution     Institution    @relation(fields: [institutionId], references: [id])
   title           String
   applicableTo    IdCardUserType
-  layout          String          @default("VERTICAL")
-  widthMm         Int             @default(57)
-  heightMm        Int             @default(89)
-  backgroundImage String?         @db.Text
-  logoImage       String?         @db.Text
-  signatureImage  String?         @db.Text
-  photoStyle      String          @default("CIRCLE")
-  photoWidthMm    Int             @default(21)
-  photoHeightMm   Int             @default(21)
-  primaryColor    String          @default("#7c3aed")
-  secondaryColor  String          @default("#0f172a")
-  showFields      Json            @default("{\"admissionNo\":true,\"name\":true,\"class\":true,\"fatherName\":true,\"motherName\":true,\"address\":true,\"dob\":true,\"bloodGroup\":true}")
-  layoutMode      String          @default("SIMPLE") // SIMPLE | ADVANCED
-  canvasElements  Json?           // CanvasElement[] — only meaningful when layoutMode = ADVANCED
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  layout          String         @default("VERTICAL")
+  widthMm         Int            @default(57)
+  heightMm        Int            @default(89)
+  backgroundImage String?        @db.Text
+  logoImage       String?        @db.Text
+  signatureImage  String?        @db.Text
+  photoStyle      String         @default("CIRCLE")
+  photoWidthMm    Int            @default(21)
+  photoHeightMm   Int            @default(21)
+  primaryColor    String         @default("#7c3aed")
+  secondaryColor  String         @default("#0f172a")
+  showFields      Json           @default("{\"admissionNo\":true,\"name\":true,\"class\":true,\"fatherName\":true,\"motherName\":true,\"address\":true,\"dob\":true,\"bloodGroup\":true}")
+  layoutMode      String         @default("SIMPLE") // SIMPLE | ADVANCED
+  canvasElements  Json? // CanvasElement[] — only meaningful when layoutMode = ADVANCED
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   cards           IdCard[]
 
   @@index([institutionId])
 }
 
 model IdCard {
-  id             String          @id @default(cuid())
-  institutionId  String
-  institution    Institution     @relation(fields: [institutionId], references: [id])
-  templateId     String
-  template       IdCardTemplate  @relation(fields: [templateId], references: [id])
-  userType       IdCardUserType
-  studentId      String?
-  student        Student?        @relation(fields: [studentId], references: [id])
-  staffId        String?
-  staff          StaffProfile?   @relation(fields: [staffId], references: [id])
-  cardNumber     String          @unique
-  verifyToken    String          @unique @default(cuid())
-  issuedAt       DateTime        @default(now())
-  expiresAt      DateTime?
-  status         String          @default("ACTIVE")
-  createdAt      DateTime        @default(now())
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  templateId    String
+  template      IdCardTemplate @relation(fields: [templateId], references: [id])
+  userType      IdCardUserType
+  studentId     String?
+  student       Student?       @relation(fields: [studentId], references: [id])
+  staffId       String?
+  staff         StaffProfile?  @relation(fields: [staffId], references: [id])
+  cardNumber    String         @unique
+  verifyToken   String         @unique @default(cuid())
+  issuedAt      DateTime       @default(now())
+  expiresAt     DateTime?
+  status        String         @default("ACTIVE")
+  createdAt     DateTime       @default(now())
 
   @@index([institutionId])
   @@index([studentId])

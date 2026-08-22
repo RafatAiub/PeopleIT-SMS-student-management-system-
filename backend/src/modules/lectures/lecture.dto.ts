@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const ResourceTypeEnum = z.enum(['NOTE', 'SLIDE', 'VIDEO', 'PDF', 'LINK']);
+export const ResourceTypeEnum = z.enum(['NOTE', 'SLIDE', 'VIDEO', 'PDF', 'LINK', 'IMAGE']);
 
 // branchId/className/sectionName are optional at the schema level because a
 // STUDENT caller never supplies them — the service resolves them from the
