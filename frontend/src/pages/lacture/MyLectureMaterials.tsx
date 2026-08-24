@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   GraduationCap, Users, FileText, Video, Link2, Presentation, Image as ImageIcon,
   BookOpen, Plus, X, Edit2, Trash2, MessageSquare, Megaphone, ClipboardList, Calendar, AlertCircle,
+  Send, CheckCircle2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
@@ -9,6 +10,7 @@ import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import MaterialDetailModal from './MaterialDetailModal';
+import AttachmentField from './AttachmentField';
 
 const RESOURCE_TYPES = [
   { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
@@ -19,6 +21,10 @@ const RESOURCE_TYPES = [
   { value: 'IMAGE', label: 'Image', icon: ImageIcon, color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20' },
 ];
 const resourceMeta = (type: string) => RESOURCE_TYPES.find((r) => r.value === type) || RESOURCE_TYPES[0];
+
+// A student's submission is finished work, not lesson content — Notes/Slides
+// don't apply here, so the submission form offers a narrower set.
+const SUBMISSION_RESOURCE_TYPES = RESOURCE_TYPES.filter((r) => r.value !== 'NOTE' && r.value !== 'SLIDE');
 
 const timeAgo = (iso: string) => {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -35,7 +41,10 @@ const timeAgo = (iso: string) => {
 const initials = (firstName?: string, lastName?: string) =>
   `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || '?';
 
-const dueDateStatus = (iso: string) => {
+// Only Teacher-assigned tasks have a due date — a Student's own submission
+// has none, so this returns null and the badge is simply not rendered.
+const dueDateStatus = (iso?: string | null) => {
+  if (!iso) return null;
   const due = new Date(iso);
   const now = new Date();
   const diffDays = Math.ceil((due.setHours(23, 59, 59, 999) - now.getTime()) / 86400000);
@@ -58,6 +67,14 @@ interface LectureMaterial {
   _count?: { comments: number };
 }
 
+interface Submission {
+  id: string;
+  instructions?: string | null;
+  resourceType?: string | null;
+  fileUrl?: string | null;
+  createdAt: string;
+}
+
 interface Assignment {
   id: string;
   className: string;
@@ -67,9 +84,12 @@ interface Assignment {
   instructions?: string | null;
   resourceType?: string | null;
   fileUrl?: string | null;
-  dueDate: string;
+  dueDate?: string | null;
   createdAt: string;
   createdBy: { id: string; firstName: string; lastName: string; role: string };
+  // My (or, for a Guardian, my linked child's) own submission to this
+  // assignment — null if none yet. Attached server-side.
+  mySubmission?: Submission | null;
 }
 
 interface ChildSummary {
@@ -88,13 +108,10 @@ const emptyForm = {
   fileUrl: '',
 };
 
-const emptyAssignmentForm = {
-  subject: '',
-  title: '',
+const emptySubmissionForm = {
   instructions: '',
-  resourceType: '',
+  resourceType: 'LINK',
   fileUrl: '',
-  dueDate: '',
 };
 
 const MyLectureMaterials: React.FC = () => {
@@ -127,12 +144,13 @@ const MyLectureMaterials: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentLoading, setAssignmentLoading] = useState(true);
   const [assignmentError, setAssignmentError] = useState(false);
-  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
-  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
-  const [assignmentForm, setAssignmentForm] = useState(emptyAssignmentForm);
-  const [savingAssignment, setSavingAssignment] = useState(false);
-  const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
-  const [deletingAssignment, setDeletingAssignment] = useState(false);
+
+  // Submitting/editing a response to one specific Teacher assignment
+  const [submittingFor, setSubmittingFor] = useState<Assignment | null>(null);
+  const [submissionForm, setSubmissionForm] = useState(emptySubmissionForm);
+  const [savingSubmission, setSavingSubmission] = useState(false);
+  const [submissionToDelete, setSubmissionToDelete] = useState<{ assignment: Assignment; submission: Submission } | null>(null);
+  const [deletingSubmission, setDeletingSubmission] = useState(false);
 
   useEffect(() => {
     if (!isGuardian) return;
@@ -272,67 +290,58 @@ const MyLectureMaterials: React.FC = () => {
     }
   };
 
-  const openAddAssignment = () => {
-    setEditingAssignmentId(null);
-    setAssignmentForm(emptyAssignmentForm);
-    setIsAssignmentModalOpen(true);
-  };
-
-  const openEditAssignment = (assignment: Assignment) => {
-    setEditingAssignmentId(assignment.id);
-    setAssignmentForm({
-      subject: assignment.subject,
-      title: assignment.title,
-      instructions: assignment.instructions || '',
-      resourceType: assignment.resourceType || '',
-      fileUrl: assignment.fileUrl || '',
-      dueDate: assignment.dueDate ? assignment.dueDate.slice(0, 10) : '',
+  // Opens the submit/edit modal scoped to one specific Teacher assignment —
+  // prefilled from the existing submission if the student already has one.
+  const openSubmitFor = (assignment: Assignment) => {
+    setSubmittingFor(assignment);
+    setSubmissionForm({
+      instructions: assignment.mySubmission?.instructions || '',
+      resourceType: assignment.mySubmission?.resourceType || 'LINK',
+      fileUrl: assignment.mySubmission?.fileUrl || '',
     });
-    setIsAssignmentModalOpen(true);
   };
 
-  const canManageAssignment = (assignment: Assignment) => canUpload && assignment.createdBy?.id === user?.id;
-
-  const handleAssignmentSubmit = async (e: React.FormEvent) => {
+  const handleSubmissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavingAssignment(true);
+    if (!submittingFor) return;
+    setSavingSubmission(true);
     try {
-      const payload = {
-        subject: assignmentForm.subject,
-        title: assignmentForm.title,
-        instructions: assignmentForm.instructions || undefined,
-        resourceType: assignmentForm.resourceType || undefined,
-        fileUrl: assignmentForm.fileUrl || undefined,
-        dueDate: new Date(assignmentForm.dueDate).toISOString(),
+      const payload: any = {
+        subject: submittingFor.subject,
+        title: `Submission: ${submittingFor.title}`,
+        instructions: submissionForm.instructions || undefined,
+        resourceType: submissionForm.resourceType,
+        fileUrl: submissionForm.fileUrl,
       };
-      if (editingAssignmentId) {
-        await apiClient.put(`/assignments/${editingAssignmentId}`, payload);
-        toast.success('Assignment updated');
+      if (submittingFor.mySubmission) {
+        await apiClient.put(`/assignments/${submittingFor.mySubmission.id}`, payload);
+        toast.success('Submission updated');
       } else {
+        payload.parentAssignmentId = submittingFor.id;
         await apiClient.post('/assignments', payload);
-        toast.success('Assignment created');
+        toast.success('Assignment submitted');
       }
-      setIsAssignmentModalOpen(false);
+      setSubmittingFor(null);
       fetchAssignments();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save assignment');
+      toast.error(error.response?.data?.message || 'Failed to submit assignment');
     } finally {
-      setSavingAssignment(false);
+      setSavingSubmission(false);
     }
   };
 
-  const handleConfirmDeleteAssignment = async () => {
-    if (!assignmentToDelete) return;
-    setDeletingAssignment(true);
+  const handleConfirmDeleteSubmission = async () => {
+    if (!submissionToDelete) return;
+    setDeletingSubmission(true);
     try {
-      await apiClient.delete(`/assignments/${assignmentToDelete.id}`);
-      toast.success('Assignment deleted');
-      setAssignmentToDelete(null);
+      await apiClient.delete(`/assignments/${submissionToDelete.submission.id}`);
+      toast.success('Submission deleted');
+      setSubmissionToDelete(null);
       fetchAssignments();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete assignment');
+      toast.error(error.response?.data?.message || 'Failed to delete submission');
     } finally {
-      setDeletingAssignment(false);
+      setDeletingSubmission(false);
     }
   };
 
@@ -366,24 +375,14 @@ const MyLectureMaterials: React.FC = () => {
               : (isGuardian ? "Assignments and homework for your child's class." : 'Assignments and homework for your class.')}
           </p>
         </div>
-        {canUpload && (
-          activeTab === 'stream' ? (
-            <button
-              onClick={openAdd}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-            >
-              <Plus className="w-4 h-4" />
-              Add Material
-            </button>
-          ) : (
-            <button
-              onClick={openAddAssignment}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
-            >
-              <Plus className="w-4 h-4" />
-              Add Assignment
-            </button>
-          )
+        {canUpload && activeTab === 'stream' && (
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+          >
+            <Plus className="w-4 h-4" />
+            Add Material
+          </button>
         )}
       </div>
 
@@ -573,18 +572,8 @@ const MyLectureMaterials: React.FC = () => {
         <div className="glass-card p-8">
           <EmptyState
             title="No classwork yet"
-            description={canUpload ? 'Be the first to assign homework or a task to your class.' : "Your teachers haven't assigned anything for this class yet."}
+            description="Your teachers haven't assigned anything for this class yet."
             icon={<ClipboardList className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            action={
-              canUpload ? (
-                <button
-                  onClick={openAddAssignment}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
-                >
-                  <Plus className="w-4 h-4" /> Add Assignment
-                </button>
-              ) : undefined
-            }
           />
         </div>
       ) : (
@@ -602,11 +591,17 @@ const MyLectureMaterials: React.FC = () => {
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center border text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20 group-hover:scale-110 transition-transform">
                     <ClipboardList className="w-6 h-6" />
                   </div>
-                  <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${due.className}`}>
-                    {due.label === 'Overdue' && <AlertCircle className="w-3 h-3" />}
-                    {due.label === 'Due today' && <Calendar className="w-3 h-3" />}
-                    {due.label}
-                  </span>
+                  {due ? (
+                    <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${due.className}`}>
+                      {due.label === 'Overdue' && <AlertCircle className="w-3 h-3" />}
+                      {due.label === 'Due today' && <Calendar className="w-3 h-3" />}
+                      {due.label}
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold border text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20">
+                      Submission
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{assignment.title}</h3>
                 {assignment.instructions && (
@@ -630,18 +625,52 @@ const MyLectureMaterials: React.FC = () => {
                         <Icon className="w-3.5 h-3.5" />
                       </a>
                     )}
-                    {canManageAssignment(assignment) && (
-                      <>
-                        <button onClick={() => openEditAssignment(assignment)} aria-label={`Edit ${assignment.title}`} title="Edit assignment" className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => setAssignmentToDelete(assignment)} aria-label={`Delete ${assignment.title}`} title="Delete assignment" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
                   </div>
                 </div>
+
+                {/* Submission — only for classwork actually assigned by a Teacher.
+                    A classwork item authored by a Student (e.g. a leftover
+                    standalone entry from before submissions required a
+                    parent assignment) never gets a Submit button — there's
+                    nothing to submit to. */}
+                {canUpload && assignment.createdBy?.role === 'TEACHER' && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-white/10">
+                    {assignment.mySubmission ? (
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                          <CheckCircle2 className="w-4 h-4" /> Submitted
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openSubmitFor(assignment)} aria-label={`Edit submission for ${assignment.title}`} title="Edit submission" className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setSubmissionToDelete({ assignment, submission: assignment.mySubmission! })} aria-label={`Delete submission for ${assignment.title}`} title="Delete submission" className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => openSubmitFor(assignment)}
+                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold active:scale-[0.98]"
+                      >
+                        <Send className="w-4 h-4" /> Submit Assignment
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {isGuardian && assignment.createdBy?.role === 'TEACHER' && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 dark:border-white/10">
+                    {assignment.mySubmission ? (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="w-4 h-4" /> Submitted
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Not submitted yet</span>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -693,11 +722,13 @@ const MyLectureMaterials: React.FC = () => {
                 </select>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Resource Link</label>
-                <input required type="url" placeholder="https://drive.google.com/... or https://youtube.com/..." value={form.fileUrl} onChange={(e) => setForm({ ...form, fileUrl: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-                <p className="text-xs text-slate-400 dark:text-slate-500">Paste a link to Google Drive, YouTube, OneDrive, or any hosted file.</p>
-              </div>
+              <AttachmentField
+                resourceType={form.resourceType}
+                value={form.fileUrl}
+                onChange={(url) => setForm({ ...form, fileUrl: url })}
+                required
+                label="Resource"
+              />
 
               <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
                 <button
@@ -720,17 +751,17 @@ const MyLectureMaterials: React.FC = () => {
         </div>
       )}
 
-      {/* Add/Edit Assignment Modal (Classwork, Student only) */}
-      {isAssignmentModalOpen && (
+      {/* Submit/Edit Submission Modal — scoped to one specific Teacher assignment */}
+      {submittingFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                {editingAssignmentId ? 'Edit Assignment' : 'Add Assignment'}
+                <Send className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                {submittingFor.mySubmission ? 'Edit Submission' : 'Submit Assignment'}
               </h3>
               <button
-                onClick={() => setIsAssignmentModalOpen(false)}
+                onClick={() => setSubmittingFor(null)}
                 aria-label="Close"
                 className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg"
               >
@@ -738,61 +769,63 @@ const MyLectureMaterials: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAssignmentSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmissionSubmit} className="p-6 space-y-5">
               <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-3.5 py-2.5">
-                This will be shared with your own class automatically.
+                Submitting for <span className="font-semibold text-slate-700 dark:text-slate-300">{submittingFor.title}</span> ({submittingFor.subject})
               </p>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-                <input required type="text" placeholder="e.g. Mathematics" value={assignmentForm.subject} onChange={(e) => setAssignmentForm({ ...assignmentForm, subject: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Notes (optional)</label>
+                <textarea rows={3} placeholder="Any notes about your submission" value={submissionForm.instructions} onChange={(e) => setSubmissionForm({ ...submissionForm, instructions: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Title</label>
-                <input required type="text" placeholder="e.g. Worksheet 3 - Fractions" value={assignmentForm.title} onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Instructions (optional)</label>
-                <textarea rows={3} placeholder="What should be done for this assignment?" value={assignmentForm.instructions} onChange={(e) => setAssignmentForm({ ...assignmentForm, instructions: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Due Date</label>
-                <input required type="date" value={assignmentForm.dueDate} onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })} className="input-field" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Attachment Type (optional)</label>
-                <select value={assignmentForm.resourceType} onChange={(e) => setAssignmentForm({ ...assignmentForm, resourceType: e.target.value })} className="input-field">
-                  <option value="">No attachment</option>
-                  {RESOURCE_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Attachment Type</label>
+                <select required value={submissionForm.resourceType} onChange={(e) => setSubmissionForm({ ...submissionForm, resourceType: e.target.value })} className="input-field">
+                  {SUBMISSION_RESOURCE_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </div>
 
-              {assignmentForm.resourceType && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Attachment Link</label>
-                  <input type="url" placeholder="https://drive.google.com/... or https://youtube.com/..." value={assignmentForm.fileUrl} onChange={(e) => setAssignmentForm({ ...assignmentForm, fileUrl: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-                </div>
-              )}
+              <AttachmentField
+                resourceType={submissionForm.resourceType}
+                value={submissionForm.fileUrl}
+                onChange={(url) => setSubmissionForm({ ...submissionForm, fileUrl: url })}
+                required
+                label="Your Work"
+              />
 
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignmentModalOpen(false)}
-                  className="px-5 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingAssignment}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
-                >
-                  {savingAssignment ? 'Saving...' : editingAssignmentId ? 'Save Changes' : 'Add Assignment'}
-                </button>
+              <div className="pt-4 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-white/5">
+                {submittingFor.mySubmission ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const submission = submittingFor.mySubmission!;
+                      setSubmissionToDelete({ assignment: submittingFor, submission });
+                      setSubmittingFor(null);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold text-rose-600 hover:text-rose-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-rose-50 dark:hover:bg-red-500/10 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSubmittingFor(null)}
+                    className="px-5 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5 rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingSubmission}
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
+                  >
+                    {savingSubmission ? 'Saving...' : submittingFor.mySubmission ? 'Save Changes' : 'Submit Assignment'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -811,14 +844,14 @@ const MyLectureMaterials: React.FC = () => {
       />
 
       <ConfirmModal
-        isOpen={!!assignmentToDelete}
-        title="Delete assignment"
-        message={`Are you sure you want to delete "${assignmentToDelete?.title}"? This cannot be undone.`}
+        isOpen={!!submissionToDelete}
+        title="Delete submission"
+        message={`Are you sure you want to delete your submission for "${submissionToDelete?.assignment.title}"? This cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
-        isLoading={deletingAssignment}
-        onConfirm={handleConfirmDeleteAssignment}
-        onCancel={() => setAssignmentToDelete(null)}
+        isLoading={deletingSubmission}
+        onConfirm={handleConfirmDeleteSubmission}
+        onCancel={() => setSubmissionToDelete(null)}
       />
 
       {viewingMaterial && (
