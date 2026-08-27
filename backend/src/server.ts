@@ -5,6 +5,8 @@ import { prisma } from './config/prisma';
 import { closeRedis } from './config/redis';
 import { logger } from './utils/logger';
 import { feeReminderWorker } from './queues/reminderWorker';
+import { billingWorker } from './queues/billingWorker';
+import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
 
 const server = http.createServer(app);
 
@@ -18,6 +20,11 @@ async function startServer() {
 
     // Worker is initialized on file import, make sure it is ready
     logger.info(`BullMQ Worker registered and listening on queue 'feeReminders'`);
+    logger.info(`BullMQ Worker registered and listening on queue 'subscriptionBilling'`);
+
+    // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
+    // safe to call on every restart — BullMQ won't duplicate it).
+    await registerSubscriptionLifecycleJob();
 
     server.listen(PORT, () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${PORT}`);
@@ -40,9 +47,10 @@ async function gracefulShutdown(signal: string) {
     logger.info('HTTP server closed');
 
     try {
-      // Shutdown BullMQ Worker
+      // Shutdown BullMQ Workers
       await feeReminderWorker.close();
-      logger.info('BullMQ worker closed');
+      await billingWorker.close();
+      logger.info('BullMQ workers closed');
 
       // Close Redis connection
       await closeRedis();

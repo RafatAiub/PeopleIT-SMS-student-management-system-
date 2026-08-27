@@ -9,6 +9,7 @@ import { useUiStore } from './store/uiStore';
 import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
+import { SubscriptionBanner } from './components/common/SubscriptionBanner';
 import apiClient from './api/client';
 
 // Helper wrapper for React.lazy to auto-recover when deployment chunk filenames change
@@ -64,6 +65,9 @@ const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigne
 const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
 const MyIdCard = lazyWithRetry(() => import('./pages/idcards/MyIdCard'));
 const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'));
+const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/SubscriptionOverview'));
+const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
+const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -195,6 +199,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         <SupportBanner />
+        <SubscriptionBanner />
         <Header />
 
         {/* Main Content */}
@@ -482,7 +487,23 @@ const App = () => {
         <Route path="/super-admin/billing" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
             <DashboardLayout>
-              <InvoiceList />
+              <SubscriptionBillingPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/billing" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <SubscriptionOverview />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/billing/checkout-result" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <CheckoutResult />
             </DashboardLayout>
           </ProtectedRoute>
         } />

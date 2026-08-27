@@ -298,13 +298,45 @@ export async function provisionInstitutionAndAdmin(data: {
   const rounds = 12;
   const passwordHash = await bcrypt.hash(data.adminPassword, rounds);
 
+  const TRIAL_DAYS = 14;
+
   const result = await prisma.$transaction(async (tx: any) => {
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+
     const institution = await tx.institution.create({
       data: {
         name: data.name,
         slug: data.slug,
+        trialEndsAt,
       },
     });
+
+    // Every newly provisioned institution starts on a 14-day TRIALING
+    // subscription against a designated default trial plan (slug 'basic').
+    // That plan doesn't necessarily exist yet — Plan CRUD is a super-admin
+    // UI feature delivered separately — so fall back to the 'legacy' plan
+    // (id 'legacy-plan'), which the subscription-billing migration always
+    // seeds, guaranteeing this never fails at institution-creation time.
+    const trialPlan =
+      (await tx.plan.findUnique({ where: { slug: 'basic' } })) ??
+      (await tx.plan.findUnique({ where: { slug: 'legacy' } }));
+
+    if (trialPlan) {
+      await tx.subscription.create({
+        data: {
+          institutionId: institution.id,
+          planId: trialPlan.id,
+          billingCycle: 'MONTHLY',
+          status: 'TRIALING',
+          trialEndsAt,
+        },
+      });
+    } else {
+      logger.warn('Skipped Subscription creation: neither "basic" nor "legacy" Plan exists', {
+        institutionId: institution.id,
+      });
+    }
 
     const branch = await tx.branch.create({
       data: {

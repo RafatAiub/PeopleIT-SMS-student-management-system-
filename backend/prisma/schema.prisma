@@ -54,6 +54,9 @@ model Institution {
   lectureMaterials        LectureMaterial[]
   lectureMaterialComments LectureMaterialComment[]
   assignments             Assignment[]
+  trialEndsAt             DateTime?
+  subscription            Subscription?
+  subscriptionPayments    SubscriptionPayment[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -85,6 +88,116 @@ model InstitutionApplication {
 
   @@index([status])
   @@index([applicantEmail])
+}
+
+// ── Platform Subscription Billing (SSLCommerz) ─────────────────────────
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  GRACE
+  EXPIRED
+  CANCELLED
+}
+
+enum SubscriptionPaymentStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentGateway {
+  SSLCOMMERZ
+}
+
+model Plan {
+  id            String                 @id @default(cuid())
+  name          String
+  slug          String                 @unique
+  studentCap    Int? // null = unlimited (top tier)
+  description   String?                @db.Text
+  isArchived    Boolean                @default(false) // never hard-delete — referenced by historical Subscription/SubscriptionPayment rows
+  displayOrder  Int                    @default(0)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  prices        PlanPrice[]
+  subscriptions Subscription[]
+
+  @@index([isArchived])
+}
+
+model PlanPrice {
+  id           String                 @id @default(cuid())
+  planId       String
+  plan         Plan                   @relation(fields: [planId], references: [id])
+  billingCycle BillingCycle
+  amount       Decimal                @db.Decimal(10, 2) // BDT, whole-cycle price (not per-month)
+  currency     String                 @default("BDT")
+  isActive     Boolean                @default(true) // superseded prices kept for historical SubscriptionPayment FK integrity
+  createdAt    DateTime               @default(now())
+  payments     SubscriptionPayment[]
+
+  @@index([planId])
+}
+
+model Subscription {
+  id                 String                 @id @default(cuid())
+  institutionId      String                 @unique
+  institution        Institution            @relation(fields: [institutionId], references: [id])
+  planId             String
+  plan               Plan                   @relation(fields: [planId], references: [id])
+  billingCycle       BillingCycle
+  status             SubscriptionStatus     @default(TRIALING)
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  graceEndsAt        DateTime?
+  cancelAtPeriodEnd  Boolean                @default(false)
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  payments           SubscriptionPayment[]
+
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([graceEndsAt])
+}
+
+model SubscriptionPayment {
+  id                   String                    @id @default(cuid())
+  subscriptionId       String
+  subscription         Subscription              @relation(fields: [subscriptionId], references: [id])
+  institutionId        String // denormalized for cross-tenant super-admin queries without join
+  institution          Institution               @relation(fields: [institutionId], references: [id])
+  planPriceId          String?
+  planPrice            PlanPrice?                @relation(fields: [planPriceId], references: [id])
+  amount               Decimal                   @db.Decimal(10, 2)
+  currency             String                    @default("BDT")
+  billingCycle         BillingCycle
+  gateway              PaymentGateway            @default(SSLCOMMERZ)
+  gatewayTransactionId String? // our tran_id sent to SSLCommerz
+  gatewayValId         String? // val_id returned by SSLCommerz, used for validationserverAPI lookup
+  status               SubscriptionPaymentStatus @default(INITIATED)
+  initiatedByUserId    String?
+  isManualOverride     Boolean                   @default(false)
+  overrideReason       String?                   @db.Text
+  overriddenByUserId   String?
+  rawGatewayResponse   Json?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+
+  @@unique([gatewayTransactionId])
+  @@index([institutionId])
+  @@index([subscriptionId])
+  @@index([status])
 }
 
 // ── Branch / Campus ──────────────────────────────────────────────────

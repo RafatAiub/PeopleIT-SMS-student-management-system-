@@ -29,6 +29,7 @@ import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
+import { tenantBillingRouter, superAdminBillingRouter, gatewayBillingRouter } from './modules/billing/billing.routes';
 
 const app = express();
 
@@ -51,15 +52,24 @@ const allowedOrigins = [
 ];
 
 app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
+  cors((req, callback) => {
+    // The SSLCommerz gateway callback routes (IPN + success/fail/cancel
+    // redirects) are hit directly by SSLCommerz's servers/hosted checkout
+    // page, not by our own frontend via fetch/XHR — they carry a foreign
+    // Origin header (e.g. sandbox.sslcommerz.com) by design and must not be
+    // subject to the frontend origin allow-list, or every payment callback
+    // gets silently blocked before it reaches the controller.
+    if (req.path.startsWith('/api/v1/billing/gateway/')) {
+      callback(null, { origin: true, credentials: false });
+      return;
+    }
+
+    const origin = req.headers.origin;
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, { origin: true, credentials: true });
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   })
 );
 
@@ -142,6 +152,12 @@ app.use('/api/v1/curriculum', curriculumRouter);
 // authenticate/setTenant middleware chain the main router applies below.
 app.use('/api/v1/id-cards', idCardPublicRouter);
 app.use('/api/v1/id-cards', idCardRouter);
+// Public gateway callbacks mounted BEFORE the authenticated billing routers
+// so SSLCommerz's success/fail/cancel/ipn callbacks (which cannot carry our
+// JWT) never hit the authenticate/setTenant chain applied below.
+app.use('/api/v1/billing/gateway', gatewayBillingRouter);
+app.use('/api/v1/billing/super-admin', superAdminBillingRouter);
+app.use('/api/v1/billing', tenantBillingRouter);
 
 // Base route health check
 app.get('/health', (_req, res) => {

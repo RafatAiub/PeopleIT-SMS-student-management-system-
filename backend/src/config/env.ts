@@ -82,6 +82,33 @@ const envSchema = z.object({
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
   LOG_FORMAT: z.enum(['pretty', 'json']).default('json'),
+}).superRefine((data, ctx) => {
+  // Fail fast at startup: if the SSLCommerz platform-billing gateway is
+  // enabled, its credentials must be fully present — a partially-configured
+  // gateway would otherwise only fail at first checkout, in production.
+  if (data.SSLCOMMERZ_ENABLED) {
+    if (!data.SSLCOMMERZ_STORE_ID) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'SSLCOMMERZ_STORE_ID is required when SSLCOMMERZ_ENABLED=true',
+        path: ['SSLCOMMERZ_STORE_ID'],
+      });
+    }
+    if (!data.SSLCOMMERZ_STORE_PASSWORD) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'SSLCOMMERZ_STORE_PASSWORD is required when SSLCOMMERZ_ENABLED=true',
+        path: ['SSLCOMMERZ_STORE_PASSWORD'],
+      });
+    }
+    if (!data.SSLCOMMERZ_BASE_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'SSLCOMMERZ_BASE_URL is required when SSLCOMMERZ_ENABLED=true',
+        path: ['SSLCOMMERZ_BASE_URL'],
+      });
+    }
+  }
 });
 
 // Validate at module load time — throws on startup if env is invalid

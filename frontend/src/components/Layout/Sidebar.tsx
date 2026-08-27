@@ -94,6 +94,8 @@ const NAV_GROUPS: NavGroup[] = [
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
       { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
       { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
+      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
+      { to: '/billing', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Subscription', roles: ['ADMIN'] },
     ],
   },
   {
