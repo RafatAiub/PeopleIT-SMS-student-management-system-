@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
 import { SubscriptionBanner } from './components/common/SubscriptionBanner';
+import { useMySubscription } from './hooks/useBilling';
 import apiClient from './api/client';
 
 // Helper wrapper for React.lazy to auto-recover when deployment chunk filenames change
@@ -67,12 +68,19 @@ const MyIdCard = lazyWithRetry(() => import('./pages/idcards/MyIdCard'));
 const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'));
 const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/SubscriptionOverview'));
 const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
+const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceipt'));
 const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { isAuthenticated, user, hasHydrated, supportSession } = useAuthStore();
   const location = useLocation();
+  // Called unconditionally at the top, before any of this component's early
+  // returns below — hooks can't be conditional. Internally gated via
+  // `enabled: user?.role === 'ADMIN'` (see useBilling.ts) so it never fires
+  // a network request for non-ADMIN roles; `data` is simply `undefined`
+  // until then, which the paywall check below treats as "not paywalled".
+  const { data: subscription } = useMySubscription();
 
   // The auth store hydrates from sessionStorage asynchronously — on a hard
   // refresh, isAuthenticated is briefly false before hydration completes.
@@ -109,6 +117,18 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
     if (!allowedSuperAdminPaths.some((path) => location.pathname === path || location.pathname.startsWith(path))) {
       return <Navigate to="/" replace />;
     }
+  }
+
+  // Tenant-admin subscription paywall gate — UX-only convenience redirect,
+  // NOT the security boundary: the backend's tenant.middleware.ts enforces
+  // the real paywall on every request regardless of what the frontend
+  // renders here. Fails OPEN (no redirect) while `subscription` is still
+  // undefined/loading, so a slow/failed fetch never blocks navigation.
+  // Exact string match on pathname (not startsWith) — only these two
+  // literal billing paths are exempt from the redirect.
+  const BILLING_ALLOWED_PATHS = ['/billing', '/billing/checkout-result'];
+  if (user?.role === 'ADMIN' && subscription?.isPaywalled && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
+    return <Navigate to="/billing" replace />;
   }
 
   return <>{children}</>;
@@ -504,6 +524,26 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <DashboardLayout>
               <CheckoutResult />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/billing/receipt/:paymentId" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <PaymentReceipt />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* /super-admin/billing is already in ProtectedRoute's
+            allowedSuperAdminPaths allow-list above, and that check uses
+            startsWith — so /super-admin/billing/receipt/:paymentId is
+            already covered without any change to that array. */}
+        <Route path="/super-admin/billing/receipt/:paymentId" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <PaymentReceipt />
             </DashboardLayout>
           </ProtectedRoute>
         } />

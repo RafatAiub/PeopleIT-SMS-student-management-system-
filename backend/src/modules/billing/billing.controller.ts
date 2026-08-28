@@ -37,6 +37,24 @@ export async function initiateCheckout(req: Request, res: Response, next: NextFu
   }
 }
 
+export async function getMyPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payments = await billingService.getMyPayments(req.tenantId!);
+    successResponse(res, payments);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPaymentReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payment = await billingService.getPaymentReceipt(req.tenantId!, req.params.paymentId);
+    successResponse(res, payment);
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ── Super-admin ───────────────────────────────────────────────────────────
 
 export async function listAllPlans(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -112,6 +130,55 @@ export async function manualOverride(req: Request, res: Response, next: NextFunc
   try {
     const result = await billingService.manualOverride(req.user!.sub, req.params.institutionId, req.body);
     successResponse(res, result, 'Subscription override applied successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function generatePaymentLink(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await billingService.generatePaymentLinkForInstitution(
+      req.user!.sub,
+      req.params.institutionId,
+      req.body,
+    );
+    successResponse(res, result, 'Payment link generated successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPaymentReceiptAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const payment = await billingService.getPaymentReceiptAdmin(req.params.paymentId);
+    successResponse(res, payment);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function initiateRefund(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await billingService.initiateRefund(req.user!.sub, req.params.paymentId, req.body);
+    successResponse(res, result, 'Refund initiated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function queryRefundStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await billingService.queryRefundStatus(req.params.paymentId);
+    successResponse(res, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getAnalytics(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await billingService.getBillingAnalytics(req.query as any);
+    successResponse(res, result);
   } catch (error) {
     next(error);
   }

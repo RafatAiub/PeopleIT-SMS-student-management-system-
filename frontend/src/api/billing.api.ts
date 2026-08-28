@@ -54,9 +54,21 @@ export interface Subscription {
   updatedAt: string;
 }
 
+export interface PendingPaymentRequest {
+  id: string;
+  planId: string | null;
+  planName: string | null;
+  billingCycle: BillingCycle;
+  amount: string | number;
+  currency: string;
+  requestedAt: string;
+}
+
 export interface MySubscription extends Subscription {
   daysRemaining: number;
   bannerLevel: BannerLevel;
+  isPaywalled: boolean;
+  pendingPaymentRequest: PendingPaymentRequest | null;
 }
 
 export interface SubscriptionListItem extends Omit<Subscription, 'plan'> {
@@ -81,8 +93,26 @@ export interface SubscriptionPayment {
   isManualOverride: boolean;
   overrideReason: string | null;
   overriddenByUserId: string | null;
+  // Redisplayable checkout URL for a not-yet-consumed super-admin-generated
+  // payment link.
+  gatewayPaymentUrl: string | null;
+  // Distinguishes a super-admin-initiated payment request from tenant
+  // self-checkout, without a User join.
+  generatedBySuperAdmin: boolean;
+  refundRefId: string | null;
+  refundedAt: string | null;
+  refundedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// Full payment record as returned by getPaymentReceipt/getPaymentReceiptAdmin
+// — includes the related institution/subscription/plan the base
+// SubscriptionPayment row doesn't carry.
+export interface PaymentReceipt extends SubscriptionPayment {
+  institution: { id: string; name: string; slug: string };
+  subscription: { id: string; status: SubscriptionStatus };
+  planPrice: (PlanPrice & { plan: Plan }) | null;
 }
 
 export interface SubscriptionDetail {
@@ -138,6 +168,64 @@ export interface ManualOverrideDto {
   reason: string;
 }
 
+// No amount field — the price is always resolved server-side from the
+// active PlanPrice row, same as InitiateCheckoutDto.
+export interface GeneratePaymentLinkDto {
+  planId: string;
+  billingCycle: BillingCycle;
+}
+
+export interface InitiateRefundDto {
+  refundAmount: number;
+  refundRemarks: string;
+  refeId?: string;
+}
+
+export interface RefundStatusResult {
+  paymentId: string;
+  refundRefId: string | null;
+  liveStatus: string | null;
+  refundedOn: string | null;
+  persisted: boolean;
+}
+
+export interface AnalyticsQueryParams {
+  renewalWindowDays?: number;
+  churnWindowDays?: number;
+}
+
+export interface RevenueByPlanItem {
+  planPriceId: string | null;
+  planId: string | null;
+  planName: string;
+  billingCycle: BillingCycle | null;
+  totalRevenue: string | number;
+}
+
+export interface UpcomingRenewalItem {
+  id: string;
+  institutionId: string;
+  planId: string;
+  billingCycle: BillingCycle;
+  status: SubscriptionStatus;
+  trialEndsAt: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  graceEndsAt: string | null;
+  cancelAtPeriodEnd: boolean;
+  createdAt: string;
+  updatedAt: string;
+  institution: { id: string; name: string; slug: string };
+  plan: { id: string; name: string };
+}
+
+export interface BillingAnalytics {
+  mrr: number;
+  revenueByPlan: RevenueByPlanItem[];
+  churnCount: number;
+  upcomingRenewals: { count: number; list: UpcomingRenewalItem[] };
+}
+
 // ── Tenant-admin ─────────────────────────────────────────────────────────
 
 export const billingApi = {
@@ -153,6 +241,16 @@ export const billingApi = {
 
   initiateCheckout: async (planId: string, billingCycle: BillingCycle): Promise<{ paymentUrl: string }> => {
     const { data } = await apiClient.post('/billing/checkout', { planId, billingCycle });
+    return data.data;
+  },
+
+  getMyPayments: async (): Promise<SubscriptionPayment[]> => {
+    const { data } = await apiClient.get('/billing/my-payments');
+    return data.data;
+  },
+
+  getPaymentReceipt: async (paymentId: string): Promise<PaymentReceipt> => {
+    const { data } = await apiClient.get(`/billing/payments/${paymentId}`);
     return data.data;
   },
 
@@ -197,6 +295,37 @@ export const billingApi = {
 
   manualOverride: async (institutionId: string, dto: ManualOverrideDto): Promise<Subscription> => {
     const { data } = await apiClient.post(`/billing/super-admin/subscriptions/${institutionId}/override`, dto);
+    return data.data;
+  },
+
+  generatePaymentLink: async (
+    institutionId: string,
+    dto: GeneratePaymentLinkDto
+  ): Promise<{ paymentUrl: string; paymentId: string }> => {
+    const { data } = await apiClient.post(
+      `/billing/super-admin/subscriptions/${institutionId}/generate-payment-link`,
+      dto
+    );
+    return data.data;
+  },
+
+  getPaymentReceiptAdmin: async (paymentId: string): Promise<PaymentReceipt> => {
+    const { data } = await apiClient.get(`/billing/super-admin/payments/${paymentId}`);
+    return data.data;
+  },
+
+  initiateRefund: async (paymentId: string, dto: InitiateRefundDto): Promise<SubscriptionPayment> => {
+    const { data } = await apiClient.post(`/billing/super-admin/payments/${paymentId}/refund`, dto);
+    return data.data;
+  },
+
+  queryRefundStatus: async (paymentId: string): Promise<RefundStatusResult> => {
+    const { data } = await apiClient.get(`/billing/super-admin/payments/${paymentId}/refund`);
+    return data.data;
+  },
+
+  getAnalytics: async (params?: AnalyticsQueryParams): Promise<BillingAnalytics> => {
+    const { data } = await apiClient.get('/billing/super-admin/analytics', { params });
     return data.data;
   },
 };

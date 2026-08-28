@@ -156,6 +156,45 @@ export async function listSubscriptionPaymentsForInstitution(institutionId: stri
   });
 }
 
+export async function findPaymentById(id: string) {
+  return prisma.subscriptionPayment.findUnique({
+    where: { id },
+    include: { institution: true, subscription: true, planPrice: { include: { plan: true } } },
+  });
+}
+
+export async function findLatestPendingSuperAdminPayment(institutionId: string) {
+  return prisma.subscriptionPayment.findFirst({
+    where: { institutionId, status: SubscriptionPaymentStatus.INITIATED, generatedBySuperAdmin: true },
+    orderBy: { createdAt: 'desc' },
+    include: { planPrice: { include: { plan: true } } },
+  });
+}
+
+/**
+ * Marks any SubscriptionPayment still stuck in INITIATED past `olderThan`
+ * as FAILED — prevents a never-completed checkout/super-admin-generated
+ * payment link from lingering forever as a "pending payment" nudge.
+ * Returns the number of rows updated.
+ */
+export async function markStaleInitiatedPaymentsFailed(olderThan: Date): Promise<number> {
+  const result = await prisma.subscriptionPayment.updateMany({
+    where: { status: SubscriptionPaymentStatus.INITIATED, createdAt: { lt: olderThan } },
+    data: { status: SubscriptionPaymentStatus.FAILED },
+  });
+  return result.count;
+}
+
+// ── User (institution admin lookup, for super-admin-generated payment links) ─
+
+export async function findPrimaryAdminUser(institutionId: string) {
+  return prisma.user.findFirst({
+    where: { institutionId, role: 'ADMIN', isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: { email: true, firstName: true, lastName: true },
+  });
+}
+
 // ── Cross-tenant super-admin listing ────────────────────────────────────
 
 export async function listSubscriptionsPaginated(params: {

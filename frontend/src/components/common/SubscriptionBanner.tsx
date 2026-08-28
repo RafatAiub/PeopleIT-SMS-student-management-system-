@@ -1,29 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { billingApi, type MySubscription } from '@/api/billing.api';
+import { useMySubscription } from '@/hooks/useBilling';
 
 export const SubscriptionBanner: React.FC = () => {
   const { user } = useAuthStore();
-  const [subscription, setSubscription] = useState<MySubscription | null>(null);
-
-  useEffect(() => {
-    if (user?.role !== 'ADMIN') return;
-    let cancelled = false;
-    billingApi
-      .getMySubscription()
-      .then((sub) => {
-        if (!cancelled) setSubscription(sub);
-      })
-      .catch(() => {
-        // Silently ignore — a missing/failed subscription fetch should never
-        // block the rest of the dashboard from rendering.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.role]);
+  const { data: subscription } = useMySubscription();
 
   if (user?.role !== 'ADMIN' || !subscription || subscription.bannerLevel === 'none') return null;
 

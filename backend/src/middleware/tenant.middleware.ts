@@ -9,6 +9,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma';
 import { UnauthorizedError, ForbiddenError } from '../utils/AppError';
 import { logger } from '../utils/logger';
+import { computeEffectiveSubscriptionState, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
 
 /**
  * Extracts institutionId from the JWT payload set by authenticate middleware.
@@ -42,11 +43,22 @@ export async function setTenant(req: Request, _res: Response, next: NextFunction
 
     const institution = await prisma.institution.findUnique({
       where: { id: institutionId },
-      select: { isActive: true },
+      select: {
+        isActive: true,
+        subscription: { select: { id: true, status: true, trialEndsAt: true, currentPeriodEnd: true, graceEndsAt: true } },
+      },
     });
 
     if (!institution || !institution.isActive) {
       throw new ForbiddenError('This institution has been suspended by the platform administrator');
+    }
+
+    if (institution.subscription) {
+      const effective = computeEffectiveSubscriptionState(institution.subscription, new Date());
+      if (effective.requiresHardSuspend) {
+        await applyHardSuspend(institutionId, institution.subscription.id);
+        throw new ForbiddenError('This institution has been suspended by the platform administrator');
+      }
     }
 
     req.tenantId = institutionId;

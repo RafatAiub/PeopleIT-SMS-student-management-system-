@@ -120,4 +120,111 @@ export class SslCommerzClient {
       return { valid: false, raw: null };
     }
   }
+
+  // ⚠️ Field names below are sourced from SSLCommerz developer documentation,
+  // NOT verified against a live sandbox refund call (unlike initiateSession/
+  // validateTransaction above, which were verified with a real sandbox
+  // payment). The full raw response is logged via logger.info on every call
+  // (not just on error) specifically so the first real refund attempt can be
+  // used to visually confirm these field names before relying on this in
+  // production.
+  static async initiateRefund(params: {
+    bankTranId: string;
+    refundTransId: string;
+    refundAmount: number;
+    refundRemarks: string;
+    refeId?: string;
+  }): Promise<{ success: boolean; refundRefId?: string; gatewayStatus?: string; errorReason?: string; raw: unknown }> {
+    if (!env.SSLCOMMERZ_ENABLED) {
+      return { success: false, errorReason: 'SSLCommerz is not enabled', raw: null };
+    }
+
+    try {
+      const query = new URLSearchParams({
+        bank_tran_id: params.bankTranId,
+        refund_trans_id: params.refundTransId,
+        store_id: env.SSLCOMMERZ_STORE_ID ?? '',
+        store_passwd: env.SSLCOMMERZ_STORE_PASSWORD ?? '',
+        refund_amount: String(params.refundAmount),
+        refund_remarks: params.refundRemarks,
+        format: 'json',
+        ...(params.refeId ? { refe_id: params.refeId } : {}),
+      });
+
+      const response = await fetch(
+        `${env.SSLCOMMERZ_BASE_URL}/validator/api/merchantTransIDvalidationAPI.php?${query.toString()}`,
+        { method: 'GET' },
+      );
+
+      const json: any = await response.json();
+
+      logger.info('SSLCommerz initiateRefund raw response', {
+        bankTranId: params.bankTranId,
+        refundTransId: params.refundTransId,
+        raw: json,
+      });
+
+      const apiConnect = json?.APIConnect;
+      const status = json?.status;
+      const success = apiConnect === 'DONE' && (status === 'success' || status === 'processing');
+
+      return {
+        success,
+        refundRefId: json?.refund_ref_id,
+        gatewayStatus: status,
+        errorReason: json?.errorReason,
+        raw: json,
+      };
+    } catch (error) {
+      logger.error('SSLCommerz initiateRefund failed', {
+        error: error instanceof Error ? error.message : String(error),
+        bankTranId: params.bankTranId,
+        refundTransId: params.refundTransId,
+      });
+      return { success: false, errorReason: 'Failed to reach SSLCommerz gateway', raw: null };
+    }
+  }
+
+  // ⚠️ Field names below are sourced from SSLCommerz developer documentation,
+  // NOT verified against a live sandbox refund call (unlike initiateSession/
+  // validateTransaction above, which were verified with a real sandbox
+  // payment). The full raw response is logged via logger.info on every call
+  // (not just on error) specifically so the first real refund-status query
+  // can be used to visually confirm these field names before relying on
+  // this in production.
+  static async queryRefund(refundRefId: string): Promise<{ status?: string; refundedOn?: string; raw: unknown }> {
+    if (!env.SSLCOMMERZ_ENABLED) {
+      return { raw: null };
+    }
+
+    try {
+      const query = new URLSearchParams({
+        refund_ref_id: refundRefId,
+        store_id: env.SSLCOMMERZ_STORE_ID ?? '',
+        store_passwd: env.SSLCOMMERZ_STORE_PASSWORD ?? '',
+        format: 'json',
+      });
+
+      const response = await fetch(
+        `${env.SSLCOMMERZ_BASE_URL}/validator/api/merchantTransIDvalidationAPI.php?${query.toString()}`,
+        { method: 'GET' },
+      );
+
+      const json: any = await response.json();
+
+      logger.info('SSLCommerz queryRefund raw response', { refundRefId, raw: json });
+
+      return {
+        status: json?.status,
+        refundedOn: json?.refunded_on,
+        raw: json,
+      };
+    } catch (error) {
+      logger.error('SSLCommerz queryRefund failed', {
+        error: error instanceof Error ? error.message : String(error),
+        refundRefId,
+      });
+      return { raw: null };
+    }
+  }
 }

@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CreditCard, Plus, Archive, Pencil, Tag, Search, ChevronLeft, ChevronRight,
-  AlertTriangle, ShieldAlert, Receipt,
+  AlertTriangle, ShieldAlert, Receipt, Link2, Copy, RotateCcw, RefreshCw,
+  DollarSign, Wallet, UserMinus, CalendarClock,
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import toast from 'react-hot-toast';
 import {
   billingApi,
@@ -13,7 +16,10 @@ import {
   type SubscriptionListItem,
   type SubscriptionDetail,
   type SubscriptionStatus,
+  type SubscriptionPayment,
+  type SubscriptionPaymentStatus,
   type ManualOverrideAction,
+  type BillingAnalytics,
 } from '@/api/billing.api';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +35,16 @@ const STATUS_BADGE: Record<SubscriptionStatus, { label: string; variant: 'succes
   CANCELLED: { label: 'Cancelled', variant: 'danger' },
 };
 
-type Tab = 'plans' | 'subscriptions';
+const PAYMENT_STATUS_BADGE: Record<SubscriptionPaymentStatus, { label: string; variant: 'success' | 'warning' | 'danger' | 'info' | 'neutral' }> = {
+  INITIATED: { label: 'Initiated', variant: 'info' },
+  PENDING: { label: 'Pending', variant: 'warning' },
+  SUCCESS: { label: 'Success', variant: 'success' },
+  FAILED: { label: 'Failed', variant: 'danger' },
+  CANCELLED: { label: 'Cancelled', variant: 'neutral' },
+  REFUNDED: { label: 'Refunded', variant: 'info' },
+};
+
+type Tab = 'plans' | 'subscriptions' | 'analytics';
 
 // =============================================================================
 // SubscriptionBillingPortal — Super-admin platform billing control center.
@@ -95,12 +110,23 @@ const SubscriptionBillingPortal: React.FC = () => {
         >
           Subscriptions
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('analytics')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            tab === 'analytics' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400'
+          }`}
+        >
+          Analytics
+        </button>
       </div>
 
       {tab === 'plans' ? (
         <PlansTab plans={plans} loading={plansLoading} onRefresh={fetchPlans} />
-      ) : (
+      ) : tab === 'subscriptions' ? (
         <SubscriptionsTab plans={plans} />
+      ) : (
+        <AnalyticsTab />
       )}
     </div>
   );
@@ -658,6 +684,10 @@ const SubscriptionDetailModal: React.FC<{
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Refund flow state
+  const [refundTarget, setRefundTarget] = useState<SubscriptionPayment | null>(null);
+  const [checkingRefundId, setCheckingRefundId] = useState<string | null>(null);
+
   const fetchDetail = async () => {
     try {
       setLoading(true);
@@ -700,6 +730,19 @@ const SubscriptionDetailModal: React.FC<{
       toast.error(err.response?.data?.message || 'Failed to apply override');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCheckRefundStatus = async (paymentId: string) => {
+    setCheckingRefundId(paymentId);
+    try {
+      const result = await billingApi.queryRefundStatus(paymentId);
+      toast.success(`Refund status: ${result.liveStatus ?? 'unknown'}${result.persisted ? ' (confirmed refunded)' : ''}`);
+      fetchDetail();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to check refund status');
+    } finally {
+      setCheckingRefundId(null);
     }
   };
 
@@ -750,38 +793,87 @@ const SubscriptionDetailModal: React.FC<{
                     <th className="p-3">Status</th>
                     <th className="p-3">Gateway</th>
                     <th className="p-3">Date</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {detail.payments.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-6 text-center text-slate-400 italic">No payment records yet.</td>
+                      <td colSpan={6} className="p-6 text-center text-slate-400 italic">No payment records yet.</td>
                     </tr>
                   ) : (
-                    detail.payments.map((payment) => (
-                      <tr key={payment.id}>
-                        <td className="p-3 font-mono text-slate-700 dark:text-slate-300">
-                          {payment.gatewayTransactionId || payment.id.slice(0, 10)}
-                        </td>
-                        <td className="p-3 font-bold text-slate-900 dark:text-white">{formatCurrency(payment.amount, payment.currency)}</td>
-                        <td className="p-3">{payment.status}</td>
-                        <td className="p-3">
-                          {payment.isManualOverride ? (
-                            <span title={payment.overrideReason || undefined} className="text-amber-600 dark:text-amber-400 font-bold">
-                              Manual Override
-                            </span>
-                          ) : (
-                            payment.gateway
-                          )}
-                        </td>
-                        <td className="p-3 text-slate-500">{new Date(payment.createdAt).toLocaleDateString()}</td>
-                      </tr>
-                    ))
+                    detail.payments.map((payment) => {
+                      const paymentBadge = PAYMENT_STATUS_BADGE[payment.status];
+                      return (
+                        <tr key={payment.id}>
+                          <td className="p-3 font-mono text-slate-700 dark:text-slate-300">
+                            {payment.gatewayTransactionId || payment.id.slice(0, 10)}
+                          </td>
+                          <td className="p-3 font-bold text-slate-900 dark:text-white">{formatCurrency(payment.amount, payment.currency)}</td>
+                          <td className="p-3">
+                            <Badge variant={paymentBadge.variant}>{paymentBadge.label}</Badge>
+                            {payment.refundedAt && (
+                              <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                                Refunded {new Date(payment.refundedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {payment.isManualOverride ? (
+                              <span title={payment.overrideReason || undefined} className="text-amber-600 dark:text-amber-400 font-bold">
+                                Manual Override
+                              </span>
+                            ) : payment.generatedBySuperAdmin ? (
+                              <span className="text-blue-600 dark:text-blue-400 font-bold">Super Admin Link</span>
+                            ) : (
+                              payment.gateway
+                            )}
+                          </td>
+                          <td className="p-3 text-slate-500">{new Date(payment.createdAt).toLocaleDateString()}</td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                to={`/super-admin/billing/receipt/${payment.id}`}
+                                title="View Receipt"
+                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-all"
+                              >
+                                <Receipt className="w-3.5 h-3.5" />
+                              </Link>
+                              {payment.status === 'SUCCESS' && !payment.refundedAt && (
+                                <button
+                                  type="button"
+                                  onClick={() => setRefundTarget(payment)}
+                                  title="Refund this payment"
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 transition-all"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {payment.refundRefId && !payment.refundedAt && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleCheckRefundStatus(payment.id)}
+                                  disabled={checkingRefundId === payment.id}
+                                  title="Check refund status"
+                                  className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 transition-all disabled:opacity-50"
+                                >
+                                  <RefreshCw className={`w-3.5 h-3.5 ${checkingRefundId === payment.id ? 'animate-spin' : ''}`} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
+
+          {/* Generate a real payment link — distinct blue styling (not amber)
+              since this creates a genuine gateway checkout, not a bypass. */}
+          <GeneratePaymentLinkSection institutionId={institutionId} plans={plans} />
 
           {/* Manual override form */}
           <div className="p-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 rounded-2xl space-y-4">
@@ -870,7 +962,306 @@ const SubscriptionDetailModal: React.FC<{
           </div>
         </>
       )}
+
+      {refundTarget && (
+        <RefundConfirmModal
+          payment={refundTarget}
+          onClose={() => setRefundTarget(null)}
+          onSuccess={() => {
+            setRefundTarget(null);
+            fetchDetail();
+          }}
+        />
+      )}
     </Modal>
+  );
+};
+
+// ── Generate Payment Link ──────────────────────────────────────────────
+// Distinct blue/primary styling from the amber manual-override section
+// below it — this creates a real SSLCommerz checkout session the
+// institution admin pays through normally, not a payment bypass.
+const GeneratePaymentLinkSection: React.FC<{ institutionId: string; plans: Plan[] }> = ({ institutionId, plans }) => {
+  const [planId, setPlanId] = useState('');
+  const [cycle, setCycle] = useState<BillingCycle>('MONTHLY');
+  const [generating, setGenerating] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+
+  const handleGenerate = async () => {
+    if (!planId) {
+      toast.error('Select a plan to generate a payment link');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const result = await billingApi.generatePaymentLink(institutionId, { planId, billingCycle: cycle });
+      setGeneratedUrl(result.paymentUrl);
+      toast.success('Payment link generated — share it with the institution admin.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to generate payment link');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (!generatedUrl) return;
+    navigator.clipboard.writeText(generatedUrl);
+    toast.success('Copied to clipboard');
+  };
+
+  return (
+    <div className="p-4 bg-blue-50 dark:bg-blue-500/5 border border-blue-200 dark:border-blue-500/20 rounded-2xl space-y-4">
+      <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 text-xs font-bold">
+        <Link2 className="w-4 h-4" />
+        Generate a real payment link — the institution admin pays through the gateway normally.
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Plan</label>
+          <select value={planId} onChange={(e) => setPlanId(e.target.value)} className="input-field text-xs">
+            <option value="">Select plan...</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Billing Cycle</label>
+          <select value={cycle} onChange={(e) => setCycle(e.target.value as BillingCycle)} className="input-field text-xs">
+            {CYCLES.map((c) => (
+              <option key={c} value={c}>{BILLING_CYCLE_LABELS[c]}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="button" variant="primary" isLoading={generating} onClick={handleGenerate}>Generate Link</Button>
+      </div>
+
+      {generatedUrl && (
+        <div className="flex items-center gap-2 pt-3 border-t border-blue-200 dark:border-blue-500/20">
+          <input
+            readOnly
+            value={generatedUrl}
+            onFocus={(e) => e.target.select()}
+            className="input-field text-xs font-mono flex-1"
+          />
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="Copy to clipboard"
+            className="p-2.5 rounded-xl bg-blue-100 hover:bg-blue-200 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-all flex-shrink-0"
+          >
+            <Copy className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Refund confirmation modal (mirrors ArchiveConfirmModal's structure) ──
+const RefundConfirmModal: React.FC<{
+  payment: SubscriptionPayment;
+  onClose: () => void;
+  onSuccess: () => void;
+}> = ({ payment, onClose, onSuccess }) => {
+  const [refundAmount, setRefundAmount] = useState<string>(String(payment.amount));
+  const [refundRemarks, setRefundRemarks] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleRefund = async () => {
+    const amountValue = Number(refundAmount);
+    if (!amountValue || amountValue <= 0) {
+      toast.error('Refund amount must be greater than zero');
+      return;
+    }
+    if (refundRemarks.trim().length < 5) {
+      toast.error('Refund remarks must be at least 5 characters');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await billingApi.initiateRefund(payment.id, {
+        refundAmount: amountValue,
+        refundRemarks: refundRemarks.trim(),
+      });
+      toast.success('Refund initiated successfully');
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to initiate refund');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} className="max-w-md space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="p-2.5 bg-red-100 dark:bg-red-500/10 text-red-600 rounded-xl">
+          <AlertTriangle className="w-6 h-6" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Refund Payment</h3>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+            Refunding <strong className="text-slate-900 dark:text-white">{payment.gatewayTransactionId || payment.id.slice(0, 10)}</strong> initiates a real refund via the payment gateway. This action cannot easily be undone and will be audit-logged.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Refund Amount</label>
+          <input
+            value={refundAmount}
+            onChange={(e) => setRefundAmount(e.target.value)}
+            type="number"
+            min={0}
+            step="0.01"
+            className="input-field text-xs"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            Remarks <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={refundRemarks}
+            onChange={(e) => setRefundRemarks(e.target.value)}
+            rows={2}
+            placeholder="Required — explain why this payment is being refunded"
+            className="input-field text-xs"
+            required
+            minLength={5}
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-2 border-t border-slate-200 dark:border-white/5">
+        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button type="button" variant="danger" isLoading={submitting} onClick={handleRefund}>Initiate Refund</Button>
+      </div>
+    </Modal>
+  );
+};
+
+// ── Tab C: Analytics ────────────────────────────────────────────────────
+// Deliberately uses this file's own plain useState/useEffect + direct
+// billingApi call convention (not the useBilling.ts React Query hooks,
+// which were purpose-built for the tenant-side paywall/banner's real-time
+// freshness need — this admin-only analytics view has no such requirement).
+
+const CHURN_WINDOW_OPTIONS = [30, 60, 90] as const;
+
+const StatCard: React.FC<{ icon: React.ReactNode; label: string; value: string; extra?: React.ReactNode }> = ({
+  icon,
+  label,
+  value,
+  extra,
+}) => (
+  <div className="glass-card p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl flex items-start gap-3">
+    <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl flex-shrink-0">{icon}</div>
+    <div className="min-w-0">
+      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">{label}</span>
+      <span className="text-lg font-black text-slate-900 dark:text-white block mt-0.5">{value}</span>
+      {extra}
+    </div>
+  </div>
+);
+
+const AnalyticsTab: React.FC = () => {
+  const [analytics, setAnalytics] = useState<BillingAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [churnWindowDays, setChurnWindowDays] = useState<number>(30);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const data = await billingApi.getAnalytics({ churnWindowDays });
+      setAnalytics(data);
+    } catch (err) {
+      console.error('Failed to fetch billing analytics', err);
+      toast.error('Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [churnWindowDays]);
+
+  if (loading && !analytics) {
+    return (
+      <div className="p-16 text-center text-slate-500">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto" />
+      </div>
+    );
+  }
+
+  const totalRevenue = (analytics?.revenueByPlan ?? []).reduce((sum, item) => sum + Number(item.totalRevenue), 0);
+  // Categorical revenue-by-plan chart only — the analytics endpoint doesn't
+  // return a time-series, so a trend chart isn't supported by the data.
+  const chartData = (analytics?.revenueByPlan ?? []).map((item) => ({
+    name: item.planName,
+    revenue: Number(item.totalRevenue),
+  }));
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={<DollarSign className="w-5 h-5" />} label="MRR" value={formatCurrency(analytics?.mrr ?? 0)} />
+        <StatCard icon={<Wallet className="w-5 h-5" />} label="Total Revenue" value={formatCurrency(totalRevenue)} />
+        <StatCard
+          icon={<UserMinus className="w-5 h-5" />}
+          label="Churned Subscriptions"
+          value={String(analytics?.churnCount ?? 0)}
+          extra={
+            <select
+              value={churnWindowDays}
+              onChange={(e) => setChurnWindowDays(Number(e.target.value))}
+              aria-label="Churn window in days"
+              className="mt-1 text-[10px] font-bold bg-transparent border border-slate-200 dark:border-white/10 rounded-lg px-1.5 py-0.5 text-slate-500 dark:text-slate-400"
+            >
+              {CHURN_WINDOW_OPTIONS.map((days) => (
+                <option key={days} value={days}>Last {days} days</option>
+              ))}
+            </select>
+          }
+        />
+        <StatCard
+          icon={<CalendarClock className="w-5 h-5" />}
+          label="Upcoming Renewals"
+          value={String(analytics?.upcomingRenewals.count ?? 0)}
+        />
+      </div>
+
+      <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl space-y-4">
+        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Revenue by Plan</h4>
+        {chartData.length === 0 ? (
+          <p className="text-xs text-slate-400 italic text-center py-10">No successful payments recorded yet.</p>
+        ) : (
+          <div className="h-72" role="img" aria-label={`Bar chart of total revenue by subscription plan: ${chartData.map((d) => `${d.name} ${formatCurrency(d.revenue)}`).join(', ')}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-white/10" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} className="fill-slate-500 dark:fill-slate-400" />
+                <YAxis tick={{ fontSize: 11 }} className="fill-slate-500 dark:fill-slate-400" />
+                <Tooltip
+                  formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                  contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #e2e8f0' }}
+                />
+                <Bar dataKey="revenue" fill="#2563eb" radius={[6, 6, 0, 0]} name="Revenue" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

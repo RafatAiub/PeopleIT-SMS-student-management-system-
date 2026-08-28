@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react';
 import { billingApi, type MySubscription } from '@/api/billing.api';
+import { BILLING_SUBSCRIPTION_KEY } from '@/hooks/useBilling';
 
 type RedirectStatus = 'success' | 'fail' | 'cancel' | null;
 
@@ -16,6 +18,7 @@ const CheckoutResult: React.FC = () => {
   const [polling, setPolling] = useState(redirectStatus === 'success');
   const [error, setError] = useState<string | null>(null);
   const startedAtRef = useRef<number>(Date.now());
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined;
@@ -32,12 +35,22 @@ const CheckoutResult: React.FC = () => {
       }
     };
 
+    // Refreshes the shared React Query cache entry (BILLING_SUBSCRIPTION_KEY)
+    // powering the paywall gate and banner everywhere else in the app, so
+    // they pick up the newly-ACTIVE status immediately instead of waiting
+    // for their own 60s poll. This component's own tight polling loop above
+    // is unrelated and unaffected.
+    const invalidateSharedSubscriptionCache = () => {
+      queryClient.invalidateQueries({ queryKey: [BILLING_SUBSCRIPTION_KEY] });
+    };
+
     if (redirectStatus === 'success') {
       // The redirect might arrive before the IPN has credited the payment —
       // poll briefly for the authoritative status rather than trusting the URL.
       fetchOnce().then((sub) => {
         if (sub?.status === 'ACTIVE') {
           setPolling(false);
+          invalidateSharedSubscriptionCache();
           return;
         }
         intervalId = setInterval(async () => {
@@ -46,6 +59,7 @@ const CheckoutResult: React.FC = () => {
           if (latest?.status === 'ACTIVE' || timedOut) {
             setPolling(false);
             if (intervalId) clearInterval(intervalId);
+            if (latest?.status === 'ACTIVE') invalidateSharedSubscriptionCache();
           }
         }, POLL_INTERVAL_MS);
       });
@@ -58,6 +72,9 @@ const CheckoutResult: React.FC = () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
+    // queryClient is a stable reference from the provider, intentionally
+    // omitted so this effect only re-runs when redirectStatus changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redirectStatus]);
 
   const isActive = subscription?.status === 'ACTIVE';

@@ -191,6 +191,12 @@ model SubscriptionPayment {
   overrideReason       String?                   @db.Text
   overriddenByUserId   String?
   rawGatewayResponse   Json?
+  gatewayPaymentUrl    String? // redisplayable if a super-admin-generated link hasn't been consumed yet
+  generatedBySuperAdmin Boolean                  @default(false) // distinguishes a super-admin-initiated payment request from tenant self-checkout, without a User join
+  refundRefId          String? // SSLCommerz refund_ref_id, set once a refund is initiated
+  refundedAt           DateTime? // set only once a refund query confirms completion
+  refundedByUserId     String?
+  refundRawResponse    Json? // kept separate from rawGatewayResponse (the original payment's validation record)
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 

@@ -70,3 +70,27 @@ export const ListSubscriptionsQueryDto = z.object({
 });
 
 export type ListSubscriptionsQueryDtoType = z.infer<typeof ListSubscriptionsQueryDto>;
+
+// No amount field here either, for the same reason as InitiateCheckoutDto —
+// the price is always resolved server-side from the active PlanPrice row.
+export const GeneratePaymentLinkDto = z.object({
+  planId: z.string().min(1, 'Plan ID is required'),
+  billingCycle: BillingCycleEnum,
+});
+
+export type GeneratePaymentLinkDtoType = z.infer<typeof GeneratePaymentLinkDto>;
+
+export const InitiateRefundDto = z.object({
+  refundAmount: z.number().positive('Refund amount must be greater than zero'),
+  refundRemarks: z.string().trim().min(5, 'Refund remarks must be at least 5 characters').max(500),
+  refeId: z.string().trim().max(100).optional(),
+});
+
+export type InitiateRefundDtoType = z.infer<typeof InitiateRefundDto>;
+
+export const AnalyticsQueryDto = z.object({
+  renewalWindowDays: z.coerce.number().int().positive().max(90).optional(),
+  churnWindowDays: z.coerce.number().int().positive().max(365).optional(),
+});
+
+export type AnalyticsQueryDtoType = z.infer<typeof AnalyticsQueryDto>;

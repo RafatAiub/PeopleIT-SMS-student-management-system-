@@ -11,6 +11,9 @@ import {
   InitiateCheckoutDto,
   ManualOverrideDto,
   ListSubscriptionsQueryDto,
+  GeneratePaymentLinkDto,
+  InitiateRefundDto,
+  AnalyticsQueryDto,
 } from './billing.dto';
 import * as billingController from './billing.controller';
 
@@ -42,6 +45,22 @@ tenantBillingRouter.post(
   requireRole(UserRole.ADMIN),
   validate({ body: InitiateCheckoutDto }),
   billingController.initiateCheckout,
+);
+
+tenantBillingRouter.get(
+  '/my-payments',
+  authenticate,
+  setTenant,
+  requireRole(UserRole.ADMIN),
+  billingController.getMyPayments,
+);
+
+tenantBillingRouter.get(
+  '/payments/:paymentId',
+  authenticate,
+  setTenant,
+  requireRole(UserRole.ADMIN),
+  billingController.getPaymentReceipt,
 );
 
 // ── Super-admin (cross-tenant, no setTenant) ─────────────────────────────
@@ -107,6 +126,44 @@ superAdminBillingRouter.post(
   requireRole(UserRole.SUPER_ADMIN),
   validate({ body: ManualOverrideDto }),
   billingController.manualOverride,
+);
+
+superAdminBillingRouter.post(
+  '/subscriptions/:institutionId/generate-payment-link',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: GeneratePaymentLinkDto }),
+  billingController.generatePaymentLink,
+);
+
+superAdminBillingRouter.get(
+  '/payments/:paymentId',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  billingController.getPaymentReceiptAdmin,
+);
+
+superAdminBillingRouter.post(
+  '/payments/:paymentId/refund',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ body: InitiateRefundDto }),
+  billingController.initiateRefund,
+);
+
+superAdminBillingRouter.get(
+  '/payments/:paymentId/refund',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  billingController.queryRefundStatus,
+);
+
+superAdminBillingRouter.get(
+  '/analytics',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  validate({ query: AnalyticsQueryDto }),
+  billingController.getAnalytics,
 );
 
 // ── Public gateway callbacks (no authenticate/setTenant — SSLCommerz cannot

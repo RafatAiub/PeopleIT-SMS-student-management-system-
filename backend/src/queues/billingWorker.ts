@@ -2,9 +2,8 @@ import { Worker, Job } from 'bullmq';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { prisma } from '../config/prisma';
-import { getSystemActorUserId } from '../utils/systemActor';
-
-const GRACE_PERIOD_DAYS = 7;
+import { addGracePeriod, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
+import * as billingRepository from '../modules/billing/billing.repository';
 
 /**
  * Subscription lifecycle scan — idempotent, safe to run repeatedly and
@@ -13,12 +12,15 @@ const GRACE_PERIOD_DAYS = 7;
  *   TRIALING -> EXPIRED   (trial lapsed, never paid)
  *   ACTIVE   -> GRACE     (period lapsed, grace window starts)
  *   GRACE    -> EXPIRED + Institution.isActive = false (grace lapsed, hard suspend)
+ *   INITIATED SubscriptionPayment older than 24h -> FAILED (stale pending-payment cleanup)
  */
 export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: number }> {
   const now = new Date();
   let transitioned = 0;
 
-  // TRIALING -> EXPIRED
+  // TRIALING -> EXPIRED. Deliberately a plain status update, no
+  // Institution.isActive flip — see the reconciliation note on
+  // computeEffectiveSubscriptionState in subscriptionLifecycle.ts for why.
   const trialExpired = await prisma.subscription.updateMany({
     where: { status: 'TRIALING', trialEndsAt: { lt: now } },
     data: { status: 'EXPIRED' },
@@ -36,8 +38,7 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
   if (nowGrace.length) {
     await Promise.all(
       nowGrace.map((sub) => {
-        const graceEndsAt = new Date(sub.currentPeriodEnd as Date);
-        graceEndsAt.setDate(graceEndsAt.getDate() + GRACE_PERIOD_DAYS);
+        const graceEndsAt = addGracePeriod(sub.currentPeriodEnd as Date);
         return prisma.subscription.update({
           where: { id: sub.id },
           data: { status: 'GRACE', graceEndsAt },
@@ -54,49 +55,24 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
   });
 
   if (expiring.length) {
-    // AuditLog.userId is a required (non-nullable) FK — resolve a fallback
-    // "system actor" (earliest SUPER_ADMIN) once for the whole batch. If
-    // none exists, the audit write is skipped for that row (logged as a
-    // warning); the Subscription.status/Institution.isActive transition
-    // itself remains the source of truth either way.
-    const systemActorId = await getSystemActorUserId();
-
     for (const sub of expiring) {
-      await prisma.$transaction(async (tx) => {
-        const updateResult = await tx.subscription.updateMany({
-          where: { id: sub.id, status: 'GRACE' },
-          data: { status: 'EXPIRED' },
-        });
-        if (updateResult.count !== 1) return;
-
-        await tx.institution.update({ where: { id: sub.institutionId }, data: { isActive: false } });
-
-        if (systemActorId) {
-          await tx.auditLog.create({
-            data: {
-              institutionId: sub.institutionId,
-              userId: systemActorId,
-              action: 'AUTO_SUSPEND',
-              resource: 'Institution',
-              resourceId: sub.institutionId,
-              metadata: { reason: 'Subscription grace period expired' },
-            },
-          });
-        } else {
-          logger.warn('Skipped AUTO_SUSPEND audit log: no SUPER_ADMIN user exists to act as system actor', {
-            institutionId: sub.institutionId,
-          });
-        }
-      });
+      await applyHardSuspend(sub.institutionId, sub.id);
     }
     transitioned += expiring.length;
   }
+
+  // Stale INITIATED SubscriptionPayments (older than 24h) -> FAILED, so a
+  // never-completed super-admin-generated or tenant self-checkout payment
+  // link doesn't linger forever as a "pending payment" nudge.
+  const staleCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const stalePaymentsFailed = await billingRepository.markStaleInitiatedPaymentsFailed(staleCutoff);
 
   logger.info('Subscription lifecycle scan complete', {
     transitioned,
     trialExpired: trialExpired.count,
     movedToGrace: nowGrace.length,
     hardSuspended: expiring.length,
+    stalePaymentsFailed,
   });
 
   return { transitioned };
