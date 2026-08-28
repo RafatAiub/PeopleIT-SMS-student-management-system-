@@ -38,11 +38,13 @@ export async function update(
   id: string,
   data: Partial<Omit<UpdateAssignmentInput, 'dueDate'>> & { dueDate?: Date | null },
 ) {
-  return prisma.assignment.update({
-    where: { id },
-    data,
-    include: creatorInclude,
-  });
+  // Defense-in-depth: the service layer already verifies the assignment
+  // belongs to this institution via findById() before calling update(), but
+  // scope here too — matching every other function in this file (findById,
+  // remove, findSubmission) — so a future direct call can't silently cross
+  // tenants.
+  await prisma.assignment.updateMany({ where: { id, institutionId }, data });
+  return prisma.assignment.findFirst({ where: { id, institutionId }, include: creatorInclude });
 }
 
 export async function findById(institutionId: string, id: string) {
