@@ -733,15 +733,25 @@ model Assignment {
   instructions    String?     @db.Text
   resourceType    String? // NOTE, SLIDE, VIDEO, PDF, LINK, IMAGE — optional attachment
   fileUrl         String? // optional attachment link
-  dueDate         DateTime
+  dueDate         DateTime? // required when created by a Teacher (an assigned task); a Student's own submission has none
   createdByUserId String
   createdBy       User        @relation(fields: [createdByUserId], references: [id])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
+  // A Student's submission always points back to the Teacher's top-level
+  // assignment it answers (null on the assignment itself). Cascades so
+  // deleting the assignment cleans up its submissions. One submission per
+  // student per assignment — resubmitting means editing the existing row.
+  parentAssignmentId String?
+  parentAssignment   Assignment?  @relation("AssignmentSubmissions", fields: [parentAssignmentId], references: [id], onDelete: Cascade)
+  submissions        Assignment[] @relation("AssignmentSubmissions")
+
+  @@unique([parentAssignmentId, createdByUserId])
   @@index([institutionId])
   @@index([branchId])
   @@index([createdByUserId])
+  @@index([parentAssignmentId])
 }
 
 // ── Phase 2: Communication Hub (Notice Board) ─────────────────────────
