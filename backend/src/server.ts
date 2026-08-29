@@ -22,13 +22,27 @@ async function startServer() {
     logger.info(`BullMQ Worker registered and listening on queue 'feeReminders'`);
     logger.info(`BullMQ Worker registered and listening on queue 'subscriptionBilling'`);
 
-    // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
-    // safe to call on every restart — BullMQ won't duplicate it).
-    await registerSubscriptionLifecycleJob();
-
     server.listen(PORT, () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${PORT}`);
       logger.info(`Health check endpoint: ${env.APP_URL}/health`);
+    });
+
+    // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
+    // safe to call on every restart — BullMQ won't duplicate it). Fired
+    // AFTER the HTTP server is already listening, not awaited before it:
+    // this call needs Redis (via billingQueue, configured per BullMQ's own
+    // requirement with maxRetriesPerRequest: null), which means it retries
+    // INDEFINITELY on connection trouble with no timeout. Blocking
+    // server.listen() on it turns any transient Redis hiccup during boot
+    // into an indefinite hang — which is exactly what previously made
+    // Render's deploy health check time out and mark the deploy failed,
+    // even though the HTTP server itself was otherwise fine. Registering
+    // it after listen() means a slow/retrying Redis connection only delays
+    // the repeatable job's registration, never the app's availability.
+    registerSubscriptionLifecycleJob().catch((error) => {
+      logger.error('Failed to register subscription-lifecycle-scan job', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
   } catch (error) {
     logger.error('Failed to start server', {
