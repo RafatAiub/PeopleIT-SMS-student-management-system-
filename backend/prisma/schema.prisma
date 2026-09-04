@@ -57,6 +57,10 @@ model Institution {
   trialEndsAt             DateTime?
   subscription            Subscription?
   subscriptionPayments    SubscriptionPayment[]
+  notifications           Notification[]
+  notificationDeliveries  NotificationDelivery[]
+  notificationPrefs       NotificationPreference[]
+  notificationTemplates   NotificationTemplate[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -120,15 +124,15 @@ enum PaymentGateway {
 }
 
 model Plan {
-  id            String                 @id @default(cuid())
+  id            String         @id @default(cuid())
   name          String
-  slug          String                 @unique
+  slug          String         @unique
   studentCap    Int? // null = unlimited (top tier)
-  description   String?                @db.Text
-  isArchived    Boolean                @default(false) // never hard-delete — referenced by historical Subscription/SubscriptionPayment rows
-  displayOrder  Int                    @default(0)
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  description   String?        @db.Text
+  isArchived    Boolean        @default(false) // never hard-delete — referenced by historical Subscription/SubscriptionPayment rows
+  displayOrder  Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   prices        PlanPrice[]
   subscriptions Subscription[]
 
@@ -136,34 +140,34 @@ model Plan {
 }
 
 model PlanPrice {
-  id           String                 @id @default(cuid())
+  id           String                @id @default(cuid())
   planId       String
-  plan         Plan                   @relation(fields: [planId], references: [id])
+  plan         Plan                  @relation(fields: [planId], references: [id])
   billingCycle BillingCycle
-  amount       Decimal                @db.Decimal(10, 2) // BDT, whole-cycle price (not per-month)
-  currency     String                 @default("BDT")
-  isActive     Boolean                @default(true) // superseded prices kept for historical SubscriptionPayment FK integrity
-  createdAt    DateTime               @default(now())
+  amount       Decimal               @db.Decimal(10, 2) // BDT, whole-cycle price (not per-month)
+  currency     String                @default("BDT")
+  isActive     Boolean               @default(true) // superseded prices kept for historical SubscriptionPayment FK integrity
+  createdAt    DateTime              @default(now())
   payments     SubscriptionPayment[]
 
   @@index([planId])
 }
 
 model Subscription {
-  id                 String                 @id @default(cuid())
-  institutionId      String                 @unique
-  institution        Institution            @relation(fields: [institutionId], references: [id])
+  id                 String                @id @default(cuid())
+  institutionId      String                @unique
+  institution        Institution           @relation(fields: [institutionId], references: [id])
   planId             String
-  plan               Plan                   @relation(fields: [planId], references: [id])
+  plan               Plan                  @relation(fields: [planId], references: [id])
   billingCycle       BillingCycle
-  status             SubscriptionStatus     @default(TRIALING)
+  status             SubscriptionStatus    @default(TRIALING)
   trialEndsAt        DateTime?
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
   graceEndsAt        DateTime?
-  cancelAtPeriodEnd  Boolean                @default(false)
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  cancelAtPeriodEnd  Boolean               @default(false)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
   payments           SubscriptionPayment[]
 
   @@index([status])
@@ -172,33 +176,33 @@ model Subscription {
 }
 
 model SubscriptionPayment {
-  id                   String                    @id @default(cuid())
-  subscriptionId       String
-  subscription         Subscription              @relation(fields: [subscriptionId], references: [id])
-  institutionId        String // denormalized for cross-tenant super-admin queries without join
-  institution          Institution               @relation(fields: [institutionId], references: [id])
-  planPriceId          String?
-  planPrice            PlanPrice?                @relation(fields: [planPriceId], references: [id])
-  amount               Decimal                   @db.Decimal(10, 2)
-  currency             String                    @default("BDT")
-  billingCycle         BillingCycle
-  gateway              PaymentGateway            @default(SSLCOMMERZ)
-  gatewayTransactionId String? // our tran_id sent to SSLCommerz
-  gatewayValId         String? // val_id returned by SSLCommerz, used for validationserverAPI lookup
-  status               SubscriptionPaymentStatus @default(INITIATED)
-  initiatedByUserId    String?
-  isManualOverride     Boolean                   @default(false)
-  overrideReason       String?                   @db.Text
-  overriddenByUserId   String?
-  rawGatewayResponse   Json?
-  gatewayPaymentUrl    String? // redisplayable if a super-admin-generated link hasn't been consumed yet
-  generatedBySuperAdmin Boolean                  @default(false) // distinguishes a super-admin-initiated payment request from tenant self-checkout, without a User join
-  refundRefId          String? // SSLCommerz refund_ref_id, set once a refund is initiated
-  refundedAt           DateTime? // set only once a refund query confirms completion
-  refundedByUserId     String?
-  refundRawResponse    Json? // kept separate from rawGatewayResponse (the original payment's validation record)
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  id                    String                    @id @default(cuid())
+  subscriptionId        String
+  subscription          Subscription              @relation(fields: [subscriptionId], references: [id])
+  institutionId         String // denormalized for cross-tenant super-admin queries without join
+  institution           Institution               @relation(fields: [institutionId], references: [id])
+  planPriceId           String?
+  planPrice             PlanPrice?                @relation(fields: [planPriceId], references: [id])
+  amount                Decimal                   @db.Decimal(10, 2)
+  currency              String                    @default("BDT")
+  billingCycle          BillingCycle
+  gateway               PaymentGateway            @default(SSLCOMMERZ)
+  gatewayTransactionId  String? // our tran_id sent to SSLCommerz
+  gatewayValId          String? // val_id returned by SSLCommerz, used for validationserverAPI lookup
+  status                SubscriptionPaymentStatus @default(INITIATED)
+  initiatedByUserId     String?
+  isManualOverride      Boolean                   @default(false)
+  overrideReason        String?                   @db.Text
+  overriddenByUserId    String?
+  rawGatewayResponse    Json?
+  gatewayPaymentUrl     String? // redisplayable if a super-admin-generated link hasn't been consumed yet
+  generatedBySuperAdmin Boolean                   @default(false) // distinguishes a super-admin-initiated payment request from tenant self-checkout, without a User join
+  refundRefId           String? // SSLCommerz refund_ref_id, set once a refund is initiated
+  refundedAt            DateTime? // set only once a refund query confirms completion
+  refundedByUserId      String?
+  refundRawResponse     Json? // kept separate from rawGatewayResponse (the original payment's validation record)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
 
   @@unique([gatewayTransactionId])
   @@index([institutionId])
@@ -362,6 +366,8 @@ model User {
   uploadedLectureMaterials LectureMaterial[]
   lectureMaterialComments  LectureMaterialComment[]
   createdAssignments       Assignment[]
+  notifications            Notification[]
+  notificationPrefs        NotificationPreference[]
 
   @@index([institutionId])
   @@index([email])
@@ -767,6 +773,104 @@ model Notice {
   createdAt     DateTime    @default(now())
 
   @@index([institutionId])
+}
+
+// ── Notifications ────────────────────────────────────────────────────
+// Per-recipient, actionable notification. Distinct from Notice (a broadcast
+// announcement with no per-user state): a Notification is addressed to one
+// user, is typed, carries a deep-link payload, and tracks its own read state.
+model Notification {
+  id              String                 @id @default(cuid())
+  institutionId   String
+  institution     Institution            @relation(fields: [institutionId], references: [id])
+  recipientUserId String
+  recipient       User                   @relation(fields: [recipientUserId], references: [id])
+  type            String // INVOICE_ISSUED, PAYMENT_RECEIVED, FEE_REMINDER, ABSENCE_ALERT
+  title           String
+  body            String                 @db.Text
+  data            Json? // deep-link payload, e.g. { "link": "/fees", "invoiceId": "..." }
+  readAt          DateTime?
+  createdAt       DateTime               @default(now())
+  deliveries      NotificationDelivery[]
+
+  @@index([institutionId, recipientUserId, readAt])
+  @@index([recipientUserId, createdAt])
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+}
+
+enum NotificationDeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// One row per (notification x channel) send attempt. Two jobs it does:
+//   1. Idempotency — `dedupeKey` is unique, so a replayed queue job, a retried
+//      webhook, or a double-clicked action can never double-send.
+//   2. Observability — a durable record of what was actually delivered, to
+//      whom, through which provider, and why it failed.
+model NotificationDelivery {
+  id             String                     @id @default(cuid())
+  institutionId  String
+  institution    Institution                @relation(fields: [institutionId], references: [id])
+  notificationId String?
+  notification   Notification?              @relation(fields: [notificationId], references: [id])
+  channel        NotificationChannel
+  recipient      String // email address, phone number, or userId for IN_APP
+  templateKey    String // the notification type this was rendered from
+  status         NotificationDeliveryStatus @default(QUEUED)
+  dedupeKey      String                     @unique
+  providerRef    String? // provider message id, when the channel returns one
+  error          String?                    @db.Text
+  attempts       Int                        @default(0)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  @@index([institutionId, status])
+  @@index([institutionId, channel, createdAt])
+}
+
+// Absence of a row means ENABLED. Users only ever write rows to opt OUT, so a
+// newly-added notification type reaches everyone by default instead of being
+// silently suppressed for every existing user.
+// Per-tenant override of a bundled default template (templates.defaults.ts).
+// A missing row is normal, not an error: the bundled default renders instead,
+// so a freshly-onboarded institution needs no seeding.
+model NotificationTemplate {
+  id            String              @id @default(cuid())
+  institutionId String
+  institution   Institution         @relation(fields: [institutionId], references: [id])
+  key           String // the notification type, e.g. INVOICE_ISSUED
+  channel       NotificationChannel
+  subject       String? // email subject / in-app title; unused for SMS
+  body          String              @db.Text
+  isActive      Boolean             @default(true)
+  updatedAt     DateTime            @updatedAt
+  createdAt     DateTime            @default(now())
+
+  @@unique([institutionId, key, channel])
+  @@index([institutionId])
+}
+
+model NotificationPreference {
+  id            String              @id @default(cuid())
+  institutionId String
+  institution   Institution         @relation(fields: [institutionId], references: [id])
+  userId        String
+  user          User                @relation(fields: [userId], references: [id])
+  type          String
+  channel       NotificationChannel
+  enabled       Boolean             @default(true)
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([userId, type, channel])
+  @@index([institutionId, userId])
 }
 
 // ── Phase 3: Library Management ──────────────────────────────────────

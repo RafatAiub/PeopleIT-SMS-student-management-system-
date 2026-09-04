@@ -79,6 +79,24 @@ const envSchema = z.object({
   GREENWEB_API_TOKEN: z.string().optional(),
   GREENWEB_BASE_URL: z.string().url().default('https://api.greenweb.com.bd/api.php'),
 
+  // Email — SMTP via nodemailer. Disabled by default: with EMAIL_ENABLED=false
+  // the channel still renders and "sends" every message through nodemailer's
+  // jsonTransport (recorded SENT, no network call, no real delivery) until a
+  // real provider is configured — see modules/notifications/channels/email.channel.ts.
+  EMAIL_ENABLED: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_SECURE: z
+    .string()
+    .transform((v) => v === 'true')
+    .default('false'),
+  EMAIL_FROM: z.string().default('PeopleIT SMS <noreply@peopleit.com>'),
+
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),
   LOG_FORMAT: z.enum(['pretty', 'json']).default('json'),
@@ -107,6 +125,20 @@ const envSchema = z.object({
         message: 'SSLCOMMERZ_BASE_URL is required when SSLCOMMERZ_ENABLED=true',
         path: ['SSLCOMMERZ_BASE_URL'],
       });
+    }
+  }
+
+  // Same fail-fast contract as the gateway above: a half-configured mail
+  // transport must crash at boot, not at the first invoice email in production.
+  if (data.EMAIL_ENABLED) {
+    for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'] as const) {
+      if (!data[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${key} is required when EMAIL_ENABLED=true`,
+          path: [key],
+        });
+      }
     }
   }
 });
