@@ -7,6 +7,7 @@ import { NotFoundError, BadRequestError, ConflictError } from '../../utils/AppEr
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { feeReminderQueue } from '../../queues/reminderQueue';
+import { notifySafe } from '../notifications/notifications.service';
 import { logger } from '../../utils/logger';
 import { UserRole } from '@prisma/client';
 
@@ -156,6 +157,27 @@ export class FeeService {
       logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
     }
 
+    // Tell the guardians an invoice exists. notifySafe never throws and is not
+    // awaited — a notification failure must not roll back or slow a created
+    // invoice.
+    const guardianUserIds = await guardianRepository.findGuardianUserIdsForStudent(
+      tenantId,
+      data.studentId,
+    );
+    notifySafe({
+      institutionId: tenantId,
+      type: 'INVOICE_ISSUED',
+      recipientUserIds: guardianUserIds,
+      contextId: invoice?.id,
+      data: { link: '/fees', invoiceId: invoice?.id },
+      vars: {
+        invoiceNo,
+        studentName: `${student.firstName} ${student.lastName}`,
+        amount: totalAmount.toFixed(2),
+        dueDate: new Date(data.dueDate).toDateString(),
+      },
+    });
+
     return invoice;
   }
 
@@ -287,12 +309,34 @@ export class FeeService {
       throw new BadRequestError('Payment amount exceeds invoice due amount');
     }
 
-    return FeeRepository.recordPayment(tenantId, invoiceId, {
+    const payment = await FeeRepository.recordPayment(tenantId, invoiceId, {
       amount: data.amount,
       method: data.method,
       transactionRef: data.transactionRef,
       notes: data.notes,
       recordedBy: userId,
     });
+
+    // Receipt confirmation to the guardians. contextId is the payment id, so a
+    // retried request cannot send a second receipt for the same payment.
+    const guardianUserIds = await guardianRepository.findGuardianUserIdsForStudent(
+      tenantId,
+      invoice.studentId,
+    );
+    notifySafe({
+      institutionId: tenantId,
+      type: 'PAYMENT_RECEIVED',
+      recipientUserIds: guardianUserIds,
+      contextId: payment.id,
+      data: { link: '/fees', invoiceId },
+      vars: {
+        invoiceNo: invoice.invoiceNo,
+        studentName: `${invoice.student?.firstName ?? ''} ${invoice.student?.lastName ?? ''}`.trim(),
+        amount: data.amount.toFixed(2),
+        dueAmount: (dueAmount - data.amount).toFixed(2),
+      },
+    });
+
+    return payment;
   }
 }

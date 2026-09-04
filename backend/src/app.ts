@@ -27,6 +27,7 @@ import institutionApplicationRouter from './modules/institution-application/inst
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
+import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
 import { tenantBillingRouter, superAdminBillingRouter, gatewayBillingRouter } from './modules/billing/billing.routes';
@@ -147,6 +148,7 @@ app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
+app.use('/api/v1/notifications', notificationsRouter);
 // Public verification route mounted BEFORE the authenticated id-cards router
 // so an unauthenticated QR-code scan of /verify/:token never hits the
 // authenticate/setTenant middleware chain the main router applies below.

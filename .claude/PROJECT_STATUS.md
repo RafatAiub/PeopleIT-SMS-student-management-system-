@@ -29,7 +29,7 @@ Commit: `9b789af`
 
 - [x] Excel/CSV student bulk import with server-side validation (`POST /students/bulk-import`, multer + xlsx)
 - [x] Server-side grade computation (`utils/grading.ts`) — grade is no longer client-supplied input
-- [x] Report card PDF generation (`GET /results/:studentId/report-card`, Puppeteer HTML→PDF, ownership-scoped for STUDENT/GUARDIAN)
+- [x] Report card PDF generation (`GET /results/:studentId/report-card`, **pdfkit** — not Puppeteer; `reportCard.pdf.ts:110` notes Chromium could not launch on the hosted Node env — ownership-scoped for STUDENT/GUARDIAN)
 - [x] Guardian dashboard (`frontend/src/pages/GuardianDashboard.tsx`) — linked children's fees, attendance, report cards
 - [x] Real Greenweb SMS integration — fee-due reminders (scheduled via BullMQ delay at invoice creation) + absence reminders (triggered from attendance submission)
 
@@ -68,6 +68,91 @@ Found by manual testing against the live Vercel/Render deployment with real seed
 
 ---
 
+## Phase 4 — Notification System ✅ PR1-PR3 COMPLETE
+
+Unified outbound messaging: one entry point, pluggable channels, templates,
+queue-backed delivery with retry + idempotency, per-user preferences.
+Rule-book: `.antigravity/skills/notification-delivery.md`.
+
+- [x] **PR1 — in-app core.** `Notification` model (migration `add_notifications`);
+      `modules/notifications/` (routes/controller/service/repository/dto);
+      `GET /notifications`, `POST /:id/read`, `POST /read-all` — ownership-scoped
+      via `req.user.sub`, not role-gated. `fee.service.createInvoice` emits
+      `INVOICE_ISSUED`. Frontend `api/notifications.api.ts` +
+      `hooks/useNotifications.ts`; the header bell now reads real data.
+      **Removed the 3 hard-coded fake notifications from `store/uiStore.ts`**
+      (they reappeared on every reload and `addNotification` had zero callers).
+- [x] **PR2 — delivery backbone.** `NotificationDelivery` + `NotificationPreference`
+      + `NotificationChannel`/`NotificationDeliveryStatus` enums (migration
+      `add_notification_delivery_and_preferences`). `queues/notificationQueue.ts`
+      is the first queue in this codebase with `defaultJobOptions`
+      (attempts 5, exponential backoff, removeOnComplete/Fail);
+      `queues/notificationWorker.ts` exports a pure `deliverNotification()` for
+      tests, like `billingWorker`. Idempotency is two-layer: BullMQ
+      `jobId = dedupeKey`, plus the durable unique `NotificationDelivery.dedupeKey`
+      with a status-guarded claim. `GET/PUT /notifications/preferences`
+      (absent row = enabled; opt-outs are recorded as SKIPPED, never dropped).
+      Worker registered + closed in `server.ts`.
+- [x] **PR3 — email + SMS channels + templates.** `nodemailer` added;
+      `config/env.ts` gained the email block with a `superRefine` that fails boot
+      if `EMAIL_ENABLED=true` without SMTP creds (same contract as SSLCommerz).
+      `NotificationTemplate` model (migration `add_notification_templates`) —
+      tenant override falls back to bundled `templates.defaults.ts` (4 types x
+      3 channels). Channel adapters in `modules/notifications/channels/`
+      (`inApp`, `email`, `sms`). `fee.service.recordOfflinePayment` emits
+      `PAYMENT_RECEIVED`. Admin-only `GET /notifications/templates`,
+      `PUT /notifications/templates/:key/:channel`, `POST /notifications/test`.
+      **Email works with no provider account**: `EMAIL_ENABLED=false` renders
+      through nodemailer `jsonTransport`, and
+      `npx ts-node backend/scripts/preview-email.ts` sends via a throwaway
+      Ethereal inbox and prints a live preview URL (no signup, no domain).
+
+### Notification system — operational finding (2026-09-03)
+- [ ] **The Upstash instance in `.env` is unreachable** (`great-griffon-42513.upstash.io`
+      refuses connections). Everything queue-backed — notification delivery, the
+      `feeReminders` SMS jobs, the daily `subscriptionBilling` scan — is therefore
+      inert in this environment: jobs are accepted by the API and never delivered.
+      Discovered while regression-testing the notification build. Two consequences
+      already handled in code: `enqueueNotification()` now bounds `.add()` with a
+      5s timeout (BullMQ's `maxRetriesPerRequest: null` otherwise leaves a pending
+      promise forever per notification), and `notify()` catches per job so one dead
+      channel cannot stop the rest. **Local dev now points `REDIS_URL` at the docker-compose redis**
+      (`redis://:sms_redis_pass@localhost:6379`; old Upstash value kept as a
+      comment in `backend/.env`, and `backend/.env.bak.20260903`). Production
+      still needs a real reachable instance.
+
+### Notification system — bug found + fixed during live verification (2026-09-03)
+- [x] **BullMQ rejected the job id.** `dedupeKey` (`inst:type:user:channel:ctx`) was
+      passed straight as the BullMQ `jobId`; BullMQ forbids `:` in a custom id
+      ("Custom Id cannot contain :"), so every enqueue failed and `notifySafe`
+      swallowed it — the API returned 201 and nothing was ever delivered. The
+      unit tests missed it because they mock `enqueueNotification`. Fixed:
+      `src/queues/jobId.ts#toJobId()` sanitises `:` -> `_` for the job id only;
+      the raw `dedupeKey` still travels in the payload and is still the durable
+      unique column. Added a guard test. **Verified live end-to-end**: real
+      invoice -> queue -> worker -> `IN_APP` SENT + `EMAIL` SENT (jsonTransport)
+      -> guardian's `GET /notifications` shows `unreadCount: 1`.
+- [ ] **The API cannot create a guardian with a login in one call.**
+      `CreateGuardianDto` has no `userId` and `validate()` strips unknown fields,
+      so a guardian added through `POST /guardians` has no inbox until a `userId`
+      is attached out of band. Needs a DTO/flow that provisions the `GUARDIAN`
+      User + `Guardian` + link together (like students already do).
+
+### Notification system — remaining
+- [ ] **PR4 — retire `reminderQueue`/`reminderWorker`.** `fee-due` and `absence`
+      still run on the old queue (single attempt, no backoff, no dedupe — a
+      re-submitted attendance sheet re-sends every absence SMS). Migrate them to
+      `notify({ type: 'FEE_REMINDER' | 'ABSENCE_ALERT' })` and delete the old
+      queue/worker + their imports in `server.ts`, `fee.service.ts`,
+      `attendance.service.ts`.
+- [ ] **PR5 — preference + template editor UI.** Backend endpoints exist and are
+      tested; no frontend yet (`pages/settings/NotificationPreferences.tsx` and an
+      admin template editor with live `{{var}}` preview).
+- [ ] Wire `PAYMENT_RECEIVED` into the online-payment credit path too, once the
+      student-fee gateway callback exists (see the payment gateway item below).
+
+---
+
 ## Medium-Priority Cleanup / Deferred Items (not yet scheduled into a phase)
 
 These were identified during the engagement but explicitly deferred — not forgotten, not silently dropped. Pull from this list when starting new work rather than rediscovering them.
@@ -81,7 +166,7 @@ These were identified during the engagement but explicitly deferred — not forg
 
 ### Known stubs / unfinished integrations
 - [ ] Live bKash/Nagad/SSLCommerz payment gateway integration — `fee.service.ts` still calls stub classes (`gateways/*.stub.ts`), no real payment provider wired up despite the schema/UI supporting it
-- [ ] Confirm Puppeteer's Chromium binary actually runs on the Render.com deployment target — never verified against real Render infra (only tested locally); if the report-card feature fails in production, this is the first thing to check
+- [x] ~~Confirm Puppeteer's Chromium binary runs on Render~~ — **moot: there is no Puppeteer.** `backend/package.json` has no puppeteer dependency; all three PDF renderers (report card, timetable, ID card) use `pdfkit`. Verified 2026-09-03.
 - [ ] AI module (`ai.service.ts`) is rule-based (fixed thresholds, string templates), not a real LLM — decide: honestly rebrand ("Smart Rules"/"Automated Insights") or actually build LLM-backed features per `.antigravity/skills/ai-predictive-analytics.md`. Currently mislabeled as "AI" in the UI, which is a trust risk if a technical buyer looks under the hood
 - [ ] **No "Add Student" UI anywhere in the frontend** — discovered while investigating Bug 1 (2026-07-21). Both `POST /students` (single create, `student.routes.ts`) and `POST /students/bulk-import` (Excel/CSV, built in Phase 2) are fully implemented server-side, but grepping `frontend/src` for any caller of either route turns up nothing — `StudentList.tsx` only has Edit (`PUT`) and Delete. Today the *only* way a student record ever gets created in any environment is a demo seed script (`prisma/seed.ts`/`seed_demo_data.ts`) or a raw API call. This means a real onboarded customer currently has no way to add a single student through the product — likely the actual explanation behind Bug 1's "no students found" reports on freshly-registered (non-seeded) live institutions. Needs a real "Add Student" form and/or a bulk-import page wired to the existing backend routes before this product can be used by an actual customer.
 

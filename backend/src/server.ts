@@ -6,6 +6,7 @@ import { closeRedis } from './config/redis';
 import { logger } from './utils/logger';
 import { feeReminderWorker } from './queues/reminderWorker';
 import { billingWorker } from './queues/billingWorker';
+import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
 
 const server = http.createServer(app);
@@ -64,6 +65,7 @@ async function gracefulShutdown(signal: string) {
       // Shutdown BullMQ Workers
       await feeReminderWorker.close();
       await billingWorker.close();
+      await notificationWorker.close();
       logger.info('BullMQ workers closed');
 
       // Close Redis connection

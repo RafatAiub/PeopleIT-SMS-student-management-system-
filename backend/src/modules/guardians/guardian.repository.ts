@@ -153,3 +153,30 @@ export async function findLinkedStudentSummariesByUserId(institutionId: string, 
   });
   return (guardian?.students ?? []).map((s) => ({ ...s.student, isPrimary: s.isPrimary }));
 }
+
+/**
+ * Resolves the linked-guardian USER ids for a student — the notification
+ * audience for anything that happens to that student (invoice issued, payment
+ * received, absence). Guardians without a login User row are skipped: there is
+ * no in-app inbox to deliver to.
+ *
+ * Tenant-scoped on both sides of the join so a studentId from another
+ * institution resolves to an empty audience rather than leaking recipients.
+ */
+export async function findGuardianUserIdsForStudent(
+  institutionId: string,
+  studentId: string,
+): Promise<string[]> {
+  const links = await prisma.guardianStudent.findMany({
+    where: {
+      studentId,
+      student: { institutionId },
+      guardian: { institutionId, userId: { not: null } },
+    },
+    select: { guardian: { select: { userId: true } } },
+  });
+
+  return links
+    .map((link) => link.guardian.userId)
+    .filter((userId): userId is string => !!userId);
+}

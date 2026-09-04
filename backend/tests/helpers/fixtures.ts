@@ -158,6 +158,10 @@ export async function cleanupInstitution(fixture: InstitutionFixture) {
     () => prisma.transportVehicle.deleteMany({ where: { institutionId } }),
     () => prisma.timetableSlot.deleteMany({ where: { institutionId } }),
     () => prisma.notice.deleteMany({ where: { institutionId } }),
+    () => prisma.notificationDelivery.deleteMany({ where: { institutionId } }),
+    () => prisma.notificationPreference.deleteMany({ where: { institutionId } }),
+    () => prisma.notificationTemplate.deleteMany({ where: { institutionId } }),
+    () => prisma.notification.deleteMany({ where: { institutionId } }),
     () => prisma.permission.deleteMany({ where: { institutionId } }),
     () => prisma.user.deleteMany({ where: { institutionId } }),
     () =>

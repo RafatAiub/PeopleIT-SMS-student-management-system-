@@ -3,9 +3,30 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, Bell, Sun, Moon, Monitor, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from '../../hooks/useNotifications';
 import { useAuthStore } from '../../store/authStore';
 import { LogoMark } from '../common/LogoMark';
 import { getPageLabel } from './Sidebar';
+
+// The server sends the business event type; the header maps it to a severity
+// purely for iconography. Unknown/new types degrade to 'info' rather than
+// rendering nothing.
+const severityForType = (type: string): 'info' | 'success' | 'warning' | 'error' => {
+  switch (type) {
+    case 'PAYMENT_RECEIVED':
+      return 'success';
+    case 'FEE_REMINDER':
+      return 'warning';
+    case 'ABSENCE_ALERT':
+      return 'error';
+    default:
+      return 'info';
+  }
+};
 
 const notificationIcon = (type: 'info' | 'success' | 'warning' | 'error') => {
   switch (type) {
@@ -38,7 +59,7 @@ const dropdownMotion = {
 };
 
 export const Header: React.FC = () => {
-  const { toggleMobileMenu, theme, setTheme, notifications, markNotificationRead, clearNotifications, institutionLogo } = useUiStore();
+  const { toggleMobileMenu, theme, setTheme, institutionLogo } = useUiStore();
   const { user, supportSession } = useAuthStore();
   // See Sidebar.tsx — a bare Super Admin shouldn't show any institution's logo.
   const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
@@ -54,7 +75,11 @@ export const Header: React.FC = () => {
   const themeMenuRef = React.useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = React.useState(false);
   const notificationsRef = React.useRef<HTMLDivElement>(null);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const { data: notificationData } = useNotifications({ page: 1, pageSize: 20 });
+  const notifications = notificationData?.notifications ?? [];
+  const unreadCount = notificationData?.unreadCount ?? 0;
+  const markNotificationRead = useMarkNotificationRead();
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -194,12 +219,13 @@ export const Header: React.FC = () => {
               >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/5">
                   <span className="text-sm font-bold text-slate-900 dark:text-white">Notifications</span>
-                  {notifications.length > 0 && (
+                  {unreadCount > 0 && (
                     <button
-                      onClick={clearNotifications}
-                      className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+                      onClick={() => markAllNotificationsRead.mutate()}
+                      disabled={markAllNotificationsRead.isPending}
+                      className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-50"
                     >
-                      Clear all
+                      Mark all read
                     </button>
                   )}
                 </div>
@@ -213,21 +239,21 @@ export const Header: React.FC = () => {
                       <button
                         key={n.id}
                         onClick={() => {
-                          markNotificationRead(n.id);
+                          if (!n.readAt) markNotificationRead.mutate(n.id);
                           setNotificationsOpen(false);
-                          navigate('/notices');
+                          navigate(n.data?.link ?? '/notices');
                         }}
                         className={`w-full text-left px-4 py-3 flex items-start gap-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-white/5 ${
-                          !n.read ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''
+                          !n.readAt ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''
                         }`}
                       >
-                        {notificationIcon(n.type)}
+                        {notificationIcon(severityForType(n.type))}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">{n.title}</span>
-                            {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
+                            {!n.readAt && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
                           </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">{n.message}</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
                           <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">{timeAgo(n.createdAt)}</p>
                         </div>
                       </button>
