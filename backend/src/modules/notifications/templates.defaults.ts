@@ -25,7 +25,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'INVOICE_ISSUED:EMAIL': {
     subject: 'Invoice {{invoiceNo}} from {{institutionName}}',
     body: [
-      'Dear Guardian,',
+      'Dear Student,',
       '',
       'A new invoice has been issued for {{studentName}}.',
       '',
@@ -50,7 +50,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'PAYMENT_RECEIVED:EMAIL': {
     subject: 'Payment received for invoice {{invoiceNo}}',
     body: [
-      'Dear Guardian,',
+      'Dear Student,',
       '',
       'We have received your payment. Thank you.',
       '',
@@ -76,7 +76,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'FEE_REMINDER:EMAIL': {
     subject: 'Reminder: invoice {{invoiceNo}} is due {{dueDate}}',
     body: [
-      'Dear Guardian,',
+      'Dear Student,',
       '',
       'This is a reminder that the following invoice is due.',
       '',
@@ -102,7 +102,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'ABSENCE_ALERT:EMAIL': {
     subject: '{{studentName}} was marked absent on {{date}}',
     body: [
-      'Dear Guardian,',
+      'Dear Student,',
       '',
       '{{studentName}} was recorded absent on {{date}}.',
       '',

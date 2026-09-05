@@ -145,6 +145,26 @@ export async function findByUserId(institutionId: string, userId: string) {
   });
 }
 
+/**
+ * Resolves a student's own login User id, for notification delivery.
+ * Notifications are addressed to the student's account rather than a linked
+ * Guardian record: in practice most guardians share the student's login
+ * (Guardian.userId is frequently null - there is no onboarding flow that
+ * provisions a separate guardian account), so the student's own account is
+ * the reliable, always-present delivery target. `userId` is nullable on
+ * Student too (legacy/edge-case data), so callers must still handle null.
+ */
+export async function findUserIdForStudent(
+  institutionId: string,
+  studentId: string,
+): Promise<string | null> {
+  const student = await prisma.student.findFirst({
+    where: { id: studentId, institutionId },
+    select: { userId: true },
+  });
+  return student?.userId ?? null;
+}
+
 export async function create(institutionId: string, data: CreateStudentDtoType) {
   return prisma.student.create({
     data: {
