@@ -157,17 +157,16 @@ export class FeeService {
       logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
     }
 
-    // Tell the guardians an invoice exists. notifySafe never throws and is not
-    // awaited — a notification failure must not roll back or slow a created
-    // invoice.
-    const guardianUserIds = await guardianRepository.findGuardianUserIdsForStudent(
-      tenantId,
-      data.studentId,
-    );
+    // Tell the student an invoice exists — addressed to the student's own
+    // login, not a linked guardian account, since guardians typically share
+    // the student's login rather than having their own. notifySafe never
+    // throws and is not awaited — a notification failure must not roll back
+    // or slow a created invoice.
+    const studentUserId = await studentRepository.findUserIdForStudent(tenantId, data.studentId);
     notifySafe({
       institutionId: tenantId,
       type: 'INVOICE_ISSUED',
-      recipientUserIds: guardianUserIds,
+      recipientUserIds: studentUserId ? [studentUserId] : [],
       contextId: invoice?.id,
       data: { link: '/fees', invoiceId: invoice?.id },
       vars: {
@@ -317,16 +316,18 @@ export class FeeService {
       recordedBy: userId,
     });
 
-    // Receipt confirmation to the guardians. contextId is the payment id, so a
-    // retried request cannot send a second receipt for the same payment.
-    const guardianUserIds = await guardianRepository.findGuardianUserIdsForStudent(
+    // Receipt confirmation to the student's own login (see the note in
+    // createInvoice on why the student, not a linked guardian, is the
+    // delivery target). contextId is the payment id, so a retried request
+    // cannot send a second receipt for the same payment.
+    const studentUserId = await studentRepository.findUserIdForStudent(
       tenantId,
       invoice.studentId,
     );
     notifySafe({
       institutionId: tenantId,
       type: 'PAYMENT_RECEIVED',
-      recipientUserIds: guardianUserIds,
+      recipientUserIds: studentUserId ? [studentUserId] : [],
       contextId: payment.id,
       data: { link: '/fees', invoiceId },
       vars: {
