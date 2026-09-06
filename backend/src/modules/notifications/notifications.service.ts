@@ -34,6 +34,17 @@ const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
   PAYMENT_RECEIVED: ['IN_APP', 'EMAIL'],
   FEE_REMINDER: ['IN_APP', 'EMAIL', 'SMS'],
   ABSENCE_ALERT: ['IN_APP', 'SMS'],
+  // Platform subscription billing — in-app + email, never SMS (recipients are
+  // institute admins / super admins, and there is no billing phone on file).
+  SUBSCRIPTION_ACTIVATED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_PAYMENT_FAILED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_PAYMENT_REQUESTED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_ADJUSTED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_REFUND_INITIATED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_REFUNDED: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_TRIAL_ENDING: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_GRACE: ['IN_APP', 'EMAIL'],
+  SUBSCRIPTION_SUSPENDED: ['IN_APP', 'EMAIL'],
 };
 
 /**
@@ -153,7 +164,7 @@ export function notifySafe(input: NotifyInput): void {
 }
 
 export async function listMine(
-  institutionId: string,
+  institutionId: string | undefined,
   recipientUserId: string,
   query: NotificationQueryDtoType,
 ) {
@@ -164,7 +175,11 @@ export async function listMine(
   });
 }
 
-export async function markRead(institutionId: string, recipientUserId: string, id: string) {
+export async function markRead(
+  institutionId: string | undefined,
+  recipientUserId: string,
+  id: string,
+) {
   const result = await notificationRepository.markRead(institutionId, recipientUserId, id);
 
   // Zero rows updated is either "already read" or "not yours / doesn't exist".
@@ -181,7 +196,7 @@ export async function markRead(institutionId: string, recipientUserId: string, i
   return { updated: result.count };
 }
 
-export async function markAllRead(institutionId: string, recipientUserId: string) {
+export async function markAllRead(institutionId: string | undefined, recipientUserId: string) {
   const result = await notificationRepository.markAllRead(institutionId, recipientUserId);
   return { updated: result.count };
 }

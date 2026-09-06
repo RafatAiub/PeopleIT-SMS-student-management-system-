@@ -4,37 +4,63 @@ import { logger } from '../utils/logger';
 import { prisma } from '../config/prisma';
 import { addGracePeriod, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
 import * as billingRepository from '../modules/billing/billing.repository';
+import {
+  emitSubscriptionNotification,
+  formatDate,
+} from '../modules/billing/billing.notifications';
+
+/** Whole days from `from` until `target`, floor-clamped at 0. */
+function daysUntil(target: Date, from: Date): number {
+  return Math.max(0, Math.ceil((target.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
+const TRIAL_ENDING_WINDOW_DAYS = 3;
 
 /**
  * Subscription lifecycle scan — idempotent, safe to run repeatedly and
  * callable directly (e.g. from tests) independent of the BullMQ wiring.
  *
- *   TRIALING -> EXPIRED   (trial lapsed, never paid)
- *   ACTIVE   -> GRACE     (period lapsed, grace window starts)
- *   GRACE    -> EXPIRED + Institution.isActive = false (grace lapsed, hard suspend)
- *   INITIATED SubscriptionPayment older than 24h -> FAILED (stale pending-payment cleanup)
+ *   TRIALING -> EXPIRED   (trial lapsed, never paid)          -> notify admin (SUBSCRIPTION_GRACE)
+ *   ACTIVE   -> GRACE     (period lapsed, grace window starts) -> notify admin (SUBSCRIPTION_GRACE)
+ *   GRACE    -> EXPIRED + Institution.isActive = false         -> notify admin + super (SUBSCRIPTION_SUSPENDED)
+ *   TRIALING ending within 3 days                              -> notify admin (SUBSCRIPTION_TRIAL_ENDING), one-shot
+ *   INITIATED SubscriptionPayment older than 24h -> FAILED     (stale pending-payment cleanup)
+ *
+ * All notification emits are fire-and-forget and de-duplicated by a stable
+ * contextId, so re-running the scan never re-sends.
  */
 export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: number }> {
   const now = new Date();
   let transitioned = 0;
 
-  // TRIALING -> EXPIRED. Deliberately a plain status update, no
-  // Institution.isActive flip — see the reconciliation note on
-  // computeEffectiveSubscriptionState in subscriptionLifecycle.ts for why.
-  const trialExpired = await prisma.subscription.updateMany({
+  // ── TRIALING -> EXPIRED. Fetch the affected rows first so each institute
+  // admin can be notified; the status write stays a bulk updateMany. No
+  // Institution.isActive flip here — see subscriptionLifecycle.ts.
+  const trialLapsed = await prisma.subscription.findMany({
     where: { status: 'TRIALING', trialEndsAt: { lt: now } },
-    data: { status: 'EXPIRED' },
+    select: { id: true, institutionId: true, trialEndsAt: true },
   });
-  transitioned += trialExpired.count;
+  if (trialLapsed.length) {
+    await prisma.subscription.updateMany({
+      where: { id: { in: trialLapsed.map((s) => s.id) } },
+      data: { status: 'EXPIRED' },
+    });
+    transitioned += trialLapsed.length;
+    for (const sub of trialLapsed) {
+      emitSubscriptionNotification({
+        type: 'SUBSCRIPTION_GRACE',
+        institutionId: sub.institutionId,
+        contextId: `${sub.id}:trial-lapsed`,
+        vars: { daysRemaining: 0, graceEndsAt: formatDate(sub.trialEndsAt) },
+      });
+    }
+  }
 
-  // ACTIVE -> GRACE. updateMany can't reference each row's own
-  // currentPeriodEnd to derive graceEndsAt, so loop individually — fine at
-  // this table's expected scale (one row per institution, not per-student).
+  // ── ACTIVE -> GRACE.
   const nowGrace = await prisma.subscription.findMany({
     where: { status: 'ACTIVE', currentPeriodEnd: { lt: now } },
-    select: { id: true, currentPeriodEnd: true },
+    select: { id: true, institutionId: true, currentPeriodEnd: true },
   });
-
   if (nowGrace.length) {
     await Promise.all(
       nowGrace.map((sub) => {
@@ -46,32 +72,70 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
       }),
     );
     transitioned += nowGrace.length;
+    for (const sub of nowGrace) {
+      const graceEndsAt = addGracePeriod(sub.currentPeriodEnd as Date);
+      emitSubscriptionNotification({
+        type: 'SUBSCRIPTION_GRACE',
+        institutionId: sub.institutionId,
+        contextId: `${sub.id}:grace:${(sub.currentPeriodEnd as Date).toISOString()}`,
+        vars: { daysRemaining: daysUntil(graceEndsAt, now), graceEndsAt: formatDate(graceEndsAt) },
+      });
+    }
   }
 
-  // GRACE -> EXPIRED + Institution.isActive = false
+  // ── GRACE -> EXPIRED + Institution.isActive = false
   const expiring = await prisma.subscription.findMany({
     where: { status: 'GRACE', graceEndsAt: { lt: now } },
-    select: { id: true, institutionId: true },
+    select: { id: true, institutionId: true, graceEndsAt: true },
   });
-
   if (expiring.length) {
     for (const sub of expiring) {
       await applyHardSuspend(sub.institutionId, sub.id);
+      emitSubscriptionNotification({
+        type: 'SUBSCRIPTION_SUSPENDED',
+        institutionId: sub.institutionId,
+        audience: 'both',
+        contextId: `${sub.id}:suspended:${formatDate(sub.graceEndsAt)}`,
+        vars: {},
+      });
     }
     transitioned += expiring.length;
   }
 
-  // Stale INITIATED SubscriptionPayments (older than 24h) -> FAILED, so a
-  // never-completed super-admin-generated or tenant self-checkout payment
-  // link doesn't linger forever as a "pending payment" nudge.
+  // ── Proactive: TRIALING subs ending within the warning window. One-shot per
+  // subscription via a fixed contextId (a trial ends exactly once).
+  const trialEndingSoon = await prisma.subscription.findMany({
+    where: {
+      status: 'TRIALING',
+      trialEndsAt: {
+        gte: now,
+        lt: new Date(now.getTime() + TRIAL_ENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000),
+      },
+    },
+    select: { id: true, institutionId: true, trialEndsAt: true },
+  });
+  for (const sub of trialEndingSoon) {
+    emitSubscriptionNotification({
+      type: 'SUBSCRIPTION_TRIAL_ENDING',
+      institutionId: sub.institutionId,
+      contextId: `${sub.id}:trial-ending`,
+      vars: {
+        daysRemaining: daysUntil(sub.trialEndsAt as Date, now),
+        periodEnd: formatDate(sub.trialEndsAt),
+      },
+    });
+  }
+
+  // ── Stale INITIATED SubscriptionPayments (older than 24h) -> FAILED.
   const staleCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const stalePaymentsFailed = await billingRepository.markStaleInitiatedPaymentsFailed(staleCutoff);
 
   logger.info('Subscription lifecycle scan complete', {
     transitioned,
-    trialExpired: trialExpired.count,
+    trialExpired: trialLapsed.length,
     movedToGrace: nowGrace.length,
     hardSuspended: expiring.length,
+    trialEndingWarned: trialEndingSoon.length,
     stalePaymentsFailed,
   });
 

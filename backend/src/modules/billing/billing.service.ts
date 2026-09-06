@@ -7,6 +7,12 @@ import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppEr
 import * as billingRepository from './billing.repository';
 import { SslCommerzClient } from './gateways/sslcommerz.client';
 import { computeEffectiveSubscriptionState } from './subscriptionLifecycle';
+import {
+  emitSubscriptionNotification,
+  formatCycle,
+  formatMoney,
+  formatDate,
+} from './billing.notifications';
 import type {
   CreatePlanDtoType,
   UpdatePlanDtoType,
@@ -213,10 +219,23 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
       expectedCurrency: payment.currency,
       validation,
     });
+    emitSubscriptionNotification({
+      type: 'SUBSCRIPTION_PAYMENT_FAILED',
+      institutionId: payment.institutionId,
+      contextId: `${payment.id}:failed`,
+      vars: {
+        planName: payment.planPrice?.plan?.name ?? 'your plan',
+        billingCycle: formatCycle(payment.billingCycle),
+        amount: formatMoney(payment.amount, payment.currency),
+      },
+    });
     return;
   }
 
   const systemActorId = payment.initiatedByUserId ?? (await getSystemActorUserId());
+
+  let creditedPeriodEnd: Date | null = null;
+  let didCredit = false;
 
   await prisma.$transaction(async (tx) => {
     const updateResult = await tx.subscriptionPayment.updateMany({
@@ -244,6 +263,8 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
     }
 
     const { currentPeriodStart, currentPeriodEnd } = computeExtendedPeriod(subscription, payment.billingCycle);
+    creditedPeriodEnd = currentPeriodEnd;
+    didCredit = true;
 
     await tx.subscription.update({
       where: { id: subscription.id },
@@ -287,6 +308,23 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
     institutionId: payment.institutionId,
     tranId: payment.gatewayTransactionId,
   });
+
+  // Only the caller that actually won the idempotent credit race notifies —
+  // a duplicate IPN/redirect delivery must not send a second confirmation.
+  if (didCredit) {
+    emitSubscriptionNotification({
+      type: 'SUBSCRIPTION_ACTIVATED',
+      institutionId: payment.institutionId,
+      audience: 'both',
+      contextId: payment.id,
+      vars: {
+        planName: payment.planPrice?.plan?.name ?? 'your plan',
+        billingCycle: formatCycle(payment.billingCycle),
+        amount: formatMoney(payment.amount, payment.currency),
+        periodEnd: formatDate(creditedPeriodEnd),
+      },
+    });
+  }
 }
 
 export async function handleIpn(payload: Record<string, unknown>): Promise<void> {
@@ -330,6 +368,22 @@ export async function handleRedirect(
           tranId,
         });
       }
+    }
+  }
+
+  if ((kind === 'fail' || kind === 'cancel') && tranId) {
+    const payment = await billingRepository.findPaymentByGatewayTransactionId(tranId);
+    if (payment && payment.status !== 'SUCCESS') {
+      emitSubscriptionNotification({
+        type: 'SUBSCRIPTION_PAYMENT_FAILED',
+        institutionId: payment.institutionId,
+        contextId: `${payment.id}:redirect-${kind}`,
+        vars: {
+          planName: payment.planPrice?.plan?.name ?? 'your plan',
+          billingCycle: formatCycle(payment.billingCycle),
+          amount: formatMoney(payment.amount, payment.currency),
+        },
+      });
     }
   }
 
@@ -512,6 +566,24 @@ export async function manualOverride(actorUserId: string, institutionId: string,
     reason: dto.reason,
   });
 
+  const ACTION_LABELS: Record<ManualOverrideDtoType['action'], string> = {
+    EXTEND: 'Subscription period extended',
+    MARK_PAID: 'Recorded as paid',
+    FORCE_SUSPEND: 'Account suspended by the platform team',
+    FORCE_REACTIVATE: 'Account reactivated by the platform team',
+  };
+  emitSubscriptionNotification({
+    type: dto.action === 'FORCE_SUSPEND' ? 'SUBSCRIPTION_SUSPENDED' : 'SUBSCRIPTION_ADJUSTED',
+    institutionId,
+    audience: dto.action === 'FORCE_SUSPEND' ? 'both' : 'institute-admin',
+    contextId: `${subscription.id}:override:${Date.now()}`,
+    vars: {
+      action: ACTION_LABELS[dto.action],
+      reason: dto.reason || 'Not specified',
+      periodEnd: formatDate((result as { currentPeriodEnd?: Date | null })?.currentPeriodEnd ?? null),
+    },
+  });
+
   return result;
 }
 
@@ -614,6 +686,18 @@ export async function generatePaymentLinkForInstitution(
       });
     });
 
+  const linkPlan = await billingRepository.findPlanById(dto.planId);
+  emitSubscriptionNotification({
+    type: 'SUBSCRIPTION_PAYMENT_REQUESTED',
+    institutionId,
+    contextId: payment.id,
+    vars: {
+      planName: linkPlan?.name ?? 'your subscription',
+      billingCycle: formatCycle(dto.billingCycle),
+      amount: formatMoney(price.amount, price.currency),
+    },
+  });
+
   return { paymentUrl: result.paymentUrl, paymentId: payment.id };
 }
 
@@ -686,6 +770,17 @@ export async function initiateRefund(actorUserId: string, paymentId: string, dto
       });
     });
 
+  emitSubscriptionNotification({
+    type: 'SUBSCRIPTION_REFUND_INITIATED',
+    institutionId: payment.institutionId,
+    audience: 'both',
+    contextId: `${paymentId}:refund-initiated`,
+    vars: {
+      amount: formatMoney(dto.refundAmount, payment.currency),
+      reason: dto.refundRemarks || 'Not specified',
+    },
+  });
+
   return updated;
 }
 
@@ -719,6 +814,13 @@ export async function queryRefundStatus(paymentId: string) {
       status: 'REFUNDED',
       refundedAt: new Date(),
       refundRawResponse: result.raw as any,
+    });
+    emitSubscriptionNotification({
+      type: 'SUBSCRIPTION_REFUNDED',
+      institutionId: payment.institutionId,
+      audience: 'both',
+      contextId: `${paymentId}:refunded`,
+      vars: { amount: formatMoney(payment.amount, payment.currency) },
     });
   }
 

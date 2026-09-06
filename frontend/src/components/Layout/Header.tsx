@@ -18,10 +18,18 @@ import { getPageLabel } from './Sidebar';
 const severityForType = (type: string): 'info' | 'success' | 'warning' | 'error' => {
   switch (type) {
     case 'PAYMENT_RECEIVED':
+    case 'SUBSCRIPTION_ACTIVATED':
+    case 'SUBSCRIPTION_REFUNDED':
       return 'success';
     case 'FEE_REMINDER':
+    case 'SUBSCRIPTION_TRIAL_ENDING':
+    case 'SUBSCRIPTION_PAYMENT_REQUESTED':
+    case 'SUBSCRIPTION_REFUND_INITIATED':
       return 'warning';
     case 'ABSENCE_ALERT':
+    case 'SUBSCRIPTION_PAYMENT_FAILED':
+    case 'SUBSCRIPTION_GRACE':
+    case 'SUBSCRIPTION_SUSPENDED':
       return 'error';
     default:
       return 'info';
