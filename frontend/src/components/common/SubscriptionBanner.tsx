@@ -11,15 +11,16 @@ export const SubscriptionBanner: React.FC = () => {
   if (user?.role !== 'ADMIN' || !subscription || subscription.bannerLevel === 'none') return null;
 
   const isGrace = subscription.bannerLevel === 'grace';
+  const days = subscription.daysRemaining;
 
   const message = (() => {
     switch (subscription.bannerLevel) {
       case 'trial-ending':
-        return `Your free trial ends in ${subscription.daysRemaining} day(s).`;
+        return `Your free trial ends in ${days} day${days === 1 ? '' : 's'}. Choose a plan to keep access.`;
       case 'renewal-due':
-        return `Your subscription renews in ${subscription.daysRemaining} day(s) — renew now to avoid interruption.`;
+        return `Your subscription renews in ${days} day${days === 1 ? '' : 's'} — renew now to avoid interruption.`;
       case 'grace':
-        return `Your subscription has expired. You have ${subscription.daysRemaining} day(s) left before your account is suspended.`;
+        return `Your subscription has expired. ${days} day${days === 1 ? '' : 's'} left before your account is suspended.`;
       default:
         return null;
     }
@@ -29,22 +30,27 @@ export const SubscriptionBanner: React.FC = () => {
 
   return (
     <div
-      className={`px-4 py-2.5 shadow-md flex items-center justify-between z-40 text-xs sm:text-sm font-medium animate-fadeIn ${
+      role={isGrace ? 'alert' : 'status'}
+      className={`px-4 py-2.5 flex items-center justify-between gap-3 z-40 text-xs sm:text-sm font-medium animate-fadeIn border-b ${
         isGrace
-          ? 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 text-white'
-          : 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white'
+          ? 'bg-rose-600 text-white border-rose-700'
+          : 'bg-amber-500 text-white border-amber-600'
       }`}
     >
-      <div className="flex items-center gap-2.5">
-        {isGrace ? <AlertTriangle className="w-4 h-4 flex-shrink-0" /> : <Clock className="w-4 h-4 flex-shrink-0" />}
-        <span>{message}</span>
+      <div className="flex items-center gap-2 min-w-0">
+        {isGrace ? (
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+        ) : (
+          <Clock className="w-4 h-4 flex-shrink-0" />
+        )}
+        <span className="truncate">{message}</span>
       </div>
 
       <Link
         to="/billing"
-        className="flex items-center gap-1.5 bg-white text-slate-900 hover:bg-slate-50 px-3 py-1.5 rounded-xl font-bold transition-all shadow-xs active:scale-95 text-xs min-h-[36px]"
+        className="flex-shrink-0 inline-flex items-center bg-white text-slate-900 hover:bg-slate-100 px-3 py-1.5 rounded-lg font-semibold transition-colors text-xs min-h-[36px]"
       >
-        {isGrace ? 'Renew Now' : 'View Billing'}
+        {isGrace ? 'Renew now' : 'View billing'}
       </Link>
     </div>
   );
