@@ -138,6 +138,64 @@ Rule-book: `.antigravity/skills/notification-delivery.md`.
       is attached out of band. Needs a DTO/flow that provisions the `GUARDIAN`
       User + `Guardian` + link together (like students already do).
 
+## Phase 5 — Platform billing notifications + billing UI/UX ✅ COMPLETE
+
+- [x] **Platform notifications** for SSLCommerz subscription billing, to BOTH the
+      institute admin(s) and super admins (in-app bell + email). Nine new
+      `NotificationType`s (`SUBSCRIPTION_ACTIVATED`, `_PAYMENT_FAILED`,
+      `_PAYMENT_REQUESTED`, `_ADJUSTED`, `_REFUND_INITIATED`, `_REFUNDED`,
+      `_TRIAL_ENDING`, `_GRACE`, `_SUSPENDED`) with IN_APP + EMAIL templates in
+      `templates.defaults.ts`.
+- [x] **The notification system now supports platform / super-admin recipients.**
+      A super admin's `User.institutionId` is null; the emitted `Notification`
+      row carries the *subject* institution's id, and the read path
+      (`findAllForRecipient` / `markRead` / `markAllRead`) omits the tenant
+      filter when the caller has no `req.tenantId` (super admin). Controller
+      passes `req.tenantId` (not `req.tenantId!`). `findRecipientContact` now
+      matches a user of the job's institution OR a super admin (`institutionId
+      null`) — a genuine cross-tenant recipient still resolves to null → SKIPPED.
+- [x] `billing.notifications.ts` — `emitSubscriptionNotification()` (fire-and-forget)
+      + `notifySubscriptionEvent()` (awaitable, for tests). Resolves the audience
+      via `billing.repository.findAdminUserIdsForInstitution` /
+      `findSuperAdminUserIds`.
+- [x] Wired into `billing.service.ts`: `creditPayment` success (→ both) + fail
+      branch, `handleRedirect` fail/cancel, `manualOverride` (FORCE_SUSPEND → both,
+      else adjusted), `generatePaymentLinkForInstitution`, `initiateRefund` (both),
+      `queryRefundStatus` on confirmed refund (both). And into
+      `billingWorker.runSubscriptionLifecycleScan`: TRIALING→EXPIRED and
+      ACTIVE→GRACE → `SUBSCRIPTION_GRACE`; GRACE→EXPIRED+suspend →
+      `SUBSCRIPTION_SUSPENDED` (both); a proactive one-shot `SUBSCRIPTION_TRIAL_ENDING`
+      for trials ending within 3 days. All de-duped by a stable `contextId`.
+- [x] Frontend bell: `severityForType` + `NOTIFICATION_TYPES` extended for the
+      new types.
+- [x] `tests/billing-notifications.test.ts` — audience resolution, lifecycle-scan
+      emits, and the super-admin read/mark-read path.
+- [x] **Billing UI/UX — full redesign** on the project design system
+      (`.antigravity/skills/senior-frontend-ux-designer.md`):
+      - Institute-admin: `SubscriptionOverview.tsx` (status hero that changes tone
+        by state — calm/active, informational trial, urgent grace/expired — with
+        readable stat facts, cleaner plan cards + per-month/savings hint,
+        `DataTable` payment history, skeleton + error states); `CheckoutResult.tsx`
+        (focused single-purpose result card per state); `PaymentReceipt.tsx`
+        (proper receipt document, readable type, skeleton); `SubscriptionBanner.tsx`
+        (calmer, `role="alert"`/`"status"`).
+      - Super-admin: `SubscriptionBillingPortal.tsx` rewritten in place — standard
+        page-header anatomy, `font-bold`/`rounded-2xl` (was `font-black`/`3xl`),
+        readable `text-sm` base, `DataTable` + server pagination for the
+        subscriptions list, skeleton loaders, and the detail modal restructured
+        into labelled `SectionCard`s (payment history / generate-link / manual
+        override) at `max-w-3xl` instead of one cramped `max-w-2xl` wall.
+
+## Phase 5 — remaining / notes
+
+- [ ] Email still does not actually deliver in production (`EMAIL_ENABLED=false`,
+      no SMTP provider — Mailtrap needs a domain). In-app bell works fully; email
+      renders through nodemailer `jsonTransport`. Set SMTP creds to turn it on.
+- [ ] Verify against a healthy DB — the local run during this build hit a badly
+      degraded Neon (a 2-institution `beforeAll` exceeded 60s; the full
+      `notifications.test.ts` took 51 min). CI (throwaway Postgres) is the real
+      gate.
+
 ### Notification system — remaining
 - [ ] **PR4 — retire `reminderQueue`/`reminderWorker`.** `fee-due` and `absence`
       still run on the old queue (single attempt, no backoff, no dedupe — a

@@ -195,6 +195,26 @@ export async function findPrimaryAdminUser(institutionId: string) {
   });
 }
 
+// ── Notification audience resolution ────────────────────────────────────
+
+/** Every active ADMIN-role login for an institution (the "institute admin" audience). */
+export async function findAdminUserIdsForInstitution(institutionId: string): Promise<string[]> {
+  const rows = await prisma.user.findMany({
+    where: { institutionId, role: 'ADMIN', isActive: true },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
+/** Every active SUPER_ADMIN login (their User.institutionId is null). */
+export async function findSuperAdminUserIds(): Promise<string[]> {
+  const rows = await prisma.user.findMany({
+    where: { role: 'SUPER_ADMIN', isActive: true },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 // ── Cross-tenant super-admin listing ────────────────────────────────────
 
 export async function listSubscriptionsPaginated(params: {

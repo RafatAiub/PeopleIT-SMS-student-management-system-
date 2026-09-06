@@ -9,7 +9,7 @@ export async function listMyNotifications(
 ): Promise<void> {
   try {
     const { notifications, total, unreadCount } = await notificationsService.listMine(
-      req.tenantId!,
+      req.tenantId,
       req.user!.sub,
       req.query as never,
     );
@@ -33,7 +33,7 @@ export async function markNotificationRead(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await notificationsService.markRead(req.tenantId!, req.user!.sub, req.params.id);
+    const result = await notificationsService.markRead(req.tenantId, req.user!.sub, req.params.id);
     successResponse(res, result, 'Notification marked as read');
   } catch (error) {
     next(error);
@@ -46,7 +46,7 @@ export async function markAllNotificationsRead(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await notificationsService.markAllRead(req.tenantId!, req.user!.sub);
+    const result = await notificationsService.markAllRead(req.tenantId, req.user!.sub);
     successResponse(res, result, 'All notifications marked as read');
   } catch (error) {
     next(error);

@@ -13,17 +13,19 @@ export async function createMany(rows: Prisma.NotificationCreateManyInput[]) {
 }
 
 /**
- * Always filtered by BOTH institutionId and recipientUserId — a notification is
- * private to one user, so tenant scoping alone is not sufficient here.
+ * Always filtered by recipientUserId (a notification is private to one user).
+ * institutionId is additionally applied for tenant users; a super admin has no
+ * tenant, so it is omitted and they see every notification addressed to them
+ * (which, by construction, are only platform-level ones).
  */
 export async function findAllForRecipient(
-  institutionId: string,
+  institutionId: string | undefined,
   recipientUserId: string,
   params: ListParams,
 ) {
+  const scope = { recipientUserId, ...(institutionId ? { institutionId } : {}) };
   const where: Prisma.NotificationWhereInput = {
-    institutionId,
-    recipientUserId,
+    ...scope,
     ...(params.unreadOnly ? { readAt: null } : {}),
   };
 
@@ -44,7 +46,7 @@ export async function findAllForRecipient(
       },
     }),
     prisma.notification.count({ where }),
-    prisma.notification.count({ where: { institutionId, recipientUserId, readAt: null } }),
+    prisma.notification.count({ where: { ...scope, readAt: null } }),
   ]);
 
   return { notifications, total, unreadCount };
@@ -55,28 +57,32 @@ export async function findAllForRecipient(
  * throwing — the caller turns a 0 count into a 404 without ever confirming
  * whether that id exists under another user or another institution.
  */
-export async function markRead(institutionId: string, recipientUserId: string, id: string) {
+export async function markRead(
+  institutionId: string | undefined,
+  recipientUserId: string,
+  id: string,
+) {
   return prisma.notification.updateMany({
-    where: { id, institutionId, recipientUserId, readAt: null },
+    where: { id, recipientUserId, readAt: null, ...(institutionId ? { institutionId } : {}) },
     data: { readAt: new Date() },
   });
 }
 
 export async function existsForRecipient(
-  institutionId: string,
+  institutionId: string | undefined,
   recipientUserId: string,
   id: string,
 ): Promise<boolean> {
   const found = await prisma.notification.findFirst({
-    where: { id, institutionId, recipientUserId },
+    where: { id, recipientUserId, ...(institutionId ? { institutionId } : {}) },
     select: { id: true },
   });
   return !!found;
 }
 
-export async function markAllRead(institutionId: string, recipientUserId: string) {
+export async function markAllRead(institutionId: string | undefined, recipientUserId: string) {
   return prisma.notification.updateMany({
-    where: { institutionId, recipientUserId, readAt: null },
+    where: { recipientUserId, readAt: null, ...(institutionId ? { institutionId } : {}) },
     data: { readAt: new Date() },
   });
 }
@@ -187,9 +193,17 @@ export async function upsertPreferences(
 
 // ── Recipient contact ──────────────────────────────────────────────────────
 
+/**
+ * Look up a recipient's contact details. Matches either a user of the job's
+ * own institution OR a super admin (User.institutionId === null): a platform
+ * billing notification legitimately targets super admins while the job's
+ * institutionId is the SUBJECT institution. A user belonging to a *different*
+ * tenant still resolves to null, so the worker records SKIPPED rather than
+ * delivering across a tenant boundary.
+ */
 export async function findRecipientContact(institutionId: string, userId: string) {
   return prisma.user.findFirst({
-    where: { id: userId, institutionId },
+    where: { id: userId, OR: [{ institutionId }, { institutionId: null }] },
     select: { id: true, firstName: true, lastName: true, email: true, phone: true },
   });
 }

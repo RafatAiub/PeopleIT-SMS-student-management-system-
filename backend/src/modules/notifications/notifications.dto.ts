@@ -1,12 +1,41 @@
 import { z } from 'zod';
 
 // The notification "type" is the template key — one entry per business event.
-// Keep in sync with templates.defaults.ts.
+// Keep in sync with DEFAULT_CHANNELS (notifications.service.ts) and
+// DEFAULT_TEMPLATES (templates.defaults.ts) — both are exhaustive Records
+// keyed on this list, so a missing entry is a compile error.
 export const NOTIFICATION_TYPES = [
+  // Student fees
   'INVOICE_ISSUED',
   'PAYMENT_RECEIVED',
   'FEE_REMINDER',
   'ABSENCE_ALERT',
+  // Platform subscription billing (institute admin + super admin recipients)
+  'SUBSCRIPTION_ACTIVATED',
+  'SUBSCRIPTION_PAYMENT_FAILED',
+  'SUBSCRIPTION_PAYMENT_REQUESTED',
+  'SUBSCRIPTION_ADJUSTED',
+  'SUBSCRIPTION_REFUND_INITIATED',
+  'SUBSCRIPTION_REFUNDED',
+  'SUBSCRIPTION_TRIAL_ENDING',
+  'SUBSCRIPTION_GRACE',
+  'SUBSCRIPTION_SUSPENDED',
+] as const;
+
+// Subset that concerns platform subscription billing — used by the frontend
+// bell for icon severity and by tests. A billing notification's institutionId
+// is the *subject* institution even when the recipient is a super admin whose
+// own User.institutionId is null.
+export const SUBSCRIPTION_NOTIFICATION_TYPES = [
+  'SUBSCRIPTION_ACTIVATED',
+  'SUBSCRIPTION_PAYMENT_FAILED',
+  'SUBSCRIPTION_PAYMENT_REQUESTED',
+  'SUBSCRIPTION_ADJUSTED',
+  'SUBSCRIPTION_REFUND_INITIATED',
+  'SUBSCRIPTION_REFUNDED',
+  'SUBSCRIPTION_TRIAL_ENDING',
+  'SUBSCRIPTION_GRACE',
+  'SUBSCRIPTION_SUSPENDED',
 ] as const;
 
 export const NotificationTypeEnum = z.enum(NOTIFICATION_TYPES);
