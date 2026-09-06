@@ -1,14 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, ArrowLeft, Loader2 } from 'lucide-react';
 import { billingApi, type MySubscription } from '@/api/billing.api';
 import { BILLING_SUBSCRIPTION_KEY } from '@/hooks/useBilling';
+import { Button } from '@/components/ui/Button';
 
 type RedirectStatus = 'success' | 'fail' | 'cancel' | null;
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 30000;
+
+type Accent = 'success' | 'pending' | 'danger' | 'warning';
+
+const ACCENT: Record<Accent, { ring: string; icon: string }> = {
+  success: { ring: 'bg-emerald-100 dark:bg-emerald-500/15', icon: 'text-emerald-600 dark:text-emerald-400' },
+  pending: { ring: 'bg-blue-100 dark:bg-blue-500/15', icon: 'text-blue-600 dark:text-blue-400' },
+  danger: { ring: 'bg-rose-100 dark:bg-rose-500/15', icon: 'text-rose-600 dark:text-rose-400' },
+  warning: { ring: 'bg-amber-100 dark:bg-amber-500/15', icon: 'text-amber-600 dark:text-amber-400' },
+};
 
 const CheckoutResult: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -35,18 +45,11 @@ const CheckoutResult: React.FC = () => {
       }
     };
 
-    // Refreshes the shared React Query cache entry (BILLING_SUBSCRIPTION_KEY)
-    // powering the paywall gate and banner everywhere else in the app, so
-    // they pick up the newly-ACTIVE status immediately instead of waiting
-    // for their own 60s poll. This component's own tight polling loop above
-    // is unrelated and unaffected.
     const invalidateSharedSubscriptionCache = () => {
       queryClient.invalidateQueries({ queryKey: [BILLING_SUBSCRIPTION_KEY] });
     };
 
     if (redirectStatus === 'success') {
-      // The redirect might arrive before the IPN has credited the payment —
-      // poll briefly for the authoritative status rather than trusting the URL.
       fetchOnce().then((sub) => {
         if (sub?.status === 'ACTIVE') {
           setPolling(false);
@@ -64,7 +67,6 @@ const CheckoutResult: React.FC = () => {
         }, POLL_INTERVAL_MS);
       });
     } else {
-      // fail/cancel — no polling needed, just fetch current status for reference.
       fetchOnce();
     }
 
@@ -72,79 +74,87 @@ const CheckoutResult: React.FC = () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
     };
-    // queryClient is a stable reference from the provider, intentionally
-    // omitted so this effect only re-runs when redirectStatus changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [redirectStatus]);
 
   const isActive = subscription?.status === 'ACTIVE';
 
-  const renderContent = () => {
-    if (redirectStatus === 'fail') {
+  const view: { accent: Accent; Icon: React.ComponentType<{ className?: string }>; title: string; message: string } = (() => {
+    if (redirectStatus === 'fail')
       return {
-        icon: <XCircle className="w-14 h-14 text-red-500" />,
-        title: 'Payment Failed',
-        message: 'Your payment could not be completed. Please try again or use a different payment method.',
+        accent: 'danger',
+        Icon: XCircle,
+        title: 'Payment failed',
+        message: 'The payment could not be completed. No charge was made — you can try again from the billing page.',
       };
-    }
-    if (redirectStatus === 'cancel') {
+    if (redirectStatus === 'cancel')
       return {
-        icon: <XCircle className="w-14 h-14 text-amber-500" />,
-        title: 'Payment Cancelled',
-        message: 'You cancelled the payment before it was completed. No charges were made.',
+        accent: 'warning',
+        Icon: XCircle,
+        title: 'Payment cancelled',
+        message: 'You left the checkout before it finished. No charge was made.',
       };
-    }
-    if (polling) {
+    if (polling)
       return {
-        icon: <Clock className="w-14 h-14 text-blue-500 animate-pulse" />,
-        title: 'Processing Payment',
-        message: 'Payment is being processed, please check back shortly.',
+        accent: 'pending',
+        Icon: Loader2,
+        title: 'Confirming your payment',
+        message: 'This usually takes a few seconds. You can safely stay on this page.',
       };
-    }
-    if (isActive) {
+    if (isActive)
       return {
-        icon: <CheckCircle2 className="w-14 h-14 text-emerald-500" />,
-        title: 'Payment Successful',
-        message: "Payment successful — your subscription is now active.",
+        accent: 'success',
+        Icon: CheckCircle2,
+        title: 'You\'re all set',
+        message: 'Your payment went through and your subscription is active.',
       };
-    }
     return {
-      icon: <Clock className="w-14 h-14 text-amber-500" />,
-      title: 'Still Processing',
-      message: 'Payment is being processed, please check back shortly.',
+      accent: 'warning',
+      Icon: Clock,
+      title: 'Still processing',
+      message: 'Your payment is taking a little longer than usual. Check the billing page again shortly.',
     };
-  };
+  })();
 
-  const content = renderContent();
+  const accent = ACCENT[view.accent];
 
   return (
-    <div className="max-w-xl mx-auto py-16 animate-fadeIn">
-      <div className="glass-card p-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl text-center space-y-5">
-        <div className="flex justify-center">{content.icon}</div>
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">{content.title}</h2>
-        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{content.message}</p>
+    <div className="max-w-md mx-auto py-16 px-4 animate-fadeIn">
+      <div className="glass-card border border-slate-200 dark:border-white/10 rounded-2xl p-8 text-center">
+        <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center ${accent.ring}`}>
+          <view.Icon className={`w-8 h-8 ${accent.icon} ${polling ? 'animate-spin' : ''}`} />
+        </div>
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white mt-5">{view.title}</h1>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">{view.message}</p>
+
+        {error && <p className="text-xs text-rose-500 mt-3">{error}</p>}
 
         {subscription && (
-          <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-white/5 text-xs text-left space-y-1">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Plan:</span>
-              <span className="font-bold text-slate-900 dark:text-white">{subscription.plan?.name}</span>
+          <div className="mt-6 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-950/50 p-4 text-left text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Plan</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{subscription.plan?.name ?? '—'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Status:</span>
-              <span className="font-bold text-slate-900 dark:text-white">{subscription.status}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500 dark:text-slate-400">Status</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{subscription.status}</span>
             </div>
+            {subscription.currentPeriodEnd && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 dark:text-slate-400">Renews on</span>
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
-        <Link
-          to="/billing"
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-blue-500/20 text-xs font-bold"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Billing
+        <Link to="/billing" className="block mt-6">
+          <Button variant="gradient" className="w-full justify-center">
+            <ArrowLeft className="w-4 h-4" /> Back to billing
+          </Button>
         </Link>
       </div>
     </div>
