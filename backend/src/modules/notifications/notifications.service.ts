@@ -63,13 +63,67 @@ export function buildDedupeKey(
 }
 
 /**
+ * Writes an IN_APP notification in the same call that triggered it, rather than
+ * via the queue.
+ *
+ * IN_APP is one indexed insert with no external provider — the reasons the
+ * other channels are queued (a slow SMTP server, a rate-limited SMS gateway)
+ * simply do not apply. Routing it through BullMQ only coupled the bell to
+ * Redis: a queue outage or a misconfigured REDIS_URL then silently emptied the
+ * one channel every user actually watches. EMAIL/SMS still go through the queue.
+ *
+ * Idempotency is unchanged — the same dedupeKey claims the same
+ * NotificationDelivery row under the same status guard the worker uses, so a
+ * replay (or a stray queued IN_APP job from an older build) still cannot
+ * double-write.
+ */
+async function deliverInAppNow(params: {
+  institutionId: string;
+  type: NotificationType;
+  recipientUserId: string;
+  vars: TemplateVars;
+  data?: Record<string, unknown>;
+  dedupeKey: string;
+}): Promise<void> {
+  const skeleton = {
+    institutionId: params.institutionId,
+    channel: 'IN_APP' as NotificationChannel,
+    recipient: params.recipientUserId,
+    templateKey: params.type,
+  };
+
+  const delivery = await notificationRepository.upsertQueuedDelivery(params.dedupeKey, skeleton);
+  if (delivery.status === 'SENT') return;
+
+  const claimed = await notificationRepository.claimForSend(delivery.id);
+  if (!claimed) return;
+
+  const institutionName = await notificationRepository.findInstitutionName(params.institutionId);
+  const message = await renderTemplate(params.institutionId, params.type, 'IN_APP', {
+    institutionName,
+    ...params.vars,
+  });
+
+  const created = await notificationRepository.createInAppNotification({
+    institutionId: params.institutionId,
+    recipientUserId: params.recipientUserId,
+    type: params.type,
+    title: message.subject ?? params.type,
+    body: message.body,
+    data: params.data,
+  });
+
+  await notificationRepository.markDeliverySent(delivery.id, created.id, created.id);
+}
+
+/**
  * The single entry point for emitting a notification. Callers state WHAT
  * happened and WHO should hear about it; every decision about channels,
  * templates, preferences and delivery lives behind this function.
  *
- * Nothing is sent inline: each (recipient x channel) becomes one queued job, so
- * a slow SMTP server or a rate-limited SMS gateway can never block the request
- * that triggered it.
+ * IN_APP is written synchronously here; EMAIL/SMS each become one queued job,
+ * so a slow SMTP server or a rate-limited SMS gateway can never block the
+ * request that triggered it.
  */
 export async function notify(input: NotifyInput): Promise<void> {
   const recipients = [...new Set(input.recipientUserIds)].filter(Boolean);
@@ -119,26 +173,38 @@ export async function notify(input: NotifyInput): Promise<void> {
       // Per-job try/catch: one unreachable queue or one bad channel must not
       // stop the remaining recipients/channels from being scheduled.
       try {
-        await enqueueNotification({
-          institutionId: input.institutionId,
-          type: input.type,
-          recipientUserId,
-          channel,
-          vars: input.vars as Record<string, string | number | null | undefined>,
-          data: input.data,
-          contextId: input.contextId,
-          dedupeKey,
-        });
+        if (channel === 'IN_APP') {
+          await deliverInAppNow({
+            institutionId: input.institutionId,
+            type: input.type,
+            recipientUserId,
+            vars: input.vars,
+            data: input.data,
+            dedupeKey,
+          });
+        } else {
+          await enqueueNotification({
+            institutionId: input.institutionId,
+            type: input.type,
+            recipientUserId,
+            channel,
+            vars: input.vars as Record<string, string | number | null | undefined>,
+            data: input.data,
+            contextId: input.contextId,
+            dedupeKey,
+          });
+        }
       } catch (error) {
-        logger.error('Failed to enqueue notification', {
+        logger.error('Failed to dispatch notification', {
           dedupeKey,
+          channel,
           error: error instanceof Error ? error.message : String(error),
         });
       }
     }
   }
 
-  logger.info('Notification queued', {
+  logger.info('Notification dispatched', {
     institutionId: input.institutionId,
     type: input.type,
     recipients: recipients.length,

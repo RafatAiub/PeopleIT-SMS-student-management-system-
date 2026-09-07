@@ -121,6 +121,28 @@ Rule-book: `.antigravity/skills/notification-delivery.md`.
       comment in `backend/.env`, and `backend/.env.bak.20260903`). Production
       still needs a real reachable instance.
 
+### Notification system — in-app bell decoupled from Redis (2026-09-07)
+- [x] **IN_APP notifications are now written synchronously in `notify()`**, not via
+      the queue. TS-2/TS-3 QA on production: the bell showed no count and a real
+      fee invoice produced no notification, even though the invoice itself landed.
+      Root cause: every channel — including IN_APP — was routed through BullMQ, so
+      whenever the production worker/queue wasn't draining (misconfigured
+      `REDIS_URL`, Upstash free-tier command budget, a transient outage) the one
+      channel users actually watch went silently empty. Fix: `notifications.service.ts`
+      now has `deliverInAppNow()` — same `dedupeKey` → same status-guarded
+      `NotificationDelivery` claim the worker uses → `notification.create` →
+      `markDeliverySent`, all in-band. EMAIL/SMS still enqueue (they need
+      retry/backoff and must not block the request). The worker's IN_APP adapter
+      is unchanged and harmless: a stray queued IN_APP job from an older build
+      no-ops on the `status === 'SENT'` guard. `notifications.test.ts` updated
+      (IN_APP asserted as an inline DB write, not an enqueue).
+- [ ] **Still queue-dependent, so production `REDIS_URL` must point at a live
+      instance:** EMAIL delivery logging, SMS, `feeReminders`, and the daily
+      `subscriptionBilling` lifecycle scan (trial-ending / grace / suspend
+      transitions). Verify the Render env var matches the working Upstash
+      `rediss://…@great-griffon-42513.upstash.io:6379` URL (the repo `.env`
+      deliberately points at localhost for dev).
+
 ### Notification system — bug found + fixed during live verification (2026-09-03)
 - [x] **BullMQ rejected the job id.** `dedupeKey` (`inst:type:user:channel:ctx`) was
       passed straight as the BullMQ `jobId`; BullMQ forbids `:` in a custom id
