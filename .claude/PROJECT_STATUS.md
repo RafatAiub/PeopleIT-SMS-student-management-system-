@@ -143,6 +143,59 @@ Rule-book: `.antigravity/skills/notification-delivery.md`.
       `rediss://…@great-griffon-42513.upstash.io:6379` URL (the repo `.env`
       deliberately points at localhost for dev).
 
+### Notification + billing — full QA test/fix pass (2026-09-07, HEAD c626ed6)
+A circular find→fix→retest sweep over the notification + subscription-billing
+work. Backend suites `notifications` (24) + `billing-notifications` (7) green;
+frontend typecheck + lint + build clean; 14/14 production API smoke checks pass
+(delivery, read, RBAC boundaries, unread-count).
+
+- [x] **`notify()` fan-out was serial.** The inline IN_APP write is several DB
+      round-trips; done in a sequential per-recipient/per-channel loop it made a
+      multi-recipient notification as slow as the sum of its parts and pushed
+      EMAIL/SMS enqueues out behind it (visible as flaky billing-notification
+      tests). Now `Promise.all` across recipients × channels; each unit keeps its
+      own dedupeKey/delivery row so idempotency is unchanged.
+- [x] **`notifySubscriptionEvent` was fire-and-forget internally.** Now truly
+      awaits `notify()`. `runSubscriptionLifecycleScan()` collects the
+      notifications its transitions produce and dispatches them together at the
+      end via awaited `notifySubscriptionEvent`, each isolated. Production request
+      callers still use the `emitSubscriptionNotification` fire-and-forget wrapper,
+      so request latency is unchanged.
+- [x] **Super-admin 500 on notification prefs/templates/test.** Those controllers
+      used `req.tenantId!`; a SUPER_ADMIN has no tenant, so a
+      `where: { institutionId: undefined }` reached Prisma. Added a
+      `requireTenant()` guard returning a clean 400. (No frontend consumer yet —
+      the pref/template editor is still PR5.)
+- [x] **`SUBSCRIPTION_TRIAL_EXPIRED` — new type.** A lapsed trial → EXPIRED with
+      no grace and no `isActive` flip, but the scan emitted `SUBSCRIPTION_GRACE`
+      ("N days before suspension") for it. Dedicated type + IN_APP/EMAIL templates.
+- [x] **Lingering "Payment requested by PeopleIT" banner.** Paying a
+      platform-requested payment via a fresh checkout left the super-admin
+      INITIATED row behind. `creditPayment` now marks other INITIATED/PENDING
+      payments for the institution CANCELLED in the same tx.
+- [x] **Super-admin notification deep-link.** `Header.tsx` — a SUPER_ADMIN
+      clicking a `SUBSCRIPTION_*` notification hit `/billing` (ADMIN-only route);
+      `resolveNotificationLink()` rewrites the prefix to `/super-admin/billing`
+      for that role.
+- [x] **Nested-modal Escape.** `Modal.tsx` — module-level open-modal stack; Esc
+      closes only the top-most modal (was closing a confirm dialog and its parent
+      together).
+- [x] **Billing portal bundle.** `AnalyticsTab` (sole `recharts` importer) split
+      to `pages/superadmin/billing/AnalyticsTab.tsx` and `React.lazy`-loaded —
+      portal chunk 405 kB → 30 kB.
+- [x] **`SubscriptionBanner`** used `truncate` on the critical grace/trial line;
+      now `line-clamp-2` on mobile, full text from `sm:`.
+- [x] **Boot warning** when `APP_URL`/`FRONTEND_URL` still hold localhost defaults
+      under `NODE_ENV=production` (they drive the SSLCommerz callback +
+      post-payment redirect).
+- [ ] **TS-4/5 — SSLCommerz sandbox renewal.** Not reproduced from code review;
+      renewal shares the `initiateCheckout` path that self-checkout uses. Leading
+      suspect is a Render env value (`FRONTEND_URL`/`APP_URL`). Needs the exact
+      failure symptom + a Render env check.
+- [ ] Minor / deferred: `manualOverride` MARK_PAID doesn't supersede pending
+      payments (rare, super-admin sees the row); `useMyPayments` has no error UI
+      (fails silently to an empty table).
+
 ### Notification system — bug found + fixed during live verification (2026-09-03)
 - [x] **BullMQ rejected the job id.** `dedupeKey` (`inst:type:user:channel:ctx`) was
       passed straight as the BullMQ `jobId`; BullMQ forbids `:` in a custom id
