@@ -138,71 +138,80 @@ export async function notify(input: NotifyInput): Promise<void> {
 
   const channels = input.channels ?? DEFAULT_CHANNELS[input.type] ?? ['IN_APP'];
 
-  for (const recipientUserId of recipients) {
-    const disabled = await notificationRepository.findDisabledChannels(
-      input.institutionId,
-      recipientUserId,
-      input.type,
-    );
-
-    for (const channel of channels) {
-      const dedupeKey = buildDedupeKey(
+  // Fan out across every (recipient x channel) concurrently. Each unit is
+  // independent (its own dedupeKey, its own delivery row), and the inline
+  // IN_APP write is several DB round-trips — running them in series made a
+  // multi-recipient notification as slow as the sum of its parts and delayed
+  // the EMAIL/SMS enqueues behind it.
+  await Promise.all(
+    recipients.map(async (recipientUserId) => {
+      const disabled = await notificationRepository.findDisabledChannels(
         input.institutionId,
-        input.type,
         recipientUserId,
-        channel,
-        input.contextId,
+        input.type,
       );
 
-      // An opted-out channel is recorded rather than dropped, so "why didn't
-      // they get it?" is answerable from the delivery log alone.
-      if (disabled.has(channel)) {
-        await notificationRepository.recordSkippedDelivery(
-          dedupeKey,
-          {
-            institutionId: input.institutionId,
+      await Promise.all(
+        channels.map(async (channel) => {
+          const dedupeKey = buildDedupeKey(
+            input.institutionId,
+            input.type,
+            recipientUserId,
             channel,
-            recipient: recipientUserId,
-            templateKey: input.type,
-          },
-          'recipient opted out of this channel',
-        );
-        continue;
-      }
+            input.contextId,
+          );
 
-      // Per-job try/catch: one unreachable queue or one bad channel must not
-      // stop the remaining recipients/channels from being scheduled.
-      try {
-        if (channel === 'IN_APP') {
-          await deliverInAppNow({
-            institutionId: input.institutionId,
-            type: input.type,
-            recipientUserId,
-            vars: input.vars,
-            data: input.data,
-            dedupeKey,
-          });
-        } else {
-          await enqueueNotification({
-            institutionId: input.institutionId,
-            type: input.type,
-            recipientUserId,
-            channel,
-            vars: input.vars as Record<string, string | number | null | undefined>,
-            data: input.data,
-            contextId: input.contextId,
-            dedupeKey,
-          });
-        }
-      } catch (error) {
-        logger.error('Failed to dispatch notification', {
-          dedupeKey,
-          channel,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-  }
+          // An opted-out channel is recorded rather than dropped, so "why
+          // didn't they get it?" is answerable from the delivery log alone.
+          if (disabled.has(channel)) {
+            await notificationRepository.recordSkippedDelivery(
+              dedupeKey,
+              {
+                institutionId: input.institutionId,
+                channel,
+                recipient: recipientUserId,
+                templateKey: input.type,
+              },
+              'recipient opted out of this channel',
+            );
+            return;
+          }
+
+          // Per-unit try/catch: one unreachable queue or one bad channel must
+          // not stop the remaining recipients/channels from being scheduled.
+          try {
+            if (channel === 'IN_APP') {
+              await deliverInAppNow({
+                institutionId: input.institutionId,
+                type: input.type,
+                recipientUserId,
+                vars: input.vars,
+                data: input.data,
+                dedupeKey,
+              });
+            } else {
+              await enqueueNotification({
+                institutionId: input.institutionId,
+                type: input.type,
+                recipientUserId,
+                channel,
+                vars: input.vars as Record<string, string | number | null | undefined>,
+                data: input.data,
+                contextId: input.contextId,
+                dedupeKey,
+              });
+            }
+          } catch (error) {
+            logger.error('Failed to dispatch notification', {
+              dedupeKey,
+              channel,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }),
+      );
+    }),
+  );
 
   logger.info('Notification dispatched', {
     institutionId: input.institutionId,

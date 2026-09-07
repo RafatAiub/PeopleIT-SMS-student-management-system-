@@ -4,10 +4,8 @@ import { logger } from '../utils/logger';
 import { prisma } from '../config/prisma';
 import { addGracePeriod, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
 import * as billingRepository from '../modules/billing/billing.repository';
-import {
-  emitSubscriptionNotification,
-  formatDate,
-} from '../modules/billing/billing.notifications';
+import { notifySubscriptionEvent, formatDate } from '../modules/billing/billing.notifications';
+import type { SubscriptionNotificationInput } from '../modules/billing/billing.notifications';
 
 /** Whole days from `from` until `target`, floor-clamped at 0. */
 function daysUntil(target: Date, from: Date): number {
@@ -26,12 +24,18 @@ const TRIAL_ENDING_WINDOW_DAYS = 3;
  *   TRIALING ending within 3 days                              -> notify admin (SUBSCRIPTION_TRIAL_ENDING), one-shot
  *   INITIATED SubscriptionPayment older than 24h -> FAILED     (stale pending-payment cleanup)
  *
- * All notification emits are fire-and-forget and de-duplicated by a stable
- * contextId, so re-running the scan never re-sends.
+ * Notifications are de-duplicated by a stable contextId, so re-running the
+ * scan never re-sends; they are dispatched together at the end of the scan.
  */
 export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: number }> {
   const now = new Date();
   let transitioned = 0;
+
+  // Notifications are collected and dispatched together at the end of the scan
+  // rather than fired mid-loop: the scan job only "completes" once they have
+  // actually been dispatched, and one failed emit cannot abort the status
+  // transitions that already happened.
+  const notifications: SubscriptionNotificationInput[] = [];
 
   // ── TRIALING -> EXPIRED. Fetch the affected rows first so each institute
   // admin can be notified; the status write stays a bulk updateMany. No
@@ -47,7 +51,7 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
     });
     transitioned += trialLapsed.length;
     for (const sub of trialLapsed) {
-      emitSubscriptionNotification({
+      notifications.push({
         type: 'SUBSCRIPTION_GRACE',
         institutionId: sub.institutionId,
         contextId: `${sub.id}:trial-lapsed`,
@@ -74,7 +78,7 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
     transitioned += nowGrace.length;
     for (const sub of nowGrace) {
       const graceEndsAt = addGracePeriod(sub.currentPeriodEnd as Date);
-      emitSubscriptionNotification({
+      notifications.push({
         type: 'SUBSCRIPTION_GRACE',
         institutionId: sub.institutionId,
         contextId: `${sub.id}:grace:${(sub.currentPeriodEnd as Date).toISOString()}`,
@@ -91,7 +95,7 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
   if (expiring.length) {
     for (const sub of expiring) {
       await applyHardSuspend(sub.institutionId, sub.id);
-      emitSubscriptionNotification({
+      notifications.push({
         type: 'SUBSCRIPTION_SUSPENDED',
         institutionId: sub.institutionId,
         audience: 'both',
@@ -115,7 +119,7 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
     select: { id: true, institutionId: true, trialEndsAt: true },
   });
   for (const sub of trialEndingSoon) {
-    emitSubscriptionNotification({
+    notifications.push({
       type: 'SUBSCRIPTION_TRIAL_ENDING',
       institutionId: sub.institutionId,
       contextId: `${sub.id}:trial-ending`,
@@ -129,6 +133,21 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
   // ── Stale INITIATED SubscriptionPayments (older than 24h) -> FAILED.
   const staleCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
   const stalePaymentsFailed = await billingRepository.markStaleInitiatedPaymentsFailed(staleCutoff);
+
+  // Dispatch every notification the transitions above produced. Each is
+  // isolated so one failure neither aborts the others nor fails the scan —
+  // the status changes are already committed.
+  await Promise.all(
+    notifications.map((n) =>
+      notifySubscriptionEvent(n).catch((error) => {
+        logger.error('Failed to emit subscription lifecycle notification', {
+          type: n.type,
+          institutionId: n.institutionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }),
+    ),
+  );
 
   logger.info('Subscription lifecycle scan complete', {
     transitioned,

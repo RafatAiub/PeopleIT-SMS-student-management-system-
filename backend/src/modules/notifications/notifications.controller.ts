@@ -1,6 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import * as notificationsService from './notifications.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
+import { BadRequestError } from '../../utils/AppError';
+
+// Preferences and templates are per-institution. A SUPER_ADMIN has no tenant of
+// their own (User.institutionId is null), so these endpoints need a concrete
+// institution context — surface that as a clean 400 rather than letting a
+// `where: { institutionId: undefined }` reach Prisma as a 500.
+function requireTenant(req: Request): string {
+  if (!req.tenantId) {
+    throw new BadRequestError('This endpoint requires an institution context.');
+  }
+  return req.tenantId;
+}
 
 export async function listMyNotifications(
   req: Request,
@@ -59,7 +71,7 @@ export async function getMyPreferences(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const prefs = await notificationsService.listPreferences(req.tenantId!, req.user!.sub);
+    const prefs = await notificationsService.listPreferences(requireTenant(req), req.user!.sub);
     successResponse(res, prefs);
   } catch (error) {
     next(error);
@@ -73,7 +85,7 @@ export async function updateMyPreferences(
 ): Promise<void> {
   try {
     const prefs = await notificationsService.updatePreferences(
-      req.tenantId!,
+      requireTenant(req),
       req.user!.sub,
       req.body.preferences,
     );
@@ -89,7 +101,7 @@ export async function listTemplates(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const templates = await notificationsService.listTemplates(req.tenantId!);
+    const templates = await notificationsService.listTemplates(requireTenant(req));
     successResponse(res, templates);
   } catch (error) {
     next(error);
@@ -103,7 +115,7 @@ export async function upsertTemplate(
 ): Promise<void> {
   try {
     const saved = await notificationsService.upsertTemplate(
-      req.tenantId!,
+      requireTenant(req),
       req.params.key as never,
       req.params.channel as never,
       req.body,
@@ -121,7 +133,7 @@ export async function sendTestNotification(
 ): Promise<void> {
   try {
     const result = await notificationsService.sendTest(
-      req.tenantId!,
+      requireTenant(req),
       req.user!.sub,
       req.body.type,
       req.body.channel,
