@@ -154,3 +154,23 @@ if (!parseResult.success) {
 
 export const env = parseResult.data;
 export type Env = z.infer<typeof envSchema>;
+
+// Loud, non-fatal warning for a misconfigured production deploy: APP_URL and
+// FRONTEND_URL both have localhost defaults and are NOT in the superRefine
+// above (they're optional for local dev). But in production they drive the
+// SSLCommerz callback URLs and the post-payment browser redirect — if either
+// still points at localhost, checkout/renewal "completes" on the gateway and
+// then dead-ends on an unreachable page. Surface it at boot instead.
+if (env.NODE_ENV === 'production') {
+  for (const [key, value] of [
+    ['APP_URL', env.APP_URL],
+    ['FRONTEND_URL', env.FRONTEND_URL],
+  ] as const) {
+    if (value.includes('localhost') || value.includes('127.0.0.1')) {
+      console.warn(
+        `⚠️  ${key} is "${value}" in production — SSLCommerz redirects and ` +
+          `post-payment navigation will break. Set it to the public URL.`,
+      );
+    }
+  }
+}

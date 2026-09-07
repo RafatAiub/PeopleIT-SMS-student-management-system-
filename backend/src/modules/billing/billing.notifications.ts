@@ -1,6 +1,6 @@
 import type { BillingCycle } from '@prisma/client';
 import { logger } from '../../utils/logger';
-import { notifySafe } from '../notifications/notifications.service';
+import { notify } from '../notifications/notifications.service';
 import type { NotificationType } from '../notifications/notifications.dto';
 import * as billingRepository from './billing.repository';
 
@@ -57,10 +57,11 @@ export interface SubscriptionNotificationInput {
 }
 
 /**
- * Resolve the audience and emit. Awaitable — used directly by tests and any
- * caller that wants to be sure the enqueue was attempted. The `notify()` call
- * inside is itself non-blocking on delivery (it only queues), so awaiting this
- * costs one or two quick DB lookups, not a network send.
+ * Resolve the audience and emit. Fully awaitable: it resolves the recipient
+ * ids and then awaits notify(), which writes IN_APP inline and enqueues
+ * EMAIL/SMS. Tests await this for a hard "the notification was dispatched"
+ * guarantee; production callers go through emitSubscriptionNotification()
+ * below, which makes it fire-and-forget.
  */
 export async function notifySubscriptionEvent(input: SubscriptionNotificationInput): Promise<void> {
   const adminIds = await billingRepository.findAdminUserIdsForInstitution(input.institutionId);
@@ -77,7 +78,7 @@ export async function notifySubscriptionEvent(input: SubscriptionNotificationInp
     return;
   }
 
-  notifySafe({
+  await notify({
     institutionId: input.institutionId,
     type: input.type,
     recipientUserIds,

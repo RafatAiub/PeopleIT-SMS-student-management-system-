@@ -12,15 +12,36 @@ interface ModalProps {
   hideCloseButton?: boolean;
 }
 
+// Shared stack of every currently-open Modal instance, ordered by mount time.
+// Escape only closes the top-most entry so nested modals (e.g. a confirm dialog
+// rendered inside another Modal) don't both close on a single press.
+const modalStack: symbol[] = [];
+
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, className, hideCloseButton }) => {
+  const idRef = React.useRef<symbol>(Symbol('modal'));
+  // Keep the latest onClose without re-running the stack effect, so a changing
+  // onClose identity never reorders the stack.
+  const onCloseRef = React.useRef(onClose);
+  React.useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   React.useEffect(() => {
     if (!isOpen) return;
+    const id = idRef.current;
+    modalStack.push(id);
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && modalStack[modalStack.length - 1] === id) {
+        onCloseRef.current();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      const idx = modalStack.lastIndexOf(id);
+      if (idx !== -1) modalStack.splice(idx, 1);
+    };
+  }, [isOpen]);
 
   return (
     <AnimatePresence>

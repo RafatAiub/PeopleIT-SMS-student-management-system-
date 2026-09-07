@@ -49,6 +49,18 @@ const notificationIcon = (type: 'info' | 'success' | 'warning' | 'error') => {
   }
 };
 
+// Platform subscription-billing notifications hard-code `data.link = '/billing'`,
+// but that route is ADMIN-only. Super admins receive the same notifications and
+// their billing portal lives under `/super-admin/billing` (receipts included),
+// so rewrite the prefix for that role only. Non-super-admins are unaffected.
+const resolveNotificationLink = (link: string | undefined, role: string | undefined): string => {
+  if (!link) return '/notices';
+  if (role === 'SUPER_ADMIN' && link.startsWith('/billing')) {
+    return `/super-admin${link}`;
+  }
+  return link;
+};
+
 const timeAgo = (iso: string) => {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -249,7 +261,7 @@ export const Header: React.FC = () => {
                         onClick={() => {
                           if (!n.readAt) markNotificationRead.mutate(n.id);
                           setNotificationsOpen(false);
-                          navigate(n.data?.link ?? '/notices');
+                          navigate(resolveNotificationLink(n.data?.link, user?.role));
                         }}
                         className={`w-full text-left px-4 py-3 flex items-start gap-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-white/5 ${
                           !n.readAt ? 'bg-blue-50/50 dark:bg-blue-500/5' : ''

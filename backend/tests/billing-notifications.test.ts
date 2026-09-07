@@ -18,10 +18,7 @@ import {
   disconnectFixtures,
   InstitutionFixture,
 } from './helpers/fixtures';
-import {
-  emitSubscriptionNotification,
-  notifySubscriptionEvent,
-} from '../src/modules/billing/billing.notifications';
+import { notifySubscriptionEvent } from '../src/modules/billing/billing.notifications';
 import { runSubscriptionLifecycleScan } from '../src/queues/billingWorker';
 import { deliverNotification } from '../src/queues/notificationWorker';
 import { buildDedupeKey } from '../src/modules/notifications/notifications.service';
@@ -29,7 +26,11 @@ import { buildDedupeKey } from '../src/modules/notifications/notifications.servi
 jest.setTimeout(120000);
 
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
-const flush = () => new Promise((r) => setTimeout(r, 2500)); // let Neon-bound fire-and-forget emits settle
+// notifySubscriptionEvent() and runSubscriptionLifecycleScan() are both fully
+// awaited now (notify() writes IN_APP inline and awaits the EMAIL/SMS enqueue),
+// so there is nothing left dangling to "settle". A tiny yield is kept only as a
+// margin for promise microtask ordering.
+const flush = () => new Promise((r) => setTimeout(r, 50));
 
 describe('Subscription billing notifications', () => {
   let a: InstitutionFixture;
@@ -105,7 +106,7 @@ describe('Subscription billing notifications', () => {
         status: 'ACTIVE',
         currentPeriodEnd: new Date(Date.now() - 24 * 60 * 60 * 1000), // lapsed yesterday
       },
-    }).catch(async (e) => {
+    }).catch(async () => {
       // Subscription.planId is a required relation in some schemas — fall back
       // to creating a throwaway plan if the bare create is rejected.
       const plan = await prisma.plan.create({
