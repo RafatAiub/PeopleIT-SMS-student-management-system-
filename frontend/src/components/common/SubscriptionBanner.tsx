@@ -43,7 +43,7 @@ export const SubscriptionBanner: React.FC = () => {
         ) : (
           <Clock className="w-4 h-4 flex-shrink-0" />
         )}
-        <span className="truncate">{message}</span>
+        <span className="line-clamp-2 sm:line-clamp-none">{message}</span>
       </div>
 
       <Link

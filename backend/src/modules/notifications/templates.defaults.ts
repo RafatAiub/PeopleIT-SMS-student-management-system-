@@ -262,6 +262,24 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
     ].join('\n'),
   },
 
+  'SUBSCRIPTION_TRIAL_EXPIRED:IN_APP': {
+    subject: 'Free trial ended',
+    body: 'The free trial for {{institutionName}} ended on {{endedOn}}. Choose a plan on the Subscription & Billing page to keep full access.',
+  },
+  'SUBSCRIPTION_TRIAL_EXPIRED:EMAIL': {
+    subject: 'Your PeopleIT free trial has ended',
+    body: [
+      'Hello,',
+      '',
+      'The free trial for {{institutionName}} ended on {{endedOn}}.',
+      '',
+      'Open the Subscription & Billing page and choose a plan to continue using',
+      'PeopleIT without interruption. Your data is safe in the meantime.',
+      '',
+      'PeopleIT SMS',
+    ].join('\n'),
+  },
+
   'SUBSCRIPTION_GRACE:IN_APP': {
     subject: 'Subscription expired — grace period',
     body: '{{institutionName}}\'s subscription has lapsed. You have {{daysRemaining}} day(s) (until {{graceEndsAt}}) before access is suspended.',
