@@ -58,7 +58,7 @@ describe('Notifications', () => {
   // -- notify(): fan-out, dedupe keys, preferences ---------------------------
 
   describe('notify()', () => {
-    it('enqueues one job per recipient x default channel with a deterministic key', async () => {
+    it('writes IN_APP inline and queues only the external channels', async () => {
       const guardianId = a.usersByRole[UserRole.GUARDIAN].userId;
 
       await notify({
@@ -69,15 +69,27 @@ describe('Notifications', () => {
         vars: { invoiceNo: 'INV-1', studentName: 'S', amount: '10', dueDate: 'today' },
       });
 
-      // INVOICE_ISSUED defaults to IN_APP + EMAIL
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
-      const keys = mockEnqueueNotification.mock.calls.map((c) => c[0].dedupeKey);
-      expect(keys).toContain(
-        buildDedupeKey(a.institutionId, 'INVOICE_ISSUED', guardianId, 'IN_APP', 'inv-1'),
-      );
-      expect(keys).toContain(
+      // INVOICE_ISSUED defaults to IN_APP + EMAIL. IN_APP no longer touches the
+      // queue — it is written in-band so the bell never depends on Redis.
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      const queued = mockEnqueueNotification.mock.calls.map((c) => c[0]);
+      expect(queued.map((j) => j.channel)).toEqual(['EMAIL']);
+      expect(queued[0].dedupeKey).toBe(
         buildDedupeKey(a.institutionId, 'INVOICE_ISSUED', guardianId, 'EMAIL', 'inv-1'),
       );
+
+      // The in-app row landed directly, with its delivery marked SENT.
+      const inApp = await prisma.notification.findMany({
+        where: { institutionId: a.institutionId, recipientUserId: guardianId },
+      });
+      expect(inApp).toHaveLength(1);
+      const delivery = await prisma.notificationDelivery.findUniqueOrThrow({
+        where: {
+          dedupeKey: buildDedupeKey(a.institutionId, 'INVOICE_ISSUED', guardianId, 'IN_APP', 'inv-1'),
+        },
+      });
+      expect(delivery.status).toBe('SENT');
+      expect(delivery.providerRef).toBe(inApp[0].id);
     });
 
     it('produces a BullMQ-legal job id (no ":" — BullMQ rejects it)', () => {
@@ -119,8 +131,14 @@ describe('Notifications', () => {
         recipientUserIds: [guardianId, guardianId],
         vars: { studentName: 'S', date: 'today' },
       });
-      // ABSENCE_ALERT -> IN_APP + SMS, once (not twice) for the repeated id
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(2);
+      // ABSENCE_ALERT -> IN_APP (inline) + SMS (queued), once for the repeated id
+      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+      expect(mockEnqueueNotification.mock.calls[0][0].channel).toBe('SMS');
+      expect(
+        await prisma.notification.count({
+          where: { institutionId: a.institutionId, recipientUserId: guardianId },
+        }),
+      ).toBe(1);
 
       mockEnqueueNotification.mockClear();
       await notify({
@@ -152,9 +170,14 @@ describe('Notifications', () => {
         vars: { invoiceNo: 'INV-1', studentName: 'S', amount: '10', dueDate: 'today' },
       });
 
-      // Only IN_APP was queued; EMAIL was suppressed...
-      expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-      expect(mockEnqueueNotification.mock.calls[0][0].channel).toBe('IN_APP');
+      // EMAIL was the only queued channel and it was suppressed, so nothing
+      // reached the queue. IN_APP still landed inline.
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+      expect(
+        await prisma.notification.count({
+          where: { institutionId: a.institutionId, recipientUserId: guardianId },
+        }),
+      ).toBe(1);
 
       // ...and the suppression is auditable rather than silent.
       const skipped = await prisma.notificationDelivery.findMany({

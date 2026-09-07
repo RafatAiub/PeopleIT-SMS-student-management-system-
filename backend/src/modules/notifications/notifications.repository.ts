@@ -13,6 +13,32 @@ export async function createMany(rows: Prisma.NotificationCreateManyInput[]) {
 }
 
 /**
+ * Writes the single in-app row the bell reads. Used by the synchronous IN_APP
+ * path in notify() as well as the queue worker's IN_APP adapter — both funnel
+ * through here so the row shape stays in one place.
+ */
+export async function createInAppNotification(row: {
+  institutionId: string;
+  recipientUserId: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}) {
+  return prisma.notification.create({
+    data: {
+      institutionId: row.institutionId,
+      recipientUserId: row.recipientUserId,
+      type: row.type,
+      title: row.title,
+      body: row.body,
+      data: (row.data ?? undefined) as never,
+    },
+    select: { id: true },
+  });
+}
+
+/**
  * Always filtered by recipientUserId (a notification is private to one user).
  * institutionId is additionally applied for tenant users; a super admin has no
  * tenant, so it is omitted and they see every notification addressed to them
