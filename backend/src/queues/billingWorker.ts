@@ -18,7 +18,7 @@ const TRIAL_ENDING_WINDOW_DAYS = 3;
  * Subscription lifecycle scan — idempotent, safe to run repeatedly and
  * callable directly (e.g. from tests) independent of the BullMQ wiring.
  *
- *   TRIALING -> EXPIRED   (trial lapsed, never paid)          -> notify admin (SUBSCRIPTION_GRACE)
+ *   TRIALING -> EXPIRED   (trial lapsed, never paid)          -> notify admin (SUBSCRIPTION_TRIAL_EXPIRED)
  *   ACTIVE   -> GRACE     (period lapsed, grace window starts) -> notify admin (SUBSCRIPTION_GRACE)
  *   GRACE    -> EXPIRED + Institution.isActive = false         -> notify admin + super (SUBSCRIPTION_SUSPENDED)
  *   TRIALING ending within 3 days                              -> notify admin (SUBSCRIPTION_TRIAL_ENDING), one-shot
@@ -51,11 +51,15 @@ export async function runSubscriptionLifecycleScan(): Promise<{ transitioned: nu
     });
     transitioned += trialLapsed.length;
     for (const sub of trialLapsed) {
+      // A lapsed trial goes straight to EXPIRED with no grace window and no
+      // Institution.isActive flip (see subscriptionLifecycle.ts), so this is
+      // NOT a SUBSCRIPTION_GRACE — that copy promises a countdown that does
+      // not exist here.
       notifications.push({
-        type: 'SUBSCRIPTION_GRACE',
+        type: 'SUBSCRIPTION_TRIAL_EXPIRED',
         institutionId: sub.institutionId,
         contextId: `${sub.id}:trial-lapsed`,
-        vars: { daysRemaining: 0, graceEndsAt: formatDate(sub.trialEndsAt) },
+        vars: { endedOn: formatDate(sub.trialEndsAt) },
       });
     }
   }

@@ -156,6 +156,41 @@ describe('Subscription billing notifications', () => {
     expect(inst?.isActive).toBe(false);
   });
 
+  it('TRIALING -> EXPIRED emits SUBSCRIPTION_TRIAL_EXPIRED (not a grace countdown)', async () => {
+    // An earlier test in this file may have hard-suspended institution A.
+    await prisma.institution.update({ where: { id: a.institutionId }, data: { isActive: true } });
+    await prisma.subscription.deleteMany({ where: { institutionId: a.institutionId } });
+    const plan = await prisma.plan.create({
+      data: { name: `t-plan-${Date.now()}`, slug: `t-plan-${Date.now()}` },
+    });
+    await prisma.subscription.create({
+      data: {
+        institutionId: a.institutionId,
+        planId: plan.id,
+        billingCycle: 'MONTHLY',
+        status: 'TRIALING',
+        trialEndsAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // trial lapsed yesterday
+      },
+    });
+
+    await runSubscriptionLifecycleScan();
+    await flush();
+
+    const byType = (t: string) =>
+      mockEnqueueNotification.mock.calls.filter(
+        (c) => c[0].type === t && c[0].institutionId === a.institutionId,
+      );
+    expect(byType('SUBSCRIPTION_TRIAL_EXPIRED').length).toBeGreaterThan(0);
+    // the lapsed-trial path must NOT reuse the grace-countdown copy
+    expect(byType('SUBSCRIPTION_GRACE').length).toBe(0);
+
+    const sub = await prisma.subscription.findUnique({ where: { institutionId: a.institutionId } });
+    expect(sub?.status).toBe('EXPIRED');
+    // no hard suspend for a lapsed trial
+    const inst = await prisma.institution.findUnique({ where: { id: a.institutionId } });
+    expect(inst?.isActive).toBe(true);
+  });
+
   // ── super-admin read path (the tenant-less notifications read) ─────────
 
   it('a super admin can read platform notifications addressed to them', async () => {

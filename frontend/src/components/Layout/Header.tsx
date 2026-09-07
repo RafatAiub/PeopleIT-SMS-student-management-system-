@@ -28,6 +28,7 @@ const severityForType = (type: string): 'info' | 'success' | 'warning' | 'error'
       return 'warning';
     case 'ABSENCE_ALERT':
     case 'SUBSCRIPTION_PAYMENT_FAILED':
+    case 'SUBSCRIPTION_TRIAL_EXPIRED':
     case 'SUBSCRIPTION_GRACE':
     case 'SUBSCRIPTION_SUSPENDED':
       return 'error';

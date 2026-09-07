@@ -278,6 +278,20 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
       },
     });
 
+    // Supersede every other still-open payment attempt for this institution.
+    // Without this, paying via a fresh checkout leaves a super-admin-generated
+    // INITIATED row behind, so getMySubscription keeps returning a
+    // pendingPaymentRequest and the "Payment requested by PeopleIT" banner
+    // lingers until the 24h stale sweep.
+    await tx.subscriptionPayment.updateMany({
+      where: {
+        institutionId: payment.institutionId,
+        status: { in: ['INITIATED', 'PENDING'] },
+        id: { not: payment.id },
+      },
+      data: { status: 'CANCELLED' },
+    });
+
     if (systemActorId) {
       await tx.auditLog.create({
         data: {
