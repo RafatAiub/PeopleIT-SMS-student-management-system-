@@ -1,8 +1,8 @@
 import { Worker, Job } from 'bullmq';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { sendSms } from '../utils/sms.service';
 import { prisma } from '../config/prisma';
+import { createBullWorkerConnection } from '../config/redis';
 
 interface FeeDueJobData {
   type: 'fee-due';
@@ -71,12 +71,7 @@ export const feeReminderWorker = new Worker(
       throw new Error(`SMS send failed: ${result.message}`);
     }
   },
-  {
-    connection: {
-      url: env.REDIS_URL,
-      maxRetriesPerRequest: null,
-    } as any,
-  }
+  { connection: createBullWorkerConnection('feeReminders') },
 );
 
 feeReminderWorker.on('completed', (job) => {

@@ -2,7 +2,7 @@ import http from 'http';
 import { app } from './app';
 import { env } from './config/env';
 import { prisma } from './config/prisma';
-import { closeRedis } from './config/redis';
+import { closeRedis, pingRedis, REDIS_IS_TLS, REDIS_HOST } from './config/redis';
 import { logger } from './utils/logger';
 import { feeReminderWorker } from './queues/reminderWorker';
 import { billingWorker } from './queues/billingWorker';
@@ -19,9 +19,24 @@ async function startServer() {
     await prisma.$connect();
     logger.info('Database connected successfully');
 
-    // Worker is initialized on file import, make sure it is ready
-    logger.info(`BullMQ Worker registered and listening on queue 'feeReminders'`);
-    logger.info(`BullMQ Worker registered and listening on queue 'subscriptionBilling'`);
+    // Redis is not required for the app to serve requests (the in-app
+    // notification write is synchronous), but email/SMS delivery, fee
+    // reminders and the subscription lifecycle scan all run on BullMQ. Probe
+    // it once at boot so a misconfigured REDIS_URL is obvious in the logs
+    // rather than surfacing later as silently-undelivered notifications.
+    const redisOk = await pingRedis();
+    if (redisOk) {
+      logger.info(`Redis reachable (host: ${REDIS_HOST}, TLS: ${REDIS_IS_TLS ? 'yes' : 'NO'})`);
+    } else {
+      logger.error(
+        `Redis NOT reachable at ${REDIS_HOST} (TLS: ${REDIS_IS_TLS ? 'yes' : 'no'}). ` +
+          'Queued email/SMS, fee reminders and the subscription lifecycle scan will not run. ' +
+          'Check REDIS_URL — an Upstash/Redis-Cloud host needs a rediss:// URL.',
+      );
+    }
+
+    // Workers are initialized on file import; log which queues they cover.
+    logger.info(`BullMQ workers registered: feeReminders, subscriptionBilling, notifications`);
 
     server.listen(PORT, () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${PORT}`);
