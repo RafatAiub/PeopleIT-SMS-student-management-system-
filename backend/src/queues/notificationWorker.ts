@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import { createBullWorkerConnection } from '../config/redis';
 import { NotificationJobData } from './notificationQueue';
 import * as notificationRepository from '../modules/notifications/notifications.repository';
 import { renderTemplate } from '../modules/notifications/renderer';
@@ -130,12 +130,7 @@ export async function deliverNotification(data: NotificationJobData): Promise<vo
 export const notificationWorker = new Worker<NotificationJobData>(
   'notifications',
   async (job) => deliverNotification(job.data),
-  {
-    connection: {
-      url: env.REDIS_URL,
-      maxRetriesPerRequest: null,
-    } as any,
-  },
+  { connection: createBullWorkerConnection('notifications') },
 );
 
 notificationWorker.on('completed', (job) => {

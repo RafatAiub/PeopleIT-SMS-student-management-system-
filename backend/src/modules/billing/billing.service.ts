@@ -401,7 +401,11 @@ export async function handleRedirect(
     }
   }
 
-  return `${env.FRONTEND_URL}/billing/checkout-result?status=${kind}`;
+  const redirectTo = `${env.FRONTEND_URL}/billing/checkout-result?status=${kind}`;
+  // Logged so a "renewal completes on the gateway then dead-ends" report can be
+  // traced to the exact URL the browser was handed (i.e. a bad FRONTEND_URL).
+  logger.info('SSLCommerz gateway redirect', { kind, tranId, redirectTo });
+  return redirectTo;
 }
 
 // ── Super-admin: plans & pricing ────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
-import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { prisma } from '../config/prisma';
+import { createBullWorkerConnection } from '../config/redis';
 import { addGracePeriod, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
 import * as billingRepository from '../modules/billing/billing.repository';
 import { notifySubscriptionEvent, formatDate } from '../modules/billing/billing.notifications';
@@ -171,12 +171,7 @@ export const billingWorker = new Worker(
     logger.info(`Processing billing job ${job.id}`, { name: job.name });
     return runSubscriptionLifecycleScan();
   },
-  {
-    connection: {
-      url: env.REDIS_URL,
-      maxRetriesPerRequest: null,
-    } as any,
-  },
+  { connection: createBullWorkerConnection('subscriptionBilling') },
 );
 
 billingWorker.on('completed', (job) => {

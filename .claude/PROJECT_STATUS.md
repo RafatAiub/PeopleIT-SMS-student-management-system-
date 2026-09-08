@@ -191,10 +191,52 @@ frontend typecheck + lint + build clean; 14/14 production API smoke checks pass
 - [ ] **TS-4/5 — SSLCommerz sandbox renewal.** Not reproduced from code review;
       renewal shares the `initiateCheckout` path that self-checkout uses. Leading
       suspect is a Render env value (`FRONTEND_URL`/`APP_URL`). Needs the exact
-      failure symptom + a Render env check.
+      failure symptom + a Render env check. `handleRedirect` now logs
+      `SSLCommerz gateway redirect { kind, tranId, redirectTo }` at INFO so the
+      next test payment shows the exact URL the browser is handed.
 - [ ] Minor / deferred: `manualOverride` MARK_PAID doesn't supersede pending
       payments (rare, super-admin sees the row); `useMyPayments` has no error UI
       (fails silently to an empty table).
+
+### Redis / queue hardening for launch scale (2026-09-08, HEAD tbd)
+Prod Render logs showed the Redis client flapping every 1–2s — connect →
+`ECONNRESET` → reconnect, plus `"Reached the max retries per request limit"`.
+Cause: a TLS-only Upstash endpoint reached over a plain `redis://` URL, made
+worse by ~10 separate connections (one per Queue + one per Worker + the app
+singleton).
+
+- [x] **`config/redis.ts` rewritten** as the one place connections are made:
+  - `normalizeRedisUrl()` upgrades `redis://` → `rediss://` for
+    `*.upstash.io` / `*.redis-cloud.com` / `*.redislabs.com` hosts (with a
+    warning) — a dashboard-copied URL now "just works".
+  - **One shared connection for all 3 BullMQ Queues** (`getBullQueueConnection`)
+    + **one dedicated connection per Worker** (`createBullWorkerConnection`) —
+    the documented BullMQ pattern. ~10 sockets → 5 (1 app + 1 queues + 3
+    workers).
+  - Capped reconnect backoff (`min(times*200, 2000)`), `reconnectOnError` on
+    `ECONNRESET/ETIMEDOUT/EPIPE/READONLY`, `keepAlive`, `connectTimeout`.
+  - State-change-only logging — no more identical "connected/closed" lines
+    every second during a blip.
+  - All clients tracked so `closeRedis()` drains every one on shutdown.
+- [x] `server.ts` boot probe: `pingRedis()` → logs
+  `Redis reachable (host: …, TLS: yes|NO)` or a loud error naming the fix.
+- [ ] **Still required on Render:** `REDIS_URL` = the Upstash **`rediss://`**
+  URL (TCP tab of the Upstash console, not the REST URL, not the API key).
+  The scheme auto-upgrade covers a `redis://` slip, but set it correctly.
+- [ ] **Launch-scale follow-ups (not done — need their own pass + infra):**
+  - Split workers into a **separate Render service** behind a `RUN_WORKERS`
+    flag so a batch of 50k notification jobs can't starve HTTP request
+    handling.
+  - Paid tiers: Render Standard (web + worker), Render Postgres / Neon Scale,
+    Upstash pay-as-you-go (the free command cap will be hit at 300+
+    institutions).
+  - Make batch operations (monthly invoice generation, bulk import) async
+    background jobs, not synchronous HTTP requests.
+  - Transactional outbox for notifications (write intent in the same tx as the
+    business event; a worker fans out) — removes the synchronous in-app write
+    compromise and makes "no invoice without its notification" atomic.
+  - Postgres connection pooling (PgBouncer / Neon pooled string) once web +
+    worker both hold pools.
 
 ### Notification system — bug found + fixed during live verification (2026-09-03)
 - [x] **BullMQ rejected the job id.** `dedupeKey` (`inst:type:user:channel:ctx`) was

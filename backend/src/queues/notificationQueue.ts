@@ -1,6 +1,6 @@
 import { Queue, JobsOptions } from 'bullmq';
 import { NotificationChannel } from '@prisma/client';
-import { env } from '../config/env';
+import { getBullQueueConnection } from '../config/redis';
 import { toJobId } from './jobId';
 
 export interface NotificationJobData {
@@ -19,15 +19,11 @@ export interface NotificationJobData {
  * a notification that fails because a provider blipped must be retried, and
  * completed jobs must not accumulate in Redis forever.
  *
- * Connection mirrors billingQueue.ts — BullMQ requires maxRetriesPerRequest:
- * null on its blocking client, so it cannot reuse the ioredis singleton in
- * config/redis.ts (which sets 3).
+ * Shares the one queue-producer connection (config/redis.ts), which is
+ * configured with maxRetriesPerRequest: null as BullMQ requires.
  */
 export const notificationQueue = new Queue('notifications', {
-  connection: {
-    url: env.REDIS_URL,
-    maxRetriesPerRequest: null,
-  } as any,
+  connection: getBullQueueConnection(),
   defaultJobOptions: {
     attempts: 5,
     backoff: { type: 'exponential', delay: 5000 },

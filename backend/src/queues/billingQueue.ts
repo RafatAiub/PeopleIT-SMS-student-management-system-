@@ -1,13 +1,10 @@
 import { Queue } from 'bullmq';
-import { env } from '../config/env';
+import { getBullQueueConnection } from '../config/redis';
 
 // BullMQ Queue for the daily subscription lifecycle scan (trial/grace/expiry
-// transitions). Mirrors reminderQueue.ts's connection setup.
+// transitions). Shares the one queue-producer connection (see config/redis.ts).
 export const billingQueue = new Queue('subscriptionBilling', {
-  connection: {
-    url: env.REDIS_URL,
-    maxRetriesPerRequest: null,
-  } as any,
+  connection: getBullQueueConnection(),
 });
 
 /**
