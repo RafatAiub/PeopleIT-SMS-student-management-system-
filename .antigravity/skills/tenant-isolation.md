@@ -1,7 +1,7 @@
 # Skill: Multi-Tenant Isolation
 
 ## Rule Overview
-Every database query and API endpoint in PeopleIT SMS MUST strictly enforce
+Every database query and API endpoint in PeopleNIT SMS MUST strictly enforce
 multi-tenant separation. Tenant identity is determined by `institution_id`.
 
 ---

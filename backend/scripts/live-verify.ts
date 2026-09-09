@@ -151,7 +151,7 @@ async function main() {
     auth: { user: ethereal.user, pass: ethereal.pass },
   });
   const info = await transport.sendMail({
-    from: 'PeopleIT SMS <noreply@peopleit.com>',
+    from: 'PeopleNIT SMS <noreply@peopleit.com>',
     to: RECIPIENT_EMAIL,
     subject: rendered.subject,
     text: rendered.body,

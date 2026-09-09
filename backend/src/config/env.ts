@@ -17,7 +17,7 @@ const envSchema = z.object({
   // Application
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
-  APP_NAME: z.string().default('PeopleIT SMS'),
+  APP_NAME: z.string().default('PeopleNIT SMS'),
   APP_URL: z.string().url().default('http://localhost:3001'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
   // Comma-separated list of additional allowed CORS origins (e.g. Vercel preview URLs).
@@ -95,7 +95,7 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('false'),
-  EMAIL_FROM: z.string().default('PeopleIT SMS <noreply@peopleit.com>'),
+  EMAIL_FROM: z.string().default('PeopleNIT SMS <noreply@peopleit.com>'),
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),

@@ -213,7 +213,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
           )}
           {(!sidebarCollapsed || isMobile) && (
             <div>
-              <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
+              <span className="text-gradient font-bold text-sm leading-none block">PeopleNIT SMS</span>
               <span className="text-slate-600 dark:text-slate-500 text-xs">
                 {showInstitutionBranding ? (institutionName || user?.institutionName || 'School Management') : 'Platform Administration'}
               </span>

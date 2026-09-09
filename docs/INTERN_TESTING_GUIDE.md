@@ -1,4 +1,4 @@
-# PeopleIT SMS — Intern Testing Guide
+# PeopleNIT SMS — Intern Testing Guide
 
 **What you are testing:** the new **notification bell** and the **subscription billing**
 screens (both the institute-admin side and the super-admin side) that were built over the
@@ -282,7 +282,7 @@ spinner that never stops?**
 ## 9. REPORT TEMPLATE  (copy everything from here down)
 
 ```
-PEOPLEIT SMS — TEST REPORT
+PeopleNIT SMS — TEST REPORT
 
 Tester name:
 Date:

@@ -137,7 +137,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'You can review payments and receipts from the Subscription & Billing page.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -158,7 +158,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'No charge was applied. You can retry from the Subscription & Billing page.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -179,7 +179,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'Open the Subscription & Billing page and choose "Pay Now" to complete it securely.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -200,7 +200,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'No action is needed from you. Contact support if this looks wrong.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -221,7 +221,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'The gateway typically settles refunds within a few business days. You will',
       'get another message once it is confirmed.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -240,7 +240,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'It may take a few more days to appear on the original payment method.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -258,7 +258,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'To avoid any interruption, open the Subscription & Billing page and choose a',
       'plan before then.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -276,7 +276,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'Open the Subscription & Billing page and choose a plan to continue using',
       'PeopleIT without interruption. Your data is safe in the meantime.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -296,7 +296,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'Renew from the Subscription & Billing page to keep your account active.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -316,7 +316,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'Subscription & Billing page (still reachable by the institute admin) to pay,',
       'or contact the PeopleIT team.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 };

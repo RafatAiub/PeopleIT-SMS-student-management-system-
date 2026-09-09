@@ -7,7 +7,7 @@ import React from 'react';
  * cleanly on both dark and light surfaces down to ~20px.
  */
 export const LogoMark: React.FC<{ className?: string }> = ({ className = 'w-8 h-8' }) => (
-  <svg viewBox="0 0 32 32" fill="none" className={className} role="img" aria-label="PeopleIT SMS">
+  <svg viewBox="0 0 32 32" fill="none" className={className} role="img" aria-label="PeopleNIT SMS">
     <defs>
       <linearGradient id="logoMarkGradient" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
         <stop offset="0" stopColor="#7C6AF2" />

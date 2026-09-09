@@ -1,4 +1,4 @@
-# PeopleIT SMS — Project Status
+# PeopleNIT SMS — Project Status
 
 **Purpose:** this file is the source of truth for "what's left." Read it at the start of every session before deciding scope. Update it (check items off, add newly-discovered items) whenever something is completed or a new gap is found — don't let it drift out of sync with reality.
 

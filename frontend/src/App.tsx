@@ -310,7 +310,7 @@ const App = () => {
   return (
     <React.Suspense fallback={<div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-surface-900 text-slate-500 dark:text-slate-400">
       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-      Loading PeopleIT SMS...
+      Loading PeopleNIT SMS...
     </div>}>
       <Toaster 
         position="top-right" 

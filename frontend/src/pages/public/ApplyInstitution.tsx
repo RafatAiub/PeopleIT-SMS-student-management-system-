@@ -79,7 +79,7 @@ const ApplyInstitution = () => {
             Register Your Institution
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
-            Apply to join PeopleIT SMS — our team will review your application
+            Apply to join PeopleNIT SMS — our team will review your application
           </p>
         </div>
 

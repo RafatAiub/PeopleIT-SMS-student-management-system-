@@ -1,6 +1,6 @@
 # PeopleIT Student Management System (SMS) 🚀
 
-> **PeopleIT SMS** is a multi-tenant SaaS platform for digitizing academic, administrative, financial, HR, and communication workflows for schools — from a single institution to a nationwide network of them.
+> **PeopleNIT SMS** is a multi-tenant SaaS platform for digitizing academic, administrative, financial, HR, and communication workflows for schools — from a single institution to a nationwide network of them.
 
 **New to this repo?** You don't need to understand everything on this page before you start. Read [🧭 Start Here (For New Contributors)](#-start-here-for-new-contributors) first, get the app running, then come back to the rest as reference.
 
@@ -62,7 +62,7 @@ If this is your first day on this codebase, do these in order:
 ## 🏛️ System Architecture
 
 ### C4 Container Diagram
-This diagram shows the complete high-level deployment architecture of PeopleIT SMS:
+This diagram shows the complete high-level deployment architecture of PeopleNIT SMS:
 
 ```mermaid
 flowchart TB
@@ -797,7 +797,7 @@ This mirrors `backend/src/config/env.ts`, which validates every variable at star
 | `SMS_ENABLED` | No | `false` | Gates the `feeReminders` worker's real send path |
 | `GREENWEB_API_TOKEN` / `GREENWEB_BASE_URL` | No | unset / greenweb default URL | Bangladesh SMS gateway — the actual implemented provider. When `SMS_ENABLED=false` or the token is unset, the worker just logs a mock notification instead of sending |
 | `TWILIO_*` / `SMS_PROVIDER` | No | unset | Declared in `env.ts` but not wired to any send path — Greenweb is what `reminderWorker.ts` actually calls |
-| `APP_NAME` | No | `PeopleIT SMS` | |
+| `APP_NAME` | No | `PeopleNIT SMS` | |
 | `LOG_LEVEL` / `LOG_FORMAT` | No | `info` / `json` | Winston config |
 
 > **Never commit real values for `DATABASE_URL` or `REDIS_URL` into `.env.example`.** If you ever see real-looking credentials in a tracked file, treat it as a live incident — rotate the credentials immediately and sanitize the file.

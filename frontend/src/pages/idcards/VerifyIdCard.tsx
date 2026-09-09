@@ -118,7 +118,7 @@ export default function VerifyIdCard() {
 
         <p className="text-center mt-6">
           <Link to="/login" className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
-            Go to PeopleIT SMS login
+            Go to PeopleNIT SMS login
           </Link>
         </p>
       </div>

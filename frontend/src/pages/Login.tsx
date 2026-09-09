@@ -174,7 +174,7 @@ const Login = () => {
         <div className="text-center mb-8">
           <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
           <h1 className="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-accent-500 dark:from-primary-400 dark:to-accent-400 mb-2">
-            PeopleIT SMS
+            PeopleNIT SMS
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Sign in to your dashboard</p>
         </div>

@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   });
 
   const info = await transport.sendMail({
-    from: 'PeopleIT SMS <noreply@peopleit.com>',
+    from: 'PeopleNIT SMS <noreply@peopleit.com>',
     to: 'guardian@example.com',
     subject,
     text: body,
