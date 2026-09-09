@@ -141,6 +141,30 @@ const envSchema = z.object({
       }
     }
   }
+
+  // APP_URL and FRONTEND_URL both default to localhost for local dev, so they
+  // can't be `z.string().url()`-constrained globally. In production they are
+  // load-bearing: APP_URL builds every SSLCommerz callback (successUrl,
+  // failUrl, cancelUrl, ipnUrl — see billing.service.ts) and FRONTEND_URL is
+  // the post-payment browser redirect target. A leftover localhost value here
+  // doesn't fail at boot or even at "initiate checkout" — the gateway accepts
+  // it happily — it only surfaces once a real payment finishes and the
+  // redirect/webhook has nowhere reachable to land. This shipped to
+  // production once already (2026-09) and was only caught by a live sandbox
+  // renewal test, so it now fails startup instead of just warning — a bad
+  // value here is exactly as fatal as a missing DB/JWT secret.
+  if (data.NODE_ENV === 'production') {
+    for (const key of ['APP_URL', 'FRONTEND_URL'] as const) {
+      const value = data[key];
+      if (!value.startsWith('https://')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${key} is "${value}" — must be the real https:// public URL in production (SSLCommerz callbacks and the post-payment redirect depend on it).`,
+          path: [key],
+        });
+      }
+    }
+  }
 });
 
 // Validate at module load time — throws on startup if env is invalid
@@ -154,23 +178,3 @@ if (!parseResult.success) {
 
 export const env = parseResult.data;
 export type Env = z.infer<typeof envSchema>;
-
-// Loud, non-fatal warning for a misconfigured production deploy: APP_URL and
-// FRONTEND_URL both have localhost defaults and are NOT in the superRefine
-// above (they're optional for local dev). But in production they drive the
-// SSLCommerz callback URLs and the post-payment browser redirect — if either
-// still points at localhost, checkout/renewal "completes" on the gateway and
-// then dead-ends on an unreachable page. Surface it at boot instead.
-if (env.NODE_ENV === 'production') {
-  for (const [key, value] of [
-    ['APP_URL', env.APP_URL],
-    ['FRONTEND_URL', env.FRONTEND_URL],
-  ] as const) {
-    if (value.includes('localhost') || value.includes('127.0.0.1')) {
-      console.warn(
-        `⚠️  ${key} is "${value}" in production — SSLCommerz redirects and ` +
-          `post-payment navigation will break. Set it to the public URL.`,
-      );
-    }
-  }
-}
