@@ -541,30 +541,69 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
     const branchIds = branches.map((b: any) => b.id);
     const classes = await tx.class.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } });
     const classIds = classes.map((c: any) => c.id);
+    const staffProfiles = await tx.staffProfile.findMany({ where: { institutionId }, select: { id: true } });
+    const staffIds = staffProfiles.map((s: any) => s.id);
 
+    // Billing & Subscription
+    await tx.subscriptionPayment.deleteMany({ where: { institutionId } });
+    await tx.subscription.deleteMany({ where: { institutionId } });
+
+    // Payment & Invoicing
     await tx.payment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
     await tx.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
     await tx.invoice.deleteMany({ where: { institutionId } });
     await tx.feeCategory.deleteMany({ where: { institutionId } });
+
+    // Student & Guardian
     await tx.studentDocument.deleteMany({ where: { institutionId } });
     await tx.guardianStudent.deleteMany({ where: { guardianId: { in: guardianIds } } });
+
+    // Library
     await tx.libraryIssue.deleteMany({ where: { institutionId } });
+    await tx.libraryBook.deleteMany({ where: { institutionId } });
+
+    // Transport
     await tx.transportAssignment.deleteMany({ where: { institutionId } });
+    await tx.transportVehicle.deleteMany({ where: { institutionId } });
+    await tx.transportRoute.deleteMany({ where: { institutionId } });
+
+    // Academics
     await tx.attendance.deleteMany({ where: { institutionId } });
     await tx.examResult.deleteMany({ where: { institutionId } });
     await tx.exam.deleteMany({ where: { institutionId } });
     await tx.timetableSlot.deleteMany({ where: { institutionId } });
+
+    // Lecture Materials & Assignments (LectureMaterialComment has cascade)
+    await tx.lectureMaterialComment.deleteMany({ where: { institutionId } });
+    await tx.lectureMaterial.deleteMany({ where: { institutionId } });
+    await tx.assignment.deleteMany({ where: { institutionId } });
+
+    // Notifications
+    await tx.notificationDelivery.deleteMany({ where: { institutionId } });
+    await tx.notificationPreference.deleteMany({ where: { institutionId } });
+    await tx.notificationTemplate.deleteMany({ where: { institutionId } });
+    await tx.notification.deleteMany({ where: { institutionId } });
+
+    // ID Cards & Templates
+    await tx.idCard.deleteMany({ where: { institutionId } });
+    await tx.idCardTemplate.deleteMany({ where: { institutionId } });
+
+    // Curriculum
+    await tx.subjectOffering.deleteMany({ where: { institutionId } });
+    await tx.subject.deleteMany({ where: { institutionId } });
+
+    // Other
     await tx.notice.deleteMany({ where: { institutionId } });
-    await tx.libraryBook.deleteMany({ where: { institutionId } });
-    await tx.transportVehicle.deleteMany({ where: { institutionId } });
-    await tx.transportRoute.deleteMany({ where: { institutionId } });
-    await tx.payrollRecord.deleteMany({ where: { institutionId } });
-    await tx.staffProfile.deleteMany({ where: { institutionId } });
     await tx.message.deleteMany({ where: { institutionId } });
     await tx.auditLog.deleteMany({ where: { institutionId } });
+
+    // Users & Auth
     await tx.refreshToken.deleteMany({ where: { userId: { in: userIds } } });
     await tx.guardian.deleteMany({ where: { institutionId } });
-    // Section.classTeacherId references Teacher — clear it before deleting Teachers.
+    await tx.payrollRecord.deleteMany({ where: { institutionId } });
+    await tx.staffProfile.deleteMany({ where: { institutionId } });
+
+    // Section.classTeacherId references Teacher — clear it before deleting Teachers
     await tx.section.updateMany({ where: { classId: { in: classIds } }, data: { classTeacherId: null } });
     await tx.teacher.deleteMany({ where: { userId: { in: userIds } } });
     await tx.student.deleteMany({ where: { institutionId } });
@@ -577,6 +616,7 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
     await tx.institution.delete({ where: { id: institutionId } });
 
     void studentIds;
+    void staffIds;
   });
 
   logger.warn('Institution permanently deleted', {
