@@ -93,6 +93,24 @@ export async function archivePlan(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function restorePlan(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const plan = await billingService.restorePlan(req.params.id);
+    successResponse(res, plan, 'Plan restored successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deletePlan(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await billingService.deletePlan(req.params.id);
+    successResponse(res, result, 'Plan deleted permanently');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function setPlanPrice(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const price = await billingService.setPlanPrice(req.params.id, req.body);

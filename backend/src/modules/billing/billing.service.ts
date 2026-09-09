@@ -435,7 +435,54 @@ export async function archivePlan(id: string) {
   if (!existing) {
     throw new NotFoundError(`Plan with ID '${id}' not found`);
   }
-  return billingRepository.archivePlan(id);
+  return billingRepository.setPlanArchived(id, true);
+}
+
+export async function restorePlan(id: string) {
+  const existing = await billingRepository.findPlanById(id);
+  if (!existing) {
+    throw new NotFoundError(`Plan with ID '${id}' not found`);
+  }
+  return billingRepository.setPlanArchived(id, false);
+}
+
+/**
+ * Hard delete, allowed only for a plan nothing references — no institution
+ * subscribed to it and no payment booked against any of its prices. Anything
+ * else must be archived instead, so historical billing records keep resolving
+ * (see the isArchived note on the Plan model).
+ */
+export async function deletePlan(id: string) {
+  const existing = await billingRepository.findPlanById(id);
+  if (!existing) {
+    throw new NotFoundError(`Plan with ID '${id}' not found`);
+  }
+
+  const refs = await billingRepository.countPlanReferences(id);
+  const blocked = (r: { subscriptions: number; payments: number }) => {
+    const parts: string[] = [];
+    if (r.subscriptions > 0) {
+      parts.push(`${r.subscriptions} institution${r.subscriptions === 1 ? '' : 's'} subscribed to it`);
+    }
+    if (r.payments > 0) {
+      parts.push(`${r.payments} payment${r.payments === 1 ? '' : 's'} recorded against its pricing`);
+    }
+    return new ConflictError(
+      `'${existing.name}' cannot be deleted — ${parts.join(' and ')}. Archive it instead to hide it from checkout.`,
+    );
+  };
+
+  if (refs.subscriptions > 0 || refs.payments > 0) {
+    throw blocked(refs);
+  }
+
+  const result = await billingRepository.deletePlanWithPrices(id);
+  if (!result.deleted) {
+    // Lost the race — something referenced the plan between the check above
+    // and the transaction.
+    throw blocked(result);
+  }
+  return { id, name: existing.name };
 }
 
 export async function setPlanPrice(id: string, dto: SetPlanPriceDtoType) {

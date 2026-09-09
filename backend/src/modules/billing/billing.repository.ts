@@ -22,6 +22,9 @@ export async function listAllPlans() {
     orderBy: { displayOrder: 'asc' },
     include: {
       prices: { where: { isActive: true } },
+      // Drives the super-admin plan cards: how many institutions sit on this
+      // plan, and therefore whether it can be hard-deleted or only archived.
+      _count: { select: { subscriptions: true } },
     },
   });
 }
@@ -56,8 +59,42 @@ export async function updatePlan(
   return prisma.plan.update({ where: { id }, data });
 }
 
-export async function archivePlan(id: string) {
-  return prisma.plan.update({ where: { id }, data: { isArchived: true } });
+export async function setPlanArchived(id: string, isArchived: boolean) {
+  return prisma.plan.update({ where: { id }, data: { isArchived } });
+}
+
+/**
+ * Everything that would make a hard delete destroy history: institutions
+ * currently on the plan, and payments booked against any of its price rows.
+ * A plan is only deletable when both are zero — otherwise it must be archived.
+ */
+export async function countPlanReferences(planId: string) {
+  const [subscriptions, payments] = await Promise.all([
+    prisma.subscription.count({ where: { planId } }),
+    prisma.subscriptionPayment.count({ where: { planPrice: { planId } } }),
+  ]);
+  return { subscriptions, payments };
+}
+
+/**
+ * Hard-deletes a never-used plan along with its (unreferenced) price rows.
+ * Callers MUST have verified countPlanReferences is all-zero first — the
+ * counts are re-checked inside the transaction to close the race with a
+ * checkout landing between the check and the delete.
+ */
+export async function deletePlanWithPrices(id: string) {
+  return prisma.$transaction(async (tx) => {
+    const [subscriptions, payments] = await Promise.all([
+      tx.subscription.count({ where: { planId: id } }),
+      tx.subscriptionPayment.count({ where: { planPrice: { planId: id } } }),
+    ]);
+    if (subscriptions > 0 || payments > 0) {
+      return { deleted: false as const, subscriptions, payments };
+    }
+    await tx.planPrice.deleteMany({ where: { planId: id } });
+    await tx.plan.delete({ where: { id } });
+    return { deleted: true as const, subscriptions, payments };
+  });
 }
 
 // ── PlanPrice ────────────────────────────────────────────────────────────
