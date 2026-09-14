@@ -63,6 +63,7 @@ const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/I
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
 const RequestDemo = lazyWithRetry(() => import('./pages/public/RequestDemo'));
+const Leads = lazyWithRetry(() => import('./pages/superadmin/Leads'));
 const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
 const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
 const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
@@ -116,6 +117,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
       '/super-admin/system-health',
       '/super-admin/applications',
       '/super-admin/authorized-emails',
+      '/super-admin/leads',
     ];
     if (!allowedSuperAdminPaths.some((path) => location.pathname === path || location.pathname.startsWith(path))) {
       return <Navigate to="/" replace />;
@@ -580,6 +582,14 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
             <DashboardLayout>
               <AuthorizedEmails />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/leads" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <Leads />
             </DashboardLayout>
           </ProtectedRoute>
         } />
