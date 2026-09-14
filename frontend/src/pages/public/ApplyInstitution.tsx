@@ -7,6 +7,81 @@ import { LogoMark } from '../../components/common/LogoMark';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const validateBDMobileNumber = (phone: string): string | null => {
+  if (!phone.trim()) return null;
+
+  const digitsOnly = phone.replace(/\D/g, '');
+
+  if (digitsOnly.length < 11) {
+    return 'Mobile number must have at least 11 digits (e.g., 01700000000)';
+  }
+
+  if (digitsOnly.length > 13) {
+    return 'Mobile number cannot exceed 13 digits';
+  }
+
+  const has01 = /^01[0-9]{9}$/.test(digitsOnly);
+  const has8801 = /^8801[0-9]{9}$/.test(digitsOnly);
+
+  if (!has01 && !has8801) {
+    return 'Enter a valid BD mobile number (01XXXXXXXXX or +8801XXXXXXXXX)';
+  }
+
+  const secondDigit = has01 ? digitsOnly[2] : digitsOnly[3];
+  const validOperators = ['0', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+  if (!validOperators.includes(secondDigit)) {
+    return 'Invalid operator. Valid BD operators: GP(017), BL(018), Robi(016), Airtel(016), TeletalkBD(015)';
+  }
+
+  return null;
+};
+
+const validateInstitutionPhone = (phone: string): string | null => {
+  if (!phone.trim()) return null;
+
+  const digitsOnly = phone.replace(/\D/g, '');
+
+  if (digitsOnly.length < 7) {
+    return 'Phone number must have at least 7 digits';
+  }
+
+  if (!/^[\+]?[0-9\s()\-]*$/.test(phone)) {
+    return 'Phone number can only contain digits, +, -, (), and spaces';
+  }
+
+  if (phone.length > 25) {
+    return 'Phone number is too long';
+  }
+
+  return null;
+};
+
+const validateInstitutionName = (name: string): string | null => {
+  const trimmed = name.trim();
+  if (!trimmed || trimmed.length < 2) return 'Institution name must be at least 2 characters';
+  if (trimmed.length > 200) return 'Institution name must not exceed 200 characters';
+  if (!/^[a-zA-Z0-9\s\-&.,()]*$/.test(trimmed)) return 'Institution name contains invalid characters';
+  return null;
+};
+
+const validateEIIN = (eiin: string): string | null => {
+  const trimmed = eiin.trim();
+  if (!trimmed || !/^\d+$/.test(trimmed)) return 'Institution Code / EIIN must be numeric';
+  if (trimmed.length < 4 || trimmed.length > 10) return 'Institution Code / EIIN must be 4-10 digits';
+  return null;
+};
+
+const validateName = (name: string, fieldName: string): string | null => {
+  const trimmed = name.trim();
+  if (!trimmed) return `${fieldName} is required`;
+  if (trimmed.length > 100) return `${fieldName} must not exceed 100 characters`;
+  if (!/^[a-zA-Z\s\-']*$/.test(trimmed)) {
+    return `${fieldName} should only contain letters, spaces, hyphens, and apostrophes`;
+  }
+  return null;
+};
+
 const ApplyInstitution = () => {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -25,17 +100,29 @@ const ApplyInstitution = () => {
 
   const validate = () => {
     const errs: Record<string, string> = {};
-    if (!formData.institutionName.trim() || formData.institutionName.trim().length < 2) {
-      errs.institutionName = 'Institution name must be at least 2 characters';
-    }
-    if (!formData.slug.trim() || !/^\d+$/.test(formData.slug.trim())) {
-      errs.slug = 'Institution Code / EIIN must be a numeric value';
-    }
-    if (!formData.applicantFirstName.trim()) errs.applicantFirstName = 'First name is required';
-    if (!formData.applicantLastName.trim()) errs.applicantLastName = 'Last name is required';
+
+    const institutionNameError = validateInstitutionName(formData.institutionName);
+    if (institutionNameError) errs.institutionName = institutionNameError;
+
+    const eeinError = validateEIIN(formData.slug);
+    if (eeinError) errs.slug = eeinError;
+
+    const firstNameError = validateName(formData.applicantFirstName, 'First name');
+    if (firstNameError) errs.applicantFirstName = firstNameError;
+
+    const lastNameError = validateName(formData.applicantLastName, 'Last name');
+    if (lastNameError) errs.applicantLastName = lastNameError;
+
     if (!formData.applicantEmail.trim() || !EMAIL_PATTERN.test(formData.applicantEmail.trim())) {
-      errs.applicantEmail = 'Enter a valid email address';
+      errs.applicantEmail = 'Please enter a valid email address (e.g., name@example.com)';
     }
+
+    const phoneError = validateInstitutionPhone(formData.phone);
+    if (phoneError) errs.phone = phoneError;
+
+    const applicantPhoneError = validateBDMobileNumber(formData.applicantPhone);
+    if (applicantPhoneError) errs.applicantPhone = applicantPhoneError;
+
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -168,10 +255,17 @@ const ApplyInstitution = () => {
                     type="text"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+880..."
-                    className="input-field pl-10"
+                    placeholder="e.g., +880-2-1234567 or 02-1234567"
+                    className={`input-field pl-10 ${errors.phone ? 'border-red-500' : ''}`}
                   />
                 </div>
+                {errors.phone ? (
+                  <span className="text-xs text-red-500 mt-1 block">{errors.phone}</span>
+                ) : (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Landline or mobile with area code (7+ digits)
+                  </p>
+                )}
               </div>
 
               <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pt-2">
@@ -225,17 +319,24 @@ const ApplyInstitution = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Your Phone</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Your Mobile Number *</label>
                 <div className="relative">
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     value={formData.applicantPhone}
                     onChange={(e) => setFormData({ ...formData, applicantPhone: e.target.value })}
-                    placeholder="+880..."
-                    className="input-field pl-10"
+                    placeholder="01700000000 or +8801700000000"
+                    className={`input-field pl-10 ${errors.applicantPhone ? 'border-red-500' : ''}`}
                   />
                 </div>
+                {errors.applicantPhone ? (
+                  <span className="text-xs text-red-500 mt-1 block">{errors.applicantPhone}</span>
+                ) : (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Bangladesh mobile number (e.g., 01700000000 or +8801700000000)
+                  </p>
+                )}
               </div>
 
               <div>
