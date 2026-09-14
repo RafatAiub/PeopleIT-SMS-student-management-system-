@@ -125,6 +125,29 @@ const applicationLimiter = rateLimit({
 });
 app.use('/api/v1/institution-applications/apply', applicationLimiter);
 
+// Separate, stricter limiter counting ONLY 401 (unauthorized-email) responses
+// on the application endpoint — independent of applicationLimiter above.
+// Without this, 401-vs-201 is an email-enumeration oracle: an attacker can
+// probe arbitrary addresses against the AuthorizedEmail allowlist as fast as
+// applicationLimiter's general cap allows. skipSuccessfulRequests plus a
+// requestWasSuccessful override that only treats non-401 as "successful"
+// means only 401s increment this counter — a 201, 409, 422, etc. never count
+// against it, so legitimate/authorized traffic is unaffected.
+const unauthorizedApplicationEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode !== 401,
+  message: {
+    success: false,
+    message: 'Too many unauthorized registration attempts from this IP, please try again later',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/institution-applications/apply', unauthorizedApplicationEmailLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
