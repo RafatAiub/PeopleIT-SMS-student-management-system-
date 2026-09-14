@@ -59,7 +59,20 @@ const ApplyInstitution = () => {
       });
       setSubmitted(true);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to submit application');
+      if (err.response?.status === 401) {
+        const message = err.response?.data?.message || "This email isn't authorized to apply yet.";
+        toast.error(
+          <span>
+            {message}{' '}
+            <a href="mailto:sales@peopleit.io" className="underline font-semibold">
+              Email sales@peopleit.io
+            </a>
+          </span>,
+          { duration: 8000 },
+        );
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to submit application');
+      }
     } finally {
       setSubmitting(false);
     }

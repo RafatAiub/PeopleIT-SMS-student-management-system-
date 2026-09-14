@@ -14,7 +14,7 @@ export async function checkEmailAuthorized(email: string): Promise<void> {
   const authorized = await authorizedEmailRepository.findByEmail(normalized);
   if (!authorized) {
     throw new UnauthorizedError(
-      'This email is not authorized to register. Contact the platform administrator to request access.',
+      "This email isn't authorized to apply yet. Contact sales@peopleit.io to request access.",
     );
   }
 }
