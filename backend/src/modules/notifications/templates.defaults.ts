@@ -319,6 +319,37 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'PeopleNIT SMS',
     ].join('\n'),
   },
+
+  // ── Platform lead capture ───────────────────────────────────────────────
+  // Recipient is every SUPER_ADMIN. institutionId is the internal platform
+  // anchor row (see config/platformInstitution.ts), never a real tenant, so
+  // {{institutionName}} here is deliberately overridden by the caller to the
+  // prospect's own institution name rather than left as the anchor's name.
+  'LEAD_SUBMITTED:IN_APP': {
+    subject: 'New demo request: {{leadName}}',
+    body: '{{leadName}} ({{leadPhone}}) requested a demo for {{institutionName}}. Source: {{source}}.',
+  },
+  'LEAD_SUBMITTED:EMAIL': {
+    subject: 'New lead: {{leadName}} — {{institutionName}}',
+    body: [
+      'Hello,',
+      '',
+      'A new demo request came in from the public request-demo form.',
+      '',
+      '  Name        : {{leadName}}',
+      '  Phone       : {{leadPhone}}',
+      '  Email       : {{leadEmail}}',
+      '  Institution : {{institutionName}}',
+      '  Source      : {{source}}',
+      '',
+      'Qualify and authorize this contact from Super Admin > Leads.',
+      '',
+      'PeopleNIT SMS',
+    ].join('\n'),
+  },
+  'LEAD_SUBMITTED:SMS': {
+    body: 'New lead: {{leadName}} ({{leadPhone}}) - {{institutionName}}. Check Super Admin > Leads.',
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

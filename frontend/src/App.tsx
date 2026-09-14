@@ -62,6 +62,7 @@ const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/System
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
+const RequestDemo = lazyWithRetry(() => import('./pages/public/RequestDemo'));
 const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
 const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
 const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
@@ -328,6 +329,7 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
+        <Route path="/request-demo" element={<RequestDemo />} />
         <Route path="/verify/:token" element={<VerifyIdCard />} />
 
         {/* Protected Dashboard Routes */}

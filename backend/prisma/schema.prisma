@@ -105,8 +105,42 @@ model AuthorizedEmail {
   addedByUserId String?
   addedBy       User?    @relation(fields: [addedByUserId], references: [id])
   createdAt     DateTime @default(now())
+  leads         Lead[]
 
   @@index([email])
+}
+
+// ── Public Lead Capture (ad-driven traffic, pre-tenant) ─────────────────
+// Ungated counterpart to InstitutionApplication: a lightweight contact-info
+// drop for cold traffic with no pre-approved email, captured before any
+// institution/tenant exists. Deliberately NOT tenant-scoped — no
+// institutionId. Sales qualifies and manually authorizes via
+// authorizedEmailId once ready to let the contact submit the real,
+// AuthorizedEmail-gated institution application.
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  DISMISSED
+}
+
+model Lead {
+  id                String           @id @default(cuid())
+  name              String
+  phone             String
+  email             String?
+  institutionName   String?
+  institutionType   String?
+  message           String?          @db.Text
+  source            String?
+  status            LeadStatus       @default(NEW)
+  authorizedEmailId String?
+  authorizedEmail   AuthorizedEmail? @relation(fields: [authorizedEmailId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status])
+  @@index([phone])
 }
 
 // ── Platform Subscription Billing (SSLCommerz) ─────────────────────────

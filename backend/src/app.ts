@@ -25,6 +25,7 @@ import aiRouter from './modules/ai/ai.routes';
 import institutionRouter from './modules/institution/institution.routes';
 import institutionApplicationRouter from './modules/institution-application/institution-application.routes';
 import authorizedEmailRouter from './modules/authorized-email/authorized-email.routes';
+import leadRouter from './modules/lead/lead.routes';
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
@@ -148,6 +149,21 @@ const unauthorizedApplicationEmailLimiter = rateLimit({
 });
 app.use('/api/v1/institution-applications/apply', unauthorizedApplicationEmailLimiter);
 
+// Strict rate limit for the public, unauthenticated lead-capture form. The
+// same router path also serves Super Admin's authenticated GET/PATCH
+// management calls, so this only throttles unauthenticated traffic (no
+// Bearer token) rather than the whole path — an admin session is never
+// counted against a public-traffic cap.
+const leadCaptureLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 100 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests submitted from this IP, please try again later' },
+  skip: (req) => env.NODE_ENV === 'test' || Boolean(req.headers.authorization),
+});
+app.use('/api/v1/leads', leadCaptureLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
@@ -170,6 +186,7 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/authorized-emails', authorizedEmailRouter);
+app.use('/api/v1/leads', leadRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
