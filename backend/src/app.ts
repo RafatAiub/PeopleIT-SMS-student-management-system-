@@ -118,7 +118,7 @@ app.use('/api/v1/auth/refresh', authLimiter);
 // Strict rate limit for the public, unauthenticated institute application form
 const applicationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'development' ? 100 : 5,
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
@@ -136,7 +136,7 @@ app.use('/api/v1/institution-applications/apply', applicationLimiter);
 // against it, so legitimate/authorized traffic is unaffected.
 const unauthorizedApplicationEmailLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5,
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
