@@ -94,6 +94,21 @@ model InstitutionApplication {
   @@index([applicantEmail])
 }
 
+// ── Authorized Email Allowlist ──────────────────────────────────────────
+// Gates the public institution-application form: only an email a Super Admin
+// has pre-approved here may submit an application. Stored lowercased/trimmed
+// to match the normalization already applied to applicantEmail in the DTO.
+model AuthorizedEmail {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  note          String?
+  addedByUserId String?
+  addedBy       User?    @relation(fields: [addedByUserId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@index([email])
+}
+
 // ── Platform Subscription Billing (SSLCommerz) ─────────────────────────
 enum BillingCycle {
   MONTHLY
@@ -363,6 +378,7 @@ model User {
   sentMessages             Message[]                @relation("SentMessages")
   receivedMessages         Message[]                @relation("ReceivedMessages")
   reviewedApplications     InstitutionApplication[]
+  addedAuthorizedEmails    AuthorizedEmail[]
   uploadedLectureMaterials LectureMaterial[]
   lectureMaterialComments  LectureMaterialComment[]
   createdAssignments       Assignment[]
