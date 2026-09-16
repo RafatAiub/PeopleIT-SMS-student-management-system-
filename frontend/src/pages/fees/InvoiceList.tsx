@@ -412,7 +412,7 @@ const InvoiceList = () => {
             onClick={() => openEditCategoryModal(cat)}
             title="Edit category"
             aria-label={`Edit ${cat.name}`}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
           >
             <Edit2 className="w-4 h-4" />
           </button>
@@ -455,7 +455,7 @@ const InvoiceList = () => {
             {activeTab === 'invoices' ? (
               <button
                 onClick={() => { setInvoiceErrors({}); setIsAddModalOpen(true); }}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
+                className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold"
               >
                 <Plus className="w-4 h-4" />
                 Generate Invoice
@@ -463,7 +463,7 @@ const InvoiceList = () => {
             ) : (
               <button
                 onClick={openAddCategoryModal}
-                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm font-semibold"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold"
               >
                 <Plus className="w-4 h-4" />
                 Add Category
@@ -548,7 +548,7 @@ const InvoiceList = () => {
           onClick={() => { setActiveTab('invoices'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2.5 border-b-2 font-semibold text-sm transition-all ${
             activeTab === 'invoices'
-              ? 'border-blue-500 text-blue-500 dark:text-blue-400'
+              ? 'border-primary-500 text-primary-500 dark:text-primary-400'
               : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -559,7 +559,7 @@ const InvoiceList = () => {
           onClick={() => { setActiveTab('categories'); setSearch(''); }}
           className={`flex items-center gap-2 px-4 py-2.5 border-b-2 font-semibold text-sm transition-all ${
             activeTab === 'categories'
-              ? 'border-blue-500 text-blue-500 dark:text-blue-400'
+              ? 'border-primary-500 text-primary-500 dark:text-primary-400'
               : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -743,7 +743,7 @@ const InvoiceList = () => {
                 </Button>
                 <button
                   type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-sm text-sm"
                 >
                   {categoryModalMode === 'edit' ? 'Save Changes' : 'Create Category'}
                 </button>
@@ -819,7 +819,7 @@ const InvoiceList = () => {
                   </Button>
                   <button
                     type="submit"
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/20 text-sm"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-xl transition-all shadow-sm text-sm"
                   >
                     Record Payment
                   </button>

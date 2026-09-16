@@ -313,7 +313,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       </div>
 
       {/* ── 1. DESKTOP DATE & WEEK CONTROLS BAR ───────────────────────────── */}
-      <div className="hidden md:flex glass-card p-4 rounded-3xl items-center justify-between gap-4 border border-slate-200/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/50 no-print shadow-xs">
+      <div className="hidden md:flex glass-card p-4 rounded-2xl items-center justify-between gap-4 border border-slate-200/60 dark:border-white/10 no-print shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400">
             <CalendarDays className="w-5 h-5" />
@@ -405,7 +405,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
       </div>
 
       {/* ── 2. TOOLBAR (SEARCH & RESPONSIVE VIEW SWITCHER) ─────────────────── */}
-      <div className="glass-card p-3 md:p-4 rounded-3xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border border-slate-200/60 dark:border-white/5 bg-white/80 dark:bg-slate-900/50 no-print">
+      <div className="glass-card p-3 md:p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border border-slate-200/60 dark:border-white/5 no-print">
         {/* Search & Filter */}
         <div className="flex items-center gap-2 flex-1">
           <div className="relative flex-1">
@@ -477,17 +477,17 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
 
       {/* ── 3. MAIN ATTENDANCE VIEW CONTENT ─────────────────────────────── */}
       {loading ? (
-        <div className="glass-card p-12 rounded-3xl border border-slate-200/60 dark:border-white/5 text-center flex flex-col items-center justify-center space-y-3">
+        <div className="glass-card p-12 rounded-2xl border border-slate-200/60 dark:border-white/5 text-center flex flex-col items-center justify-center space-y-3">
           <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
           <span className="text-xs font-semibold text-slate-500">Loading Register...</span>
         </div>
       ) : filteredStudents.length === 0 ? (
-        <div className="glass-card p-10 rounded-3xl border border-slate-200/60 dark:border-white/5 text-center text-slate-500 text-xs italic">
+        <div className="glass-card p-10 rounded-2xl border border-slate-200/60 dark:border-white/5 text-center text-slate-500 text-xs italic">
           No students found matching current search.
         </div>
       ) : isSelectedDateHoliday && viewMode !== 'weekly' ? (
         /* ── HOLIDAY LOCK — attendance entry disabled for this date ────── */
-        <div className="glass-card p-10 rounded-3xl border border-purple-200 dark:border-purple-500/20 bg-purple-50/50 dark:bg-purple-950/20 text-center flex flex-col items-center justify-center space-y-3">
+        <div className="glass-card p-10 rounded-2xl border border-purple-200 dark:border-purple-500/20 bg-purple-50/50 dark:bg-purple-950/20 text-center flex flex-col items-center justify-center space-y-3">
           <Lock className="w-10 h-10 text-purple-500" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">{selectedDateHolidayName}</h3>
           <p className="text-slate-600 dark:text-slate-400 text-xs max-w-sm leading-relaxed">
@@ -506,12 +506,12 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             return (
               <div
                 key={student.id}
-                className={`glass-card p-4 rounded-3xl border transition-all relative flex flex-col justify-between space-y-3 ${
+                className={`glass-card p-4 rounded-2xl border transition-all relative flex flex-col justify-between space-y-3 ${
                   currentStatus === 'PRESENT'
                     ? 'border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-500/5 ring-1 ring-emerald-500/20'
                     : currentStatus === 'ABSENT'
                     ? 'border-rose-500/50 bg-rose-50/20 dark:bg-rose-500/5 ring-1 ring-rose-500/20'
-                    : 'border-slate-200/60 dark:border-white/5 bg-white dark:bg-slate-900/40'
+                    : 'border-slate-200/60 dark:border-white/5'
                 }`}
               >
                 {/* Student Info Header */}
@@ -587,7 +587,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         /* ══════════════════════════════════════════════════════════════════ */
         /* ── B. WEEKLY CALENDAR MATRIX VIEW ──────────────────────────────── */
         /* ══════════════════════════════════════════════════════════════════ */
-        <div className="glass-card rounded-3xl border border-slate-200/70 dark:border-white/10 overflow-hidden bg-white dark:bg-slate-900/60 shadow-xl relative">
+        <div className="glass-card rounded-2xl border border-slate-200/70 dark:border-white/10 overflow-hidden shadow-sm relative">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[700px]">
               <thead>
@@ -760,7 +760,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
 
       {/* ── 4. 📱 STICKY FLOATING MOBILE BOTTOM ACTION BAR ──────────────────── */}
       {students.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 shadow-2xl no-print md:sticky md:bottom-6 md:rounded-3xl md:border md:m-0">
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 shadow-sm no-print md:sticky md:bottom-6 md:rounded-2xl md:border md:m-0">
           <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
             <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
               <span className="text-emerald-600 font-bold">{presentCount} Present</span>
@@ -772,7 +772,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
               onClick={onSave}
               disabled={loading || isSelectedDateHoliday}
               title={isSelectedDateHoliday ? `${selectedDate} is a holiday — attendance cannot be submitted` : undefined}
-              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 disabled:from-slate-300 disabled:to-slate-300 dark:disabled:from-slate-700 dark:disabled:to-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-lg shadow-primary-500/25 active:scale-95 text-sm"
+              className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-sm active:scale-95 text-sm"
             >
               <Save className="w-4 h-4" />
               {isSelectedDateHoliday ? 'Holiday — Cannot Submit' : loading ? 'Submitting...' : 'Save & Submit Attendance'}

@@ -45,8 +45,7 @@ export const SystemHealthPortal: React.FC = () => {
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-fadeIn pb-12">
       {/* Page Header */}
-      <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-accent-400 to-cyan-500" />
+      <div className="glass-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl">
@@ -88,7 +87,7 @@ export const SystemHealthPortal: React.FC = () => {
           {/* Key Infrastructure Gauges */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Database Health Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
+            <div className="glass-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-blue-500/10 text-blue-500 rounded-xl">
@@ -121,7 +120,7 @@ export const SystemHealthPortal: React.FC = () => {
             </div>
 
             {/* Redis Cache Health Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
+            <div className="glass-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-red-500/10 text-red-500 rounded-xl">
@@ -158,7 +157,7 @@ export const SystemHealthPortal: React.FC = () => {
             </div>
 
             {/* Node.js Process Memory Card */}
-            <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xs space-y-4">
+            <div className="glass-card p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2.5 bg-primary-500/10 text-primary-500 rounded-xl">
@@ -192,7 +191,7 @@ export const SystemHealthPortal: React.FC = () => {
           </div>
 
           {/* Platform Performance Summary */}
-          <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl space-y-6">
+          <div className="glass-card p-6 space-y-6">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <Server className="w-4 h-4 text-emerald-500" /> Platform Infrastructure Metrics
             </h3>

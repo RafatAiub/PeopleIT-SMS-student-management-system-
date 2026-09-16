@@ -278,7 +278,7 @@ export default function TransportManagement() {
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {routes.map((route) => (
-            <div key={route.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-colors">
+            <div key={route.id} className="glass-card p-5 rounded-2xl hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
@@ -324,7 +324,7 @@ export default function TransportManagement() {
           />
         </div>
       ) : activeTab === 'vehicles' ? (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
+        <div className="glass-card rounded-2xl overflow-hidden p-4">
           <DataTable
             data={vehicles}
             columns={vehicleColumns}
@@ -343,7 +343,7 @@ export default function TransportManagement() {
           />
         </div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
+        <div className="glass-card rounded-2xl overflow-hidden p-4">
           <DataTable
             data={assignments}
             columns={assignmentColumns}

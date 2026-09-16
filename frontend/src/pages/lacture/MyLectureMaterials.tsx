@@ -378,7 +378,7 @@ const MyLectureMaterials: React.FC = () => {
         {canUpload && activeTab === 'stream' && (
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             Add Material
@@ -394,7 +394,7 @@ const MyLectureMaterials: React.FC = () => {
               onClick={() => setSelectedChildId(child.id)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 selectedChildId === child.id
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                  ? 'bg-primary-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
               }`}
             >
@@ -462,7 +462,7 @@ const MyLectureMaterials: React.FC = () => {
                 action={
                   <button
                     onClick={fetchMaterials}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-all"
                   >
                     Retry
                   </button>
@@ -481,7 +481,7 @@ const MyLectureMaterials: React.FC = () => {
                   canUpload ? (
                     <button
                       onClick={openAdd}
-                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
+                      className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
                     >
                       <Plus className="w-4 h-4" /> New Announcement
                     </button>
@@ -559,7 +559,7 @@ const MyLectureMaterials: React.FC = () => {
             action={
               <button
                 onClick={fetchAssignments}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all"
+                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-semibold transition-all"
               >
                 Retry
               </button>
@@ -585,10 +585,10 @@ const MyLectureMaterials: React.FC = () => {
             return (
               <div
                 key={assignment.id}
-                className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group"
+                className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-all group"
               >
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center border text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20 group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center border text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-500/10 border-primary-200 dark:border-primary-500/20 group-hover:scale-110 transition-transform">
                     <ClipboardList className="w-6 h-6" />
                   </div>
                   {due ? (
@@ -652,7 +652,7 @@ const MyLectureMaterials: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => openSubmitFor(assignment)}
-                        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold active:scale-[0.98]"
+                        className="w-full flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold active:scale-[0.98]"
                       >
                         <Send className="w-4 h-4" /> Submit Assignment
                       </button>
@@ -680,7 +680,7 @@ const MyLectureMaterials: React.FC = () => {
       {/* Add/Edit Lecture Material Modal (Stream, Student only) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -741,7 +741,7 @@ const MyLectureMaterials: React.FC = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
                 >
                   {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Material'}
                 </button>
@@ -754,7 +754,7 @@ const MyLectureMaterials: React.FC = () => {
       {/* Submit/Edit Submission Modal — scoped to one specific Teacher assignment */}
       {submittingFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Send className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -821,7 +821,7 @@ const MyLectureMaterials: React.FC = () => {
                   <button
                     type="submit"
                     disabled={savingSubmission}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
+                    className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
                   >
                     {savingSubmission ? 'Saving...' : submittingFor.mySubmission ? 'Save Changes' : 'Submit Assignment'}
                   </button>

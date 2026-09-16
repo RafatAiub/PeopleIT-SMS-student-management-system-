@@ -70,8 +70,7 @@ export const AuthorizedEmails: React.FC = () => {
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-fadeIn pb-12">
       {/* Page Header */}
-      <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-primary-500 to-accent-400" />
+      <div className="glass-card p-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
             <ShieldCheck className="w-8 h-8" />
@@ -87,7 +86,7 @@ export const AuthorizedEmails: React.FC = () => {
       </div>
 
       {/* Add form */}
-      <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl">
+      <div className="glass-card p-6">
         <form onSubmit={handleAdd} className="flex flex-col sm:flex-row gap-3 items-start">
           <div className="flex-1 w-full">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email *</label>
@@ -113,7 +112,7 @@ export const AuthorizedEmails: React.FC = () => {
           <button
             type="submit"
             disabled={adding}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md disabled:opacity-50 min-h-[44px] mt-auto sm:mt-0 sm:self-end"
+            className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md disabled:opacity-50 min-h-[44px] mt-auto sm:mt-0 sm:self-end"
           >
             <Plus className="w-4 h-4" /> {adding ? 'Adding…' : 'Authorize Email'}
           </button>
@@ -121,7 +120,7 @@ export const AuthorizedEmails: React.FC = () => {
       </div>
 
       {/* Table */}
-      <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl space-y-6">
+      <div className="glass-card p-6 space-y-6">
         <div className="overflow-x-auto border border-slate-200 dark:border-white/10 rounded-2xl">
           <table className="w-full text-left border-collapse">
             <thead>

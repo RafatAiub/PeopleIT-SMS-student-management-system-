@@ -610,7 +610,7 @@ const StudentList = () => {
     return (
       <div className="space-y-6 max-w-5xl">
         {/* Hero */}
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 p-6 sm:p-8 bg-gradient-to-br from-primary-500/5 via-transparent to-accent-500/5">
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             {selectedStudent.avatarUrl || selectedStudent.user?.avatarUrl ? (
               <img
@@ -619,7 +619,7 @@ const StudentList = () => {
                 className="w-24 h-24 rounded-2xl object-cover border border-slate-200/50 dark:border-white/10 shadow-lg flex-shrink-0"
               />
             ) : (
-              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-3xl font-bold text-white glow-primary shadow-lg flex-shrink-0">
+              <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-3xl font-bold text-white shadow-sm flex-shrink-0">
                 {selectedStudent.firstName?.[0] || '?'}
               </div>
             )}
@@ -814,7 +814,7 @@ const StudentList = () => {
                       type="file"
                       accept="image/*"
                       onChange={handleFileChange}
-                      className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
+                      className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-600/10 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-600/20"
                     />
                   </div>
                 </div>
@@ -1194,7 +1194,7 @@ const StudentList = () => {
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
+                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-600/10 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-600/20"
                   />
                 </div>
               </div>
@@ -1475,7 +1475,7 @@ const StudentList = () => {
                     type="file"
                     accept="image/*"
                     onChange={handleCreatePhotoChange}
-                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-600/10 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-600/20"
+                    className="w-full text-slate-700 dark:text-slate-300 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary-600/10 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-600/20"
                   />
                 </div>
               </div>
@@ -1533,7 +1533,7 @@ const StudentList = () => {
         <div className="rounded-xl border border-slate-200/70 dark:border-white/10 p-4">
           <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2">2. Choose your file</p>
           <label className="flex items-center gap-3 cursor-pointer">
-            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600/10 text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 transition-colors">
+            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-primary-600/10 text-primary-600 dark:text-primary-400 hover:bg-primary-600/20 transition-colors">
               <FileSpreadsheet className="w-4 h-4" />
               Browse…
             </span>

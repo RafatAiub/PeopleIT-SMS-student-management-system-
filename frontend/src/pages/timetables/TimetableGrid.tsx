@@ -105,7 +105,7 @@ function EmptyCell({ day, timeSlot }: { day: string; timeSlot: TimeSlot }) {
   return (
     <div
       ref={setNodeRef}
-      className={`h-full w-full flex items-center justify-center rounded-xl transition-colors ${isOver ? 'bg-blue-100/60 dark:bg-blue-500/10 ring-2 ring-blue-400/50' : 'opacity-30'}`}
+      className={`h-full w-full flex items-center justify-center rounded-xl transition-colors ${isOver ? 'bg-primary-100/60 dark:bg-primary-500/10 ring-2 ring-primary-400/50' : 'opacity-30'}`}
     >
       <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center italic">{isOver ? 'Drop here' : 'Free'}</span>
     </div>
@@ -145,7 +145,7 @@ function PlacedPeriodCard({
       {...listeners}
       {...attributes}
       style={{ transform: transform ? CSS.Translate.toString(transform) : undefined }}
-      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-blue-400/30 transition-all ${isDragging ? 'opacity-30' : ''} ${isOver ? 'ring-2 ring-amber-400/70 border-amber-400/70' : 'border-blue-200 dark:border-blue-500/20'}`}
+      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-primary-50 dark:from-primary-500/10 to-primary-100/30 dark:to-primary-500/5 border shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-primary-400/30 transition-all ${isDragging ? 'opacity-30' : ''} ${isOver ? 'ring-2 ring-amber-400/70 border-amber-400/70' : 'border-primary-200 dark:border-primary-500/20'}`}
       title={isOver ? 'Drop to replace this period' : undefined}
     >
       <button
@@ -712,7 +712,7 @@ const TimetableGrid = () => {
                         isAdmin ? (
                           <PlacedPeriodCard day={day} timeSlot={slot} entry={entry} onDelete={() => deleteSlot(entry.id)} />
                         ) : (
-                          <div className="h-full w-full rounded-xl bg-gradient-to-br from-blue-50 dark:from-blue-500/10 to-primary-50/30 dark:to-primary-500/5 border border-blue-200 dark:border-blue-500/20 shadow-xs flex flex-col items-center justify-center p-2 group hover:border-blue-400/30 transition-all">
+                          <div className="h-full w-full rounded-xl bg-gradient-to-br from-primary-50 dark:from-primary-500/10 to-primary-100/30 dark:to-primary-500/5 border border-primary-200 dark:border-primary-500/20 shadow-xs flex flex-col items-center justify-center p-2 group hover:border-primary-400/30 transition-all">
                             <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{entry.subject}</span>
 
                             {/* Teacher shows Class name, Student shows Teacher */}
@@ -829,7 +829,7 @@ const TimetableGrid = () => {
           </div>
         )}
         {activeDragData?.type === 'slot' && (
-          <div className="rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-300 dark:border-blue-500/30 shadow-lg p-3">
+          <div className="rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/30 shadow-lg p-3">
             <div className="text-xs font-bold text-blue-700 dark:text-blue-300">{activeDragData.entry.subject}</div>
             <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{activeDragData.entry.teacher}</div>
           </div>

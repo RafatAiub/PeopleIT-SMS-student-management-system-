@@ -1,24 +1,24 @@
 /*
- * Violet Pulse design tokens.
- * Replaces the old indigo/teal palette (previously in tailwind.config.js)
- * with a fresh violet-indigo primary + emerald accent, plus the semantic
- * layer (surface/border/text/status) that didn't exist before.
+ * Harbor design tokens — an eSchool-style education SaaS palette.
+ * Replaces the old violet-indigo "Violet Pulse" primary with a deep
+ * navy-teal (institutional, trustworthy) + the existing emerald accent,
+ * plus the semantic layer (surface/border/text/status).
  */
 @theme {
   --font-sans: 'Inter', sans-serif;
 
-  /* Primary — violet-indigo */
-  --color-primary-50:  #F2F0FE;
-  --color-primary-100: #E5E1FD;
-  --color-primary-200: #CCC3FB;
-  --color-primary-300: #ADA0F8;
-  --color-primary-400: #9887F5;
-  --color-primary-500: #7C6AF2;
-  --color-primary-600: #6B57E8;
-  --color-primary-700: #5A45D4;
-  --color-primary-800: #4938AC;
-  --color-primary-900: #3D2F87;
-  --color-primary-950: #251D57;
+  /* Primary — navy-teal ("Harbor") */
+  --color-primary-50:  #EFF5F7;
+  --color-primary-100: #DCE9EE;
+  --color-primary-200: #B9D3DE;
+  --color-primary-300: #8FB6C7;
+  --color-primary-400: #5D92AA;
+  --color-primary-500: #3D7590;
+  --color-primary-600: #2B5C74;
+  --color-primary-700: #1F4759;
+  --color-primary-800: #17394A;
+  --color-primary-900: #122A36;
+  --color-primary-950: #0B1B23;
 
   /* Accent — emerald (replaces teal) */
   --color-accent-50:  #ECFDF5;
@@ -81,8 +81,8 @@
   100% { opacity: 1; transform: translateX(0); }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(124, 106, 242, 0.3); }
-  50%      { box-shadow: 0 0 25px rgba(124, 106, 242, 0.6); }
+  0%, 100% { box-shadow: 0 0 10px rgba(43, 92, 116, 0.3); }
+  50%      { box-shadow: 0 0 25px rgba(43, 92, 116, 0.6); }
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }

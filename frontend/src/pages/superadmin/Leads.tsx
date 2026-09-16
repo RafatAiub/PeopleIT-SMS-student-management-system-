@@ -84,8 +84,7 @@ export const Leads: React.FC = () => {
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-fadeIn pb-12">
       {/* Page Header */}
-      <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-primary-500 to-accent-400" />
+      <div className="glass-card p-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl">
             <Megaphone className="w-8 h-8" />
@@ -101,7 +100,7 @@ export const Leads: React.FC = () => {
       </div>
 
       {/* Filter Tabs + Table */}
-      <div className="glass-card p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl space-y-6">
+      <div className="glass-card p-6 space-y-6">
         <div className="flex items-center gap-2">
           {STATUS_TABS.map((tab) => (
             <button
@@ -109,7 +108,7 @@ export const Leads: React.FC = () => {
               onClick={() => setStatusFilter(tab.value)}
               className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors min-h-[36px] ${
                 statusFilter === tab.value
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-primary-600 text-white border-primary-600'
                   : 'bg-transparent text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5'
               }`}
             >

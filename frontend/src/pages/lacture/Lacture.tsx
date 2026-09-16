@@ -378,7 +378,7 @@ export default function Lacture() {
         ) : activeTab === 'stream' ? (
           <button
             onClick={openAdd}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             Add Material
@@ -386,7 +386,7 @@ export default function Lacture() {
         ) : (
           <button
             onClick={openAddAssignment}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
             Add Assignment
@@ -467,7 +467,7 @@ export default function Lacture() {
                   !isReadOnly ? (
                     <button
                       onClick={openAdd}
-                      className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
+                      className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
                     >
                       <Plus className="w-4 h-4" /> New Announcement
                     </button>
@@ -558,7 +558,7 @@ export default function Lacture() {
               !isReadOnly ? (
                 <button
                   onClick={openAddAssignment}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
+                  className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
                 >
                   <Plus className="w-4 h-4" /> Add Assignment
                 </button>
@@ -650,7 +650,7 @@ export default function Lacture() {
                     >
                       <Users className="w-4 h-4" />
                       View Submissions
-                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-blue-600 text-white text-xs font-bold">
+                      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary-600 text-white text-xs font-bold">
                         {assignment._count?.submissions ?? 0}
                       </span>
                     </button>
@@ -672,7 +672,7 @@ export default function Lacture() {
       {/* Add/Edit Lecture Material Modal (Stream) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -744,7 +744,7 @@ export default function Lacture() {
                 <button
                   type="submit"
                   disabled={saving || !branchId}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
                 >
                   {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Material'}
                 </button>
@@ -757,7 +757,7 @@ export default function Lacture() {
       {/* Add/Edit Assignment Modal (Classwork) */}
       {isAssignmentModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
               <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <ClipboardList className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -836,7 +836,7 @@ export default function Lacture() {
                 <button
                   type="submit"
                   disabled={savingAssignment || !branchId}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 active:scale-[0.98]"
+                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
                 >
                   {savingAssignment ? 'Saving...' : editingAssignmentId ? 'Save Changes' : 'Add Assignment'}
                 </button>

@@ -58,18 +58,18 @@ export default function VerifyIdCard() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-surface-900 flex items-center justify-center p-4 transition-colors duration-300">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[120px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-sm">
         {loading ? (
           <div className="flex flex-col items-center gap-4 py-16">
-            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500" />
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-500" />
             <p className="text-slate-500 dark:text-slate-400 text-sm">Verifying ID card...</p>
           </div>
         ) : notFound || !info ? (
-          <div className="bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl p-8 text-center space-y-4">
+          <div className="glass-card p-8 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto">
               <ShieldQuestion className="w-8 h-8 text-slate-400" />
             </div>
@@ -79,7 +79,7 @@ export default function VerifyIdCard() {
             </p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl overflow-hidden">
+          <div className="glass-card overflow-hidden">
             <div className="p-6 text-center border-b border-slate-100 dark:border-white/5">
               {info.institution.logoUrl ? (
                 <img src={info.institution.logoUrl} alt={info.institution.name} className="w-12 h-12 rounded-lg object-contain mx-auto mb-3 bg-white border border-slate-200" />

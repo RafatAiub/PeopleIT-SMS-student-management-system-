@@ -311,18 +311,17 @@ const AdminDashboard = () => {
     return (
       <div className="space-y-8 max-w-7xl mx-auto pb-12">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 relative overflow-hidden bg-white/40 dark:bg-slate-900/40 animate-fadeIn">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-primary-500 to-emerald-500 opacity-80" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 animate-fadeIn">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">SaaS Super Admin Control Center</h2>
-            <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm leading-relaxed max-w-xl">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">SaaS Super Admin Control Center</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm leading-relaxed max-w-xl">
               Platform administration, multi-tenant monitoring, customer support access, and security controls.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/super-admin/support-access')}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2.5 rounded-2xl transition-all shadow-md font-bold text-xs min-h-[44px]"
+              className="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 px-4 py-2.5 rounded-xl transition-all font-semibold text-xs min-h-[44px]"
             >
               <LifeBuoy className="w-4 h-4" />
               <span>Support Access</span>
@@ -330,7 +329,7 @@ const AdminDashboard = () => {
 
             <button
               onClick={() => setIsWizardOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-xl shadow-blue-500/20 text-xs font-bold active:scale-[0.98] min-h-[44px]"
+              className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-xs font-bold active:scale-[0.98] min-h-[44px]"
             >
               <Plus className="w-4.5 h-4.5" />
               <span>Register Institution</span>
@@ -390,7 +389,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Institutions Data Table */}
-        <div className="glass-card overflow-hidden bg-white/60 dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-3xl shadow-xl animate-fadeIn">
+        <div className="glass-card overflow-hidden animate-fadeIn">
           <div className="p-6 border-b border-slate-200 dark:border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -534,7 +533,7 @@ const AdminDashboard = () => {
 
                             <button
                               onClick={() => handleOpenEditModal(inst)}
-                              className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold transition-all text-[11px] min-h-[36px]"
+                              className="px-2.5 py-1.5 rounded-lg bg-primary-50 hover:bg-primary-100 dark:bg-primary-500/10 dark:hover:bg-primary-500/20 text-primary-600 dark:text-primary-400 font-bold transition-all text-[11px] min-h-[36px]"
                             >
                               Edit Profile
                             </button>
@@ -743,7 +742,7 @@ const AdminDashboard = () => {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition-all min-h-[44px]"
+                    className="bg-primary-600 hover:bg-primary-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md transition-all min-h-[44px]"
                   >
                     {submitting ? 'Saving Profile...' : 'Save Profile & Password'}
                   </button>

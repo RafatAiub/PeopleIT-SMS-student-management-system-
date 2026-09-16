@@ -36,13 +36,13 @@
 
 @layer components {
   .glass-card {
-    @apply bg-white/70 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-xs backdrop-blur-xl;
+    @apply bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm;
   }
   .glass-card-hover {
-    @apply bg-white/70 dark:bg-white/5 border border-slate-200/50 dark:border-white/10 rounded-2xl shadow-xs backdrop-blur-xl transition-all duration-200;
+    @apply bg-white dark:bg-surface-900 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm transition-all duration-200;
   }
   .glass-card-hover:hover {
-    @apply bg-white/90 dark:bg-white/10 -translate-y-0.5 shadow-lg dark:shadow-[0_8px_32px_rgba(124,106,242,0.15)];
+    @apply -translate-y-0.5 shadow-md dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)];
   }
   .btn-primary {
     @apply bg-primary-600 hover:bg-primary-500 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-200 active:scale-95 inline-flex items-center gap-2;
@@ -81,12 +81,12 @@
 
 @layer utilities {
   .text-gradient {
-    background: linear-gradient(135deg, #7C6AF2, #10B981);
+    background: linear-gradient(135deg, #2B5C74, #10B981);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .glow-primary { box-shadow: 0 0 20px rgba(124, 106, 242, 0.3); }
+  .glow-primary { box-shadow: 0 0 20px rgba(43, 92, 116, 0.3); }
   .glow-accent  { box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
   .shimmer-bg {
     background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);

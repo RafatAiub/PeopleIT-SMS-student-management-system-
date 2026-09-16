@@ -71,7 +71,7 @@ export default function AssignmentSubmissionsModal({ assignment, onClose }: Assi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden shadow-blue-500/10 max-h-[85vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-xl shadow-sm overflow-hidden max-h-[85vh] flex flex-col">
         <div className="flex items-start justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
           <div className="min-w-0">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">

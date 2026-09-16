@@ -168,14 +168,14 @@ const ApplyInstitution = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-surface-900 flex items-center justify-center p-4 transition-colors duration-300">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-500/20 blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[120px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="text-center mb-8">
           <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-accent-500 dark:from-primary-400 dark:to-accent-400 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
             Register Your Institution
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
@@ -183,7 +183,7 @@ const ApplyInstitution = () => {
           </p>
         </div>
 
-        <div className="glass-card p-6 sm:p-8 shadow-2xl relative overflow-hidden bg-white/40 dark:bg-slate-900/40 animate-fadeIn">
+        <div className="glass-card p-6 sm:p-8 relative overflow-hidden animate-fadeIn">
           {submitted ? (
             <div className="text-center py-6 space-y-4">
               <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto" />

@@ -143,7 +143,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/5 mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-primary-600 text-white rounded-2xl shadow-md">
+            <div className="p-3 bg-gradient-to-br from-primary-500 to-primary-700 text-white rounded-2xl shadow-md">
               <Building2 className="w-6 h-6" />
             </div>
             <div>
@@ -156,17 +156,17 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
         {/* Step Indicator */}
         <div className="flex items-center justify-between mb-8 px-4">
           <div className={`flex items-center gap-2 ${step >= 1 ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400'}`}>
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>1</span>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step >= 1 ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>1</span>
             <span className="text-xs hidden sm:inline">Institution</span>
           </div>
-          <div className={`h-0.5 flex-1 mx-3 ${step >= 2 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
+          <div className={`h-0.5 flex-1 mx-3 ${step >= 2 ? 'bg-primary-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
           <div className={`flex items-center gap-2 ${step >= 2 ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400'}`}>
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step >= 2 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>2</span>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step >= 2 ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>2</span>
             <span className="text-xs hidden sm:inline">Admin Account</span>
           </div>
-          <div className={`h-0.5 flex-1 mx-3 ${step >= 3 ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
+          <div className={`h-0.5 flex-1 mx-3 ${step >= 3 ? 'bg-primary-600' : 'bg-slate-200 dark:bg-slate-800'}`} />
           <div className={`flex items-center gap-2 ${step === 3 ? 'text-blue-600 dark:text-blue-400 font-bold' : 'text-slate-400'}`}>
-            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step === 3 ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>3</span>
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs ${step === 3 ? 'bg-primary-600 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>3</span>
             <span className="text-xs hidden sm:inline">Review</span>
           </div>
         </div>
@@ -339,7 +339,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
                   navigator.clipboard.writeText(text);
                   toast.success('Credentials copied to clipboard!');
                 }}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md min-h-[44px]"
+                className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md min-h-[44px]"
               >
                 <Copy className="w-4 h-4" /> Copy All Credentials
               </button>
@@ -395,7 +395,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ isOpen, 
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-blue-500/20 transition-all min-h-[44px]"
+                className="flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all min-h-[44px]"
               >
                 Next Step <ChevronRight className="w-4 h-4" />
               </button>

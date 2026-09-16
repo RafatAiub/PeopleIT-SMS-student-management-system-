@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Eye, EyeOff, Mail, Lock, Building2, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Building2, AlertTriangle, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
 import { REMEMBER_ME_KEY } from '../store/authStore';
@@ -156,30 +156,88 @@ const Login = () => {
   const isLockedOut = lockoutSecondsLeft !== null && lockoutSecondsLeft > 0;
   const loginErrorMessage = (login.error as any)?.response?.data?.message as string | undefined;
 
-  return (
-    <div className="min-h-screen bg-slate-50 dark:bg-surface-900 flex items-center justify-center p-4 transition-colors duration-300">
-      {/* Background gradients */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[120px]" />
-      </div>
+  const features = [
+    'Attendance & academic records',
+    'Fees, invoices & online payments',
+    'Timetables, exams & staff management',
+  ];
 
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 dark:bg-surface-950 p-4 sm:p-6 lg:p-10 transition-colors duration-300">
       {/* Screen-reader-only live region: announces the current error even
           though the toast itself isn't reliably read by all screen readers. */}
       <div role="alert" aria-live="assertive" className="sr-only">
         {loginErrorMessage}
       </div>
 
-      <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <div className="text-center mb-8">
-          <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
-          <h1 className="text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-accent-500 dark:from-primary-400 dark:to-accent-400 mb-2">
-            PeopleNIT SMS
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Sign in to your dashboard</p>
+      {/* The whole login UI is one bounded, centered card — not a full-bleed
+          50/50 split — so it stays visually balanced instead of floating in a
+          sea of empty space on wide/ultrawide screens. */}
+      <div className="w-full max-w-5xl bg-white dark:bg-surface-900 rounded-3xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden grid lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
+
+        {/* Illustration panel — brand story, hidden on small screens */}
+        <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900 p-10 xl:p-12">
+          <div className="absolute inset-0 opacity-[0.08]" style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+            backgroundSize: '28px 28px',
+          }} />
+          <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-accent-400/10 blur-3xl" />
+          <div className="absolute -bottom-32 -right-16 w-[28rem] h-[28rem] rounded-full bg-primary-300/10 blur-3xl" />
+
+          <div className="relative z-10 flex items-center gap-3">
+            <LogoMark className="w-10 h-10 shadow-lg" />
+            <span className="text-white font-bold text-lg tracking-tight">PeopleNIT SMS</span>
+          </div>
+
+          <div className="relative z-10">
+            <svg viewBox="0 0 200 160" className="w-40 xl:w-48 h-auto mb-8 text-white/25" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M30 130 L30 70 L70 70 L70 130 M40 90 h20 M40 105 h20" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M100 40 L140 55 L100 70 L60 55 Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M75 60 v22 c0 8 12 14 25 14 s25 -6 25 -14 v-22" />
+              <circle cx="140" cy="55" r="2" fill="currentColor" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M140 55 v18" />
+              <rect x="150" y="95" width="30" height="24" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M156 95 v-6 a9 9 0 0 1 18 0 v6" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 40 l6 6 m0 -6 l-6 6" />
+              <circle cx="170" cy="30" r="4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M95 130 h50 m-50 8 h35" />
+            </svg>
+            <h1 className="text-2xl xl:text-3xl font-black text-white tracking-tight leading-tight mb-3">
+              Run your entire institution from one dashboard
+            </h1>
+            <p className="text-primary-100/80 text-sm leading-relaxed mb-6">
+              PeopleNIT SMS brings every academic workflow into a single, reliable
+              platform for administrators, teachers, students and guardians alike.
+            </p>
+            <ul className="space-y-2.5">
+              {features.map((feature) => (
+                <li key={feature} className="flex items-center gap-2.5 text-sm text-primary-50/90">
+                  <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check className="w-3 h-3" />
+                  </span>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <p className="relative z-10 text-primary-200/50 text-xs">© {new Date().getFullYear()} PeopleNIT SMS. All rights reserved.</p>
         </div>
 
-        <div className="glass-card p-8 shadow-2xl relative overflow-hidden bg-white/40 dark:bg-slate-900/40 animate-fadeIn">
+        {/* Form panel */}
+        <div className="flex items-center justify-center p-6 sm:p-10 lg:p-12">
+        <div className="relative z-10 w-full max-w-sm">
+          <div className="text-center mb-8 lg:hidden">
+            <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
+            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
+              PeopleNIT <span className="text-accent-500">SMS</span>
+            </h1>
+          </div>
+          <div className="hidden lg:block mb-8">
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Welcome back</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to your dashboard to continue.</p>
+          </div>
+
           {isLockedOut && (
             <div
               role="alert"
@@ -385,6 +443,7 @@ const Login = () => {
           )}
 
         </div>
+      </div>
       </div>
 
       <Modal isOpen={showForgotPassword} onClose={() => setShowForgotPassword(false)} className="max-w-sm">

@@ -413,7 +413,7 @@ export default function IdCardDesigner() {
       </div>
 
       {/* Template-level fields */}
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4">
+      <div className="glass-card p-4 sm:p-6 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Template Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
@@ -487,7 +487,7 @@ export default function IdCardDesigner() {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Canvas + toolbar */}
-        <div className="xl:col-span-3 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4 min-w-0">
+        <div className="xl:col-span-3 glass-card p-4 sm:p-6 space-y-4 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={addDataKey}
@@ -595,7 +595,7 @@ export default function IdCardDesigner() {
         </div>
 
         {/* Inspector */}
-        <div className="xl:col-span-2 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-4 sm:p-6 space-y-4 min-w-0">
+        <div className="xl:col-span-2 glass-card p-4 sm:p-6 space-y-4 min-w-0">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white">Element Inspector</h3>
           {!selectedElement ? (
             <p className="text-xs text-slate-500 dark:text-slate-400">

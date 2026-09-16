@@ -552,7 +552,7 @@ const Users = () => {
               className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 shadow-xs"
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold border border-slate-200 dark:border-transparent">
+            <div className="w-10 h-10 rounded-full bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold border border-slate-200 dark:border-transparent">
               {user.firstName?.charAt(0) || user.username?.charAt(0) || 'U'}
             </div>
           )}
@@ -606,7 +606,7 @@ const Users = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
+      <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4">
         <div className="relative">
           <select
             value={params.filters.role || ''}
@@ -624,7 +624,7 @@ const Users = () => {
       </div>
 
       {/* Users Table */}
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs p-4">
+      <div className="glass-card rounded-2xl overflow-hidden p-4">
         <DataTable
           data={users}
           columns={userColumns}
@@ -698,14 +698,14 @@ const Users = () => {
                         {formData.avatarUrl ? (
                           <img src={formData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-600 dark:text-blue-400 font-semibold">No Photo</div>
+                          <div className="w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-600/10 border border-primary-200 dark:border-primary-500/20 flex items-center justify-center text-[10px] text-primary-600 dark:text-primary-400 font-semibold">No Photo</div>
                         )}
                         <input 
                           type="file" 
                           accept="image/*" 
                           required
                           onChange={(e) => handleFileChange(e, false)} 
-                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-600/25 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-600/35 cursor-pointer file:transition-colors"
+                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary-50 dark:file:bg-primary-600/25 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-100 dark:hover:file:bg-primary-600/35 cursor-pointer file:transition-colors"
                         />
                       </div>
                     </div>
@@ -885,13 +885,13 @@ const Users = () => {
                         {editFormData.avatarUrl ? (
                           <img src={editFormData.avatarUrl} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-slate-200 dark:border-white/10" />
                         ) : (
-                          <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-600/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center text-[10px] text-blue-600 dark:text-blue-400 font-semibold">No Photo</div>
+                          <div className="w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-600/10 border border-primary-200 dark:border-primary-500/20 flex items-center justify-center text-[10px] text-primary-600 dark:text-primary-400 font-semibold">No Photo</div>
                         )}
                         <input 
                           type="file" 
                           accept="image/*" 
                           onChange={(e) => handleFileChange(e, true)} 
-                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 dark:file:bg-blue-600/25 file:text-blue-600 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-600/35 cursor-pointer file:transition-colors"
+                          className="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary-50 dark:file:bg-primary-600/25 file:text-primary-600 dark:file:text-primary-400 hover:file:bg-primary-100 dark:hover:file:bg-primary-600/35 cursor-pointer file:transition-colors"
                         />
                       </div>
                     </div>

@@ -129,8 +129,7 @@ const NoticeBoard = () => {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Header Area */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden shadow-xs">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-primary-500 to-accent-500 opacity-50"></div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-6 rounded-2xl">
         <div>
           <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Notice Board</h2>
           <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm max-w-lg leading-relaxed">
@@ -146,7 +145,7 @@ const NoticeBoard = () => {
       </div>
 
       {/* Filters Toolbar */}
-      <div className="glass-card p-4 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-wrap gap-4 items-center shadow-xs">
+      <div className="glass-card p-4 rounded-2xl flex flex-wrap gap-4 items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -180,12 +179,12 @@ const NoticeBoard = () => {
 
         <div className="space-y-6 relative z-10">
           {initialLoading ? (
-            <div className="glass-card p-12 text-center text-slate-500 rounded-3xl border border-slate-200/50 dark:border-white/5 font-medium flex flex-col items-center justify-center space-y-3 shadow-xs bg-white dark:bg-transparent">
-              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="glass-card p-12 text-center text-slate-500 rounded-2xl font-medium flex flex-col items-center justify-center space-y-3">
+              <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
               <p>Fetching notices...</p>
             </div>
           ) : notices.length === 0 ? (
-            <div className="glass-card p-12 text-center text-slate-500 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col items-center justify-center space-y-4 shadow-xs bg-white dark:bg-transparent">
+            <div className="glass-card p-12 text-center text-slate-500 rounded-2xl flex flex-col items-center justify-center space-y-4">
               <Megaphone className="w-12 h-12 text-slate-400 dark:text-slate-600 opacity-50" />
               <p className="text-lg font-medium text-slate-700 dark:text-slate-300">No notices published yet.</p>
               <p className="text-sm">When new announcements are posted, they will appear here.</p>
@@ -196,7 +195,7 @@ const NoticeBoard = () => {
               return (
                 <div 
                   key={notice.id} 
-                  className={`glass-card p-6 md:p-8 rounded-3xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all flex flex-col md:flex-row gap-6 border-l-4 ${styles.color} shadow-xs bg-white dark:bg-transparent`}
+                  className={`glass-card p-6 md:p-8 rounded-2xl hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all flex flex-col md:flex-row gap-6 border-l-4 ${styles.color}`}
                 >
                   {/* Left Section: Icon & Meta */}
                   <div className="md:w-64 flex-shrink-0 flex flex-col space-y-4">
@@ -242,7 +241,7 @@ const NoticeBoard = () => {
       <Modal isOpen={showAddForm} onClose={() => setShowAddForm(false)} className="max-w-2xl p-8">
             <div className="flex justify-between items-center mb-8 pb-4 border-b border-slate-100 dark:border-white/5">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-                <div className="p-2 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl">
+                <div className="p-2 bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 rounded-xl">
                   <Megaphone className="w-6 h-6" />
                 </div>
                 Publish Announcement

@@ -14,36 +14,28 @@ interface KpiCardProps {
 
 const COLOR_MAP = {
   indigo: {
-    iconBg: 'bg-primary-50 dark:bg-primary-500/20 border-primary-200 dark:border-primary-500/30',
+    iconBg: 'bg-primary-50 dark:bg-primary-500/20 border-primary-100 dark:border-primary-500/30',
     iconColor: 'text-primary-600 dark:text-primary-400',
     trendUp: 'text-accent-600 dark:text-accent-400',
     trendDown: 'text-red-600 dark:text-red-400',
-    glow: '0 4px 20px rgba(124,106,242,0.15)',
-    accent: '#7C6AF2',
   },
   teal: {
-    iconBg: 'bg-accent-50 dark:bg-accent-500/20 border-accent-200 dark:border-accent-500/30',
+    iconBg: 'bg-accent-50 dark:bg-accent-500/20 border-accent-100 dark:border-accent-500/30',
     iconColor: 'text-accent-600 dark:text-accent-400',
     trendUp: 'text-accent-600 dark:text-accent-400',
     trendDown: 'text-red-600 dark:text-red-400',
-    glow: '0 4px 20px rgba(16,185,129,0.15)',
-    accent: '#10B981',
   },
   amber: {
-    iconBg: 'bg-amber-50 dark:bg-amber-500/20 border-amber-200 dark:border-amber-500/30',
+    iconBg: 'bg-amber-50 dark:bg-amber-500/20 border-amber-100 dark:border-amber-500/30',
     iconColor: 'text-amber-600 dark:text-amber-400',
     trendUp: 'text-accent-600 dark:text-accent-400',
     trendDown: 'text-red-600 dark:text-red-400',
-    glow: '0 4px 20px rgba(245,158,11,0.15)',
-    accent: '#F59E0B',
   },
   rose: {
-    iconBg: 'bg-rose-50 dark:bg-rose-500/20 border-rose-200 dark:border-rose-500/30',
+    iconBg: 'bg-rose-50 dark:bg-rose-500/20 border-rose-100 dark:border-rose-500/30',
     iconColor: 'text-rose-600 dark:text-rose-400',
     trendUp: 'text-accent-600 dark:text-accent-400',
     trendDown: 'text-red-600 dark:text-red-400',
-    glow: '0 4px 20px rgba(244,63,94,0.15)',
-    accent: '#F43F5E',
   },
 };
 
@@ -85,40 +77,26 @@ export const KpiCard: React.FC<KpiCardProps> = ({
   const isNumeric = typeof value === 'number';
 
   return (
-    <div
-      className="glass-card-hover p-5 cursor-default"
-      style={{ boxShadow: styles.glow }}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${styles.iconBg}`}>
-          <div className={styles.iconColor}>{icon}</div>
-        </div>
-        <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
-          trend === 'up' ? 'bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
-        }`}>
-          {trend === 'up'
-            ? <TrendingUp className="w-3 h-3" />
-            : <TrendingDown className="w-3 h-3" />}
-          {trendValue}
-        </div>
+    <div className="glass-card-hover p-5 cursor-default flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-xl border flex items-center justify-center flex-shrink-0 ${styles.iconBg}`}>
+        <div className={styles.iconColor}>{icon}</div>
       </div>
 
-      <div className="mb-1">
-        <span className="text-2xl font-bold text-slate-900 dark:text-white">
-          {prefix}{isNumeric ? animated.toLocaleString('en-BD') : displayValue}{suffix}
-        </span>
-      </div>
-      <p className="text-sm text-slate-600 dark:text-slate-400">{title}</p>
-
-      {/* Mini sparkline bar */}
-      <div className="mt-4 h-1 rounded-full bg-slate-200 dark:bg-white/5 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-1000"
-          style={{
-            width: `${Math.min(100, (numericValue / (numericValue * 1.2)) * 100)}%`,
-            background: `linear-gradient(90deg, ${styles.accent}, ${styles.accent}88)`,
-          }}
-        />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{title}</p>
+        <div className="flex items-baseline gap-2 mt-0.5">
+          <span className="text-2xl font-bold text-slate-900 dark:text-white">
+            {prefix}{isNumeric ? animated.toLocaleString('en-BD') : displayValue}{suffix}
+          </span>
+          <span className={`flex items-center gap-0.5 text-[11px] font-semibold ${
+            trend === 'up' ? styles.trendUp : styles.trendDown
+          }`}>
+            {trend === 'up'
+              ? <TrendingUp className="w-3 h-3" />
+              : <TrendingDown className="w-3 h-3" />}
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">{trendValue}</p>
       </div>
     </div>
   );

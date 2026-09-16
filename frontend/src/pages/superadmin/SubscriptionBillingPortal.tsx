@@ -505,7 +505,7 @@ const CardMenu: React.FC<{ items: MenuItem[]; label: string }> = ({ items, label
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 w-60 z-20 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-surface-900 shadow-xl p-1"
+          className="absolute right-0 top-full mt-1 w-60 z-20 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-surface-900 shadow-sm p-1"
         >
           {items.map((item) => (
             <button
@@ -561,14 +561,14 @@ const PlanCard: React.FC<{
       className={`group relative glass-card rounded-2xl border overflow-hidden flex flex-col transition-all animate-fadeIn ${
         plan.isArchived
           ? 'border-slate-200 dark:border-white/10 bg-slate-50/60 dark:bg-slate-950/30'
-          : 'border-slate-200 dark:border-white/10 hover:border-primary-300 dark:hover:border-primary-500/30 hover:shadow-lg hover:shadow-primary-500/5'
+          : 'border-slate-200 dark:border-white/10 hover:border-primary-300 dark:hover:border-primary-500/30 hover:shadow-sm'
       }`}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
       {/* Status rail — instant scan of live vs archived down a column of cards */}
       <div
         className={`absolute inset-y-0 left-0 w-1 ${
-          plan.isArchived ? 'bg-slate-300 dark:bg-slate-700' : 'bg-gradient-to-b from-blue-500 to-primary-600'
+          plan.isArchived ? 'bg-slate-300 dark:bg-slate-700' : 'bg-primary-600'
         }`}
         aria-hidden
       />
@@ -1510,7 +1510,7 @@ const GeneratePaymentLinkSection: React.FC<{ institutionId: string; plans: Plan[
             }}
             title="Copy link"
             aria-label="Copy link"
-            className="p-2.5 rounded-xl text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/15 transition-colors flex-shrink-0"
+            className="p-2.5 rounded-xl text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-500/15 transition-colors flex-shrink-0"
           >
             <Copy className="w-4 h-4" />
           </button>
