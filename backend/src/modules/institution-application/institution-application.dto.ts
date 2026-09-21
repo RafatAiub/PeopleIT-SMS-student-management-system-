@@ -59,7 +59,7 @@ const institutionPhoneSchema = z
   .refine(
     (val) => {
       if (!val) return true;
-      return /^[\+]?[0-9\s()\-]*$/.test(val);
+      return /^\+?[-0-9\s()]*$/.test(val);
     },
     { message: 'Phone number can only contain digits, +, -, (), and spaces' },
   )
