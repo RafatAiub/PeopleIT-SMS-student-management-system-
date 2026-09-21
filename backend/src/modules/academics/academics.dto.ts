@@ -33,16 +33,22 @@ export type UpdateClassDtoType = z.infer<typeof UpdateClassDto>;
 export const CreateSectionDto = z.object({
   name: z.string().min(1, 'Name is required').max(50),
   classId: z.string().min(1, 'classId is required'),
-  classTeacherId: z.string().min(1).optional(),
+  // Nullable (not just optional) so the Assign Class Teacher screen can
+  // explicitly unassign a section's teacher by sending classTeacherId: null,
+  // distinct from omitting the field entirely (which leaves it untouched on
+  // update — see academics.repository.ts's updateSection).
+  classTeacherId: z.string().min(1).optional().nullable(),
 });
 export type CreateSectionDtoType = z.infer<typeof CreateSectionDto>;
 
 export const UpdateSectionDto = CreateSectionDto.partial();
 export type UpdateSectionDtoType = z.infer<typeof UpdateSectionDto>;
 
-// classId is required on the list endpoint — matches the existing
-// GET /students/meta/sections?classId= convention.
+// classId is optional on the list endpoint: provided → sections for that one
+// class (matches the existing GET /students/meta/sections?classId=
+// convention); omitted → every section institution-wide (Assign Class
+// Teacher screen).
 export const SectionQueryDto = z.object({
-  classId: z.string().min(1, 'classId query parameter is required'),
+  classId: z.string().min(1, 'classId must not be empty').optional(),
 });
 export type SectionQueryDtoType = z.infer<typeof SectionQueryDto>;

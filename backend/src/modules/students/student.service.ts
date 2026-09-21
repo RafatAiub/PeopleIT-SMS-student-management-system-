@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import * as studentRepository from './student.repository';
 import { studentDetailSelect } from './student.repository';
 import { NotFoundError, ConflictError, ValidationError } from '../../utils/AppError';
@@ -11,6 +12,8 @@ import type {
   UpdateStudentDtoType,
   StudentQueryDtoType,
   CreateStudentDocumentDtoType,
+  UpdateRollNumbersDtoType,
+  BulkAssignClassDtoType,
 } from './student.dto';
 
 // =============================================================================
@@ -44,6 +47,17 @@ async function assertDepartmentIfRequired(
   const grade = extractGradeNumber(cls.name);
   if (grade !== null && DEPARTMENT_REQUIRED_GRADES.has(grade) && !department) {
     throw new ValidationError(`Department is required for ${cls.name} students`);
+  }
+}
+
+// A caller-supplied categoryId must belong to the same institution —
+// otherwise a Student could be wired to another tenant's StudentCategory row.
+// Mirrors assertClassLookupsBelongToInstitution in academics.service.ts.
+async function assertCategoryBelongsToInstitution(institutionId: string, categoryId: string | null | undefined) {
+  if (!categoryId) return;
+  const category = await prisma.studentCategory.findFirst({ where: { id: categoryId, institutionId } });
+  if (!category) {
+    throw new NotFoundError(`Student category with ID '${categoryId}' not found`);
   }
 }
 
@@ -83,6 +97,7 @@ export async function createStudent(
   }
 
   await assertDepartmentIfRequired(institutionId, data.classId, data.department);
+  await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
 
   const { password, ...studentFields } = data;
   const rounds = env.BCRYPT_ROUNDS ?? 12;
@@ -131,6 +146,7 @@ export async function updateStudent(
   const nextDepartment =
     data.department !== undefined ? data.department : (existing as { department?: string | null }).department;
   await assertDepartmentIfRequired(institutionId, nextClassId, nextDepartment);
+  await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
 
   const updated = await studentRepository.update(institutionId, id, data);
   logger.info('Student updated', { studentId: id, institutionId });
@@ -320,4 +336,208 @@ export async function addStudentDocument(
   const doc = await studentRepository.createDocument(institutionId, studentId, data);
   logger.info('Student document added', { studentId, docId: doc.id, institutionId });
   return doc;
+}
+
+// Chunk size shared by the bulk write paths below — mirrors bulkImportStudents'
+// own CHUNK_SIZE, per the bulk-data-ingestion convention documented there
+// (never one giant $transaction with thousands of ops).
+const BULK_WRITE_CHUNK_SIZE = 500;
+
+/**
+ * PATCH /students/roll-numbers — Assign Roll Numbers screen.
+ * sectionId and every assignment's studentId are validated in one findMany
+ * up front (both that they belong to this institution AND to this section):
+ * the whole request is rejected if any id doesn't belong — no silent skips.
+ */
+export async function updateRollNumbers(
+  institutionId: string,
+  actorUserId: string,
+  data: UpdateRollNumbersDtoType,
+) {
+  const section = await prisma.section.findFirst({
+    where: { id: data.sectionId, class: { branch: { institutionId } } },
+    select: { id: true },
+  });
+  if (!section) {
+    throw new NotFoundError(`Section with ID '${data.sectionId}' not found`);
+  }
+
+  const studentIds = data.assignments.map((a) => a.studentId);
+  if (new Set(studentIds).size !== studentIds.length) {
+    throw new ValidationError('Duplicate studentId in assignments');
+  }
+
+  const owned = await prisma.student.findMany({
+    where: { id: { in: studentIds }, institutionId, sectionId: data.sectionId },
+    select: { id: true },
+  });
+  if (owned.length !== studentIds.length) {
+    const ownedIds = new Set(owned.map((s) => s.id));
+    const missing = studentIds.filter((id) => !ownedIds.has(id));
+    throw new NotFoundError(
+      `Student(s) not found in section '${data.sectionId}' for this institution: ${missing.join(', ')}`,
+    );
+  }
+
+  for (let i = 0; i < data.assignments.length; i += BULK_WRITE_CHUNK_SIZE) {
+    const chunk = data.assignments.slice(i, i + BULK_WRITE_CHUNK_SIZE);
+    await prisma.$transaction(
+      chunk.map((a) =>
+        prisma.student.update({
+          where: { id: a.studentId },
+          data: { rollNumber: a.rollNumber },
+        }),
+      ),
+    );
+  }
+
+  logger.info('Roll numbers updated', {
+    institutionId,
+    sectionId: data.sectionId,
+    count: data.assignments.length,
+    actorUserId,
+  });
+
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: actorUserId,
+        action: 'BULK_ROLL_NUMBER_UPDATE',
+        resource: 'Student',
+        metadata: { sectionId: data.sectionId, count: data.assignments.length },
+      },
+    })
+    .catch(() => {});
+
+  return { updatedCount: data.assignments.length, sectionId: data.sectionId };
+}
+
+// Random alphanumeric+symbol password generator — same approach as
+// institution-application.service.ts's generatePassword (12 chars, drawn
+// from crypto.randomBytes so it's not Math.random-predictable).
+function generateRandomPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+  const bytes = crypto.randomBytes(12);
+  let pwd = '';
+  for (let i = 0; i < 12; i++) {
+    pwd += chars[bytes[i] % chars.length];
+  }
+  return pwd;
+}
+
+/**
+ * POST /students/:id/reset-password — resets the password on the Student's
+ * linked login User. Returns the plaintext password once for the caller to
+ * display/copy; never logged or persisted in plaintext anywhere.
+ */
+export async function resetStudentPassword(institutionId: string, id: string, password: string | undefined) {
+  const student = await prisma.student.findFirst({
+    where: { id, institutionId },
+    select: { id: true, userId: true },
+  });
+  if (!student) {
+    throw new NotFoundError(`Student with ID '${id}' not found`);
+  }
+  if (!student.userId) {
+    throw new NotFoundError(`Student with ID '${id}' has no linked login account`);
+  }
+
+  const plaintextPassword = password ?? generateRandomPassword();
+  const rounds = env.BCRYPT_ROUNDS ?? 12;
+  const passwordHash = await bcrypt.hash(plaintextPassword, rounds);
+
+  await prisma.user.update({
+    where: { id: student.userId },
+    data: { passwordHash },
+  });
+
+  // Never log the plaintext password — only the fact that a reset happened.
+  logger.info('Student password reset', { studentId: id, institutionId });
+
+  return { password: plaintextPassword };
+}
+
+/**
+ * POST /students/bulk-assign-class — Bulk Assign Class screen. classId (and
+ * sectionId, if given — also checked as belonging to classId) must belong to
+ * this institution; every studentId is validated in one findMany up front.
+ * Omitting sectionId clears any existing section on the moved students,
+ * since a section belongs to exactly one class and would otherwise dangle
+ * pointing at the student's old class.
+ */
+export async function bulkAssignClass(institutionId: string, actorUserId: string, data: BulkAssignClassDtoType) {
+  const cls = await prisma.class.findFirst({
+    where: { id: data.classId, branch: { institutionId } },
+    select: { id: true, name: true },
+  });
+  if (!cls) {
+    throw new NotFoundError(`Class with ID '${data.classId}' not found`);
+  }
+
+  let section: { id: string; name: string } | null = null;
+  if (data.sectionId) {
+    section = await prisma.section.findFirst({
+      where: { id: data.sectionId, classId: data.classId },
+      select: { id: true, name: true },
+    });
+    if (!section) {
+      throw new NotFoundError(`Section with ID '${data.sectionId}' not found under class '${data.classId}'`);
+    }
+  }
+
+  const studentIds = Array.from(new Set(data.studentIds));
+  const owned = await prisma.student.findMany({
+    where: { id: { in: studentIds }, institutionId },
+    select: { id: true },
+  });
+  if (owned.length !== studentIds.length) {
+    const ownedIds = new Set(owned.map((s) => s.id));
+    const missing = studentIds.filter((id) => !ownedIds.has(id));
+    throw new NotFoundError(`Student(s) not found in this institution: ${missing.join(', ')}`);
+  }
+
+  for (let i = 0; i < studentIds.length; i += BULK_WRITE_CHUNK_SIZE) {
+    const chunk = studentIds.slice(i, i + BULK_WRITE_CHUNK_SIZE);
+    await prisma.$transaction(
+      chunk.map((studentId) =>
+        prisma.student.update({
+          where: { id: studentId },
+          data: { classId: data.classId, sectionId: data.sectionId ?? null },
+        }),
+      ),
+    );
+  }
+
+  logger.info('Students bulk-assigned to class', {
+    institutionId,
+    classId: data.classId,
+    sectionId: data.sectionId ?? null,
+    count: studentIds.length,
+    actorUserId,
+  });
+
+  await prisma.auditLog
+    .create({
+      data: {
+        institutionId,
+        userId: actorUserId,
+        action: 'BULK_CLASS_ASSIGN',
+        resource: 'Student',
+        metadata: {
+          count: studentIds.length,
+          classId: data.classId,
+          className: cls.name,
+          sectionId: data.sectionId ?? null,
+          sectionName: section?.name ?? null,
+        },
+      },
+    })
+    .catch(() => {});
+
+  return {
+    updatedCount: studentIds.length,
+    classId: data.classId,
+    sectionId: data.sectionId ?? null,
+  };
 }

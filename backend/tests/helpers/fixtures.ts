@@ -151,6 +151,7 @@ export async function cleanupInstitution(fixture: InstitutionFixture) {
     // in this order before Branch/Medium/Stream/Shift/Semester themselves.
     () => prisma.section.deleteMany({ where: { class: { branch: { institutionId } } } }),
     () => prisma.class.deleteMany({ where: { branch: { institutionId } } }),
+    () => prisma.studentCategory.deleteMany({ where: { institutionId } }),
     () => prisma.medium.deleteMany({ where: { institutionId } }),
     () => prisma.stream.deleteMany({ where: { institutionId } }),
     () => prisma.shift.deleteMany({ where: { institutionId } }),

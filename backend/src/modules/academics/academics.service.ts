@@ -224,6 +224,57 @@ export async function deleteSemester(institutionId: string, id: string) {
 }
 
 // =============================================================================
+// StudentCategory
+// =============================================================================
+
+export async function createStudentCategory(institutionId: string, data: CreateLookupDtoType) {
+  try {
+    const category = await academicsRepository.createStudentCategory(institutionId, data);
+    logger.info('Student category created', { categoryId: category.id, institutionId });
+    return category;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ConflictError(`A student category named "${data.name}" already exists`);
+    }
+    throw error;
+  }
+}
+
+export async function listStudentCategories(institutionId: string) {
+  return academicsRepository.findStudentCategories(institutionId);
+}
+
+export async function updateStudentCategory(institutionId: string, id: string, data: UpdateLookupDtoType) {
+  const existing = await academicsRepository.findStudentCategoryById(institutionId, id);
+  if (!existing) {
+    throw new NotFoundError(`Student category with ID '${id}' not found`);
+  }
+  try {
+    const updated = await academicsRepository.updateStudentCategory(institutionId, id, data);
+    logger.info('Student category updated', { categoryId: id, institutionId });
+    return updated;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new ConflictError(`A student category named "${data.name}" already exists`);
+    }
+    throw error;
+  }
+}
+
+export async function deleteStudentCategory(institutionId: string, id: string) {
+  const existing = await academicsRepository.findStudentCategoryById(institutionId, id);
+  if (!existing) {
+    throw new NotFoundError(`Student category with ID '${id}' not found`);
+  }
+  const studentCount = await academicsRepository.countStudentsByCategory(id);
+  if (studentCount > 0) {
+    throw new ConflictError(`Cannot delete — ${studentCount} student(s) still reference this category.`);
+  }
+  await academicsRepository.deleteStudentCategory(id);
+  logger.info('Student category deleted', { categoryId: id, institutionId });
+}
+
+// =============================================================================
 // Class
 // =============================================================================
 
@@ -294,7 +345,7 @@ export async function deleteClass(institutionId: string, id: string) {
 
 // classTeacherId, if provided, must belong to a Teacher in this institution —
 // same validation pattern as timetables.service.ts.
-async function assertClassTeacherBelongsToInstitution(institutionId: string, classTeacherId?: string) {
+async function assertClassTeacherBelongsToInstitution(institutionId: string, classTeacherId?: string | null) {
   if (!classTeacherId) return;
   const teacher = await prisma.teacher.findFirst({
     where: { id: classTeacherId, user: { institutionId } },
@@ -316,7 +367,14 @@ export async function createSection(institutionId: string, data: CreateSectionDt
   return created;
 }
 
-export async function listSections(institutionId: string, classId: string) {
+// classId provided → sections for that one class (existing behavior,
+// unchanged for every existing caller). classId omitted → every section
+// institution-wide, each with its class name and current class teacher
+// joined in (Assign Class Teacher screen).
+export async function listSections(institutionId: string, classId?: string) {
+  if (!classId) {
+    return academicsRepository.findAllSections(institutionId);
+  }
   const ownedClass = await academicsRepository.findClassById(institutionId, classId);
   if (!ownedClass) {
     throw new NotFoundError(`Class with ID '${classId}' not found`);

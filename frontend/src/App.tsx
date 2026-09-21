@@ -36,6 +36,12 @@ const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 const TeacherDashboard = lazyWithRetry(() => import('./pages/TeacherDashboard'));
 const GuardianDashboard = lazyWithRetry(() => import('./pages/GuardianDashboard'));
 const StudentList = lazyWithRetry(() => import('./pages/students/StudentList'));
+const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsAdmission'));
+const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
+const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
+const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
+const GenerateResult = lazyWithRetry(() => import('./pages/students/GenerateResult'));
+const ResetPassword = lazyWithRetry(() => import('./pages/students/ResetPassword'));
 const InvoiceList = lazyWithRetry(() => import('./pages/fees/InvoiceList'));
 const MyInvoices = lazyWithRetry(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/AttendanceEntry'));
@@ -80,6 +86,8 @@ const Semester = lazyWithRetry(() => import('./pages/academics/Semester'));
 const Subjects = lazyWithRetry(() => import('./pages/academics/Subjects'));
 const Classes = lazyWithRetry(() => import('./pages/academics/Classes'));
 const Sections = lazyWithRetry(() => import('./pages/academics/Sections'));
+const AssignClassTeacher = lazyWithRetry(() => import('./pages/academics/AssignClassTeacher'));
+const AssignStudentClass = lazyWithRetry(() => import('./pages/academics/AssignStudentClass'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -418,6 +426,70 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <Sections />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/assign-class-teacher" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignClassTeacher />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/assign-student-class" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignStudentClass />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/categories" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StudentsCategory />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/admission" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StudentsAdmission />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/assign-roll-no" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AssignRollNo />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/generate-result" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <GenerateResult />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/reset-password" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ResetPassword />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/bulk-data" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AddBulkData />
             </DashboardLayout>
           </ProtectedRoute>
         } />

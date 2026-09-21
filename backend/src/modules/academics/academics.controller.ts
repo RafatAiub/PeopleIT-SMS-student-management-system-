@@ -154,6 +154,43 @@ export async function deleteSemester(req: Request, res: Response, next: NextFunc
   }
 }
 
+// ── Student Categories ──────────────────────────────────────────────
+export async function listStudentCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const categories = await academicsService.listStudentCategories(req.tenantId!);
+    successResponse(res, categories);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createStudentCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const category = await academicsService.createStudentCategory(req.tenantId!, req.body);
+    successResponse(res, category, 'Student category created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateStudentCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const category = await academicsService.updateStudentCategory(req.tenantId!, req.params.id, req.body);
+    successResponse(res, category, 'Student category updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteStudentCategory(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await academicsService.deleteStudentCategory(req.tenantId!, req.params.id);
+    successResponse(res, null, 'Student category deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ── Class ───────────────────────────────────────────────────────────
 export async function listClasses(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -194,7 +231,7 @@ export async function deleteClass(req: Request, res: Response, next: NextFunctio
 // ── Section ─────────────────────────────────────────────────────────
 export async function listSections(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { classId } = req.query as { classId: string };
+    const { classId } = req.query as { classId?: string };
     const sections = await academicsService.listSections(req.tenantId!, classId);
     successResponse(res, sections);
   } catch (error) {

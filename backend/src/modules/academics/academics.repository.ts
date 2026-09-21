@@ -121,6 +121,34 @@ export async function countClassesBySemester(semesterId: string) {
 }
 
 // =============================================================================
+// StudentCategory
+// =============================================================================
+
+export async function createStudentCategory(institutionId: string, data: CreateLookupDtoType) {
+  return prisma.studentCategory.create({ data: { institutionId, name: data.name } });
+}
+
+export async function findStudentCategories(institutionId: string) {
+  return prisma.studentCategory.findMany({ where: { institutionId }, orderBy: { name: 'asc' } });
+}
+
+export async function findStudentCategoryById(institutionId: string, id: string) {
+  return prisma.studentCategory.findFirst({ where: { id, institutionId } });
+}
+
+export async function updateStudentCategory(institutionId: string, id: string, data: UpdateLookupDtoType) {
+  return prisma.studentCategory.update({ where: { id }, data });
+}
+
+export async function deleteStudentCategory(id: string) {
+  return prisma.studentCategory.delete({ where: { id } });
+}
+
+export async function countStudentsByCategory(categoryId: string) {
+  return prisma.student.count({ where: { categoryId } });
+}
+
+// =============================================================================
 // Class — scoped via branch.institutionId. Branch is never exposed to the
 // caller; every institution transparently uses its single "Main Branch"
 // (find-or-create), matching the self-healing pattern in
@@ -216,6 +244,24 @@ export async function findSections(institutionId: string, classId: string) {
       },
     },
     orderBy: { name: 'asc' },
+  });
+}
+
+// Institution-wide section listing (no classId filter) — used when the
+// caller omits classId on GET /academics/sections (Assign Class Teacher
+// screen). Scoped via class.branch.institutionId, same as findSections, and
+// additionally joins the parent class's id/name since callers can no longer
+// infer it from a single classId they supplied.
+export async function findAllSections(institutionId: string) {
+  return prisma.section.findMany({
+    where: { class: { branch: { institutionId } } },
+    include: {
+      class: { select: { id: true, name: true } },
+      classTeacher: {
+        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+      },
+    },
+    orderBy: [{ class: { level: 'asc' } }, { name: 'asc' }],
   });
 }
 

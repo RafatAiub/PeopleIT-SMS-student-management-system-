@@ -27,6 +27,12 @@ export const CreateStudentDto = z.object({
   admissionDate: z.coerce.date().optional(),
   rollNumber: z.string().max(50).optional().nullable(),
   department: z.string().max(50).optional().nullable(),
+  categoryId: z.string().min(1).optional().nullable(),
+  caste: z.string().max(100).optional().nullable(),
+  // Deliberately free-text, not numeric — matches the source reference's
+  // ungoverned height/weight fields.
+  height: z.string().max(20).optional().nullable(),
+  weight: z.string().max(20).optional().nullable(),
   avatarUrl: z.string().optional().nullable(),
 });
 
@@ -80,7 +86,37 @@ export const BulkImportRowDto = z.object({
 
 export type BulkImportRowDtoType = z.infer<typeof BulkImportRowDto>;
 
+// PATCH /students/roll-numbers — Assign Roll Numbers screen. sectionId +
+// every assignment's studentId are re-validated server-side against the
+// caller's institution/section in one findMany before any write happens.
+export const RollNumberAssignmentDto = z.object({
+  studentId: z.string().min(1, 'studentId is required'),
+  rollNumber: z.string().min(1, 'rollNumber is required').max(50),
+});
+
+export const UpdateRollNumbersDto = z.object({
+  sectionId: z.string().min(1, 'sectionId is required'),
+  assignments: z.array(RollNumberAssignmentDto).min(1, 'At least one assignment is required'),
+});
+
+// POST /students/:id/reset-password — password is optional; when omitted the
+// service generates one server-side and returns it once, plaintext, in the
+// response (never logged/stored in plaintext).
+export const ResetStudentPasswordDto = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+});
+
+// POST /students/bulk-assign-class — Bulk Assign Class screen.
+export const BulkAssignClassDto = z.object({
+  studentIds: z.array(z.string().min(1)).min(1, 'At least one studentId is required'),
+  classId: z.string().min(1, 'classId is required'),
+  sectionId: z.string().min(1).optional(),
+});
+
 export type CreateStudentDtoType = z.infer<typeof CreateStudentDto>;
 export type UpdateStudentDtoType = z.infer<typeof UpdateStudentDto>;
 export type StudentQueryDtoType = z.infer<typeof StudentQueryDto>;
 export type CreateStudentDocumentDtoType = z.infer<typeof CreateStudentDocumentDto>;
+export type UpdateRollNumbersDtoType = z.infer<typeof UpdateRollNumbersDto>;
+export type ResetStudentPasswordDtoType = z.infer<typeof ResetStudentPasswordDto>;
+export type BulkAssignClassDtoType = z.infer<typeof BulkAssignClassDto>;

@@ -100,6 +100,27 @@ router.delete(
   academicsController.deleteSemester,
 );
 
+// ── Student Categories ──────────────────────────────────────────────
+router.get('/student-categories', READ_ROLES, academicsController.listStudentCategories);
+router.post(
+  '/student-categories',
+  WRITE_ROLES,
+  validate({ body: CreateLookupDto }),
+  academicsController.createStudentCategory,
+);
+router.put(
+  '/student-categories/:id',
+  WRITE_ROLES,
+  validate({ params: AcademicsIdParamDto, body: UpdateLookupDto }),
+  academicsController.updateStudentCategory,
+);
+router.delete(
+  '/student-categories/:id',
+  WRITE_ROLES,
+  validate({ params: AcademicsIdParamDto }),
+  academicsController.deleteStudentCategory,
+);
+
 // ── Classes ─────────────────────────────────────────────────────────
 router.get('/classes', READ_ROLES, academicsController.listClasses);
 router.post('/classes', WRITE_ROLES, validate({ body: CreateClassDto }), academicsController.createClass);
@@ -117,8 +138,9 @@ router.delete(
 );
 
 // ── Sections ────────────────────────────────────────────────────────
-// classId query param is required, matching the existing
-// GET /students/meta/sections?classId= convention.
+// classId query param is optional: provided → sections for that one class
+// (matches the existing GET /students/meta/sections?classId= convention);
+// omitted → every section institution-wide (Assign Class Teacher screen).
 router.get('/sections', READ_ROLES, validate({ query: SectionQueryDto }), academicsController.listSections);
 router.post('/sections', WRITE_ROLES, validate({ body: CreateSectionDto }), academicsController.createSection);
 router.put(

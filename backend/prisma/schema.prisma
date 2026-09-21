@@ -65,6 +65,7 @@ model Institution {
   streams                 Stream[]
   shifts                  Shift[]
   semesters               Semester[]
+  studentCategories       StudentCategory[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -382,6 +383,22 @@ model Semester {
   @@index([institutionId])
 }
 
+// Admin-manageable, institution-scoped, name-unique lookup a Student can be
+// tagged with (e.g. "General", "Freedom Fighter Quota", "Physically
+// Challenged") — same shape/CRUD pattern as Medium/Stream/Shift/Semester
+// above, just attached to Student instead of Class.
+model StudentCategory {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  students      Student[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
 // ── Curriculum (NCTB-aligned subject offerings) ────────────────────────
 // Additive, institution-scoped catalogue driving the Results module's
 // subject list + default max marks per class/group/paper — replaces what
@@ -530,6 +547,11 @@ model Student {
   religion             String?
   nationality          String                @default("Bangladeshi")
   department           String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
+  categoryId           String?
+  category             StudentCategory?      @relation(fields: [categoryId], references: [id])
+  caste                String?
+  height               String? // deliberately free-text, not numeric
+  weight               String? // deliberately free-text, not numeric
   avatarUrl            String?
   admissionDate        DateTime              @default(now())
   status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
@@ -548,6 +570,7 @@ model Student {
   @@index([branchId])
   @@index([studentId])
   @@index([status])
+  @@index([categoryId])
 }
 
 model StudentDocument {

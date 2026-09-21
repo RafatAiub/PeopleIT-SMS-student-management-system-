@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy,
+  Building2, CreditCard, LifeBuoy, GraduationCap,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -92,8 +92,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/academics/subjects', label: 'Subject', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/semesters', label: 'Semester', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/classes', label: 'Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only
-      { to: '/students', label: 'Students', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+      { to: '/academics/assign-class-teacher', label: 'Assign Class Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
       { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
@@ -101,6 +101,24 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
       { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Students',
+    icon: <GraduationCap className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
+      // Existing /students route/label — relabeled to "Student Details" here
+      // (STUDENT role still sees "My Profile" via getPageLabel's isStudentProfile special-case).
+      { to: '/students', label: 'Student Details', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/students/reset-password', label: 'Students Reset Password', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/bulk-data', label: 'Add Bulk Data', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {

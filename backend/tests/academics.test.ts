@@ -169,19 +169,26 @@ describe('Academics setup module', () => {
         sectionId = res.body.data.id;
       });
 
-      it('lists sections scoped by classId, 400s without it', async () => {
+      it('lists sections scoped by classId, or institution-wide without it (Assign Class Teacher screen)', async () => {
         const res = await request(app)
           .get(`/api/v1/academics/sections?classId=${classId}`)
           .set('Authorization', `Bearer ${adminToken}`);
         expect(res.status).toBe(200);
         expect(res.body.data.map((s: any) => s.id)).toContain(sectionId);
 
+        // classId is intentionally optional (Phase 2) — omitted, it returns
+        // every section institution-wide instead of 422ing.
         const noQueryRes = await request(app)
           .get('/api/v1/academics/sections')
           .set('Authorization', `Bearer ${adminToken}`);
-        // Zod query validation failure -> ValidationError -> 422 (this
-        // codebase's convention, see middleware/validate.middleware.ts).
-        expect(noQueryRes.status).toBe(422);
+        expect(noQueryRes.status).toBe(200);
+        expect(noQueryRes.body.data.map((s: any) => s.id)).toContain(sectionId);
+
+        // Cross-tenant isolation still holds for the institution-wide list.
+        const otherRes = await request(app)
+          .get('/api/v1/academics/sections')
+          .set('Authorization', `Bearer ${otherAdminToken}`);
+        expect(otherRes.body.data.map((s: any) => s.id)).not.toContain(sectionId);
       });
 
       it('rejects a classTeacherId that is not a teacher in this institution', async () => {
@@ -247,6 +254,100 @@ describe('Academics setup module', () => {
         .delete(`/api/v1/academics/mediums/${mediumId}`)
         .set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('Student Category CRUD (Phase 2)', () => {
+    let categoryId: string;
+
+    it('creates a student category', async () => {
+      const res = await request(app)
+        .post('/api/v1/academics/student-categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'General' });
+      expect(res.status).toBe(201);
+      categoryId = res.body.data.id;
+    });
+
+    it('rejects a duplicate name with 409', async () => {
+      const res = await request(app)
+        .post('/api/v1/academics/student-categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'General' });
+      expect(res.status).toBe(409);
+    });
+
+    it('rejects writes from a non-admin role (TEACHER) with 403', async () => {
+      const res = await request(app)
+        .post('/api/v1/academics/student-categories')
+        .set('Authorization', `Bearer ${teacherToken}`)
+        .send({ name: 'Should Not Be Created' });
+      expect(res.status).toBe(403);
+    });
+
+    it('blocks deleting a category still referenced by a student, then allows it once unreferenced', async () => {
+      const branch = await prisma.branch.findFirst({ where: { institutionId: inst.institutionId } });
+      const student = await prisma.student.create({
+        data: {
+          institutionId: inst.institutionId,
+          branchId: branch?.id,
+          categoryId,
+          studentId: `STU-CAT-${Date.now()}`,
+          firstName: 'Cat',
+          lastName: 'Test',
+        },
+      });
+
+      const blocked = await request(app)
+        .delete(`/api/v1/academics/student-categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(blocked.status).toBe(409);
+
+      await prisma.student.delete({ where: { id: student.id } });
+
+      const allowed = await request(app)
+        .delete(`/api/v1/academics/student-categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(allowed.status).toBe(200);
+    });
+  });
+
+  describe('Assign Class Teacher — unassign via classTeacherId: null (Phase 2)', () => {
+    it('accepts classTeacherId: null to clear an assigned teacher', async () => {
+      const branch = await prisma.branch.findFirst({ where: { institutionId: inst.institutionId } });
+      const cls = await prisma.class.create({ data: { branchId: branch!.id, name: 'Unassign Test Class', level: 1 } });
+      const section = await prisma.section.create({ data: { classId: cls.id, name: 'A' } });
+
+      const teacherUser = await prisma.user.create({
+        data: {
+          institutionId: inst.institutionId,
+          email: `teacher.unassign.${Date.now()}@test.local`,
+          passwordHash: 'x',
+          role: UserRole.TEACHER,
+          firstName: 'Un',
+          lastName: 'Assign',
+        },
+      });
+      const teacher = await prisma.teacher.create({ data: { userId: teacherUser.id } });
+
+      const assign = await request(app)
+        .put(`/api/v1/academics/sections/${section.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ classTeacherId: teacher.id });
+      expect(assign.status).toBe(200);
+      expect(assign.body.data.classTeacherId).toBe(teacher.id);
+
+      const unassign = await request(app)
+        .put(`/api/v1/academics/sections/${section.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ classTeacherId: null });
+      expect(unassign.status).toBe(200);
+      expect(unassign.body.data.classTeacherId).toBeNull();
+
+      await prisma.section.delete({ where: { id: section.id } });
+      await prisma.class.delete({ where: { id: cls.id } });
+      await prisma.teacher.delete({ where: { id: teacher.id } });
+      await prisma.user.delete({ where: { id: teacherUser.id } });
     });
   });
 
