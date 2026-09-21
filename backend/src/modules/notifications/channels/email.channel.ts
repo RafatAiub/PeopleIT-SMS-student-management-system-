@@ -1,7 +1,7 @@
-import nodemailer, { Transporter } from 'nodemailer';
 import { NotificationChannel } from '@prisma/client';
 import { env } from '../../../config/env';
 import { logger } from '../../../utils/logger';
+import { getTransport as transport, resetTransport } from '../../../utils/mailer';
 import { RenderedMessage } from '../renderer';
 import {
   NotificationChannelAdapter,
@@ -10,34 +10,12 @@ import {
   SendResult,
 } from './channel.types';
 
-let cachedTransport: Transporter | null = null;
-
 /**
- * A real SMTP transport when EMAIL_ENABLED=true, otherwise nodemailer's
- * jsonTransport — which renders the message and returns it as JSON without
- * opening a socket. That keeps tests hermetic and lets the whole pipeline be
- * exercised end-to-end before any provider credentials exist.
+ * Exposed for tests, which flip env between cases. The transport itself now
+ * lives in utils/mailer.ts so auth mail and notification mail share one
+ * connection pool rather than opening two.
  */
-function transport(): Transporter {
-  if (cachedTransport) return cachedTransport;
-
-  cachedTransport =
-    env.EMAIL_ENABLED && env.SMTP_HOST
-      ? nodemailer.createTransport({
-          host: env.SMTP_HOST,
-          port: env.SMTP_PORT,
-          secure: env.SMTP_SECURE,
-          auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
-        })
-      : nodemailer.createTransport({ jsonTransport: true });
-
-  return cachedTransport;
-}
-
-/** Exposed for tests, which flip env between cases. */
-export function resetEmailTransport(): void {
-  cachedTransport = null;
-}
+export const resetEmailTransport = resetTransport;
 
 export const emailChannel: NotificationChannelAdapter = {
   channel: NotificationChannel.EMAIL,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award, Upload, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award, Upload, Check, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
@@ -9,6 +9,7 @@ import { compressImage } from '../../utils/imageCompressor';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import SecuritySettings from './SecuritySettings';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
 
@@ -18,7 +19,11 @@ const Settings = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams'>('profile');
+  // Security is the only per-user tab; the rest are institution-level and
+  // admin-oriented, so a non-admin lands straight on the one that is theirs.
+  const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams' | 'security'>(
+    isAdmin ? 'profile' : 'security'
+  );
 
   const [exams, setExams] = useState<any[]>([]);
   const [examsLoading, setExamsLoading] = useState(false);
@@ -442,6 +447,17 @@ const Settings = () => {
             <GraduationCap className="w-5 h-5" />
             Manage Exams
           </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+              activeTab === 'security'
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
+            }`}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            Security
+          </button>
         </div>
 
         {/* Settings Form */}
@@ -612,7 +628,12 @@ const Settings = () => {
               </>
             )}
 
-            {activeTab !== 'exams' && (
+            {activeTab === 'security' && <SecuritySettings />}
+
+            {/* Institution settings are saved as a whole; the exams and
+                security tabs each save their own changes as they are made, so
+                a shared Save button there would do nothing. */}
+            {activeTab !== 'exams' && activeTab !== 'security' && (
               <div className="pt-4 flex justify-end">
                 <Button variant="gradient" onClick={handleSave} isLoading={saving} className="py-2 px-5">
                   <Save className="w-4 h-4" />

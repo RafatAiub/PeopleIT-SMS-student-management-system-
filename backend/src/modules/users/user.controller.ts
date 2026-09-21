@@ -1,9 +1,42 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from './user.service';
+import * as approvalService from './registration-approval.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
 import { UserRole } from '@prisma/client';
 
 export class UserController {
+  // ── Approval queue for self-registered users ──────────────────────────────
+
+  static async listPendingRegistrations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const pending = await approvalService.listPending(req.tenantId!);
+      return successResponse(res, pending, 'Pending registrations retrieved');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async approveRegistration(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await approvalService.approve(
+        req.tenantId!,
+        req.params.id,
+        req.body.role as UserRole | undefined,
+      );
+      return successResponse(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async rejectRegistration(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await approvalService.reject(req.tenantId!, req.params.id);
+      return successResponse(res, result, result.message);
+    } catch (error) {
+      next(error);
+    }
+  }
   static async createUser(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await UserService.createUser(req.tenantId!, req.body);

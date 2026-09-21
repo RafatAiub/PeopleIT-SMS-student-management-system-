@@ -1,72 +1,8 @@
 import { z } from 'zod';
-
-const bdMobilePhoneSchema = z
-  .string()
-  .trim()
-  .refine(
-    (val) => {
-      if (!val) return true;
-      const digitsOnly = val.replace(/\D/g, '');
-      return digitsOnly.length >= 11;
-    },
-    { message: 'Mobile number must have at least 11 digits (e.g., 01700000000)' },
-  )
-  .refine(
-    (val) => {
-      if (!val) return true;
-      const digitsOnly = val.replace(/\D/g, '');
-      return digitsOnly.length <= 13;
-    },
-    { message: 'Mobile number cannot exceed 13 digits' },
-  )
-  .refine(
-    (val) => {
-      if (!val) return true;
-      const digitsOnly = val.replace(/\D/g, '');
-      const has01 = /^01[0-9]{9}$/.test(digitsOnly);
-      const has8801 = /^8801[0-9]{9}$/.test(digitsOnly);
-      return has01 || has8801;
-    },
-    {
-      message:
-        'Enter a valid BD mobile number (01XXXXXXXXX or +8801XXXXXXXXX). Valid operators: Grameenphone, Banglalink, Robi, Airtel, TeletalkBD',
-    },
-  )
-  .refine(
-    (val) => {
-      if (!val) return true;
-      const digitsOnly = val.replace(/\D/g, '');
-      const localFormat = /^01[0-9]{9}$/.test(digitsOnly);
-      if (!localFormat && !/^8801[0-9]{9}$/.test(digitsOnly)) return false;
-      const secondDigit = localFormat ? digitsOnly[2] : digitsOnly[3];
-      const validOperators = ['0', '2', '3', '4', '5', '6', '7', '8', '9'];
-      return validOperators.includes(secondDigit);
-    },
-    { message: 'Enter a valid operator prefix (01[0-9]XXXXXXXX)' },
-  );
-
-const institutionPhoneSchema = z
-  .string()
-  .trim()
-  .refine(
-    (val) => {
-      if (!val) return true;
-      const digitsOnly = val.replace(/\D/g, '');
-      return digitsOnly.length >= 7;
-    },
-    { message: 'Phone number must have at least 7 digits' },
-  )
-  .refine(
-    (val) => {
-      if (!val) return true;
-      return /^[\+]?[0-9\s()\-]*$/.test(val);
-    },
-    { message: 'Phone number can only contain digits, +, -, (), and spaces' },
-  )
-  .refine(
-    (val) => val.length <= 25,
-    { message: 'Phone number is too long' },
-  );
+// Single source of truth for BD phone rules — see utils/phone.ts. The mobile
+// validator used to be duplicated here and in the frontend apply page; now
+// that the same number is a login identifier, both sides must agree exactly.
+import { optionalBdMobileSchema, institutionPhoneSchema } from '../../utils/phone';
 
 export const SubmitApplicationDto = z.object({
   institutionName: z
@@ -127,7 +63,7 @@ export const SubmitApplicationDto = z.object({
       { message: 'Email address must not exceed 255 characters' },
     ),
 
-  applicantPhone: bdMobilePhoneSchema.optional().or(z.literal('')),
+  applicantPhone: optionalBdMobileSchema,
 
   message: z
     .string()
