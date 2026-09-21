@@ -83,6 +83,15 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Academics',
     icon: <BookOpen className="w-4.5 h-4.5" />,
     children: [
+      // Academics setup lookups (Medium/Section/Stream/Shifts/Subject/Semester/Class) —
+      // Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
+      { to: '/academics/mediums', label: 'Medium', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/sections', label: 'Section', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/streams', label: 'Stream', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/shifts', label: 'Shifts', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/subjects', label: 'Subject', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/semesters', label: 'Semester', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/classes', label: 'Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only
       { to: '/students', label: 'Students', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only

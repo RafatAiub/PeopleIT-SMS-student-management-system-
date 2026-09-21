@@ -146,6 +146,16 @@ export async function cleanupInstitution(fixture: InstitutionFixture) {
     () => prisma.invoice.deleteMany({ where: { institutionId } }),
     () => prisma.feeCategory.deleteMany({ where: { institutionId } }),
     () => prisma.student.deleteMany({ where: { institutionId } }),
+    // Academics setup module — Section/Class are scoped indirectly via
+    // Branch (no direct institutionId column on either), so must be deleted
+    // in this order before Branch/Medium/Stream/Shift/Semester themselves.
+    () => prisma.section.deleteMany({ where: { class: { branch: { institutionId } } } }),
+    () => prisma.class.deleteMany({ where: { branch: { institutionId } } }),
+    () => prisma.medium.deleteMany({ where: { institutionId } }),
+    () => prisma.stream.deleteMany({ where: { institutionId } }),
+    () => prisma.shift.deleteMany({ where: { institutionId } }),
+    () => prisma.semester.deleteMany({ where: { institutionId } }),
+    () => prisma.branch.deleteMany({ where: { institutionId } }),
     () => prisma.auditLog.deleteMany({ where: { institutionId } }),
     // The authorization-matrix suite exercises real POST routes (e.g.
     // library/transport create endpoints), which write real rows against

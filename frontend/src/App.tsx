@@ -73,6 +73,13 @@ const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/Subscri
 const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
 const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceipt'));
 const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
+const Medium = lazyWithRetry(() => import('./pages/academics/Medium'));
+const Stream = lazyWithRetry(() => import('./pages/academics/Stream'));
+const Shift = lazyWithRetry(() => import('./pages/academics/Shift'));
+const Semester = lazyWithRetry(() => import('./pages/academics/Semester'));
+const Subjects = lazyWithRetry(() => import('./pages/academics/Subjects'));
+const Classes = lazyWithRetry(() => import('./pages/academics/Classes'));
+const Sections = lazyWithRetry(() => import('./pages/academics/Sections'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -355,6 +362,62 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/mediums" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Medium />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/streams" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Stream />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/shifts" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Shift />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/semesters" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Semester />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/subjects" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Subjects />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/classes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Classes />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/sections" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Sections />
             </DashboardLayout>
           </ProtectedRoute>
         } />

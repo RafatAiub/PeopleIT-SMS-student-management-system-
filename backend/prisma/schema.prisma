@@ -61,6 +61,10 @@ model Institution {
   notificationDeliveries  NotificationDelivery[]
   notificationPrefs       NotificationPreference[]
   notificationTemplates   NotificationTemplate[]
+  mediums                 Medium[]
+  streams                 Stream[]
+  shifts                  Shift[]
+  semesters               Semester[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -291,15 +295,27 @@ model AcademicYear {
 }
 
 model Class {
-  id       String    @id @default(cuid())
-  branchId String
-  branch   Branch    @relation(fields: [branchId], references: [id])
-  name     String // e.g. "Grade 5"
-  level    Int       @default(1)
-  sections Section[]
-  students Student[]
+  id         String    @id @default(cuid())
+  branchId   String
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  name       String // e.g. "Grade 5"
+  level      Int       @default(1)
+  sections   Section[]
+  students   Student[]
+  mediumId   String?
+  medium     Medium?   @relation(fields: [mediumId], references: [id])
+  streamId   String?
+  stream     Stream?   @relation(fields: [streamId], references: [id])
+  shiftId    String?
+  shift      Shift?    @relation(fields: [shiftId], references: [id])
+  semesterId String?
+  semester   Semester? @relation(fields: [semesterId], references: [id])
 
   @@index([branchId])
+  @@index([mediumId])
+  @@index([streamId])
+  @@index([shiftId])
+  @@index([semesterId])
 }
 
 model Section {
@@ -313,6 +329,57 @@ model Section {
 
   @@index([classId])
   @@index([classTeacherId])
+}
+
+// ── Academics lookups (Medium/Stream/Shift/Semester) ──────────────────
+// Optional classification axes a Class can be tagged with. Admin-manageable
+// via the `academics` module; institution-scoped, name-unique per tenant.
+model Medium {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Stream {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Semester {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
 }
 
 // ── Curriculum (NCTB-aligned subject offerings) ────────────────────────
