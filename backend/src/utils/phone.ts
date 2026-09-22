@@ -110,7 +110,10 @@ export const institutionPhoneSchema = z
   .refine((val) => !val || digitsOf(val).length >= 7, {
     message: 'Phone number must have at least 7 digits',
   })
-  .refine((val) => !val || /^[+]?[0-9\s()\-]*$/.test(val), {
+  // Character class spelled with the hyphen first so neither it nor the plus
+  // needs escaping — matches the lint fix on main (commit 8932dba), whose CI
+  // job fails on unnecessary regex escapes.
+  .refine((val) => !val || /^\+?[-0-9\s()]*$/.test(val), {
     message: 'Phone number can only contain digits, +, -, (), and spaces',
   })
   .refine((val) => val.length <= 25, { message: 'Phone number is too long' });

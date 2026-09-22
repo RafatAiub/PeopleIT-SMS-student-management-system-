@@ -11,6 +11,16 @@ export class ReportsController {
       res.status(500).json({ success: false, message: error.message });
     }
   }
+
+  async getAdminOverview(req: Request, res: Response) {
+    try {
+      const institutionId = req.user!.institutionId || '';
+      const overview = await reportsService.getAdminOverview(institutionId);
+      res.json({ success: true, data: overview });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 }
 
 export const reportsController = new ReportsController();

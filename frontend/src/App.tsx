@@ -36,6 +36,15 @@ const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'));
 const TeacherDashboard = lazyWithRetry(() => import('./pages/TeacherDashboard'));
 const GuardianDashboard = lazyWithRetry(() => import('./pages/GuardianDashboard'));
 const StudentList = lazyWithRetry(() => import('./pages/students/StudentList'));
+const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsAdmission'));
+const OnlineRegistrations = lazyWithRetry(() => import('./pages/students/OnlineRegistrations'));
+const AddNewTeacher = lazyWithRetry(() => import('./pages/teacher/AddNewTeacher'));
+const TeacherDetails = lazyWithRetry(() => import('./pages/teacher/TeacherDetails'));
+const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
+const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
+const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
+const GenerateResult = lazyWithRetry(() => import('./pages/students/GenerateResult'));
+const ResetPassword = lazyWithRetry(() => import('./pages/students/ResetPassword'));
 const InvoiceList = lazyWithRetry(() => import('./pages/fees/InvoiceList'));
 const MyInvoices = lazyWithRetry(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/AttendanceEntry'));
@@ -62,10 +71,14 @@ const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/System
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
+const StudentRegistration = lazyWithRetry(() => import('./pages/public/StudentRegistration'));
 const RequestDemo = lazyWithRetry(() => import('./pages/public/RequestDemo'));
 const Register = lazyWithRetry(() => import('./pages/Register'));
 const VerifyEmail = lazyWithRetry(() => import('./pages/VerifyEmail'));
-const ResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
+// Distinct from the students/ResetPassword page above, which is an admin tool
+// for resetting a *student's* password. This one is the public flow reached
+// from the link in a password-reset email.
+const AuthResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
 const Leads = lazyWithRetry(() => import('./pages/superadmin/Leads'));
 const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
 const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
@@ -76,6 +89,15 @@ const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/Subscri
 const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
 const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceipt'));
 const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
+const Medium = lazyWithRetry(() => import('./pages/academics/Medium'));
+const Stream = lazyWithRetry(() => import('./pages/academics/Stream'));
+const Shift = lazyWithRetry(() => import('./pages/academics/Shift'));
+const Semester = lazyWithRetry(() => import('./pages/academics/Semester'));
+const Subjects = lazyWithRetry(() => import('./pages/academics/Subjects'));
+const Classes = lazyWithRetry(() => import('./pages/academics/Classes'));
+const Sections = lazyWithRetry(() => import('./pages/academics/Sections'));
+const AssignClassTeacher = lazyWithRetry(() => import('./pages/academics/AssignClassTeacher'));
+const AssignStudentClass = lazyWithRetry(() => import('./pages/academics/AssignStudentClass'));
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
@@ -334,12 +356,13 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
+        <Route path="/apply-admission" element={<StudentRegistration />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         {/* Self-service signup and the landing pages for the links sent by
             the confirmation / password-reset emails. All unauthenticated. */}
         <Route path="/register" element={<Register />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password" element={<AuthResetPassword />} />
         <Route path="/verify/:token" element={<VerifyIdCard />} />
 
         {/* Protected Dashboard Routes */}
@@ -363,6 +386,150 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/mediums" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Medium />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/streams" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Stream />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/shifts" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Shift />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/semesters" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Semester />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/subjects" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Subjects />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/classes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Classes />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/sections" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Sections />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/assign-class-teacher" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignClassTeacher />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/assign-student-class" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignStudentClass />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/categories" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StudentsCategory />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/admission" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StudentsAdmission />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/online-registrations" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <OnlineRegistrations />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/teacher/add" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AddNewTeacher />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/teacher/details" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <TeacherDetails />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/assign-roll-no" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AssignRollNo />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/generate-result" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <GenerateResult />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/reset-password" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ResetPassword />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/bulk-data" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AddBulkData />
             </DashboardLayout>
           </ProtectedRoute>
         } />

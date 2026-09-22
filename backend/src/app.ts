@@ -9,6 +9,7 @@ import { globalErrorHandler } from './middleware/error.middleware';
 // Routes
 import authRouter from './modules/auth/auth.routes';
 import studentRouter from './modules/students/student.routes';
+import studentPublicRouter from './modules/students/student.public.routes';
 import guardianRouter from './modules/guardians/guardian.routes';
 import feeRouter from './modules/fees/fee.routes';
 import userRouter from './modules/users/user.routes';
@@ -29,6 +30,7 @@ import leadRouter from './modules/lead/lead.routes';
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
+import academicsRouter from './modules/academics/academics.routes';
 import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
@@ -200,12 +202,25 @@ const leadCaptureLimiter = rateLimit({
 });
 app.use('/api/v1/leads', leadCaptureLimiter);
 
+// Strict rate limit for the public, unauthenticated Online Registration
+// (Student Application) form — same tier as institution-applications/apply.
+const studentApplicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/student-applications/apply', studentApplicationLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
 // Mount API routes
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
+app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
@@ -226,6 +241,7 @@ app.use('/api/v1/leads', leadRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
+app.use('/api/v1/academics', academicsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Public verification route mounted BEFORE the authenticated id-cards router
 // so an unauthenticated QR-code scan of /verify/:token never hits the

@@ -7,7 +7,7 @@ interface KpiCardProps {
   trend: 'up' | 'down';
   trendValue: string;
   icon: React.ReactNode;
-  color: 'indigo' | 'teal' | 'amber' | 'rose';
+  color: 'indigo' | 'teal' | 'amber' | 'rose' | 'sky';
   prefix?: string;
   suffix?: string;
 }
@@ -34,6 +34,12 @@ const COLOR_MAP = {
   rose: {
     iconBg: 'bg-rose-50 dark:bg-rose-500/20 border-rose-100 dark:border-rose-500/30',
     iconColor: 'text-rose-600 dark:text-rose-400',
+    trendUp: 'text-accent-600 dark:text-accent-400',
+    trendDown: 'text-red-600 dark:text-red-400',
+  },
+  sky: {
+    iconBg: 'bg-sky-50 dark:bg-sky-500/20 border-sky-100 dark:border-sky-500/30',
+    iconColor: 'text-sky-600 dark:text-sky-400',
     trendUp: 'text-accent-600 dark:text-accent-400',
     trendDown: 'text-red-600 dark:text-red-400',
   },

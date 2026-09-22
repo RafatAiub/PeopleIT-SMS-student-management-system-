@@ -61,6 +61,11 @@ model Institution {
   notificationDeliveries  NotificationDelivery[]
   notificationPrefs       NotificationPreference[]
   notificationTemplates   NotificationTemplate[]
+  mediums                 Medium[]
+  streams                 Stream[]
+  shifts                  Shift[]
+  semesters               Semester[]
+  studentCategories       StudentCategory[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -291,15 +296,27 @@ model AcademicYear {
 }
 
 model Class {
-  id       String    @id @default(cuid())
-  branchId String
-  branch   Branch    @relation(fields: [branchId], references: [id])
-  name     String // e.g. "Grade 5"
-  level    Int       @default(1)
-  sections Section[]
-  students Student[]
+  id         String    @id @default(cuid())
+  branchId   String
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  name       String // e.g. "Grade 5"
+  level      Int       @default(1)
+  sections   Section[]
+  students   Student[]
+  mediumId   String?
+  medium     Medium?   @relation(fields: [mediumId], references: [id])
+  streamId   String?
+  stream     Stream?   @relation(fields: [streamId], references: [id])
+  shiftId    String?
+  shift      Shift?    @relation(fields: [shiftId], references: [id])
+  semesterId String?
+  semester   Semester? @relation(fields: [semesterId], references: [id])
 
   @@index([branchId])
+  @@index([mediumId])
+  @@index([streamId])
+  @@index([shiftId])
+  @@index([semesterId])
 }
 
 model Section {
@@ -313,6 +330,73 @@ model Section {
 
   @@index([classId])
   @@index([classTeacherId])
+}
+
+// ── Academics lookups (Medium/Stream/Shift/Semester) ──────────────────
+// Optional classification axes a Class can be tagged with. Admin-manageable
+// via the `academics` module; institution-scoped, name-unique per tenant.
+model Medium {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Stream {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Semester {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+// Admin-manageable, institution-scoped, name-unique lookup a Student can be
+// tagged with (e.g. "General", "Freedom Fighter Quota", "Physically
+// Challenged") — same shape/CRUD pattern as Medium/Stream/Shift/Semester
+// above, just attached to Student instead of Class.
+model StudentCategory {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  students      Student[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
 }
 
 // ── Curriculum (NCTB-aligned subject offerings) ────────────────────────
@@ -557,11 +641,18 @@ model Student {
   gender               String?
   email                String?
   phone                String?
-  address              String?
+  address              String? // Current Address
+  permanentAddress     String?
   bloodGroup           String?
   religion             String?
   nationality          String                @default("Bangladeshi")
   department           String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
+  categoryId           String?
+  category             StudentCategory?      @relation(fields: [categoryId], references: [id])
+  caste                String?
+  height               String? // deliberately free-text, not numeric
+  weight               String? // deliberately free-text, not numeric
+  hobbies              String? // comma-separated free text, e.g. "Reading,Singing"
   avatarUrl            String?
   admissionDate        DateTime              @default(now())
   status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
@@ -580,6 +671,7 @@ model Student {
   @@index([branchId])
   @@index([studentId])
   @@index([status])
+  @@index([categoryId])
 }
 
 model StudentDocument {
@@ -609,6 +701,9 @@ model Guardian {
   occupation     String?
   nidNumber      String?
   emergencyPhone String?
+  dateOfBirth    DateTime?
+  gender         String?
+  avatarUrl      String?
   createdAt      DateTime          @default(now())
   students       GuardianStudent[]
 
@@ -642,6 +737,11 @@ model Teacher {
   subjectExpertise String?
   joiningDate      DateTime?
   employeeId       String?
+  gender           String?
+  dateOfBirth      DateTime?
+  address          String? // Current Address
+  permanentAddress String?
+  canManageStudents Boolean        @default(false)
   createdAt        DateTime        @default(now())
   timetableSlots   TimetableSlot[]
   sections         Section[]       @relation(name: "ClassTeacher")

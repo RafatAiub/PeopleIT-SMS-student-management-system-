@@ -116,6 +116,52 @@ export async function bulkImportStudents(
   }
 }
 
+export async function updateRollNumbers(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await studentService.updateRollNumbers(req.tenantId!, req.user!.sub, req.body);
+    successResponse(res, result, 'Roll numbers updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetStudentPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { password } = (req.body ?? {}) as { password?: string };
+    // Redact the plaintext password from req.body before this router's
+    // auditLog middleware reads it on res.on('finish') — that middleware
+    // logs req.body verbatim as AuditLog.metadata for every mutating
+    // request on this router, and the plaintext password must never be
+    // persisted anywhere, including audit logs.
+    req.body = { passwordReset: true };
+    const result = await studentService.resetStudentPassword(req.tenantId!, req.params.id, password);
+    successResponse(res, result, 'Password reset successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function bulkAssignClass(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await studentService.bulkAssignClass(req.tenantId!, req.user!.sub, req.body);
+    successResponse(res, result, 'Students assigned successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getStudentDocuments(
   req: Request,
   res: Response,
@@ -304,6 +350,53 @@ export async function listSections(
     }
 
     successResponse(res, sections);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function approveStudentApplication(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { email } = req.body as { email: string };
+    const result = await studentService.approveStudentApplication(req.tenantId!, req.params.id, email);
+    successResponse(res, result, 'Application approved — student login created');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ── Public (unauthenticated) — Online Registration form ────────────────────
+
+export async function listPublicClasses(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { institutionSlug } = req.query as { institutionSlug?: string };
+    if (!institutionSlug) {
+      res.status(400).json({ success: false, message: 'institutionSlug query parameter is required' });
+      return;
+    }
+    const classes = await studentService.getPublicClassesForInstitution(institutionSlug);
+    successResponse(res, classes);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function applyForAdmission(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await studentService.applyForAdmission(req.body);
+    successResponse(res, result, 'Application submitted successfully', 201);
   } catch (error) {
     next(error);
   }
