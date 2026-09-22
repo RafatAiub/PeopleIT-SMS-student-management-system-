@@ -50,6 +50,10 @@ const MyLibraryIssues = lazyWithRetry(() => import('./pages/library/MyLibraryIss
 const TransportManagement = lazyWithRetry(() => import('./pages/transport/TransportManagement'));
 const MyTransportAssignment = lazyWithRetry(() => import('./pages/transport/MyTransportAssignment'));
 const HrPayrollManagement = lazyWithRetry(() => import('./pages/hr/HrPayrollManagement'));
+const LeaveSettings = lazyWithRetry(() => import('./pages/leave/LeaveSettings'));
+const LeaveReport = lazyWithRetry(() => import('./pages/leave/LeaveReport'));
+const LeaveRequestManagement = lazyWithRetry(() => import('./pages/leave/LeaveRequestManagement'));
+const MyLeaveRequests = lazyWithRetry(() => import('./pages/leave/MyLeaveRequests'));
 const AiInsights = lazyWithRetry(() => import('./pages/ai/AiInsights'));
 const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
 const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
@@ -182,6 +186,28 @@ const FeesRoute = () => {
     return <MyInvoices />;
   }
   return <InvoiceList />;
+};
+
+// Leave Request route branches by role: Admin reviews/acts on every staff leave
+// request, every other self-service role gets "apply & track my own leave"
+const LeaveRequestRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'ADMIN') {
+    return <LeaveRequestManagement audience="STAFF" />;
+  }
+  return <MyLeaveRequests audience="STAFF" />;
+};
+
+// Student Leave route branches by role: Admin reviews/acts on every student
+// leave request (same admin review UI, scoped to STUDENT applicants, no
+// leave-type concept), a Student gets the same self-service "apply & track
+// my own leave" component staff use, in its no-leave-type mode.
+const StudentLeaveRoute = () => {
+  const { user } = useAuthStore();
+  if (user?.role === 'ADMIN') {
+    return <LeaveRequestManagement audience="STUDENT" />;
+  }
+  return <MyLeaveRequests audience="STUDENT" />;
 };
 
 // Layout Wrapper
@@ -458,6 +484,41 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <HrPayrollManagement />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Old combined /leave route, kept as a redirect for any existing bookmarks/links */}
+        <Route path="/leave" element={<Navigate to="/leave/requests" replace />} />
+
+        <Route path="/leave/settings" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <LeaveSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/leave/report" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <LeaveReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/leave/requests" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <LeaveRequestRoute />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/leave/student" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'STUDENT']}>
+            <DashboardLayout>
+              <StudentLeaveRoute />
             </DashboardLayout>
           </ProtectedRoute>
         } />

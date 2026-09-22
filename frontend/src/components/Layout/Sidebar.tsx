@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy,
+  Building2, CreditCard, LifeBuoy, CalendarClock,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -103,6 +103,21 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/hr', label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
       { to: '/ai-insights', label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
       { to: '/website-builder', label: 'Website Builder', roles: ['ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Leave',
+    icon: <CalendarClock className="w-4.5 h-4.5" />,
+    children: [
+      // Leave Settings (leave types): Admin only
+      { to: '/leave/settings', label: 'Leave Settings', roles: ['ADMIN'] },
+      // Leave Report: monthly usage-vs-allowance view for one staff member, Admin only
+      { to: '/leave/report', label: 'Leave Report', roles: ['ADMIN'] },
+      // Leave Request: Admin reviews/acts on all staff requests, everyone else self-service (apply/track/cancel own)
+      { to: '/leave/requests', label: 'Leave Request', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      // Student Leave: Admin reviews/acts on student requests, Student self-service (apply/track/cancel own) — Guardian excluded
+      { to: '/leave/student', label: 'Student Leave', roles: ['ADMIN', 'STUDENT'] },
     ],
   },
   {

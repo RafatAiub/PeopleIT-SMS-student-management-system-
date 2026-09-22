@@ -350,6 +350,74 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'LEAD_SUBMITTED:SMS': {
     body: 'New lead: {{leadName}} ({{leadPhone}}) - {{institutionName}}. Check Super Admin > Leads.',
   },
+
+  // ── Staff/teacher leave workflow ────────────────────────────────────────
+  'LEAVE_REQUESTED:IN_APP': {
+    subject: 'New leave request: {{applicantName}}',
+    body: '{{applicantName}} requested {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)).',
+  },
+  'LEAVE_REQUESTED:EMAIL': {
+    subject: 'Leave request from {{applicantName}}',
+    body: [
+      'Hello,',
+      '',
+      '{{applicantName}} has submitted a leave request.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Reason     : {{reason}}',
+      '',
+      'Review and approve or reject it from the Leave Management page.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  'LEAVE_APPROVED:IN_APP': {
+    subject: 'Leave request approved',
+    body: 'Your {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)) was approved.',
+  },
+  'LEAVE_APPROVED:EMAIL': {
+    subject: 'Your leave request was approved',
+    body: [
+      'Dear {{applicantName}},',
+      '',
+      'Your leave request has been approved.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Comment    : {{reviewerComment}}',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  'LEAVE_REJECTED:IN_APP': {
+    subject: 'Leave request rejected',
+    body: 'Your {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)) was rejected. Reason: {{reviewerComment}}',
+  },
+  'LEAVE_REJECTED:EMAIL': {
+    subject: 'Your leave request was rejected',
+    body: [
+      'Dear {{applicantName}},',
+      '',
+      'Your leave request has been rejected.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Reason     : {{reviewerComment}}',
+      '',
+      'Contact the office if you have questions.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {
