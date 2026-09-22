@@ -542,7 +542,8 @@ model Student {
   gender               String?
   email                String?
   phone                String?
-  address              String?
+  address              String? // Current Address
+  permanentAddress     String?
   bloodGroup           String?
   religion             String?
   nationality          String                @default("Bangladeshi")
@@ -552,6 +553,7 @@ model Student {
   caste                String?
   height               String? // deliberately free-text, not numeric
   weight               String? // deliberately free-text, not numeric
+  hobbies              String? // comma-separated free text, e.g. "Reading,Singing"
   avatarUrl            String?
   admissionDate        DateTime              @default(now())
   status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
@@ -600,6 +602,9 @@ model Guardian {
   occupation     String?
   nidNumber      String?
   emergencyPhone String?
+  dateOfBirth    DateTime?
+  gender         String?
+  avatarUrl      String?
   createdAt      DateTime          @default(now())
   students       GuardianStudent[]
 
@@ -633,6 +638,11 @@ model Teacher {
   subjectExpertise String?
   joiningDate      DateTime?
   employeeId       String?
+  gender           String?
+  dateOfBirth      DateTime?
+  address          String? // Current Address
+  permanentAddress String?
+  canManageStudents Boolean        @default(false)
   createdAt        DateTime        @default(now())
   timetableSlots   TimetableSlot[]
   sections         Section[]       @relation(name: "ClassTeacher")

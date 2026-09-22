@@ -15,6 +15,7 @@ import {
   UpdateRollNumbersDto,
   ResetStudentPasswordDto,
   BulkAssignClassDto,
+  ApproveStudentApplicationDto,
 } from './student.dto';
 import * as studentController from './student.controller';
 
@@ -108,6 +109,15 @@ router.post(
   requireRole(...WRITE_ROLES),
   validate({ params: StudentIdParamDto, body: ResetStudentPasswordDto }),
   studentController.resetStudentPassword,
+);
+
+// Online Registrations review screen — approves a PENDING application
+// (provisions its login) or removes it via the existing DELETE /:id.
+router.post(
+  '/:id/approve',
+  requireRole(...WRITE_ROLES),
+  validate({ params: StudentIdParamDto, body: ApproveStudentApplicationDto }),
+  studentController.approveStudentApplication,
 );
 
 router.get(

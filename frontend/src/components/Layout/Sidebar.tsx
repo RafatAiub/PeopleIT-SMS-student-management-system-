@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -110,6 +110,7 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
       // Existing /students route/label — relabeled to "Student Details" here
@@ -119,6 +120,16 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/students/reset-password', label: 'Students Reset Password', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/bulk-data', label: 'Add Bulk Data', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Teacher',
+    icon: <Presentation className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/teacher/add', label: 'Add New Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/teacher/details', label: 'Teacher Details', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {

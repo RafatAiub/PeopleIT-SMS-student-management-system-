@@ -37,6 +37,9 @@ const TeacherDashboard = lazyWithRetry(() => import('./pages/TeacherDashboard'))
 const GuardianDashboard = lazyWithRetry(() => import('./pages/GuardianDashboard'));
 const StudentList = lazyWithRetry(() => import('./pages/students/StudentList'));
 const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsAdmission'));
+const OnlineRegistrations = lazyWithRetry(() => import('./pages/students/OnlineRegistrations'));
+const AddNewTeacher = lazyWithRetry(() => import('./pages/teacher/AddNewTeacher'));
+const TeacherDetails = lazyWithRetry(() => import('./pages/teacher/TeacherDetails'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
 const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
 const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
@@ -68,6 +71,7 @@ const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/System
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
+const StudentRegistration = lazyWithRetry(() => import('./pages/public/StudentRegistration'));
 const RequestDemo = lazyWithRetry(() => import('./pages/public/RequestDemo'));
 const Leads = lazyWithRetry(() => import('./pages/superadmin/Leads'));
 const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
@@ -346,6 +350,7 @@ const App = () => {
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
+        <Route path="/apply-admission" element={<StudentRegistration />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         <Route path="/verify/:token" element={<VerifyIdCard />} />
 
@@ -458,6 +463,30 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <StudentsAdmission />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/students/online-registrations" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <OnlineRegistrations />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/teacher/add" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AddNewTeacher />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/teacher/details" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <TeacherDetails />
             </DashboardLayout>
           </ProtectedRoute>
         } />

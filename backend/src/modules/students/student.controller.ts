@@ -355,6 +355,53 @@ export async function listSections(
   }
 }
 
+export async function approveStudentApplication(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { email } = req.body as { email: string };
+    const result = await studentService.approveStudentApplication(req.tenantId!, req.params.id, email);
+    successResponse(res, result, 'Application approved — student login created');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ── Public (unauthenticated) — Online Registration form ────────────────────
+
+export async function listPublicClasses(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { institutionSlug } = req.query as { institutionSlug?: string };
+    if (!institutionSlug) {
+      res.status(400).json({ success: false, message: 'institutionSlug query parameter is required' });
+      return;
+    }
+    const classes = await studentService.getPublicClassesForInstitution(institutionSlug);
+    successResponse(res, classes);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function applyForAdmission(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await studentService.applyForAdmission(req.body);
+    successResponse(res, result, 'Application submitted successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getMe(
   req: Request,
   res: Response,

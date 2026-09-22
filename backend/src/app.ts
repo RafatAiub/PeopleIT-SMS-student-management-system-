@@ -9,6 +9,7 @@ import { globalErrorHandler } from './middleware/error.middleware';
 // Routes
 import authRouter from './modules/auth/auth.routes';
 import studentRouter from './modules/students/student.routes';
+import studentPublicRouter from './modules/students/student.public.routes';
 import guardianRouter from './modules/guardians/guardian.routes';
 import feeRouter from './modules/fees/fee.routes';
 import userRouter from './modules/users/user.routes';
@@ -165,12 +166,25 @@ const leadCaptureLimiter = rateLimit({
 });
 app.use('/api/v1/leads', leadCaptureLimiter);
 
+// Strict rate limit for the public, unauthenticated Online Registration
+// (Student Application) form — same tier as institution-applications/apply.
+const studentApplicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/student-applications/apply', studentApplicationLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
 // Mount API routes
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
+app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
