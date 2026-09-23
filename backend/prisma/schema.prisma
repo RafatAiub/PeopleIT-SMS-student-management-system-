@@ -471,22 +471,48 @@ enum UserRole {
 }
 
 model User {
-  id                       String                   @id @default(cuid())
-  institutionId            String?
-  institution              Institution?             @relation(fields: [institutionId], references: [id])
-  email                    String                   @unique
-  passwordHash             String
-  role                     UserRole
-  firstName                String
-  lastName                 String
-  phone                    String?
-  avatarUrl                String?
-  isActive                 Boolean                  @default(true)
-  lastLoginAt              DateTime?
-  failedLoginAttempts      Int                      @default(0)
-  lockedUntil              DateTime?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+  id            String       @id @default(cuid())
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  email         String       @unique
+  passwordHash  String
+  role          UserRole
+  firstName     String
+  lastName      String
+  // Stored canonically as 8801XXXXXXXXX (see utils/phone.ts). Unique because
+  // it is a login identifier — two accounts sharing a number would make
+  // phone-based sign-in ambiguous. Still nullable: admin-created accounts and
+  // legacy rows may have none.
+  phone         String?      @unique
+  avatarUrl     String?
+
+  // ── Verification ──────────────────────────────────────────────────────
+  // Timestamps rather than booleans: "when did they confirm this" is useful
+  // for support and audit, and null reads the same as false.
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  // ── Two-step verification ─────────────────────────────────────────────
+  // twoFactorSecret holds the base32 TOTP seed, encrypted at rest; it stays
+  // populated only while TOTP is the active method.
+  twoFactorEnabled    Boolean           @default(false)
+  twoFactorMethod     TwoFactorMethod?
+  twoFactorSecret     String?
+  twoFactorVerifiedAt DateTime?
+  backupCodes         BackupCode[]
+
+  // Self-registered users wait here until an admin approves them; accounts
+  // created by an admin or by application approval start out ACTIVE.
+  status              UserStatus @default(ACTIVE)
+
+  isActive            Boolean                  @default(true)
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int                      @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  verificationTokens  VerificationToken[]
+  otpCodes            OtpCode[]
   studentProfile           Student?                 @relation("StudentUser")
   teacherProfile           Teacher?
   guardianProfile          Guardian?
@@ -507,6 +533,79 @@ model User {
 
   @@index([institutionId])
   @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_APPROVAL // self-registered, awaiting an institution admin
+  REJECTED
+  SUSPENDED
+}
+
+enum TwoFactorMethod {
+  EMAIL // 6-digit code sent to the verified email address
+  TOTP // Google Authenticator / any RFC-6238 app
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Single-use, expiring links emailed to a user (verify address, reset
+/// password). `token` stores a SHA-256 hash — the raw value only ever exists
+/// in the email itself, so a database leak cannot be replayed.
+model VerificationToken {
+  id         String              @id @default(cuid())
+  token      String              @unique
+  purpose    VerificationPurpose
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Denormalised so a pending address change can be verified before it is
+  // written onto the User row.
+  email      String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+enum OtpPurpose {
+  LOGIN_2FA
+  PHONE_VERIFICATION // reserved — phone OTP is not switched on yet
+}
+
+/// Short-lived numeric codes. Hashed like verification tokens, and
+/// attempt-capped so a 6-digit code cannot be brute-forced within its window.
+model OtpCode {
+  id         String     @id @default(cuid())
+  codeHash   String
+  purpose    OtpPurpose
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+/// One-time recovery codes issued when 2FA is enabled — the escape hatch for
+/// a lost authenticator device. Hashed; deleted as they are spent.
+model BackupCode {
+  id       String    @id @default(cuid())
+  codeHash String
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAt   DateTime?
+
+  @@index([userId])
 }
 
 model Permission {

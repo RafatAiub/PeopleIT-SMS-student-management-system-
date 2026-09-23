@@ -9,6 +9,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import PendingRegistrations from './PendingRegistrations';
 
 interface StudentOption {
   id: string;
@@ -604,6 +605,10 @@ const Users = () => {
           </Button>
         )}
       </div>
+
+      {/* Self-service signups awaiting approval. Renders nothing when the
+          queue is empty, so it stays out of the way on a normal day. */}
+      <PendingRegistrations onChanged={fetchUsers} />
 
       {/* Toolbar */}
       <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center gap-4">

@@ -37,6 +37,16 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
 
+  // Encrypts TOTP secrets at rest (AES-256-GCM). Optional: when unset the key
+  // is derived from JWT_ACCESS_SECRET so local dev works out of the box.
+  // Set it explicitly in production — sharing one secret across two purposes
+  // means rotating the JWT secret would silently lock out every 2FA user.
+  ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 chars').optional(),
+
+  // Signs the short-lived token that carries a half-finished login between
+  // the password step and the 2FA step.
+  MFA_CHALLENGE_EXPIRES_IN: z.string().default('5m'),
+
   // Payment Gateways
   BKASH_ENABLED: z
     .string()
