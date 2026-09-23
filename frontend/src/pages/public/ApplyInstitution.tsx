@@ -46,7 +46,7 @@ const validateInstitutionPhone = (phone: string): string | null => {
     return 'Phone number must have at least 7 digits';
   }
 
-  if (!/^[\+]?[0-9\s()\-]*$/.test(phone)) {
+  if (!/^[+]?[0-9\s()-]*$/.test(phone)) {
     return 'Phone number can only contain digits, +, -, (), and spaces';
   }
 

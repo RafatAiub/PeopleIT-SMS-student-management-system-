@@ -4,8 +4,10 @@ import {
   Users, BookOpen, CircleDollarSign, GraduationCap, Building2, Plus, Shield, Globe,
   Mail, Lock, Phone, Eye, EyeOff, Search, Trash2, AlertTriangle, X, MoreVertical,
   LifeBuoy, KeyRound, UserX, RefreshCw, SlidersHorizontal, ArrowUpRight, Activity,
-  ShieldAlert, CheckCircle2, ChevronLeft, ChevronRight, Copy, Wand2
+  ShieldAlert, CheckCircle2, ChevronLeft, ChevronRight, Copy, Wand2, UserCheck, Layers,
+  CalendarDays, Megaphone, ClipboardList, Trophy, ClipboardCheck,
 } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { KpiCard } from '../components/Charts/KpiCard';
 import apiClient from '../api/client';
 import { useAuthStore } from '../store/authStore';
@@ -16,18 +18,147 @@ import { RegistrationWizard } from '../components/superadmin/RegistrationWizard'
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 
+interface AdminOverview {
+  counts: {
+    totalStudents: number;
+    sessionStudents: number;
+    totalTeachers: number;
+    totalClasses: number;
+    totalStreams: number;
+  };
+  fees: { collected: number; upcomingDues: number; overdue: number };
+  attendanceToday: {
+    present: number;
+    absent: number;
+    late: number;
+    halfDay: number;
+    totalMarked: number;
+    percentPresent: number;
+  };
+  genderBreakdown: { male: number; female: number; other: number };
+  topPerformers: Array<{ studentId: string; name: string; className: string | null; percentage: number }>;
+  recentNotices: Array<{ id: string; title: string; content: string; audience: string; publishedAt: string }>;
+}
+
+const money = (n: number) => `৳${Math.round(n).toLocaleString('en-BD')}`;
+
+const FeeStatRow: React.FC<{ color: string; label: string; value: number }> = ({ color, label, value }) => (
+  <div className="flex items-center justify-between gap-2">
+    <span className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+      {label}
+    </span>
+    <span className="text-sm font-bold text-slate-900 dark:text-white">{money(value)}</span>
+  </div>
+);
+
+const AttendanceBar: React.FC<{ label: string; count: number; total: number; color: string }> = ({ label, count, total, color }) => {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="font-semibold text-slate-700 dark:text-slate-300">{count} ({pct}%)</span>
+      </div>
+      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+};
+
+const GenderBar: React.FC<{ label: string; count: number; total: number; color: string }> = ({ label, count, total, color }) => {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="w-10 text-slate-500 dark:text-slate-400 flex-shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+        <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="w-6 text-right font-semibold text-slate-700 dark:text-slate-300">{count}</span>
+    </div>
+  );
+};
+
+/** Pure client-side month view (no Event backend exists yet — see dashboard
+ *  scope decision). Shows the real current month with today highlighted;
+ *  the narrow left rail mirrors the reference's empty "No events found". */
+const UpcomingEventsCard: React.FC = () => {
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + monthOffset);
+  const year = base.getFullYear();
+  const month = base.getMonth();
+  const startWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+  const cells: Array<number | null> = [
+    ...Array(startWeekday).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  const weekdayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  return (
+    <div className="glass-card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-slate-900 dark:text-white">Upcoming Events</h3>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setMonthOffset((o) => o - 1)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 min-h-[32px] min-w-[32px] flex items-center justify-center">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 w-28 text-center">
+            {base.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </span>
+          <button onClick={() => setMonthOffset((o) => o + 1)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 dark:text-slate-400 min-h-[32px] min-w-[32px] flex items-center justify-center">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="w-24 flex-shrink-0 hidden sm:flex flex-col items-center justify-center text-center py-6 border-r border-slate-100 dark:border-white/5">
+          <CalendarDays className="w-7 h-7 text-slate-300 dark:text-slate-600 mb-2" />
+          <p className="text-[11px] text-slate-400 leading-relaxed">No events found</p>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="grid grid-cols-7 gap-1 text-center mb-1">
+            {weekdayLabels.map((d) => (
+              <span key={d} className="text-[10px] font-bold text-slate-400 uppercase">{d}</span>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {cells.map((d, i) => (
+              <div
+                key={i}
+                className={`aspect-square flex items-center justify-center text-xs rounded-lg ${
+                  d === null
+                    ? ''
+                    : isCurrentMonth && d === today.getDate()
+                      ? 'bg-primary-600 text-white font-bold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                }`}
+              >
+                {d ?? ''}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
-  // Regular Admin stats
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    totalTeachers: 0,
-    feeCollections: 0,
-    attendanceAvg: 0
-  });
+  // Regular Admin overview (single aggregated call — counts, fees, attendance,
+  // gender split, top performers, notices)
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
 
   // Super Admin metrics & data
   const [metrics, setMetrics] = useState<any>({
@@ -156,27 +287,8 @@ const AdminDashboard = () => {
       if (isSuperAdmin) {
         await Promise.all([fetchSuperAdminMetrics(), fetchPaginatedInstitutions()]);
       } else {
-        const [studentsRes, teachersRes, paidInvoicesRes, insightsRes] = await Promise.all([
-          apiClient.get('/students', { params: { pageSize: 1 } }).catch(() => ({ data: { meta: { total: 0 } } })),
-          apiClient.get('/users', { params: { role: 'TEACHER', pageSize: 1 } }).catch(() => ({ data: { meta: { total: 0 } } })),
-          apiClient.get('/fees/invoices', { params: { status: 'PAID', pageSize: 500 } }).catch(() => ({ data: { data: [] } })),
-          apiClient.get('/ai/dashboard-insights').catch(() => ({ data: { data: { statistics: { attendanceAvg: 0 } } } }))
-        ]);
-
-        const paidInvoices = paidInvoicesRes.data?.data || [];
-        const totalFees = paidInvoices.reduce(
-          (sum: number, inv: any) => sum + Number(inv.totalAmount || 0),
-          0
-        );
-
-        const attendanceAvg = insightsRes.data?.data?.statistics?.attendanceAvg || 0;
-
-        setStats({
-          totalStudents: studentsRes.data?.meta?.total ?? 0,
-          totalTeachers: teachersRes.data?.meta?.total ?? 0,
-          feeCollections: totalFees,
-          attendanceAvg: attendanceAvg
-        });
+        const res = await apiClient.get('/reports/admin-overview');
+        setOverview(res.data.data);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard stats', err);
@@ -799,69 +911,262 @@ const AdminDashboard = () => {
   }
 
   // ── STANDARD ADMIN DASHBOARD VIEW ──────────────────────────────────────────
+  const genderTotal = overview
+    ? overview.genderBreakdown.male + overview.genderBreakdown.female + overview.genderBreakdown.other
+    : 0;
+  const feesTotal = overview
+    ? overview.fees.collected + overview.fees.upcomingDues + overview.fees.overdue
+    : 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between animate-fadeIn" style={{ animationDelay: '0ms' }}>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Admin Dashboard</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">Welcome back. Here is today's overview.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Welcome, {user?.firstName}</h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">
+            Here's an overview of your institution's performance, staff activity, and academic operations.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fadeIn" style={{ animationDelay: '60ms' }}>
+      {/* KPI Strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 animate-fadeIn" style={{ animationDelay: '60ms' }}>
         <KpiCard
           title="Total Students"
-          value={stats.totalStudents}
+          value={overview?.counts.totalStudents ?? 0}
           trend="up"
-          trendValue="Live"
+          trendValue="All active students"
           icon={<Users className="w-6 h-6" />}
           color="indigo"
         />
         <KpiCard
-          title="Total Teachers"
-          value={stats.totalTeachers}
+          title="Session Students"
+          value={overview?.counts.sessionStudents ?? 0}
           trend="up"
-          trendValue="Live"
+          trendValue="Current session"
+          icon={<UserCheck className="w-6 h-6" />}
+          color="sky"
+        />
+        <KpiCard
+          title="Total Teachers"
+          value={overview?.counts.totalTeachers ?? 0}
+          trend="up"
+          trendValue="Active staff"
           icon={<BookOpen className="w-6 h-6" />}
           color="teal"
         />
         <KpiCard
-          title="Fee Collections (Paid)"
-          value={stats.feeCollections}
+          title="Total Classes"
+          value={overview?.counts.totalClasses ?? 0}
           trend="up"
-          trendValue="Live"
-          icon={<CircleDollarSign className="w-6 h-6" />}
+          trendValue="Across all branches"
+          icon={<Building2 className="w-6 h-6" />}
           color="amber"
-          prefix="৳"
         />
         <KpiCard
-          title="Avg. Attendance"
-          value={stats.attendanceAvg}
+          title="Total Streams"
+          value={overview?.counts.totalStreams ?? 0}
           trend="up"
-          trendValue="Live"
-          icon={<GraduationCap className="w-6 h-6" />}
+          trendValue="Science / Arts / Commerce"
+          icon={<Layers className="w-6 h-6" />}
           color="rose"
-          suffix="%"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 animate-fadeIn" style={{ animationDelay: '120ms' }}>
+      {/* Fees / Attendance / Students-by-gender */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fadeIn" style={{ animationDelay: '120ms' }}>
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Recent Admissions</h3>
-          <EmptyState 
-            title="No recent admissions" 
-            description="No recent admission data to display." 
-            icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />} 
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Fees Collection</h3>
+          {overview && feesTotal > 0 ? (
+            <div className="flex items-center gap-4">
+              <div style={{ width: 128, height: 128 }} className="flex-shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Collected', value: overview.fees.collected },
+                        { name: 'Upcoming Dues', value: overview.fees.upcomingDues },
+                        { name: 'Overdue', value: overview.fees.overdue },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={38}
+                      outerRadius={60}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      <Cell fill="#2B5C74" strokeWidth={0} />
+                      <Cell fill="#F59E0B" strokeWidth={0} />
+                      <Cell fill="#EF4444" strokeWidth={0} />
+                    </Pie>
+                    <Tooltip formatter={(v: number) => money(v)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex-1 space-y-2.5 min-w-0">
+                <FeeStatRow color="#2B5C74" label="Collected" value={overview.fees.collected} />
+                <FeeStatRow color="#F59E0B" label="Upcoming Dues" value={overview.fees.upcomingDues} />
+                <FeeStatRow color="#EF4444" label="Overdue Amount" value={overview.fees.overdue} />
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="No fee activity yet"
+              description="Invoices will appear here once fees are generated."
+              icon={<CircleDollarSign className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            />
+          )}
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Today's Attendance</h3>
+            {overview && overview.attendanceToday.totalMarked > 0 && (
+              <span className="text-xs font-bold text-accent-600 dark:text-accent-400">
+                {overview.attendanceToday.percentPresent}% Present
+              </span>
+            )}
+          </div>
+          {overview && overview.attendanceToday.totalMarked > 0 ? (
+            <div className="space-y-3">
+              <AttendanceBar label="Present" count={overview.attendanceToday.present} total={overview.attendanceToday.totalMarked} color="bg-accent-500" />
+              <AttendanceBar label="Absent" count={overview.attendanceToday.absent} total={overview.attendanceToday.totalMarked} color="bg-red-500" />
+              <AttendanceBar label="Late" count={overview.attendanceToday.late} total={overview.attendanceToday.totalMarked} color="bg-amber-500" />
+              <AttendanceBar label="Half Day" count={overview.attendanceToday.halfDay} total={overview.attendanceToday.totalMarked} color="bg-slate-400" />
+            </div>
+          ) : (
+            <EmptyState
+              title="No Data Found"
+              description="Attendance hasn't been marked for today yet."
+              icon={<ClipboardCheck className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            />
+          )}
+        </div>
+
+        <div className="glass-card p-6">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Total Students</h3>
+          {overview && genderTotal > 0 ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative" style={{ width: 140, height: 140 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Boys', value: overview.genderBreakdown.male },
+                        { name: 'Girls', value: overview.genderBreakdown.female },
+                        ...(overview.genderBreakdown.other > 0 ? [{ name: 'Other', value: overview.genderBreakdown.other }] : []),
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={64}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      <Cell fill="#3D7590" strokeWidth={0} />
+                      <Cell fill="#10B981" strokeWidth={0} />
+                      {overview.genderBreakdown.other > 0 && <Cell fill="#94A3B8" strokeWidth={0} />}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-black text-slate-900 dark:text-white">{genderTotal}</span>
+                  <span className="text-[11px] text-slate-400">Total Students</span>
+                </div>
+              </div>
+              <div className="w-full space-y-2">
+                <GenderBar label="Boys" count={overview.genderBreakdown.male} total={genderTotal} color="bg-primary-500" />
+                <GenderBar label="Girls" count={overview.genderBreakdown.female} total={genderTotal} color="bg-accent-500" />
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="No students yet"
+              description="Student demographics will appear once students are enrolled."
+              icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Recent Assessment Performance + Approved Leaves */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn" style={{ animationDelay: '180ms' }}>
+        <div className="glass-card p-6">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4">Recent Assessment Performance</h3>
+          {overview && overview.topPerformers.length > 0 ? (
+            <div className="space-y-4">
+              {overview.topPerformers.map((p) => (
+                <div key={p.studentId}>
+                  <div className="flex items-center justify-between text-sm mb-1.5">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">
+                      {p.name}
+                      {p.className && <span className="text-[11px] font-normal text-slate-400 ml-1.5">({p.className})</span>}
+                    </span>
+                    <span className="font-bold text-slate-900 dark:text-white">{p.percentage.toFixed(2)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary-600 rounded-full transition-all" style={{ width: `${Math.min(p.percentage, 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+              <p className="text-[11px] text-slate-400 pt-1">*Based on the most recent exam's results</p>
+            </div>
+          ) : (
+            <EmptyState
+              title="No results yet"
+              description="Top performers will appear here once exam results are recorded."
+              icon={<Trophy className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            />
+          )}
+        </div>
+
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Approved Leaves</h3>
+            <button onClick={() => navigate('/hr')} className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">
+              Manage HR
+            </button>
+          </div>
+          <EmptyState
+            title="No leaves found"
+            description="Leave management is coming soon for this institution."
+            icon={<ClipboardList className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
           />
         </div>
-        
+      </div>
+
+      {/* Upcoming Events + Noticeboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn" style={{ animationDelay: '240ms' }}>
+        <UpcomingEventsCard />
+
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Upcoming Fee Deadlines</h3>
-          <EmptyState 
-            title="Up to date" 
-            description="All fees are up to date." 
-            icon={<CircleDollarSign className="w-10 h-10 text-slate-400 dark:text-slate-500" />} 
-          />
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Noticeboard</h3>
+            <button onClick={() => navigate('/notices')} className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">
+              View All Notices
+            </button>
+          </div>
+          {overview && overview.recentNotices.length > 0 ? (
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {overview.recentNotices.map((n) => (
+                <div key={n.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-white/5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-sm text-slate-900 dark:text-white">{n.title}</p>
+                    <span className="badge-info text-[10px] flex-shrink-0">{n.audience}</span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{n.content}</p>
+                  <p className="text-[11px] text-slate-400 mt-1.5">{new Date(n.publishedAt).toLocaleDateString()}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title="No notices yet"
+              description="Published notices will show up here."
+              icon={<Megaphone className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            />
+          )}
         </div>
       </div>
     </div>

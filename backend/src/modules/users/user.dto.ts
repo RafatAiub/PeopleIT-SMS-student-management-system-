@@ -26,6 +26,8 @@ export const CreateUserSchema = z.object({
   qualification: z.string().optional().nullable(),
   subjectExpertise: z.string().optional().nullable(),
   joiningDate: z.string().optional().nullable(),
+  permanentAddress: z.string().optional().nullable(),
+  canManageStudents: z.boolean().optional(),
 
   // Guardian specifics
   relationship: z.string().optional().nullable(),
