@@ -48,6 +48,10 @@ const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
   SUBSCRIPTION_SUSPENDED: ['IN_APP', 'EMAIL'],
   // Ad-driven lead capture — super admins should notice a new lead fast.
   LEAD_SUBMITTED: ['IN_APP', 'EMAIL', 'SMS'],
+  // Staff/teacher leave workflow
+  LEAVE_REQUESTED: ['IN_APP', 'EMAIL'],
+  LEAVE_APPROVED: ['IN_APP', 'EMAIL'],
+  LEAVE_REJECTED: ['IN_APP', 'EMAIL'],
 };
 
 /**

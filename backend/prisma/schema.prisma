@@ -66,6 +66,8 @@ model Institution {
   shifts                  Shift[]
   semesters               Semester[]
   studentCategories       StudentCategory[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -528,6 +530,8 @@ model User {
   createdAssignments       Assignment[]
   notifications            Notification[]
   notificationPrefs        NotificationPreference[]
+  leaveRequests            LeaveRequest[]            @relation("LeaveApplicant")
+  leaveReviews             LeaveRequest[]            @relation("LeaveReviewer")
 
   @@index([institutionId])
   @@index([email])
@@ -1254,6 +1258,62 @@ model PayrollRecord {
   @@index([institutionId])
   @@index([staffId])
   @@index([status])
+}
+
+// ── Staff/Teacher Leave Management ───────────────────────────────────
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveType {
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  name          String
+  description   String?
+  isPaid        Boolean        @default(true)
+  color         String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  leaveRequests LeaveRequest[]
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model LeaveRequest {
+  id               String      @id @default(cuid())
+  institutionId    String
+  institution      Institution @relation(fields: [institutionId], references: [id])
+  applicantUserId  String
+  applicant        User        @relation("LeaveApplicant", fields: [applicantUserId], references: [id])
+  // Nullable: STUDENT applicants have no leave-type concept at all (Student
+  // Leave skips the Leave Settings catalogue entirely) — only STAFF requests
+  // carry a leaveTypeId, enforced in leave.service.ts, not at the DB level.
+  leaveTypeId      String?
+  leaveType        LeaveType?  @relation(fields: [leaveTypeId], references: [id])
+  startDate        DateTime    @db.Date
+  endDate          DateTime    @db.Date
+  totalDays        Int
+  reason           String      @db.Text
+  status           LeaveStatus @default(PENDING)
+  reviewedByUserId String?
+  reviewedBy       User?       @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  reviewerComment  String?
+  cancelledAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([institutionId])
+  @@index([applicantUserId])
+  @@index([institutionId, status])
+  @@index([institutionId, applicantUserId, status])
+  @@index([leaveTypeId])
 }
 
 // 💬 Phase Final: Messaging
