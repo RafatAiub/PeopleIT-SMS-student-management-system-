@@ -46,3 +46,8 @@ coverage/
 backend/uploads/
 !backend/uploads/.gitkeep
 
+
+# Timestamped .env backups (created when repointing REDIS_URL etc.) — these
+# hold the same live secrets as .env and must never be committed.
+.env.backup-*
+*.env.backup-*

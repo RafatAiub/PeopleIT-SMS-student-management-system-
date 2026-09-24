@@ -117,6 +117,42 @@ const authLimiter = rateLimit({
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/refresh', authLimiter);
 
+// Two-step verification is a code-guessing surface of its own. The per-code
+// attempt cap (MAX_OTP_ATTEMPTS in auth.service.ts) stops a single code being
+// brute-forced; this stops an attacker cycling through fresh challenges to get
+// a new attempt budget each time. Slightly roomier than the login cap because
+// a legitimate user mistyping a 6-digit code is common.
+const twoFactorLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: env.NODE_ENV === 'development' ? 100 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many verification attempts from this IP, please try again after 15 minutes',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/auth/login/verify-2fa', twoFactorLimiter);
+
+// Email-bearing auth endpoints (verification resend, password reset) are both
+// a mail-sending amplifier and an account-enumeration oracle, so they get the
+// tightest public cap in the app.
+const authEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/auth/resend-verification', authEmailLimiter);
+app.use('/api/v1/auth/forgot-password', authEmailLimiter);
+app.use('/api/v1/auth/register', authEmailLimiter);
+
 // Strict rate limit for the public, unauthenticated institute application form
 const applicationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

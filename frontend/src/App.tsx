@@ -73,6 +73,12 @@ const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/Authoriz
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
 const StudentRegistration = lazyWithRetry(() => import('./pages/public/StudentRegistration'));
 const RequestDemo = lazyWithRetry(() => import('./pages/public/RequestDemo'));
+const Register = lazyWithRetry(() => import('./pages/Register'));
+const VerifyEmail = lazyWithRetry(() => import('./pages/VerifyEmail'));
+// Distinct from the students/ResetPassword page above, which is an admin tool
+// for resetting a *student's* password. This one is the public flow reached
+// from the link in a password-reset email.
+const AuthResetPassword = lazyWithRetry(() => import('./pages/ResetPassword'));
 const Leads = lazyWithRetry(() => import('./pages/superadmin/Leads'));
 const IdCardTemplateBuilder = lazyWithRetry(() => import('./pages/idcards/IdCardTemplateBuilder'));
 const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigner'));
@@ -352,6 +358,11 @@ const App = () => {
         <Route path="/apply" element={<ApplyInstitution />} />
         <Route path="/apply-admission" element={<StudentRegistration />} />
         <Route path="/request-demo" element={<RequestDemo />} />
+        {/* Self-service signup and the landing pages for the links sent by
+            the confirmation / password-reset emails. All unauthenticated. */}
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/reset-password" element={<AuthResetPassword />} />
         <Route path="/verify/:token" element={<VerifyIdCard />} />
 
         {/* Protected Dashboard Routes */}
