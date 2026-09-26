@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma';
-import { computeGrade } from '../../utils/grading';
+import { computeGrade, type GradeBand } from '../../utils/grading';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -11,11 +11,15 @@ import type {
 
 // ── Exam Repository ─────────────────────────────────────────────────────────
 
+// Exams created through this legacy path (Marks Entry / Settings) have no
+// publish step in their UI, so they stay visible to students/guardians as
+// before. Exams made via Exam > Create Exam start unpublished instead.
 export async function createExam(institutionId: string, data: CreateExamDtoType) {
   return prisma.exam.create({
     data: {
       ...data,
       institutionId,
+      isPublished: true,
     },
   });
 }
@@ -33,13 +37,17 @@ export async function findExamById(institutionId: string, id: string) {
   });
 }
 
-export async function findAllExams(institutionId: string, query: ExamQueryDtoType) {
-  const { page, pageSize, search, isActive } = query;
+export async function findAllExams(
+  institutionId: string,
+  query: ExamQueryDtoType & { publishedOnly?: boolean },
+) {
+  const { page, pageSize, search, isActive, publishedOnly } = query;
   const skip = (page - 1) * pageSize;
 
   const where = {
     institutionId,
     ...(isActive !== undefined ? { isActive } : {}),
+    ...(publishedOnly ? { isPublished: true } : {}),
     ...(search
       ? {
           name: { contains: search, mode: 'insensitive' as const },
@@ -72,13 +80,14 @@ export async function upsertBulkResults(
   institutionId: string,
   examId: string,
   results: SubmitExamResultsDtoType['results'],
+  gradeBands?: GradeBand[],
 ) {
   const operations = results.map((res) => {
     const maxMarks = res.maxMarks ?? 100.0;
     // Grade is always server-computed from marks, never trusted from the
     // client — a client-supplied grade could drift from the actual marks
     // and corrupt report cards / transcripts.
-    const grade = computeGrade(res.marksObtained, maxMarks);
+    const grade = computeGrade(res.marksObtained, maxMarks, gradeBands);
     const data = {
       institutionId,
       examId,
@@ -115,12 +124,13 @@ export async function upsertBulkResults(
 // schema exposed to callers via validate()) used by the STUDENT/GUARDIAN
 // self-service "my results" path to fetch multiple linked children's
 // results in one query — same extension pattern as library/transport's
-// getIssues/getAssignments.
+// getIssues/getAssignments. `publishedOnly` (also internal-only) restricts
+// that same self-service path to exams an admin has published.
 export async function findAllResults(
   institutionId: string,
-  query: ExamResultQueryDtoType & { studentIdIn?: string[] },
+  query: ExamResultQueryDtoType & { studentIdIn?: string[]; publishedOnly?: boolean },
 ) {
-  const { page, pageSize, examId, studentId, studentIdIn, subject, classId, sectionId } = query;
+  const { page, pageSize, examId, studentId, studentIdIn, subject, classId, sectionId, publishedOnly } = query;
   const skip = (page - 1) * pageSize;
 
   const where = {
@@ -128,6 +138,7 @@ export async function findAllResults(
     ...(examId ? { examId } : {}),
     ...(studentId ? { studentId } : {}),
     ...(studentIdIn ? { studentId: { in: studentIdIn } } : {}),
+    ...(publishedOnly ? { exam: { isPublished: true } } : {}),
     ...(subject ? { subject: { contains: subject, mode: 'insensitive' as const } } : {}),
     ...(classId || sectionId
       ? {

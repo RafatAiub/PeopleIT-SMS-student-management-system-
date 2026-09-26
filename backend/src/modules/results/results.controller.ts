@@ -49,7 +49,7 @@ export async function listExams(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { exams, total } = await resultsService.listExams(req.tenantId!, req.query as any);
+    const { exams, total } = await resultsService.listExams(req.tenantId!, req.query as any, req.user?.role);
     paginatedResponse(
       res,
       exams,

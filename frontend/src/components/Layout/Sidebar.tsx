@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -96,8 +96,6 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
       { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
-      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
-      { to: '/results', label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
       { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
@@ -156,6 +154,21 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/leave/requests', label: 'Leave Request', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       // Student Leave: Admin reviews/acts on student requests, Student self-service (apply/track/cancel own) — Guardian excluded
       { to: '/leave/student', label: 'Student Leave', roles: ['ADMIN', 'STUDENT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Exam',
+    icon: <FileSignature className="w-4.5 h-4.5" />,
+    children: [
+      // Exam setup (exams, timetable, grade bands): Super Admin/Admin only
+      { to: '/exams', label: 'Create Exam', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/exams/timetable', label: 'Create Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only (published exams)
+      { to: '/results', label: 'Exam Marks', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      // Class-wide result summary + report cards: Admin, Teacher
+      { to: '/exams/result', label: 'Exam Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/exams/grades', label: 'Exam Grade', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {

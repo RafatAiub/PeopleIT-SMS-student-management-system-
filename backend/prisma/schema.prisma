@@ -66,6 +66,10 @@ model Institution {
   shifts                  Shift[]
   semesters               Semester[]
   studentCategories       StudentCategory[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
+  examTimetables          ExamTimetable[]
+  examGrades              ExamGrade[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -291,6 +295,7 @@ model AcademicYear {
   endDate       DateTime
   isCurrent     Boolean   @default(false)
   students      Student[]
+  exams         Exam[]
 
   @@index([institutionId])
 }
@@ -311,6 +316,8 @@ model Class {
   shift      Shift?    @relation(fields: [shiftId], references: [id])
   semesterId String?
   semester   Semester? @relation(fields: [semesterId], references: [id])
+  examClasses    ExamClass[]
+  examTimetables ExamTimetable[]
 
   @@index([branchId])
   @@index([mediumId])
@@ -377,6 +384,7 @@ model Semester {
   institution   Institution @relation(fields: [institutionId], references: [id])
   name          String
   classes       Class[]
+  exams         Exam[]
   createdAt     DateTime    @default(now())
 
   @@unique([institutionId, name])
@@ -427,6 +435,7 @@ model Subject {
   institution   Institution       @relation(fields: [institutionId], references: [id])
   name          String // e.g. "Bangla", "Physics"
   offerings     SubjectOffering[]
+  examTimetables ExamTimetable[]
   createdAt     DateTime          @default(now())
 
   @@unique([institutionId, name])
@@ -879,10 +888,76 @@ model Exam {
   institutionId String
   institution   Institution  @relation(fields: [institutionId], references: [id])
   name          String // e.g. "Term 1", "Final Exam"
-  startDate     DateTime
-  endDate       DateTime
-  isActive      Boolean      @default(true)
-  results       ExamResult[]
+  // Defaulted so the Exam module's create form (name/session/semester/
+  // classes only) needn't ask for dates — they're re-derived from the
+  // exam's timetable (min/max date) whenever timetable rows are saved.
+  startDate      DateTime        @default(now())
+  endDate        DateTime        @default(now())
+  isActive       Boolean         @default(true)
+  description    String?
+  academicYearId String?
+  academicYear   AcademicYear?   @relation(fields: [academicYearId], references: [id])
+  semesterId     String?
+  semester       Semester?       @relation(fields: [semesterId], references: [id])
+  // Controls student/guardian visibility of this exam's results.
+  isPublished    Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  results        ExamResult[]
+  classes        ExamClass[]
+  timetable      ExamTimetable[]
+
+  @@index([institutionId])
+  @@index([academicYearId])
+}
+
+// Which classes an exam is held for. An exam with no ExamClass rows (e.g.
+// the auto-seeded Mid Term / Half Yearly / Final Term) applies to every class.
+model ExamClass {
+  id      String @id @default(cuid())
+  examId  String
+  exam    Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, classId])
+  @@index([classId])
+}
+
+// One subject paper of an exam for one class — date, time window, total and
+// passing marks.
+model ExamTimetable {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  examId        String
+  exam          Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  classId       String
+  class         Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId     String
+  subject       Subject     @relation(fields: [subjectId], references: [id])
+  totalMarks    Decimal     @db.Decimal(6, 2)
+  passingMarks  Decimal     @db.Decimal(6, 2)
+  date          DateTime    @db.Date
+  startTime     String // "HH:mm"
+  endTime       String // "HH:mm"
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([examId, classId, subjectId])
+  @@index([institutionId])
+  @@index([classId])
+}
+
+// Institution-configured percentage -> letter grade bands (Exam > Exam
+// Grade). When none are configured, utils/grading.ts's built-in bands apply.
+model ExamGrade {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  minPercent    Decimal     @db.Decimal(5, 2)
+  maxPercent    Decimal     @db.Decimal(5, 2)
+  grade         String
+  createdAt     DateTime    @default(now())
 
   @@index([institutionId])
 }

@@ -4,6 +4,7 @@ import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
+import { loadGradeBands } from '../exams/exams.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
 import { UserRole, StudentGroup } from '@prisma/client';
 import type {
@@ -60,14 +61,16 @@ async function ensureStandardExams(institutionId: string) {
   ];
 
   await prisma.exam.createMany({
-    data: standardExams.map((exam) => ({ ...exam, institutionId, isActive: true })),
+    data: standardExams.map((exam) => ({ ...exam, institutionId, isActive: true, isPublished: true })),
   });
   logger.info('Standard exams auto-seeded', { institutionId });
 }
 
-export async function listExams(institutionId: string, query: ExamQueryDtoType) {
+export async function listExams(institutionId: string, query: ExamQueryDtoType, requesterRole?: string) {
   await ensureStandardExams(institutionId);
-  return resultsRepository.findAllExams(institutionId, query);
+  // Students/guardians only ever see exams whose results are published.
+  const publishedOnly = requesterRole === UserRole.STUDENT || requesterRole === UserRole.GUARDIAN;
+  return resultsRepository.findAllExams(institutionId, { ...query, publishedOnly });
 }
 
 export async function deleteExam(institutionId: string, id: string) {
@@ -115,7 +118,8 @@ export async function submitExamResults(
     throw new BadRequestError('Some student IDs are invalid or belong to another institution');
   }
 
-  const result = await resultsRepository.upsertBulkResults(institutionId, examId, results);
+  const gradeBands = await loadGradeBands(institutionId);
+  const result = await resultsRepository.upsertBulkResults(institutionId, examId, results, gradeBands);
   logger.info('Exam results submitted', { institutionId, examId, count: results.length });
   return result;
 }
@@ -150,6 +154,7 @@ export async function getMyResults(
       examId,
       page: 1,
       pageSize: 500,
+      publishedOnly: true,
     });
     return own ? attachHighestMarks(institutionId, own.id, records) : records;
   }
@@ -164,6 +169,7 @@ export async function getMyResults(
         examId,
         page: 1,
         pageSize: 500,
+        publishedOnly: true,
       });
       return attachHighestMarks(institutionId, studentId, records);
     }
@@ -176,6 +182,7 @@ export async function getMyResults(
       examId,
       page: 1,
       pageSize: 500,
+      publishedOnly: true,
     });
     return records;
   }
@@ -279,7 +286,10 @@ export async function generateReportCard(
         },
       },
     }),
-    prisma.exam.findFirst({ where: { id: examId, institutionId }, select: { name: true, startDate: true, endDate: true } }),
+    prisma.exam.findFirst({
+      where: { id: examId, institutionId },
+      select: { name: true, startDate: true, endDate: true, isPublished: true },
+    }),
     prisma.examResult.findMany({
       where: { institutionId, examId, studentId },
       select: { subject: true, marksObtained: true, maxMarks: true, grade: true, remarks: true },
@@ -289,6 +299,9 @@ export async function generateReportCard(
 
   if (!student) throw new NotFoundError('Student not found');
   if (!exam) throw new NotFoundError('Exam not found');
+  if (!exam.isPublished && (requester.role === 'STUDENT' || requester.role === 'GUARDIAN')) {
+    throw new NotFoundError('Exam not found');
+  }
   if (results.length === 0) throw new NotFoundError('No results found for this student in this exam');
 
   // isCore per subject — best-effort match against the curriculum catalogue
@@ -382,7 +395,10 @@ export async function generateReportCard(
     logger.warn('Failed to compute class rank for report card', { studentId, examId, error: (err as Error).message });
   }
 
+  const gradeBands = await loadGradeBands(institutionId);
+
   const pdf = await renderReportCardPdf({
+    gradeBands,
     institution: {
       name: institution?.name ?? '',
       logoUrl: institution?.logoUrl ?? null,

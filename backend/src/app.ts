@@ -32,6 +32,7 @@ import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
 import academicsRouter from './modules/academics/academics.routes';
+import examsRouter from './modules/exams/exams.routes';
 import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
@@ -244,6 +245,7 @@ app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
 app.use('/api/v1/academics', academicsRouter);
+app.use('/api/v1/exams', examsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Public verification route mounted BEFORE the authenticated id-cards router
 // so an unauthenticated QR-code scan of /verify/:token never hits the
