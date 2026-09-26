@@ -11,6 +11,9 @@ import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/i18n';
+import { cn } from '@/lib/cn';
+import { Avatar } from '@/components/ui/Display';
 
 type Role = User['role'];
 
@@ -241,6 +244,7 @@ const NAV_ENTRIES: NavEntry[] = [
 // link) but still needs a header page title.
 const EXTRA_ROUTE_LABELS: Record<string, string> = {
   '/teacher': 'Teacher Dashboard',
+  '/design-system': 'Design system',
 };
 
 const roleCanSee = (roles: Role[] | undefined, role: Role | undefined): boolean =>
@@ -262,10 +266,49 @@ export const getPageLabel = (pathname: string, role?: Role): string => {
   return EXTRA_ROUTE_LABELS[pathname] || 'Dashboard';
 };
 
+/** Flat, role-filtered list of every page the user can reach from the
+ *  sidebar — used by the command palette so it never offers a page the
+ *  sidebar (and route guards) would not. Duplicate routes are collapsed. */
+export interface NavTarget { to: string; label: string; group: string }
+export const getNavTargets = (role?: Role): NavTarget[] => {
+  const entries = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+  const out: NavTarget[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (entry.kind === 'link') {
+      if (roleCanSee(entry.roles, role) && !seen.has(entry.to)) {
+        seen.add(entry.to);
+        out.push({ to: entry.to, label: entry.label, group: entry.label });
+      }
+    } else {
+      for (const c of entry.children) {
+        if (!roleCanSee(c.roles, role) || seen.has(c.to)) continue;
+        seen.add(c.to);
+        const label = c.to === '/students' && role === 'STUDENT' ? 'My Profile' : c.label;
+        out.push({ to: c.to, label, group: entry.label });
+      }
+    }
+  }
+  return out;
+};
+
+export const ROLE_LABEL: Record<Role, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Administrator',
+  TEACHER: 'Teacher',
+  ACCOUNTANT: 'Accountant',
+  LIBRARIAN: 'Librarian',
+  TRANSPORT_OFFICER: 'Transport Officer',
+  GUARDIAN: 'Guardian',
+  STUDENT: 'Student',
+  MANAGEMENT: 'Management',
+};
+
 export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
   const { user, supportSession } = useAuthStore();
   const { logout } = useAuth();
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const [navFilter, setNavFilter] = React.useState('');
@@ -274,8 +317,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   const entries = user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
 
   // Keep the accordion in sync with the current route: whichever category
-  // owns the active page auto-expands, like eSchool's sidebar does when you
-  // land on/navigate to one of its sub-pages.
+  // owns the active page auto-expands.
   React.useEffect(() => {
     const owner = entries.find(
       (entry) => entry.kind === 'category' && entry.children.some((c) => c.to === location.pathname)
@@ -302,55 +344,45 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
     setOpenCategory((prev) => (prev === label ? null : label));
   };
 
-  const initials = user
-    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-    : 'U';
-
-  const roleLabel: Record<Role, string> = {
-    SUPER_ADMIN: 'Super Admin',
-    ADMIN: 'Administrator',
-    TEACHER: 'Teacher',
-    ACCOUNTANT: 'Accountant',
-    LIBRARIAN: 'Librarian',
-    TRANSPORT_OFFICER: 'Transport Officer',
-    GUARDIAN: 'Guardian',
-    STUDENT: 'Student',
-    MANAGEMENT: 'Management',
-  };
-  const roleLabelText = user ? roleLabel[user.role] : 'User';
-
+  const roleLabelText = user ? t(ROLE_LABEL[user.role]) : 'User';
   const { institutionLogo, institutionName } = useUiStore();
   // A bare Super Admin is on the global platform view, not scoped to any one
   // institution — only show institution branding while actively impersonating
-  // one via a support session. Otherwise always show the platform's own mark,
-  // regardless of what's cached from a previous session/institution.
+  // one via a support session.
   const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
 
   const navQuery = navFilter.trim().toLowerCase();
-  const showLabels = !sidebarCollapsed || isMobile;
+  const collapsed = sidebarCollapsed && !isMobile;
+  const showLabels = !collapsed;
+  const matches = (label: string) =>
+    !navQuery || label.toLowerCase().includes(navQuery) || t(label).toLowerCase().includes(navQuery);
+  const activeBar = <span aria-hidden className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-primary-500" />;
 
   return (
     <aside
-      className={`flex flex-col h-full bg-white dark:bg-surface-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
-        isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-64'
-      }`}
+      aria-label="Main navigation"
+      style={{ background: 'var(--bg-sidebar)' }}
+      className={cn(
+        'flex flex-col h-full shrink-0 border-r border-black/20 transition-[width] duration-200 ease-out',
+        isMobile ? 'w-full' : collapsed ? 'w-[68px]' : 'w-64'
+      )}
     >
-      {/* Logo */}
-      <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
-        <div className="flex items-center gap-3">
+      {/* Brand */}
+      <div className={cn('flex items-center h-16 px-4 border-b border-white/8', collapsed ? 'justify-center' : 'justify-between')}>
+        <div className="flex items-center gap-3 min-w-0">
           {showInstitutionBranding && institutionLogo ? (
-            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
-              <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
+            <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={institutionLogo} alt="" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <LogoMark className="w-8 h-8 flex-shrink-0 rounded-lg shadow-sm" />
+            <LogoMark className="w-9 h-9 shrink-0 rounded-lg" />
           )}
           {showLabels && (
-            <div>
-              <span className="font-extrabold text-base leading-none block text-slate-900 dark:text-white">
-                People<span className="text-accent-500">NIT</span>
+            <div className="min-w-0">
+              <span className="font-bold text-[15px] leading-none block text-white tracking-tight">
+                People<span className="text-primary-400">NIT</span>
               </span>
-              <span className="text-slate-500 dark:text-slate-500 text-[11px] truncate block max-w-[10rem]">
+              <span className="text-[11px] truncate block max-w-42 mt-1" style={{ color: 'var(--fg-sidebar-muted)' }}>
                 {showInstitutionBranding ? (institutionName || user?.institutionName || 'School Management') : 'Platform Administration'}
               </span>
             </div>
@@ -358,60 +390,54 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         </div>
         {isMobile && (
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title="Close menu"
+            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label={t('Close')}
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      {/* Search / filter */}
+      {/* Filter */}
       {showLabels && (
         <div className="px-3 pt-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-white/45" aria-hidden />
             <input
-              type="text"
+              type="search"
               value={navFilter}
               onChange={(e) => setNavFilter(e.target.value)}
-              placeholder="Search"
-              aria-label="Search navigation"
-              className="w-full bg-slate-100 dark:bg-white/5 border border-transparent focus:border-primary-300 dark:focus:border-primary-500/40 focus:bg-white dark:focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 transition-colors"
+              placeholder={t('Filter menu…')}
+              aria-label="Filter navigation"
+              className="w-full h-9 rounded-lg pl-9 pr-3 text-sm bg-white/7 border border-white/6 text-white placeholder:text-white/45 focus:outline-none focus:border-primary-400/60 focus:bg-white/10 transition-colors"
             />
           </div>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-fadeIn">
+      <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
         {entries.map((entry) => {
           if (entry.kind === 'link') {
             if (!roleCanSee(entry.roles, user?.role)) return null;
-            if (navQuery && !entry.label.toLowerCase().includes(navQuery)) return null;
+            if (!matches(entry.label)) return null;
             return (
               <NavLink
                 key={entry.to}
                 to={entry.to}
+                end
                 id={`sidebar-nav-${entry.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`
-                }
-                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+                className={({ isActive }) => cn('sidebar-link', isActive && 'active', collapsed && 'justify-center px-0')}
+                title={collapsed ? t(entry.label) : undefined}
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && (
-                      <motion.span
-                        layoutId={isMobile ? 'sidebar-active-indicator-mobile' : 'sidebar-active-indicator'}
-                        className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-600 dark:bg-primary-500 rounded-r"
-                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                      />
-                    )}
-                    <span className="flex-shrink-0">{entry.icon}</span>
-                    {showLabels && <span className="truncate">{entry.label}</span>}
+                    {isActive && activeBar}
+                    <span className="shrink-0">{entry.icon}</span>
+                    {showLabels && <span className="truncate">{t(entry.label)}</span>}
                   </>
                 )}
               </NavLink>
@@ -420,33 +446,28 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
           // Category: role-filter, then (if searching) label-filter its children.
           const roleFiltered = entry.children.filter((c) => roleCanSee(c.roles, user?.role));
-          const visibleChildren = navQuery
-            ? roleFiltered.filter((c) => c.label.toLowerCase().includes(navQuery))
-            : roleFiltered;
+          const visibleChildren = navQuery ? roleFiltered.filter((c) => matches(c.label)) : roleFiltered;
           if (visibleChildren.length === 0) return null;
 
           const isOpen = navQuery ? true : openCategory === entry.label;
           const hasActiveChild = visibleChildren.some((c) => location.pathname === c.to);
 
           return (
-            <div key={entry.label} className="mb-0.5">
+            <div key={entry.label}>
               <button
                 type="button"
                 onClick={() => handleCategoryClick(entry.label)}
-                aria-expanded={isOpen}
-                className={`sidebar-link w-full ${showLabels ? 'justify-between' : 'justify-center'} ${
-                  hasActiveChild ? 'text-primary-600 dark:text-primary-400 font-semibold' : ''
-                }`}
-                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+                aria-expanded={showLabels ? isOpen : undefined}
+                className={cn('sidebar-link w-full', showLabels ? 'justify-between' : 'justify-center px-0', hasActiveChild && 'text-white!')}
+                title={collapsed ? t(entry.label) : undefined}
               >
+                {hasActiveChild && collapsed && activeBar}
                 <span className="flex items-center gap-3 min-w-0">
-                  <span className="flex-shrink-0">{entry.icon}</span>
-                  {showLabels && <span className="truncate">{entry.label}</span>}
+                  <span className={cn('shrink-0', hasActiveChild && 'text-primary-400')}>{entry.icon}</span>
+                  {showLabels && <span className="truncate">{t(entry.label)}</span>}
                 </span>
                 {showLabels && (
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                  />
+                  <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200', isOpen && 'rotate-180')} aria-hidden />
                 )}
               </button>
 
@@ -456,29 +477,33 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-[1.15rem] pl-4 border-l border-slate-200 dark:border-white/10 my-1 space-y-0.5">
+                    <div className="ml-[1.35rem] pl-3 border-l border-white/10 my-0.5 space-y-px">
                       {visibleChildren.map((child) => {
                         const isStudentProfile = child.to === '/students' && user?.role === 'STUDENT';
                         const label = isStudentProfile ? 'My Profile' : child.label;
                         return (
                           <NavLink
-                            key={child.to}
+                            key={`${entry.label}-${child.to}`}
                             to={child.to}
+                            end
                             id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                             onClick={() => isMobile && setMobileMenuOpen(false)}
                             className={({ isActive }) =>
-                              `flex items-center gap-2.5 pl-3 pr-3 py-2 rounded-lg text-sm transition-colors ${
-                                isActive
-                                  ? 'text-primary-600 dark:text-primary-400 font-semibold bg-primary-50 dark:bg-primary-500/10'
-                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`
+                              cn(
+                                'flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors',
+                                isActive ? 'font-semibold' : 'hover:text-white! hover:bg-white/6'
+                              )
+                            }
+                            style={({ isActive }) =>
+                              isActive
+                                ? { color: 'var(--fg-sidebar-active)', background: 'var(--bg-sidebar-active)' }
+                                : { color: 'var(--fg-sidebar-muted)' }
                             }
                           >
-                            <span className="w-1 h-1 rounded-full bg-current opacity-60 flex-shrink-0" />
-                            <span className="truncate">{label}</span>
+                            <span className="truncate">{t(label)}</span>
                           </NavLink>
                         );
                       })}
@@ -491,50 +516,58 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="border-t border-slate-200 dark:border-white/5 p-3">
-        {!sidebarCollapsed || isMobile ? (
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              {initials}
-            </div>
+      {/* User + collapse */}
+      <div className="border-t border-white/8 p-2.5 space-y-1">
+        {showLabels ? (
+          <div className="flex items-center gap-3 p-2 rounded-lg">
+            <Avatar name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} src={user?.avatarUrl} size="sm" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{roleLabelText}</p>
+              <p className="text-xs truncate" style={{ color: 'var(--fg-sidebar-muted)' }}>{roleLabelText}</p>
             </div>
             <button
+              type="button"
               id="sidebar-logout-btn"
               onClick={handleLogout}
-              title="Logout"
-              className="p-1 rounded-lg text-slate-500 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors md:opacity-0 md:group-hover:opacity-100"
+              aria-label={t('Sign out')}
+              title={t('Sign out')}
+              className="p-1.5 rounded-lg text-white/60 hover:text-red-300 hover:bg-red-500/15 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <button
+            type="button"
             id="sidebar-logout-collapsed-btn"
             onClick={handleLogout}
-            title="Logout"
-            className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            aria-label={t('Sign out')}
+            title={t('Sign out')}
+            className="w-full flex items-center justify-center p-2 rounded-lg text-white/60 hover:text-red-300 hover:bg-red-500/15 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
         )}
 
-        {/* Collapse Toggle */}
         {!isMobile && (
           <button
+            type="button"
             id="sidebar-collapse-btn"
             onClick={toggleSidebar}
-            className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-500 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white/55 hover:text-white hover:bg-white/6 transition-colors text-xs"
+            aria-label={sidebarCollapsed ? t('Expand sidebar') : t('Collapse sidebar')}
+            title={sidebarCollapsed ? t('Expand sidebar') : t('Collapse sidebar')}
           >
-            {sidebarCollapsed
-              ? <ChevronRight className="w-4 h-4" />
-              : <ChevronLeft className="w-4 h-4" />}
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4" />
+                {t('Collapse sidebar')}
+              </>
+            )}
           </button>
         )}
       </div>

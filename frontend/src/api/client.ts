@@ -153,13 +153,13 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      toast.error('Access denied. You do not have permission to perform this action.');
+      toast.error('Access denied. You do not have permission to perform this action.', { id: 'api-403' });
     } else if (error.response?.status === 500) {
-      toast.error('Server error. Please try again later.');
+      toast.error('Server error. Please try again later.', { id: 'api-500' });
     } else if (isColdStartError(error)) {
       // Non-idempotent methods (POST) are never auto-retried, so surface a
       // clear explanation instead of a confusing generic network error.
-      toast.error('The server is waking up from idle — please wait a few seconds and try again.');
+      toast.error('The server is waking up from idle — please wait a few seconds and try again.', { id: 'api-cold-start' });
     }
 
     return Promise.reject(error);

@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
 import { SubscriptionBanner } from './components/common/SubscriptionBanner';
+import { CommandPalette } from './components/Layout/CommandPalette';
 import { useMySubscription } from './hooks/useBilling';
 import apiClient from './api/client';
 
@@ -72,6 +73,7 @@ const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
 const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
 const Users = lazyWithRetry(() => import('./pages/users/Users'));
 const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
+const DesignSystem = lazyWithRetry(() => import('./pages/design-system/DesignSystem'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
@@ -243,7 +245,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { mobileMenuOpen, setMobileMenuOpen } = useUiStore();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-surface-900 text-slate-900 dark:text-slate-200 transition-colors duration-300">
+    <div className="flex h-dvh overflow-hidden text-slate-900 dark:text-slate-100" style={{ background: 'var(--bg-canvas)' }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:px-3 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">
+        Skip to content
+      </a>
+      <CommandPalette />
       {/* Desktop Sidebar */}
       <div className="hidden md:flex md:flex-shrink-0 h-full">
         <Sidebar />
@@ -259,7 +265,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/50"
               onClick={() => setMobileMenuOpen(false)}
             />
             {/* Sidebar drawer content */}
@@ -268,7 +274,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }}
-              className="relative w-64 bg-slate-900 h-full shadow-2xl"
+              className="relative w-72 max-w-[85vw] h-full shadow-2xl"
             >
               <Sidebar isMobile={true} />
             </motion.div>
@@ -287,7 +293,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8"
+          id="main-content"
+          tabIndex={-1}
+          className="w-full max-w-[1440px] mx-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 focus:outline-none"
         >
           <ErrorBoundary>{children}</ErrorBoundary>
         </motion.main>
@@ -367,19 +375,29 @@ const App = () => {
   }, [theme]);
 
   return (
-    <React.Suspense fallback={<div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-surface-900 text-slate-500 dark:text-slate-400">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-      Loading PeopleNIT SMS...
+    <React.Suspense fallback={<div role="status" className="h-dvh w-screen flex flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400" style={{ background: 'var(--bg-canvas)' }}>
+      <span className="w-9 h-9 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+      Loading PeopleNIT SMS…
     </div>}>
       <Toaster 
         position="top-right" 
-        toastOptions={{ 
-          className: 'dark:bg-slate-800 dark:text-white dark:border-white/10 bg-white text-slate-900 border-slate-200 shadow-xl',
+        gutter={8}
+        containerStyle={{ top: 72 }}
+        toastOptions={{
+          duration: 4000,
+          className: 'text-sm font-medium',
           style: {
-            border: '1px solid',
-            borderRadius: '12px'
-          }
-        }} 
+            background: 'var(--bg-card)',
+            color: 'var(--fg-default)',
+            border: '1px solid var(--border-default)',
+            borderRadius: '10px',
+            boxShadow: '0 12px 32px rgb(20 20 20 / 0.12)',
+            padding: '10px 14px',
+            maxWidth: 420,
+          },
+          success: { iconTheme: { primary: '#047857', secondary: '#ffffff' } },
+          error: { iconTheme: { primary: '#DC2626', secondary: '#ffffff' } },
+        }}
       />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
@@ -869,6 +887,15 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <Settings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Design system reference (sample content only) — not in the sidebar */}
+        <Route path="/design-system" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DesignSystem />
             </DashboardLayout>
           </ProtectedRoute>
         } />
