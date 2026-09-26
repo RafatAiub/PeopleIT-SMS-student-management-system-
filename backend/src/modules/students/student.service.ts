@@ -101,6 +101,15 @@ export async function createStudent(
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
 
   const { password, ...studentFields } = data;
+  // New admissions land in the school's default session year unless one was picked.
+  if (!studentFields.academicYearId) {
+    const defaultSession = await prisma.academicYear.findFirst({
+      where: { institutionId, isCurrent: true },
+      orderBy: { startDate: 'desc' },
+      select: { id: true },
+    });
+    if (defaultSession) studentFields.academicYearId = defaultSession.id;
+  }
   const rounds = env.BCRYPT_ROUNDS ?? 12;
   const passwordHash = await bcrypt.hash(password, rounds);
 

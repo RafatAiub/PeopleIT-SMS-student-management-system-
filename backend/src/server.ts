@@ -8,6 +8,7 @@ import { feeReminderWorker } from './queues/reminderWorker';
 import { billingWorker } from './queues/billingWorker';
 import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
+import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holiday.scheduler';
 
 const server = http.createServer(app);
 
@@ -43,6 +44,10 @@ async function startServer() {
       logger.info(`Health check endpoint: ${env.APP_URL}/health`);
     });
 
+    // Keeps government holidays in step with the published Bangladesh
+    // holiday calendar (next year's list, moon-sighting date changes).
+    startHolidaySyncJob();
+
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
     // AFTER the HTTP server is already listening, not awaited before it:
@@ -71,6 +76,8 @@ async function startServer() {
 // Graceful shutdown helper
 async function gracefulShutdown(signal: string) {
   logger.info(`Received ${signal}. Shutting down server gracefully...`);
+
+  stopHolidaySyncJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

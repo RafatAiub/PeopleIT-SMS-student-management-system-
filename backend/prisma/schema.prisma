@@ -68,6 +68,9 @@ model Institution {
   studentCategories       StudentCategory[]
   leaveTypes              LeaveType[]
   leaveRequests           LeaveRequest[]
+  holidays                Holiday[]
+  holidayCalendars        HolidayCalendar[]
+  events                  Event[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -291,8 +294,13 @@ model AcademicYear {
   label         String // e.g. "2024-2025"
   startDate     DateTime
   endDate       DateTime
+  // The institution's default ("current") session year — exactly one per
+  // institution, enforced in session-year.service.ts.
   isCurrent     Boolean   @default(false)
   students      Student[]
+  events        Event[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
 
   @@index([institutionId])
 }
@@ -1390,4 +1398,120 @@ model IdCard {
   @@index([studentId])
   @@index([staffId])
   @@index([verifyToken])
+}
+
+// ── Holidays ─────────────────────────────────────────────────────────
+// WEEKLY = auto-generated weekly off day (Friday/Saturday by default),
+// GOVERNMENT = auto-generated Bangladesh public holiday,
+// SCHOOL = added by the school itself (vacations, sports day, etc.).
+enum HolidayType {
+  WEEKLY
+  GOVERNMENT
+  SCHOOL
+}
+
+// One row per calendar day so each auto-generated holiday can be edited or
+// deleted on its own.
+model Holiday {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  date          DateTime    @db.Date
+  title         String
+  description   String?     @db.Text
+  type          HolidayType @default(SCHOOL)
+  // Moon-sighting based holidays (Eid, Shab-e-Barat, ...) still in the
+  // future — the date can move by a day or two.
+  isTentative   Boolean     @default(false)
+  // Set on auto-generated rows: "weekly:<date>" or "gov:<year>:<slug>:<n>".
+  // Lets the government-holiday sync find and update its own rows. Null for
+  // holidays the school added itself.
+  sourceKey     String?
+  // An admin edited this auto-generated row — the sync leaves it alone.
+  isCustomized  Boolean     @default(false)
+  // Auto-generated rows are soft-deleted so a later sync or visit doesn't
+  // bring them back. School-added rows are deleted for real.
+  deletedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([institutionId, date, title])
+  @@unique([institutionId, sourceKey])
+  @@index([institutionId, date])
+}
+
+// Marks a session year as already auto-filled, so admin deletions stick
+// instead of being re-seeded on the next visit.
+model HolidayCalendar {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  year          Int
+  // JS weekday numbers (0 = Sunday ... 5 = Friday, 6 = Saturday)
+  weeklyOffDays Int[]
+  // Where the government holidays came from: "FEED" (the published Bangladesh
+  // holiday calendar) or "FALLBACK" (fixed-date national days only, used
+  // until the feed publishes that year). Null = not synced yet.
+  governmentSource   String?
+  governmentSyncedAt DateTime?
+  seededAt      DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([institutionId, year])
+}
+
+// ── Events ───────────────────────────────────────────────────────────
+// School events (sports day, prize giving, parent-teacher meeting, ...)
+// published to the chosen audiences for a session year.
+enum EventType {
+  SINGLE
+  MULTIPLE
+}
+
+enum EventCategory {
+  ACADEMIC
+  SPORTS
+  CULTURAL
+  CELEBRATION
+  EXAM
+  MEETING
+  TRIP
+  COMPETITION
+  OTHER
+}
+
+enum EventAudience {
+  STUDENTS
+  GUARDIANS
+  TEACHERS
+  STAFF
+}
+
+model Event {
+  id              String          @id @default(cuid())
+  institutionId   String
+  institution     Institution     @relation(fields: [institutionId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear    @relation(fields: [academicYearId], references: [id])
+  title           String
+  description     String?         @db.Text
+  category        EventCategory   @default(OTHER)
+  // SINGLE = one day (endDate == startDate); MULTIPLE = a date range.
+  type            EventType       @default(SINGLE)
+  startDate       DateTime        @db.Date
+  endDate         DateTime        @db.Date
+  // "HH:MM" 24-hour, applies to every day of a multi-day event. Null = all day.
+  startTime       String?
+  endTime         String?
+  venue           String?
+  audience        EventAudience[]
+  // Compressed in the browser and stored as a data: URL, same as the
+  // institution logo — no file storage needed on the host.
+  imageUrl        String?         @db.Text
+  createdByUserId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([institutionId, startDate])
+  @@index([academicYearId])
 }

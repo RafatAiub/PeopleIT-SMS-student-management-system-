@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, PartyPopper,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -85,6 +85,8 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       // Academics setup lookups (Medium/Section/Stream/Shifts/Subject/Semester/Class) —
       // Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
+      // Session Year: academic sessions + the default one used by admissions/events — Admin only
+      { to: '/academics/session-years', label: 'Session Year', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/mediums', label: 'Medium', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/sections', label: 'Section', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/streams', label: 'Stream', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -156,6 +158,24 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/leave/requests', label: 'Leave Request', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       // Student Leave: Admin reviews/acts on student requests, Student self-service (apply/track/cancel own) — Guardian excluded
       { to: '/leave/student', label: 'Student Leave', roles: ['ADMIN', 'STUDENT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Holiday',
+    icon: <CalendarHeart className="w-4.5 h-4.5" />,
+    children: [
+      // Holiday List: Admin manages (create/edit/delete, weekly off days, govt sync), everyone else views read-only
+      { to: '/holidays', label: 'Holiday List' },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Events',
+    icon: <PartyPopper className="w-4.5 h-4.5" />,
+    children: [
+      // Events: Admin creates/edits/deletes, everyone else sees the events addressed to their role
+      { to: '/events', label: 'Events' },
     ],
   },
   {

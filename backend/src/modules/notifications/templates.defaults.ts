@@ -418,6 +418,11 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '{{institutionName}}',
     ].join('\n'),
   },
+  // ── EVENT_PUBLISHED ─────────────────────────────────────────────────────
+  'EVENT_PUBLISHED:IN_APP': {
+    subject: 'New event: {{eventTitle}}',
+    body: '{{eventTitle}} — {{eventWhen}} at {{venue}}.',
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

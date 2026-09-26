@@ -27,6 +27,8 @@ export const NOTIFICATION_TYPES = [
   'LEAVE_REQUESTED',
   'LEAVE_APPROVED',
   'LEAVE_REJECTED',
+  // School events published to an audience
+  'EVENT_PUBLISHED',
 ] as const;
 
 // Subset that concerns platform subscription billing — used by the frontend

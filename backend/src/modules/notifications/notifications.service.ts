@@ -52,6 +52,9 @@ const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
   LEAVE_REQUESTED: ['IN_APP', 'EMAIL'],
   LEAVE_APPROVED: ['IN_APP', 'EMAIL'],
   LEAVE_REJECTED: ['IN_APP', 'EMAIL'],
+  // In-app only: an event can go to every student and guardian at once, and
+  // a bulk email/SMS blast per event would be costly and noisy.
+  EVENT_PUBLISHED: ['IN_APP'],
 };
 
 /**

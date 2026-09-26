@@ -63,6 +63,9 @@ const LeaveSettings = lazyWithRetry(() => import('./pages/leave/LeaveSettings'))
 const LeaveReport = lazyWithRetry(() => import('./pages/leave/LeaveReport'));
 const LeaveRequestManagement = lazyWithRetry(() => import('./pages/leave/LeaveRequestManagement'));
 const MyLeaveRequests = lazyWithRetry(() => import('./pages/leave/MyLeaveRequests'));
+const ManageHoliday = lazyWithRetry(() => import('./pages/holidays/ManageHoliday'));
+const SessionYears = lazyWithRetry(() => import('./pages/academics/SessionYears'));
+const Events = lazyWithRetry(() => import('./pages/events/Events'));
 const AiInsights = lazyWithRetry(() => import('./pages/ai/AiInsights'));
 const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
 const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
@@ -620,6 +623,30 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <TimetableGrid />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/holidays" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ManageHoliday />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/events" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Events />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/session-years" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SessionYears />
             </DashboardLayout>
           </ProtectedRoute>
         } />

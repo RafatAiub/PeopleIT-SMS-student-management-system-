@@ -218,11 +218,14 @@ export async function listClasses(
         });
       }
 
-      // Find or create default academic year
+      // Reuse the default session year (Session Year page), else find or
+      // create one for the current calendar year
       const currentYear = new Date().getFullYear().toString();
-      let academicYear = await prisma.academicYear.findFirst({
-        where: { institutionId: req.tenantId!, label: currentYear }
-      });
+      let academicYear =
+        (await prisma.academicYear.findFirst({ where: { institutionId: req.tenantId!, isCurrent: true } })) ??
+        (await prisma.academicYear.findFirst({
+          where: { institutionId: req.tenantId!, label: currentYear }
+        }));
       if (!academicYear) {
         academicYear = await prisma.academicYear.create({
           data: {
