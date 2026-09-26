@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { GraduationCap, Plus, Save } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Plus, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import apiClient from '../../api/client';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
+import { Modal, Button, Input, Select, PageHeader, ErrorState } from '../../components/ui';
 
 interface LookupRef {
   id: string;
@@ -45,53 +45,64 @@ const fetchLookupList = async (path: string): Promise<LookupRef[]> => {
   }
 };
 
-const Classes = () => {
-  const [classes, setClasses] = useState<ClassRow[]>([]);
-  const [loading, setLoading] = useState(true);
+const CLASSES_KEY = ['academics', 'classes'];
 
-  const [mediums, setMediums] = useState<LookupRef[]>([]);
-  const [streams, setStreams] = useState<LookupRef[]>([]);
-  const [shifts, setShifts] = useState<LookupRef[]>([]);
-  const [semesters, setSemesters] = useState<LookupRef[]>([]);
+const Classes = () => {
+  const queryClient = useQueryClient();
+
+  const { data: classes = [], isLoading, isError, refetch } = useQuery({
+    queryKey: CLASSES_KEY,
+    queryFn: async () => {
+      const res = await apiClient.get('/students/meta/classes');
+      return (res.data?.data || []) as ClassRow[];
+    },
+  });
+
+  const { data: mediums = [] } = useQuery({ queryKey: ['lookup-ref', 'mediums'], queryFn: () => fetchLookupList('/academics/mediums') });
+  const { data: streams = [] } = useQuery({ queryKey: ['lookup-ref', 'streams'], queryFn: () => fetchLookupList('/academics/streams') });
+  const { data: shifts = [] } = useQuery({ queryKey: ['lookup-ref', 'shifts'], queryFn: () => fetchLookupList('/academics/shifts') });
+  const { data: semesters = [] } = useQuery({ queryKey: ['lookup-ref', 'semesters'], queryFn: () => fetchLookupList('/academics/semesters') });
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; level?: string }>({});
 
   const [classToDelete, setClassToDelete] = useState<ClassRow | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  const fetchClasses = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get('/students/meta/classes');
-      setClasses(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to fetch classes', err);
-      toast.error('Failed to load classes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: CLASSES_KEY });
 
-  const fetchLookups = async () => {
-    const [m, s, sh, sem] = await Promise.all([
-      fetchLookupList('/academics/mediums'),
-      fetchLookupList('/academics/streams'),
-      fetchLookupList('/academics/shifts'),
-      fetchLookupList('/academics/semesters'),
-    ]);
-    setMediums(m);
-    setStreams(s);
-    setShifts(sh);
-    setSemesters(sem);
-  };
+  const createMutation = useMutation({
+    mutationFn: (payload: Record<string, any>) => apiClient.post('/academics/classes', payload),
+    onSuccess: () => {
+      toast.success('Class created successfully');
+      invalidate();
+      setModalOpen(false);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to save class'),
+  });
 
-  useEffect(() => {
-    fetchClasses();
-    fetchLookups();
-  }, []);
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, any> }) => apiClient.put(`/academics/classes/${id}`, payload),
+    onSuccess: () => {
+      toast.success('Class updated successfully');
+      invalidate();
+      setModalOpen(false);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Failed to save class'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/academics/classes/${id}`),
+    onSuccess: () => {
+      toast.success('Class deleted successfully');
+      setClassToDelete(null);
+      invalidate();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Cannot delete this class.'),
+  });
+
+  const saving = createMutation.isPending || updateMutation.isPending;
 
   const mediumMap = useMemo(() => Object.fromEntries(mediums.map((m) => [m.id, m.name])), [mediums]);
   const streamMap = useMemo(() => Object.fromEntries(streams.map((s) => [s.id, s.name])), [streams]);
@@ -101,6 +112,7 @@ const Classes = () => {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setErrors({});
     setModalOpen(true);
   };
 
@@ -114,20 +126,20 @@ const Classes = () => {
       shiftId: row.shiftId || '',
       semesterId: row.semesterId || '',
     });
+    setErrors({});
     setModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error('Name is required');
-      return;
-    }
+    const nextErrors: { name?: string; level?: string } = {};
+    if (!form.name.trim()) nextErrors.name = 'Name is required';
     const levelNum = Number(form.level);
-    if (!Number.isInteger(levelNum) || levelNum < 1) {
-      toast.error('Level must be a whole number of at least 1');
-      return;
+    if (!form.level.trim() || !Number.isInteger(levelNum) || levelNum < 1) {
+      nextErrors.level = 'Level must be a whole number of at least 1';
     }
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
 
     const payload: Record<string, any> = { name: form.name.trim(), level: levelNum };
     if (form.mediumId) payload.mediumId = form.mediumId;
@@ -135,41 +147,15 @@ const Classes = () => {
     if (form.shiftId) payload.shiftId = form.shiftId;
     if (form.semesterId) payload.semesterId = form.semesterId;
 
-    setSaving(true);
-    try {
-      if (editingId) {
-        await apiClient.put(`/academics/classes/${editingId}`, payload);
-        toast.success('Class updated successfully');
-      } else {
-        await apiClient.post('/academics/classes', payload);
-        toast.success('Class created successfully');
-      }
-      setModalOpen(false);
-      fetchClasses();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to save class');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!classToDelete) return;
-    setDeleting(true);
-    try {
-      await apiClient.delete(`/academics/classes/${classToDelete.id}`);
-      toast.success('Class deleted successfully');
-      setClassToDelete(null);
-      fetchClasses();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Cannot delete this class.');
-    } finally {
-      setDeleting(false);
+    if (editingId) {
+      updateMutation.mutate({ id: editingId, payload });
+    } else {
+      createMutation.mutate(payload);
     }
   };
 
   const columns: Column<ClassRow>[] = [
-    { key: 'name', header: 'Name', accessor: 'name' },
+    { key: 'name', header: 'Name', accessor: 'name', primary: true },
     { key: 'level', header: 'Level', accessor: 'level' },
     { key: 'medium', header: 'Medium', sortable: false, render: (row) => row.medium?.name || mediumMap[row.mediumId || ''] || '—' },
     { key: 'stream', header: 'Stream', sortable: false, render: (row) => row.stream?.name || streamMap[row.streamId || ''] || '—' },
@@ -183,145 +169,118 @@ const Classes = () => {
     { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (row) => setClassToDelete(row) },
   ];
 
-  const selectClass = 'input-field cursor-pointer';
+  const lookupOptions = (list: LookupRef[]) => list.map((l) => ({ value: l.id, label: l.name }));
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Manage Class</h2>
-            <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-              Create classes and tag them with a medium, stream, shift, or semester.
-            </p>
-          </div>
-        </div>
-        <Button variant="gradient" onClick={openCreate} className="flex-shrink-0">
-          <Plus className="w-4 h-4" />
-          Add Class
-        </Button>
+      <PageHeader
+        title="Manage Class"
+        description="Create classes and tag them with a medium, stream, shift, or semester."
+        actions={
+          <Button variant="gradient" onClick={openCreate}>
+            <Plus className="w-4 h-4" />
+            Add Class
+          </Button>
+        }
+      />
+
+      <div className="glass-card p-4 sm:p-6 rounded-2xl">
+        {isError ? (
+          <ErrorState title="Failed to load classes" onRetry={() => refetch()} />
+        ) : (
+          <DataTable
+            data={classes}
+            columns={columns}
+            actions={actions}
+            isLoading={isLoading}
+            searchPlaceholder="Search classes..."
+            emptyTitle="No classes found"
+            emptyDescription="Create your first class to get started."
+            emptyAction={
+              <Button variant="primary" size="sm" onClick={openCreate}>
+                <Plus className="w-4 h-4" />
+                Add Class
+              </Button>
+            }
+          />
+        )}
       </div>
 
-      <div className="glass-card p-6 rounded-2xl">
-        <DataTable
-          data={classes}
-          columns={columns}
-          actions={actions}
-          isLoading={loading}
-          searchPlaceholder="Search classes..."
-          emptyTitle="No classes found"
-          emptyDescription="Create your first class to get started."
-        />
-      </div>
-
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} className="max-w-lg space-y-4">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-          {editingId ? 'Edit Class' : 'Add Class'}
-        </h3>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="class-name" className="text-sm font-medium text-slate-700 dark:text-slate-400">
-                Name<span className="text-red-500 ml-1">*</span>
-              </label>
-              <input
-                id="class-name"
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="input-field"
-                placeholder="e.g. Class 6"
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="class-level" className="text-sm font-medium text-slate-700 dark:text-slate-400">
-                Level<span className="text-red-500 ml-1">*</span>
-              </label>
-              <input
-                id="class-level"
-                type="number"
-                min={1}
-                value={form.level}
-                onChange={(e) => setForm({ ...form, level: e.target.value })}
-                className="input-field"
-                placeholder="e.g. 6"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="class-medium" className="text-sm font-medium text-slate-700 dark:text-slate-400">Medium</label>
-              <select
-                id="class-medium"
-                value={form.mediumId}
-                onChange={(e) => setForm({ ...form, mediumId: e.target.value })}
-                className={selectClass}
-              >
-                <option value="">None</option>
-                {mediums.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="class-stream" className="text-sm font-medium text-slate-700 dark:text-slate-400">Stream</label>
-              <select
-                id="class-stream"
-                value={form.streamId}
-                onChange={(e) => setForm({ ...form, streamId: e.target.value })}
-                className={selectClass}
-              >
-                <option value="">None</option>
-                {streams.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="class-shift" className="text-sm font-medium text-slate-700 dark:text-slate-400">Shift</label>
-              <select
-                id="class-shift"
-                value={form.shiftId}
-                onChange={(e) => setForm({ ...form, shiftId: e.target.value })}
-                className={selectClass}
-              >
-                <option value="">None</option>
-                {shifts.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="class-semester" className="text-sm font-medium text-slate-700 dark:text-slate-400">Semester</label>
-              <select
-                id="class-semester"
-                value={form.semesterId}
-                onChange={(e) => setForm({ ...form, semesterId: e.target.value })}
-                className={selectClass}
-              >
-                <option value="">None</option>
-                {semesters.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingId ? 'Edit Class' : 'Add Class'}
+        size="lg"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button type="submit" variant="gradient" size="sm" isLoading={saving} className="px-5">
+            <Button type="submit" form="class-form" variant="primary" isLoading={saving}>
               <Save className="w-4 h-4" />
-              {saving ? 'Saving...' : editingId ? 'Update Class' : 'Save Class'}
+              {editingId ? 'Update Class' : 'Save Class'}
             </Button>
+          </>
+        }
+      >
+        <form id="class-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="class-name"
+              label="Name"
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="e.g. Class 6"
+              error={errors.name}
+              data-autofocus
+            />
+            <Input
+              id="class-level"
+              label="Level"
+              type="number"
+              min={1}
+              required
+              value={form.level}
+              onChange={(e) => setForm({ ...form, level: e.target.value })}
+              placeholder="e.g. 6"
+              error={errors.level}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Select
+              id="class-medium"
+              label="Medium"
+              placeholder="None"
+              value={form.mediumId}
+              onChange={(e) => setForm({ ...form, mediumId: e.target.value })}
+              options={lookupOptions(mediums)}
+            />
+            <Select
+              id="class-stream"
+              label="Stream"
+              placeholder="None"
+              value={form.streamId}
+              onChange={(e) => setForm({ ...form, streamId: e.target.value })}
+              options={lookupOptions(streams)}
+            />
+            <Select
+              id="class-shift"
+              label="Shift"
+              placeholder="None"
+              value={form.shiftId}
+              onChange={(e) => setForm({ ...form, shiftId: e.target.value })}
+              options={lookupOptions(shifts)}
+            />
+            <Select
+              id="class-semester"
+              label="Semester"
+              placeholder="None"
+              value={form.semesterId}
+              onChange={(e) => setForm({ ...form, semesterId: e.target.value })}
+              options={lookupOptions(semesters)}
+            />
           </div>
         </form>
       </Modal>
@@ -332,8 +291,8 @@ const Classes = () => {
         message={`Delete class "${classToDelete?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
-        isLoading={deleting}
-        onConfirm={handleConfirmDelete}
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => classToDelete && deleteMutation.mutate(classToDelete.id)}
         onCancel={() => setClassToDelete(null)}
       />
     </div>

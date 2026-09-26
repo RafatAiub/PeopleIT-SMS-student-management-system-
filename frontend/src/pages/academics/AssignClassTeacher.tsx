@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { UserCog } from 'lucide-react';
-import apiClient from '../../api/client';
+import React, { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import apiClient from '../../api/client';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
+import { PageHeader, ErrorState, Alert } from '../../components/ui';
 
 interface TeacherOption {
   id: string;
@@ -16,119 +17,130 @@ interface SectionRow {
   class?: { id: string; name: string } | null;
   classTeacherId?: string | null;
   classTeacher?: { id: string; user?: { firstName: string; lastName: string } } | null;
+  /** Flattened for DataTable's client-side search (which only matches `accessor` fields). */
+  className?: string;
 }
 
+const SECTIONS_KEY = ['academics', 'all-sections'];
+
 const AssignClassTeacher = () => {
-  const [sections, setSections] = useState<SectionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const queryClient = useQueryClient();
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
 
-  const fetchSections = async () => {
-    setLoading(true);
-    try {
+  const {
+    data: sections = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: SECTIONS_KEY,
+    queryFn: async () => {
       // No classId query param — returns every section institution-wide,
       // each with its class name and current class teacher nested.
       const res = await apiClient.get('/academics/sections');
-      setSections(res.data?.data || []);
-    } catch (err) {
-      console.error('Failed to fetch sections', err);
-      toast.error('Failed to load sections');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const rows = (res.data?.data || []) as SectionRow[];
+      return rows.map((r) => ({ ...r, className: r.class?.name || 'N/A' }));
+    },
+  });
 
-  const fetchTeachers = async () => {
-    try {
+  const { data: teacherData } = useQuery({
+    queryKey: ['teachers-lite-with-total'],
+    queryFn: async () => {
       const res = await apiClient.get('/users?role=TEACHER&pageSize=100');
       const users = res.data?.data || [];
       const options: TeacherOption[] = users
         .filter((u: any) => !!u.teacherProfile)
         .map((u: any) => ({ id: u.teacherProfile.id, label: `${u.firstName} ${u.lastName}` }));
-      setTeachers(options);
-    } catch (err) {
-      console.warn('Failed to load teacher list', err);
-      setTeachers([]);
-    }
-  };
+      return { options, total: res.data?.meta?.total ?? options.length };
+    },
+  });
+  const teachers = teacherData?.options ?? [];
+  const teachersTruncated = (teacherData?.total ?? 0) > teachers.length;
 
-  useEffect(() => {
-    fetchSections();
-    fetchTeachers();
-  }, []);
-
-  const handleTeacherChange = async (row: SectionRow, newTeacherId: string) => {
-    const previousSections = sections;
-    setSections((prev) => prev.map((s) => (s.id === row.id ? { ...s, classTeacherId: newTeacherId } : s)));
-    setSavingRowId(row.id);
-    try {
-      await apiClient.put(`/academics/sections/${row.id}`, { classTeacherId: newTeacherId || null });
+  const updateMutation = useMutation({
+    mutationFn: ({ id, classTeacherId }: { id: string; classTeacherId: string }) =>
+      apiClient.put(`/academics/sections/${id}`, { classTeacherId: classTeacherId || null }),
+    onSuccess: () => {
       toast.success('Class teacher updated');
-      fetchSections();
-    } catch (err: any) {
-      console.error('Failed to update class teacher', err);
-      setSections(previousSections);
+      queryClient.invalidateQueries({ queryKey: SECTIONS_KEY });
+    },
+    onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to update class teacher');
-    } finally {
-      setSavingRowId(null);
-    }
+    },
+    onSettled: () => setSavingRowId(null),
+  });
+
+  const handleTeacherChange = (row: SectionRow, newTeacherId: string) => {
+    setSavingRowId(row.id);
+    updateMutation.mutate({ id: row.id, classTeacherId: newTeacherId });
   };
 
   const columns: Column<SectionRow>[] = [
     {
       key: 'class',
       header: 'Class',
-      render: (row) => row.class?.name || 'N/A',
+      accessor: 'className',
     },
     {
       key: 'name',
       header: 'Section',
       accessor: 'name',
+      primary: true,
     },
     {
       key: 'classTeacher',
       header: 'Class Teacher',
       sortable: false,
-      render: (row) => (
-        <select
-          value={row.classTeacherId || row.classTeacher?.id || ''}
-          onChange={(e) => handleTeacherChange(row, e.target.value)}
-          disabled={savingRowId === row.id}
-          className="input-field cursor-pointer disabled:opacity-50 max-w-[220px]"
-        >
-          <option value="">Unassigned</option>
-          {teachers.map((t) => (
-            <option key={t.id} value={t.id}>{t.label}</option>
-          ))}
-        </select>
-      ),
+      hideOnMobile: false,
+      render: (row) => {
+        const current = row.classTeacherId || row.classTeacher?.id || '';
+        const label = `Class teacher for ${row.className || 'N/A'} ${row.name}`;
+        return (
+          <select
+            value={current}
+            onChange={(e) => handleTeacherChange(row, e.target.value)}
+            disabled={savingRowId === row.id}
+            aria-label={label}
+            title={label}
+            className="input-field cursor-pointer disabled:opacity-50 max-w-[220px]"
+          >
+            <option value="">Unassigned</option>
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+        );
+      },
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-          <UserCog className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Assign Class Teacher</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-            Assign a class teacher to every section institution-wide. Changes save automatically.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Assign Class Teacher"
+        description="Assign a class teacher to every section institution-wide. Changes save automatically."
+      />
 
-      <div className="glass-card p-6 rounded-2xl">
-        <DataTable
-          data={sections}
-          columns={columns}
-          isLoading={loading}
-          searchPlaceholder="Search by class or section..."
-          emptyTitle="No sections found"
-          emptyDescription="Create classes and sections under Academics first."
-        />
+      {teachersTruncated && (
+        <Alert tone="warning" title="Teacher list truncated">
+          Showing the first {teachers.length} of {teacherData?.total} teachers. Use the school-wide teacher search under
+          Manage Teacher to find someone not listed here.
+        </Alert>
+      )}
+
+      <div className="glass-card p-4 sm:p-6 rounded-2xl">
+        {isError ? (
+          <ErrorState title="Failed to load sections" onRetry={() => refetch()} />
+        ) : (
+          <DataTable
+            data={sections}
+            columns={columns}
+            isLoading={isLoading}
+            searchPlaceholder="Search by class or section..."
+            emptyTitle="No sections found"
+            emptyDescription="Create classes and sections under Academics first."
+          />
+        )}
       </div>
     </div>
   );

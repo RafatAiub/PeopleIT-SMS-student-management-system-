@@ -58,7 +58,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({
       )}
       <article
         className={cn(
-          'mx-auto bg-white text-slate-900 border border-slate-200 rounded-lg shadow-sm p-8 sm:p-10 print:shadow-none print:border-0 print:rounded-none print:p-0 print:max-w-none',
+          'print-target mx-auto bg-white text-slate-900 border border-slate-200 rounded-lg shadow-sm p-8 sm:p-10 print:shadow-none print:border-0 print:rounded-none print:p-0 print:max-w-none',
           width,
           className
         )}

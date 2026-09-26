@@ -183,6 +183,18 @@
     background: transparent !important;
   }
   .print-page { break-after: page; }
+
+  /* When a printable document (PrintLayout → .print-target) is on screen —
+     typically inside a modal — print ONLY that document, not the sidebar,
+     header or the page behind the modal. */
+  body:has(.print-target) * { visibility: hidden !important; }
+  body:has(.print-target) .print-target,
+  body:has(.print-target) .print-target * { visibility: visible !important; }
+  body:has(.print-target) .print-target {
+    position: absolute !important;
+    left: 0; top: 0; width: 100%;
+    margin: 0 !important;
+  }
   .print-avoid-break { break-inside: avoid; }
   a[href]::after { content: none !important; }
 }

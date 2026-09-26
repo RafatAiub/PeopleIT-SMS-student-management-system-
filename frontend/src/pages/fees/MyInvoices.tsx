@@ -1,131 +1,50 @@
-import React, { useEffect, useState } from 'react';
-import { Receipt, CreditCard, Users } from 'lucide-react';
-import toast from 'react-hot-toast';
-import apiClient from '../../api/client';
-import { useAuthStore } from '../../store/authStore';
+import React, { useMemo, useState } from 'react';
+import { Users } from 'lucide-react';
+import { PageHeader, Skeleton, ErrorState } from '../../components/ui';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Modal, Alert, Button, Select } from '../../components/ui';
-
-type OnlineMethod = 'BKASH' | 'NAGAD' | 'SSLCOMMERZ';
-const ONLINE_METHODS: { value: OnlineMethod; label: string }[] = [
-  { value: 'BKASH', label: 'bKash' },
-  { value: 'NAGAD', label: 'Nagad' },
-  { value: 'SSLCOMMERZ', label: 'SSLCommerz' },
-];
-
-interface Invoice {
-  id: string;
-  invoiceNo?: string;
-  invoiceNumber?: string;
-  totalAmount: number;
-  dueAmount: number;
-  dueDate: string;
-  status: string;
-  student?: { firstName: string; lastName: string; studentId: string };
-}
-
-interface ChildSummary {
-  id: string;
-  studentId: string;
-  firstName: string;
-  lastName: string;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  PAID: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20',
-  OVERDUE: 'bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20',
-  PENDING: 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20',
-};
+import { useAuthStore } from '../../store/authStore';
+import { formatCurrency } from '../../i18n';
+import { useLinkedChildren, useMyInvoicesList, useInvoiceDetail } from './hooks';
+import { ChildSwitcher } from './ChildSwitcher';
+import { InvoiceCard } from './InvoiceCard';
+import { PayOnlineModal } from './PayOnlineModal';
+import { PrintReceiptModal } from './PrintDocuments';
+import type { InvoiceListItem, Payment } from './types';
 
 const MyInvoices: React.FC = () => {
   const { user } = useAuthStore();
   const isGuardian = user?.role === 'GUARDIAN';
 
-  const [children, setChildren] = useState<ChildSummary[]>([]);
+  const { data: children = [], isLoading: childrenLoading } = useLinkedChildren(isGuardian);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const [childrenLoading, setChildrenLoading] = useState(isGuardian);
+  const selectedChild = children.find((c) => c.id === selectedChildId) ?? children[0] ?? null;
 
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [payModalInvoice, setPayModalInvoice] = useState<Invoice | null>(null);
-  const [payMethod, setPayMethod] = useState<OnlineMethod>('BKASH');
+  const { data: allInvoices = [], isLoading, isError, refetch } = useMyInvoicesList();
 
-  useEffect(() => {
-    if (!isGuardian) return;
-    const fetchChildren = async () => {
-      try {
-        const res = await apiClient.get('/guardians/me/students');
-        const list: ChildSummary[] = res.data.data || [];
-        setChildren(list);
-        if (list.length > 0) setSelectedChildId(list[0].id);
-      } catch (err) {
-        console.error('Failed to load linked children', err);
-        toast.error('Failed to load your children');
-      } finally {
-        setChildrenLoading(false);
-      }
-    };
-    fetchChildren();
-  }, [isGuardian]);
+  // See the note on useMyInvoicesList: the backend returns every linked
+  // child's invoices for a GUARDIAN caller, so a single child's invoices are
+  // isolated here by matching the school-issued studentId shown in the child
+  // switcher (the list endpoint doesn't project the student's internal id).
+  const invoices: InvoiceListItem[] = useMemo(() => {
+    if (!isGuardian) return allInvoices;
+    if (!selectedChild) return [];
+    return allInvoices.filter((inv) => inv.student?.studentId === selectedChild.studentId);
+  }, [allInvoices, isGuardian, selectedChild]);
 
-  const fetchInvoices = async () => {
-    if (isGuardian && !selectedChildId) return;
-    setLoading(true);
-    try {
-      const params: Record<string, any> = { pageSize: 100 };
-      if (isGuardian && selectedChildId) params.studentId = selectedChildId;
-      const res = await apiClient.get('/fees/invoices', { params });
-      setInvoices(res.data.data || []);
-    } catch (err: any) {
-      console.error('Failed to load invoices', err);
-      toast.error(err.response?.data?.message || 'Failed to load your invoices');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [payInvoice, setPayInvoice] = useState<InvoiceListItem | null>(null);
+  const [receipt, setReceipt] = useState<{ invoiceId: string; payment: Payment } | null>(null);
+  const { data: receiptInvoiceDetail } = useInvoiceDetail(receipt?.invoiceId ?? null);
 
-  useEffect(() => {
-    if (isGuardian && childrenLoading) return;
-    if (isGuardian && children.length === 0) {
-      setLoading(false);
-      return;
-    }
-    fetchInvoices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChildId, childrenLoading]);
-
-  const openPayModal = (invoice: Invoice) => {
-    setPayMethod('BKASH');
-    setPayModalInvoice(invoice);
-  };
-
-  const handlePayOnline = async () => {
-    const invoice = payModalInvoice;
-    if (!invoice) return;
-    setPayingId(invoice.id);
-    try {
-      const res = await apiClient.post(`/fees/invoices/${invoice.id}/payments/online`, {
-        method: payMethod,
-        callbackUrl: window.location.href,
-      });
-      const paymentUrl = res.data?.data?.paymentUrl;
-      if (paymentUrl) {
-        window.open(paymentUrl, '_blank', 'noopener,noreferrer');
-        toast.success('Redirected to the sandbox payment page — this is a demo, no real money is charged.');
-      } else {
-        toast.error(res.data?.data?.message || res.data?.message || 'This payment gateway is not enabled for your institution yet.');
-      }
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Online payment is not available yet. Please pay at the school office.');
-    } finally {
-      setPayingId(null);
-      setPayModalInvoice(null);
-    }
-  };
+  const totalDue = invoices.reduce((sum, inv) => sum + Number(inv.dueAmount || 0), 0);
 
   if (isGuardian && childrenLoading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your dashboard...</div>;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-24" />
+        <Skeleton className="h-24" />
+      </div>
+    );
   }
 
   if (isGuardian && children.length === 0) {
@@ -140,128 +59,60 @@ const MyInvoices: React.FC = () => {
     );
   }
 
-  const totalDue = invoices.reduce((sum, inv) => sum + Number(inv.dueAmount || 0), 0);
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            {isGuardian ? "My Children's Fees" : 'My Fees & Billing'}
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">View your invoices and pay online.</p>
-        </div>
-        {totalDue > 0 && (
-          <div className="glass-card px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-500/5">
-            <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold uppercase">Total Due: ৳{totalDue.toLocaleString()}</span>
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title={isGuardian ? "My Children's Fees" : 'My Fees & Billing'}
+        description="View your invoices and pay online."
+        actions={
+          totalDue > 0 ? (
+            <div className="glass-card px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50/50 dark:bg-rose-500/5">
+              <span className="text-xs text-rose-600 dark:text-rose-400 font-semibold uppercase">
+                Total due: {formatCurrency(totalDue)}
+              </span>
+            </div>
+          ) : undefined
+        }
+      />
 
-      {isGuardian && children.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {children.map((child) => (
-            <button
-              key={child.id}
-              onClick={() => setSelectedChildId(child.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                selectedChildId === child.id
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
-            >
-              {child.firstName} {child.lastName}
-            </button>
+      {isGuardian && (
+        <ChildSwitcher
+          items={children}
+          selectedId={selectedChild?.id ?? null}
+          onSelect={setSelectedChildId}
+        />
+      )}
+
+      {isError ? (
+        <ErrorState onRetry={() => refetch()} message="Failed to load your invoices." />
+      ) : isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+      ) : invoices.length === 0 ? (
+        <div className="glass-card">
+          <EmptyState title="No invoices found" description="You have no invoices yet." />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {invoices.map((invoice) => (
+            <InvoiceCard
+              key={invoice.id}
+              invoice={invoice}
+              onPayOnline={setPayInvoice}
+              onPrintReceipt={(payment) => setReceipt({ invoiceId: invoice.id, payment })}
+            />
           ))}
         </div>
       )}
 
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Invoice No</th>
-                <th className="px-6 py-4 font-semibold">Amount</th>
-                <th className="px-6 py-4 font-semibold">Due Date</th>
-                <th className="px-6 py-4 font-semibold">Status</th>
-                <th className="px-6 py-4 text-right font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">Loading invoices...</td>
-                </tr>
-              ) : invoices.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    <Receipt className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                    No invoices found.
-                  </td>
-                </tr>
-              ) : (
-                invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-colors">
-                    <td className="px-6 py-4 font-semibold text-slate-900 dark:text-white">{invoice.invoiceNo || invoice.invoiceNumber}</td>
-                    <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-900 dark:text-white tabular-nums">৳ {invoice.totalAmount}</div>
-                      {Number(invoice.dueAmount) > 0 && <div className="text-xs text-rose-600 dark:text-rose-400 tabular-nums">Due: ৳ {invoice.dueAmount}</div>}
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                      {new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[invoice.status] || STATUS_STYLES.PENDING}`}>
-                        {invoice.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {invoice.status !== 'PAID' && (
-                        <button
-                          onClick={() => openPayModal(invoice)}
-                          disabled={payingId === invoice.id}
-                          className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                        >
-                          <CreditCard className="w-3.5 h-3.5" />
-                          {payingId === invoice.id ? 'Processing...' : 'Pay Online'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <Modal
-        isOpen={!!payModalInvoice}
-        onClose={() => setPayModalInvoice(null)}
-        title="Pay Online"
-        description={payModalInvoice ? `Invoice ${payModalInvoice.invoiceNo || payModalInvoice.invoiceNumber} — Due ৳ ${payModalInvoice.dueAmount}` : undefined}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setPayModalInvoice(null)}>Cancel</Button>
-            <Button onClick={handlePayOnline} disabled={payingId === payModalInvoice?.id}>
-              {payingId === payModalInvoice?.id ? 'Processing...' : 'Continue to payment'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Alert tone="warning" title="Demo mode">
-            The online payment gateway is not configured yet — this will open a sandbox test page and no real money is charged. Please pay at the school office to settle this invoice for now.
-          </Alert>
-          <Select
-            label="Payment method"
-            value={payMethod}
-            onChange={(e) => setPayMethod(e.target.value as OnlineMethod)}
-            options={ONLINE_METHODS}
-          />
-        </div>
-      </Modal>
+      <PayOnlineModal invoice={payInvoice} onClose={() => setPayInvoice(null)} />
+      <PrintReceiptModal
+        invoice={receiptInvoiceDetail ?? null}
+        payment={receipt?.payment ?? null}
+        onClose={() => setReceipt(null)}
+      />
     </div>
   );
 };

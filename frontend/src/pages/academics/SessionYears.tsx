@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { CalendarRange, Plus, Edit2, Trash2, Star } from 'lucide-react';
+import { Plus, Edit2, Trash2, Star } from 'lucide-react';
 import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { PageHeader } from '@/components/ui/Display';
+import { ErrorState } from '@/components/ui/Feedback';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import {
   useSessionYears,
@@ -19,10 +22,10 @@ const STATUS_LABELS: Record<SessionYearStatus, string> = {
   COMPLETED: 'Completed',
 };
 
-const STATUS_STYLES: Record<SessionYearStatus, string> = {
-  CURRENT: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
-  UPCOMING: 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-500/20',
-  COMPLETED: 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10',
+const STATUS_BADGE_VARIANT: Record<SessionYearStatus, 'success' | 'info' | 'neutral'> = {
+  CURRENT: 'success',
+  UPCOMING: 'info',
+  COMPLETED: 'neutral',
 };
 
 // DD-MM-YYYY, read in UTC so dates never shift with the viewer's timezone.
@@ -49,7 +52,7 @@ function suggestLabel(startDate: string, endDate: string) {
 }
 
 export default function SessionYears() {
-  const { data: years = [], isLoading } = useSessionYears();
+  const { data: years = [], isLoading, isError, refetch } = useSessionYears();
   const createMutation = useCreateSessionYear();
   const updateMutation = useUpdateSessionYear();
   const setDefaultMutation = useSetDefaultSessionYear();
@@ -115,9 +118,7 @@ export default function SessionYears() {
       key: 'status',
       header: 'Status',
       sortable: false,
-      render: (y) => (
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${STATUS_STYLES[y.status]}`}>{STATUS_LABELS[y.status]}</span>
-      ),
+      render: (y) => <Badge variant={STATUS_BADGE_VARIANT[y.status]}>{STATUS_LABELS[y.status]}</Badge>,
     },
     {
       key: 'isCurrent',
@@ -125,17 +126,14 @@ export default function SessionYears() {
       sortable: false,
       render: (y) =>
         y.isCurrent ? (
-          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold border bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20">
-            Yes
-          </span>
+          <Badge variant="success" dot>Default</Badge>
         ) : (
           <button
             type="button"
             onClick={() => setDefaultTarget(y)}
             title="Make this the default session year"
-            className="px-2.5 py-1 rounded-full text-[11px] font-bold border bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
           >
-            No
+            <Badge variant="danger" className="hover:opacity-80 transition-opacity cursor-pointer">Not default</Badge>
           </button>
         ),
     },
@@ -192,34 +190,36 @@ export default function SessionYears() {
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-          <CalendarRange className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Manage Session Year</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-            Set up your school's academic sessions. The default session is used for new admissions and events.
-          </p>
-        </div>
-      </div>
-
-      <div className="glass-card p-6 rounded-2xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">List Session Year</h3>
-          <Button variant="primary" onClick={openCreate} className="px-4 py-2.5 text-sm self-start sm:self-auto">
+      <PageHeader
+        title="Manage Session Year"
+        description="Set up your school's academic sessions. The default session is used for new admissions and events."
+        actions={
+          <Button variant="gradient" onClick={openCreate}>
             <Plus className="w-4 h-4" />
             Create Session Year
           </Button>
-        </div>
-        <DataTable
-          data={years}
-          columns={columns}
-          isLoading={isLoading}
-          searchPlaceholder="Search session years..."
-          emptyTitle="No session years yet"
-          emptyDescription="Create your first session year — it becomes the default automatically."
-        />
+        }
+      />
+
+      <div className="glass-card p-4 sm:p-6 rounded-2xl">
+        {isError ? (
+          <ErrorState title="Failed to load session years" onRetry={() => refetch()} />
+        ) : (
+          <DataTable
+            data={years}
+            columns={columns}
+            isLoading={isLoading}
+            searchPlaceholder="Search session years..."
+            emptyTitle="No session years yet"
+            emptyDescription="Create your first session year — it becomes the default automatically."
+            emptyAction={
+              <Button variant="primary" size="sm" onClick={openCreate}>
+                <Plus className="w-4 h-4" />
+                Create Session Year
+              </Button>
+            }
+          />
+        )}
       </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} className="max-w-lg p-0">
