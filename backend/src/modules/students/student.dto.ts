@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { httpUrl } from '../../utils/url';
 
 // =============================================================================
 // Student DTOs — Zod schemas for student endpoints
@@ -62,7 +63,7 @@ export const StudentIdParamDto = z.object({
 export const CreateStudentDocumentDto = z.object({
   name: z.string().min(1, 'Document name is required'),
   type: z.string().min(1, 'Document type is required'),
-  fileUrl: z.string().url('Invalid file URL'),
+  fileUrl: httpUrl('Invalid file URL'),
   fileSize: z.number().int().positive().optional(),
   mimeType: z.string().optional(),
 });

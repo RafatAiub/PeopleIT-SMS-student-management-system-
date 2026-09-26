@@ -22,6 +22,24 @@ export async function getVehicles(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function updateVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await transportService.updateVehicle(req.tenantId!, req.params.id, req.body);
+    successResponse(res, result, 'Vehicle updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await transportService.deleteVehicle(req.tenantId!, req.params.id);
+    successResponse(res, result, 'Vehicle deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await transportService.createRoute(req.tenantId!, req.body);
@@ -37,6 +55,24 @@ export async function getRoutes(req: Request, res: Response, next: NextFunction)
     const pageSize = Number(req.query.pageSize) || 20;
     const { routes, total } = await transportService.getRoutes(req.tenantId!, req.query);
     paginatedResponse(res, routes, total, page, pageSize, 'Routes fetched successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await transportService.updateRoute(req.tenantId!, req.params.id, req.body);
+    successResponse(res, result, 'Route updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteRoute(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await transportService.deleteRoute(req.tenantId!, req.params.id);
+    successResponse(res, result, 'Route deleted successfully');
   } catch (error) {
     next(error);
   }

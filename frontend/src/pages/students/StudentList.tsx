@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Users, Edit2, UserCheck, BookOpen, Receipt,
   Library, Bus, Megaphone, Calendar, Mail, Phone, Droplet, MapPin, Cake,
@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 
 const StudentList = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const isStudent = user?.role === 'STUDENT';
 
   const [students, setStudents] = useState<any[]>([]);
@@ -652,6 +653,7 @@ const StudentList = () => {
   ];
 
   const studentActions: RowAction<any>[] = [
+    { label: 'View profile', icon: 'view', onClick: (student) => navigate(`/students/${student.id}`) },
     { label: 'Edit student', icon: 'edit', onClick: handleOpenEditModal },
     { label: 'Delete student', icon: 'delete', variant: 'danger', onClick: (student) => setStudentToDelete(student) },
   ];
@@ -695,6 +697,7 @@ const StudentList = () => {
             data={students}
             columns={studentColumns}
             actions={studentActions}
+            onRowClick={(student) => navigate(`/students/${student.id}`)}
             isLoading={loading}
             searchPlaceholder="Search students by name or ID..."
             serverSearch

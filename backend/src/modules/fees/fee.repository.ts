@@ -80,6 +80,13 @@ export class FeeRepository {
     });
   }
 
+  static async findCategoriesByIds(tenantId: string, ids: string[]) {
+    return prisma.feeCategory.findMany({
+      where: { id: { in: ids }, institutionId: tenantId },
+      select: { id: true },
+    });
+  }
+
   static async deleteCategory(tenantId: string, id: string) {
     return prisma.feeCategory.delete({
       where: { id, institutionId: tenantId },
@@ -296,21 +303,30 @@ export class FeeRepository {
         },
       });
 
-      const newPaidAmount = Decimal.add(invoice.paidAmount, paymentData.amount);
-      const newDueAmount = Decimal.sub(invoice.totalAmount, newPaidAmount);
+      // F9: apply the payment via an atomic increment rather than
+      // read-modify-write on the value fetched above — two concurrent
+      // payments against the same invoice must never both compute their
+      // newPaidAmount off the same stale paidAmount and silently lose one
+      // payment's contribution.
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoiceId },
+        data: { paidAmount: { increment: paymentData.amount } },
+      });
+
+      const newDueAmountRaw = Decimal.sub(updatedInvoice.totalAmount, updatedInvoice.paidAmount);
+      const newDueAmount = newDueAmountRaw.lt(0) ? new Decimal(0) : newDueAmountRaw;
 
       let newStatus = 'UNPAID';
       if (newDueAmount.lte(0)) {
         newStatus = 'PAID';
-      } else if (newPaidAmount.gt(0)) {
+      } else if (updatedInvoice.paidAmount.gt(0)) {
         newStatus = 'PARTIAL';
       }
 
       await tx.invoice.update({
         where: { id: invoiceId },
         data: {
-          paidAmount: newPaidAmount,
-          dueAmount: newDueAmount.lt(0) ? new Decimal(0) : newDueAmount,
+          dueAmount: newDueAmount,
           status: newStatus,
         },
       });

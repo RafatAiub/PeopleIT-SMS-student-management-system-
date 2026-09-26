@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/auth.middleware';
 import { setTenant } from '../../middleware/tenant.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
+import { auditLog } from '../../middleware/audit.middleware';
 import { UserRole } from '@prisma/client';
 import {
   SubjectOfferingQueryDto,
@@ -14,7 +15,7 @@ import * as curriculumController from './curriculum.controller';
 
 const router = Router();
 
-router.use(authenticate, setTenant);
+router.use(authenticate, setTenant, auditLog);
 
 const WRITE_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN);
 

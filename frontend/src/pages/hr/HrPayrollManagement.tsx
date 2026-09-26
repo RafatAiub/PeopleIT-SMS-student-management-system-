@@ -62,7 +62,23 @@ interface NewStaffForm {
   basicSalary: number;
 }
 
-const PAY_PERIOD_OPTIONS = ['June 2026', 'July 2026', 'August 2026'];
+// The backend derives its "current period" the same way (see
+// hr.repository.ts `currentPayPeriod()`): `Intl` long-month name + year,
+// e.g. "September 2026". We generate a real, non-fake window of periods
+// around today (12 months back through 12 months ahead) in that exact
+// string format so it always matches what `/hr/payroll` expects/returns.
+function buildPayPeriodOptions(monthsBack = 12, monthsForward = 12): string[] {
+  const periods: string[] = [];
+  const now = new Date();
+  for (let offset = -monthsBack; offset <= monthsForward; offset++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    periods.push(d.toLocaleString('en-US', { month: 'long', year: 'numeric' }));
+  }
+  return periods;
+}
+
+const CURRENT_PAY_PERIOD = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+const PAY_PERIOD_OPTIONS = buildPayPeriodOptions();
 
 export default function HrPayrollManagement() {
   const [activeTab, setActiveTab] = useState<'directory' | 'payroll'>('directory');
@@ -107,7 +123,7 @@ export default function HrPayrollManagement() {
 
   // Payroll processing form state
   const [selectedStaffForPayroll, setSelectedStaffForPayroll] = useState<StaffProfile | null>(null);
-  const [payrollMonth, setPayrollMonth] = useState('July 2026');
+  const [payrollMonth, setPayrollMonth] = useState(CURRENT_PAY_PERIOD);
   const [customBasic, setCustomBasic] = useState(0);
   const [customAllowances, setCustomAllowances] = useState(0);
   const [customDeductions, setCustomDeductions] = useState(0);

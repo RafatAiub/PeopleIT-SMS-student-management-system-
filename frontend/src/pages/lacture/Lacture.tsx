@@ -14,13 +14,7 @@ import { EmptyState } from '../../components/common/EmptyState';
 import MaterialDetailModal from './MaterialDetailModal';
 import AssignmentSubmissionsModal from './AssignmentSubmissionsModal';
 import AttachmentField from './AttachmentField';
-
-const CLASSES = [
-  'KG', 'Nursery', 'Junior One',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
-];
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+import { useClassSectionMeta } from '../../utils/classSections';
 
 const RESOURCE_TYPES = [
   { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
@@ -79,8 +73,8 @@ interface Assignment {
 
 const emptyForm = {
   branchId: '',
-  className: 'Class 8',
-  sectionName: 'A',
+  className: '',
+  sectionName: '',
   subject: '',
   title: '',
   description: '',
@@ -90,8 +84,8 @@ const emptyForm = {
 
 const emptyAssignmentForm = {
   branchId: '',
-  className: 'Class 8',
-  sectionName: 'A',
+  className: '',
+  sectionName: '',
   subject: '',
   title: '',
   instructions: '',
@@ -123,6 +117,9 @@ export default function Lacture() {
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams(12);
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
+  // Real institution classes/sections (GET /students/meta/classes[+sections])
+  // for the browse filter and the two create/edit forms below.
+  const { classes: filterClasses, sections: filterSections } = useClassSectionMeta(classFilter);
 
   // Stream (LectureMaterial) state
   const [materials, setMaterials] = useState<LectureMaterial[]>([]);
@@ -131,6 +128,7 @@ export default function Lacture() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const { classes: formClasses, sections: formSections } = useClassSectionMeta(form.className);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<LectureMaterial | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -143,6 +141,7 @@ export default function Lacture() {
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [assignmentForm, setAssignmentForm] = useState(emptyAssignmentForm);
+  const { classes: assignmentFormClasses, sections: assignmentFormSections } = useClassSectionMeta(assignmentForm.className);
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
   const [deletingAssignment, setDeletingAssignment] = useState(false);
@@ -208,6 +207,33 @@ export default function Lacture() {
       .then((res) => setBranchId(res.data.data?.[0]?.branchId ?? null))
       .catch(console.error);
   }, [isReadOnly]);
+
+  // Default the create-material form to the institution's first real
+  // class/section once loaded (openAdd() resets className/sectionName to '').
+  useEffect(() => {
+    if (!form.className && formClasses.length > 0) {
+      setForm((prev) => ({ ...prev, className: formClasses[0].name }));
+    }
+  }, [formClasses, form.className]);
+
+  useEffect(() => {
+    if (formSections.length > 0 && !formSections.some((s) => s.name === form.sectionName)) {
+      setForm((prev) => ({ ...prev, sectionName: formSections[0].name }));
+    }
+  }, [formSections, form.sectionName]);
+
+  // Same defaulting for the create-assignment form.
+  useEffect(() => {
+    if (!assignmentForm.className && assignmentFormClasses.length > 0) {
+      setAssignmentForm((prev) => ({ ...prev, className: assignmentFormClasses[0].name }));
+    }
+  }, [assignmentFormClasses, assignmentForm.className]);
+
+  useEffect(() => {
+    if (assignmentFormSections.length > 0 && !assignmentFormSections.some((s) => s.name === assignmentForm.sectionName)) {
+      setAssignmentForm((prev) => ({ ...prev, sectionName: assignmentFormSections[0].name }));
+    }
+  }, [assignmentFormSections, assignmentForm.sectionName]);
 
   const openAdd = () => {
     setEditingId(null);
@@ -430,13 +456,13 @@ export default function Lacture() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className="input-field w-auto min-w-[140px]">
+        <select value={classFilter} onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }} className="input-field w-auto min-w-[140px]">
           <option value="">All Classes</option>
-          {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {filterClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
-        <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="input-field w-auto min-w-[120px]">
+        <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="input-field w-auto min-w-[120px]" disabled={!classFilter}>
           <option value="">All Sections</option>
-          {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+          {filterSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
         </select>
       </div>
 
@@ -691,14 +717,14 @@ export default function Lacture() {
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Class</label>
-                  <select value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="input-field">
-                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <select value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value, sectionName: '' })} className="input-field">
+                    {formClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Section</label>
                   <select value={form.sectionName} onChange={(e) => setForm({ ...form, sectionName: e.target.value })} className="input-field">
-                    {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {formSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -776,14 +802,14 @@ export default function Lacture() {
               <div className="grid grid-cols-2 gap-5">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Class</label>
-                  <select value={assignmentForm.className} onChange={(e) => setAssignmentForm({ ...assignmentForm, className: e.target.value })} className="input-field">
-                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <select value={assignmentForm.className} onChange={(e) => setAssignmentForm({ ...assignmentForm, className: e.target.value, sectionName: '' })} className="input-field">
+                    {assignmentFormClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Section</label>
                   <select value={assignmentForm.sectionName} onChange={(e) => setAssignmentForm({ ...assignmentForm, sectionName: e.target.value })} className="input-field">
-                    {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {assignmentFormSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
                   </select>
                 </div>
               </div>

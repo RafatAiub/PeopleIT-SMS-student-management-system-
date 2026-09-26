@@ -6,14 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import { AttendanceRegisterSheet, AttendanceStatus, StudentRecord } from './AttendanceRegisterSheet';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-
-const CLASSES = [
-  'KG', 'Nursery', 'Junior One',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
-];
-
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+import { useClassSectionMeta } from '../../utils/classSections';
 
 const AttendanceEntry = () => {
   const { user } = useAuthStore();
@@ -24,9 +17,13 @@ const AttendanceEntry = () => {
   const isAccountant = user?.role === 'ACCOUNTANT';
 
   // State for Admin/Teacher operations
-  const [selectedClass, setSelectedClass] = useState('Class 8');
-  const [selectedSection, setSelectedSection] = useState('A');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Real institution classes/sections for the ADMIN picker. TEACHER uses
+  // `assignedSections` from /attendance/my-sections instead, unchanged.
+  const { classes: adminClasses, sections: adminSections } = useClassSectionMeta(selectedClass);
 
   const handleSetSelectedDate = (date: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
@@ -57,10 +54,13 @@ const AttendanceEntry = () => {
   const [teachersList, setTeachersList] = useState<any[]>([]);
   const [assignForm, setAssignForm] = useState({
     teacherId: '',
-    class: 'Class 8',
-    section: 'A'
+    class: '',
+    section: ''
   });
   const [assigning, setAssigning] = useState(false);
+  // Separate class/section lookup for the Assign Teacher modal (assignForm.class
+  // can differ from the page-level selectedClass filter).
+  const { classes: assignModalClasses, sections: assignModalSections } = useClassSectionMeta(assignForm.class);
 
   // Fetch meta info or student records based on role
   const loadInitialMetadata = async () => {
@@ -97,9 +97,40 @@ const AttendanceEntry = () => {
     loadInitialMetadata();
   }, [user]);
 
+  // Default the ADMIN class/section selects to the institution's first
+  // real class/section once loaded, and keep the section in sync whenever
+  // the selected class's section list changes.
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (!selectedClass && adminClasses.length > 0) {
+      setSelectedClass(adminClasses[0].name);
+    }
+  }, [isAdmin, adminClasses, selectedClass]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    if (adminSections.length > 0 && !adminSections.some((s) => s.name === selectedSection)) {
+      setSelectedSection(adminSections[0].name);
+    }
+  }, [isAdmin, adminSections, selectedSection]);
+
+  // Same defaulting for the Assign Class Teacher modal's own class/section pickers.
+  useEffect(() => {
+    if (!assignForm.class && assignModalClasses.length > 0) {
+      setAssignForm((prev) => ({ ...prev, class: assignModalClasses[0].name }));
+    }
+  }, [assignModalClasses, assignForm.class]);
+
+  useEffect(() => {
+    if (assignModalSections.length > 0 && !assignModalSections.some((s) => s.name === assignForm.section)) {
+      setAssignForm((prev) => ({ ...prev, section: assignModalSections[0].name }));
+    }
+  }, [assignModalSections, assignForm.section]);
+
   // Load attendance sheet for Teacher/Admin when parameters change
   const fetchAttendanceSheet = async () => {
     if (isStudent || isGuardian || isAccountant || (isTeacher && !hasAssignments)) return;
+    if (isAdmin && (!selectedClass || !selectedSection)) return;
     try {
       setLoading(true);
       const res = await apiClient.get(
@@ -274,23 +305,13 @@ const AttendanceEntry = () => {
       toast.error('Please select a teacher');
       return;
     }
+    const sec = assignModalSections.find((s) => s.name === assignForm.section);
+    if (!sec) {
+      toast.error(`Section ${assignForm.section} under class ${assignForm.class} does not exist. Please seed classes first.`);
+      return;
+    }
     setAssigning(true);
     try {
-      const metaRes = await apiClient.get('/students/meta/classes');
-      const classesMeta = metaRes.data.data || [];
-      const cls = classesMeta.find((c: any) => c.name === assignForm.class);
-
-      let sec = null;
-      if (cls) {
-        const sectionsRes = await apiClient.get(`/students/meta/sections?classId=${cls.id}`);
-        const sectionsList = sectionsRes.data.data || [];
-        sec = sectionsList.find((s: any) => s.name === assignForm.section);
-      }
-
-      if (!sec) {
-        throw new Error(`Section ${assignForm.section} under class ${assignForm.class} does not exist. Please seed classes first.`);
-      }
-
       await apiClient.post('/attendance/assign-teacher', {
         teacherId: assignForm.teacherId,
         sectionId: sec.id
@@ -298,7 +319,7 @@ const AttendanceEntry = () => {
 
       toast.success('Teacher assigned successfully!');
       setIsAssignModalOpen(false);
-      setAssignForm({ teacherId: '', class: 'Class 8', section: 'A' });
+      setAssignForm({ teacherId: '', class: '', section: '' });
     } catch (err: any) {
       toast.error(err.message || err.response?.data?.message || 'Failed to assign teacher');
     } finally {
@@ -503,9 +524,9 @@ const AttendanceEntry = () => {
                     onChange={(e) => setSelectedClass(e.target.value)}
                     className="input-field py-2 font-bold min-w-[140px]"
                   >
-                    {CLASSES.map((cls) => (
-                      <option key={cls} value={cls}>
-                        {cls}
+                    {adminClasses.map((cls) => (
+                      <option key={cls.id} value={cls.name}>
+                        {cls.name}
                       </option>
                     ))}
                   </select>
@@ -518,9 +539,9 @@ const AttendanceEntry = () => {
                     onChange={(e) => setSelectedSection(e.target.value)}
                     className="input-field py-2 font-bold min-w-[120px]"
                   >
-                    {SECTIONS.map((sec) => (
-                      <option key={sec} value={sec}>
-                        Section {sec}
+                    {adminSections.map((sec) => (
+                      <option key={sec.id} value={sec.name}>
+                        Section {sec.name}
                       </option>
                     ))}
                   </select>
@@ -597,9 +618,9 @@ const AttendanceEntry = () => {
                     onChange={(e) => setAssignForm({ ...assignForm, class: e.target.value })}
                     className="input-field py-2.5"
                   >
-                    {CLASSES.map((cls) => (
-                      <option key={cls} value={cls}>
-                        {cls}
+                    {assignModalClasses.map((cls) => (
+                      <option key={cls.id} value={cls.name}>
+                        {cls.name}
                       </option>
                     ))}
                   </select>
@@ -611,9 +632,9 @@ const AttendanceEntry = () => {
                     onChange={(e) => setAssignForm({ ...assignForm, section: e.target.value })}
                     className="input-field py-2.5"
                   >
-                    {SECTIONS.map((sec) => (
-                      <option key={sec} value={sec}>
-                        {sec}
+                    {assignModalSections.map((sec) => (
+                      <option key={sec.id} value={sec.name}>
+                        {sec.name}
                       </option>
                     ))}
                   </select>

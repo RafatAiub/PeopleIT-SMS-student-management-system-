@@ -22,6 +22,24 @@ export async function getBooks(req: Request, res: Response, next: NextFunction):
   }
 }
 
+export async function updateBook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await libraryService.updateBook(req.tenantId!, req.params.id, req.body);
+    successResponse(res, result, 'Book updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteBook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await libraryService.deleteBook(req.tenantId!, req.params.id);
+    successResponse(res, result, 'Book deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function issueBook(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await libraryService.issueBook(req.tenantId!, req.body);

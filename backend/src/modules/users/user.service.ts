@@ -1,8 +1,30 @@
 import bcrypt from 'bcryptjs';
 import { UserRepository } from './user.repository';
-import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppError';
+import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from '../../utils/AppError';
 import { UserRole } from '@prisma/client';
 import { env } from '../../config/env';
+
+// F8: classId/sectionId are client-supplied on the STUDENT branch of
+// create/updateUser — must belong to this tenant (Section/Class are scoped
+// indirectly via their Branch's institutionId). Mirrors the same check in
+// student.service.ts for the dedicated /students endpoints.
+async function assertStudentClassLookupsBelongToInstitution(
+  tenantId: string,
+  classId: string | null | undefined,
+  sectionId: string | null | undefined,
+) {
+  const { prisma } = require('../../config/prisma');
+  if (classId) {
+    const cls = await prisma.class.findFirst({ where: { id: classId, branch: { institutionId: tenantId } } });
+    if (!cls) throw new BadRequestError(`Class with ID '${classId}' not found`);
+  }
+  if (sectionId) {
+    const section = await prisma.section.findFirst({
+      where: { id: sectionId, class: { branch: { institutionId: tenantId } } },
+    });
+    if (!section) throw new BadRequestError(`Section with ID '${sectionId}' not found`);
+  }
+}
 
 export class UserService {
   static async createUser(tenantId: string, data: {
@@ -12,7 +34,12 @@ export class UserService {
     firstName: string;
     lastName: string;
     phone?: string;
-  } & any) {
+  } & any, actingRole: UserRole) {
+    // U1: only a SUPER_ADMIN may create another SUPER_ADMIN account.
+    if (data.role === UserRole.SUPER_ADMIN && actingRole !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenError('Only a super admin can create a super admin user');
+    }
+
     const existing = await UserRepository.getUserByEmail(data.email);
     if (existing) {
       throw new ConflictError('Email already in use');
@@ -32,6 +59,7 @@ export class UserService {
     });
 
     if (data.role === 'STUDENT') {
+      await assertStudentClassLookupsBelongToInstitution(tenantId, data.classId, data.sectionId);
       const { prisma } = require('../../config/prisma');
       await prisma.student.create({
         data: {
@@ -131,9 +159,23 @@ export class UserService {
     });
   }
 
-  static async updateUser(tenantId: string, id: string, data: any) {
+  static async updateUser(tenantId: string, id: string, data: any, actingRole: UserRole) {
     const user = await UserRepository.getUserById(tenantId, id);
     if (!user) throw new NotFoundError('User not found');
+
+    // U1: non-super-admins may never touch a super admin account, nor
+    // promote anyone to super admin, nor move a user to another tenant.
+    if (actingRole !== UserRole.SUPER_ADMIN) {
+      if (user.role === UserRole.SUPER_ADMIN) {
+        throw new ForbiddenError('Only a super admin can modify a super admin user');
+      }
+      if (data.role === UserRole.SUPER_ADMIN) {
+        throw new ForbiddenError('Only a super admin can promote a user to super admin');
+      }
+      if (data.institutionId !== undefined && data.institutionId !== tenantId) {
+        throw new ForbiddenError('You do not have permission to change the institution of a user');
+      }
+    }
 
     const userFields = {
       firstName: data.firstName,
@@ -149,6 +191,7 @@ export class UserService {
     const { prisma } = require('../../config/prisma');
 
     if (updatedUser.role === 'STUDENT') {
+      await assertStudentClassLookupsBelongToInstitution(tenantId, data.classId, data.sectionId);
       const studentData = {
         firstName: data.firstName || updatedUser.firstName,
         lastName: data.lastName || updatedUser.lastName,

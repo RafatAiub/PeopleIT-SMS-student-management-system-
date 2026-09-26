@@ -74,6 +74,8 @@ const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
 const Users = lazyWithRetry(() => import('./pages/users/Users'));
 const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
 const DesignSystem = lazyWithRetry(() => import('./pages/design-system/DesignSystem'));
+const StudentDashboard = lazyWithRetry(() => import('./pages/dashboards/StudentDashboard'));
+const StudentProfile = lazyWithRetry(() => import('./pages/students/profile/StudentProfile'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
@@ -307,7 +309,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 const DashboardRouter = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT') {
-    return <Navigate to="/students" replace />;
+    return <StudentDashboard />;
   }
   if (user?.role === 'GUARDIAN') {
     return <GuardianDashboard />;
@@ -433,6 +435,15 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Student profile — mirrors GET /students/:id READ_ROLES */}
+        <Route path="/students/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN']}>
+            <DashboardLayout>
+              <StudentProfile />
             </DashboardLayout>
           </ProtectedRoute>
         } />

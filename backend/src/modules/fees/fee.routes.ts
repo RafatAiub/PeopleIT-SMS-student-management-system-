@@ -5,6 +5,7 @@ import { authenticate } from '../../middleware/auth.middleware';
 import { setTenant } from '../../middleware/tenant.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
+import { auditLog } from '../../middleware/audit.middleware';
 import { UserRole } from '@prisma/client';
 import {
   CreateFeeCategorySchema,
@@ -16,7 +17,7 @@ import {
 const router = Router();
 
 // Secure all routes with authentication and tenant resolution
-router.use(authenticate, setTenant);
+router.use(authenticate, setTenant, auditLog);
 
 // Fee Categories CRUD
 router.post(

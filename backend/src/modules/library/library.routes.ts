@@ -3,13 +3,14 @@ import { authenticate } from '../../middleware/auth.middleware';
 import { setTenant } from '../../middleware/tenant.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
+import { auditLog } from '../../middleware/audit.middleware';
 import { UserRole } from '@prisma/client';
-import { CreateLibraryBookDto, IssueBookDto, ReturnBookDto } from './library.dto';
+import { CreateLibraryBookDto, UpdateLibraryBookDto, IssueBookDto, ReturnBookDto } from './library.dto';
 import * as libraryController from './library.controller';
 
 const router = Router();
 
-router.use(authenticate, setTenant);
+router.use(authenticate, setTenant, auditLog);
 
 const STAFF_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.LIBRARIAN);
 
@@ -19,6 +20,8 @@ router.get('/me/issues', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), libra
 
 router.post('/books', STAFF_ROLES, validate({ body: CreateLibraryBookDto }), libraryController.createBook);
 router.get('/books', STAFF_ROLES, libraryController.getBooks);
+router.put('/books/:id', STAFF_ROLES, validate({ body: UpdateLibraryBookDto }), libraryController.updateBook);
+router.delete('/books/:id', STAFF_ROLES, libraryController.deleteBook);
 
 router.post('/issues', STAFF_ROLES, validate({ body: IssueBookDto }), libraryController.issueBook);
 router.get('/issues', STAFF_ROLES, libraryController.getIssues);

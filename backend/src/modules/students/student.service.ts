@@ -62,6 +62,36 @@ async function assertCategoryBelongsToInstitution(institutionId: string, categor
   }
 }
 
+// F5: branchId/classId/sectionId/academicYearId are all client-supplied and
+// must belong to this institution — otherwise a Student could be wired to
+// another tenant's branch/class/section/academic year row. Class/Section are
+// scoped indirectly via their Branch's institutionId (see schema.prisma).
+async function assertStudentLookupsBelongToInstitution(
+  institutionId: string,
+  data: { branchId?: string | null; classId?: string | null; sectionId?: string | null; academicYearId?: string | null },
+) {
+  if (data.branchId) {
+    const branch = await prisma.branch.findFirst({ where: { id: data.branchId, institutionId } });
+    if (!branch) throw new NotFoundError(`Branch with ID '${data.branchId}' not found`);
+  }
+  if (data.classId) {
+    const cls = await prisma.class.findFirst({ where: { id: data.classId, branch: { institutionId } } });
+    if (!cls) throw new NotFoundError(`Class with ID '${data.classId}' not found`);
+  }
+  if (data.sectionId) {
+    const section = await prisma.section.findFirst({
+      where: { id: data.sectionId, class: { branch: { institutionId } } },
+    });
+    if (!section) throw new NotFoundError(`Section with ID '${data.sectionId}' not found`);
+  }
+  if (data.academicYearId) {
+    const academicYear = await prisma.academicYear.findFirst({
+      where: { id: data.academicYearId, institutionId },
+    });
+    if (!academicYear) throw new NotFoundError(`Academic year with ID '${data.academicYearId}' not found`);
+  }
+}
+
 export async function listStudents(institutionId: string, query: StudentQueryDtoType) {
   return studentRepository.findAll(institutionId, query);
 }
@@ -99,6 +129,7 @@ export async function createStudent(
 
   await assertDepartmentIfRequired(institutionId, data.classId, data.department);
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
+  await assertStudentLookupsBelongToInstitution(institutionId, data);
 
   const { password, ...studentFields } = data;
   // New admissions land in the school's default session year unless one was picked.
@@ -157,6 +188,7 @@ export async function updateStudent(
     data.department !== undefined ? data.department : (existing as { department?: string | null }).department;
   await assertDepartmentIfRequired(institutionId, nextClassId, nextDepartment);
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
+  await assertStudentLookupsBelongToInstitution(institutionId, data);
 
   const updated = await studentRepository.update(institutionId, id, data);
   logger.info('Student updated', { studentId: id, institutionId });

@@ -4,6 +4,14 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Modal, Alert, Button, Select } from '../../components/ui';
+
+type OnlineMethod = 'BKASH' | 'NAGAD' | 'SSLCOMMERZ';
+const ONLINE_METHODS: { value: OnlineMethod; label: string }[] = [
+  { value: 'BKASH', label: 'bKash' },
+  { value: 'NAGAD', label: 'Nagad' },
+  { value: 'SSLCOMMERZ', label: 'SSLCommerz' },
+];
 
 interface Invoice {
   id: string;
@@ -40,6 +48,8 @@ const MyInvoices: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<string | null>(null);
+  const [payModalInvoice, setPayModalInvoice] = useState<Invoice | null>(null);
+  const [payMethod, setPayMethod] = useState<OnlineMethod>('BKASH');
 
   useEffect(() => {
     if (!isGuardian) return;
@@ -85,23 +95,32 @@ const MyInvoices: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChildId, childrenLoading]);
 
-  const handlePayOnline = async (invoice: Invoice) => {
+  const openPayModal = (invoice: Invoice) => {
+    setPayMethod('BKASH');
+    setPayModalInvoice(invoice);
+  };
+
+  const handlePayOnline = async () => {
+    const invoice = payModalInvoice;
+    if (!invoice) return;
     setPayingId(invoice.id);
     try {
       const res = await apiClient.post(`/fees/invoices/${invoice.id}/payments/online`, {
-        method: 'BKASH',
+        method: payMethod,
         callbackUrl: window.location.href,
       });
       const paymentUrl = res.data?.data?.paymentUrl;
       if (paymentUrl) {
         window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Redirected to the sandbox payment page — this is a demo, no real money is charged.');
       } else {
-        toast.success(res.data?.message || 'Payment initiated');
+        toast.error(res.data?.data?.message || res.data?.message || 'This payment gateway is not enabled for your institution yet.');
       }
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Online payment is not available yet. Please pay at the school office.');
     } finally {
       setPayingId(null);
+      setPayModalInvoice(null);
     }
   };
 
@@ -200,7 +219,7 @@ const MyInvoices: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       {invoice.status !== 'PAID' && (
                         <button
-                          onClick={() => handlePayOnline(invoice)}
+                          onClick={() => openPayModal(invoice)}
                           disabled={payingId === invoice.id}
                           className="inline-flex items-center gap-1.5 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                         >
@@ -216,6 +235,33 @@ const MyInvoices: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <Modal
+        isOpen={!!payModalInvoice}
+        onClose={() => setPayModalInvoice(null)}
+        title="Pay Online"
+        description={payModalInvoice ? `Invoice ${payModalInvoice.invoiceNo || payModalInvoice.invoiceNumber} — Due ৳ ${payModalInvoice.dueAmount}` : undefined}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPayModalInvoice(null)}>Cancel</Button>
+            <Button onClick={handlePayOnline} disabled={payingId === payModalInvoice?.id}>
+              {payingId === payModalInvoice?.id ? 'Processing...' : 'Continue to payment'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Alert tone="warning" title="Demo mode">
+            The online payment gateway is not configured yet — this will open a sandbox test page and no real money is charged. Please pay at the school office to settle this invoice for now.
+          </Alert>
+          <Select
+            label="Payment method"
+            value={payMethod}
+            onChange={(e) => setPayMethod(e.target.value as OnlineMethod)}
+            options={ONLINE_METHODS}
+          />
+        </div>
+      </Modal>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { FeeRepository } from './fee.repository';
-import { generateInvoiceNumber } from '../../utils/invoiceNumber';
+import { generateInvoiceNumber, generateInvoiceNumberFromDbMax } from '../../utils/invoiceNumber';
+import { Prisma } from '@prisma/client';
 import { BkashGateway } from './gateways/bkash.stub';
 import { NagadGateway } from './gateways/nagad.stub';
 import { SslCommerzGateway } from './gateways/sslcommerz.stub';
@@ -105,8 +106,17 @@ export class FeeService {
       throw new NotFoundError('Student not found');
     }
 
-    // Generate invoice number
-    const invoiceNo = await generateInvoiceNumber(tenantId);
+    // F7: every feeCategoryId is client-supplied — verify each one belongs
+    // to this tenant before billing against it.
+    const categoryIds = [...new Set(data.items.map((item) => item.feeCategoryId))];
+    if (categoryIds.length > 0) {
+      const validCategories = await FeeRepository.findCategoriesByIds(tenantId, categoryIds);
+      const validIds = new Set(validCategories.map((c) => c.id));
+      const invalidId = categoryIds.find((id) => !validIds.has(id));
+      if (invalidId) {
+        throw new BadRequestError(`Fee category '${invalidId}' does not belong to your institution`);
+      }
+    }
 
     // Sum net total amount
     const totalAmount = data.items.reduce((sum, item) => {
@@ -118,17 +128,42 @@ export class FeeService {
       throw new BadRequestError('Invoice total amount must be greater than zero');
     }
 
-    const invoice = await FeeRepository.createInvoice(
-      tenantId,
-      {
-        studentId: data.studentId,
-        invoiceNo,
-        totalAmount,
-        dueDate: new Date(data.dueDate),
-        notes: data.notes,
-      },
-      data.items,
-    );
+    // U6: invoiceNo is generated via a per-tenant Redis counter folded into a
+    // tenant-tagged number, but a fallback timestamp-based number (or a
+    // Redis counter falling out of sync) could still collide — retry once
+    // against the DB's own current max on a unique-constraint violation.
+    let invoiceNo = await generateInvoiceNumber(tenantId);
+    let invoice;
+    try {
+      invoice = await FeeRepository.createInvoice(
+        tenantId,
+        {
+          studentId: data.studentId,
+          invoiceNo,
+          totalAmount,
+          dueDate: new Date(data.dueDate),
+          notes: data.notes,
+        },
+        data.items,
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        invoiceNo = await generateInvoiceNumberFromDbMax(tenantId);
+        invoice = await FeeRepository.createInvoice(
+          tenantId,
+          {
+            studentId: data.studentId,
+            invoiceNo,
+            totalAmount,
+            dueDate: new Date(data.dueDate),
+            notes: data.notes,
+          },
+          data.items,
+        );
+      } else {
+        throw error;
+      }
+    }
 
     // Schedule a fee-due SMS reminder for the due date itself — BullMQ's
     // delay does the scheduling, no cron/scanner needed. Not awaited: a slow

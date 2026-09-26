@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { httpUrl } from '../../utils/url';
 
 export const ResourceTypeEnum = z.enum(['NOTE', 'SLIDE', 'VIDEO', 'PDF', 'LINK', 'IMAGE']);
 
@@ -15,7 +16,7 @@ export const CreateLectureMaterialDto = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   description: z.string().max(2000).optional().nullable(),
   resourceType: ResourceTypeEnum.default('NOTE'),
-  fileUrl: z.string().url('Must be a valid URL'),
+  fileUrl: httpUrl('Must be a valid URL'),
 });
 export type CreateLectureMaterialInput = z.infer<typeof CreateLectureMaterialDto>;
 

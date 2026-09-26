@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Award, ChevronDown, Check, Save, Sparkles, Loader2, ShieldAlert, Users, BookOpenCheck, Info, LayoutGrid, BookOpen, Table as TableIcon, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Award, ChevronDown, Check, Save, ShieldAlert, Users, BookOpenCheck, Info, LayoutGrid, BookOpen, Table as TableIcon, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
@@ -9,6 +9,8 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { DEPARTMENTS, FALLBACK_SUBJECTS_JUNIOR, isSeniorClass as isSeniorClassName, getFallbackSubjects } from '../../utils/curriculum';
+import { useClassSectionMeta } from '../../utils/classSections';
+import { RemarksField } from './RemarksField';
 
 interface MarksheetRow {
   id: string;
@@ -18,15 +20,6 @@ interface MarksheetRow {
   grade: string | null;
   highestMarkInSubject: number;
 }
-
-const CLASSES = [
-  'KG', 'Nursery', 'Junior One',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
-  'Class 11', 'Class 12'
-];
-
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
 // Mirrors computeGrade() in backend/src/utils/grading.ts — the AI comment
 // endpoint requires a `grade` field, and marks are always server-graded on
@@ -114,9 +107,18 @@ const MarksEntry = () => {
   const getRemarksRows = (text: string) =>
     Math.min(6, Math.max(1, text.split('\n').length, Math.ceil(text.length / 40)));
 
+  // Real class/section options for the ADMIN/SUPER_ADMIN picker (institution
+  // roster, not a fixed guess at how many classes/sections exist). TEACHER
+  // keeps using `assignedSections` from /attendance/my-sections below.
+  const { classes: adminClasses, sections: adminSections } = useClassSectionMeta(selectedClass);
+
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  // Cells whose remarks text came from POST /ai/comment and hasn't been
+  // re-typed by the teacher since — rendered inside <AiGeneratedNotice> so
+  // it's clearly flagged for review before Save.
+  const [aiGeneratedKeys, setAiGeneratedKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (availableSubjects.length > 0 && (!selectedSubjectFocus || !availableSubjects.includes(selectedSubjectFocus))) {
@@ -767,7 +769,7 @@ const MarksEntry = () => {
     }));
   };
 
-  const handleRemarksChange = (subject: string, studentId: string, val: string) => {
+  const handleRemarksChange = (subject: string, studentId: string, val: string, fromAI = false) => {
     setUnsavedChanges(true);
     setMarks(prev => ({
       ...prev,
@@ -779,6 +781,13 @@ const MarksEntry = () => {
         }
       }
     }));
+    setAiGeneratedKeys((prev) => {
+      const next = new Set(prev);
+      const key = `${subject}:${studentId}`;
+      if (fromAI) next.add(key);
+      else next.delete(key);
+      return next;
+    });
   };
 
   const handleGenerateComment = async (subject: string, studentId: string, score: string) => {
@@ -794,29 +803,15 @@ const MarksEntry = () => {
         marks: Number(score),
         grade: computeGradeClient(Number(score), getSubjectMaxMarks(subject)),
       });
-      const aiComment = response.data?.data?.comment || response.data?.data?.remarks || response.data?.comment || response.data?.remarks || 'Excellent work and dedication.';
-      handleRemarksChange(subject, studentId, aiComment);
-      toast.success('AI remark generated successfully!');
-    } catch (error) {
-      console.warn('AI comment API error, using smart fallback logic:', error);
-      const numericScore = Number(score);
-      const percent = (numericScore / getSubjectMaxMarks(subject)) * 100;
-      let mockComment = 'Shows consistent efforts and participates actively in class discussions.';
-      if (percent >= 90) {
-        mockComment = 'Outstanding performance! Demonstrates exceptional mastery of the concepts and analytical skills.';
-      } else if (percent >= 80) {
-        mockComment = 'Excellent work. Very strong understanding, keeps up high performance consistently.';
-      } else if (percent >= 70) {
-        mockComment = 'Good progress. Grasps main concepts well, with potential to achieve higher results.';
-      } else if (percent >= 50) {
-        mockComment = 'Fair understanding of the subjects, but needs more practice in problem-solving areas.';
-      } else {
-        mockComment = 'Needs significant improvement. Attention and additional remedial support are highly recommended.';
+      const aiComment = response.data?.data?.comment || response.data?.data?.remarks || response.data?.comment || response.data?.remarks;
+      if (!aiComment) {
+        throw new Error('AI comment service returned no text');
       }
-      setTimeout(() => {
-        handleRemarksChange(subject, studentId, mockComment);
-        toast.success('AI remark generated (fallback simulated).');
-      }, 500);
+      handleRemarksChange(subject, studentId, aiComment, true);
+      toast.success('AI remark generated — review before saving.');
+    } catch (error: any) {
+      console.error('AI comment generation failed:', error);
+      toast.error(error?.response?.data?.message || 'Could not generate an AI remark. Please write one manually.');
     } finally {
       setGeneratingFor(null);
     }
@@ -1012,7 +1007,7 @@ const MarksEntry = () => {
                       onChange={(e) => setSelectedClass(e.target.value)}
                       className="input-field pr-10"
                     >
-                      {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
+                      {adminClasses.map(cls => <option key={cls.id} value={cls.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1025,7 +1020,7 @@ const MarksEntry = () => {
                       onChange={(e) => setSelectedSection(e.target.value)}
                       className="input-field pr-10"
                     >
-                      {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
+                      {adminSections.map(sec => <option key={sec.id} value={sec.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1245,23 +1240,14 @@ const MarksEntry = () => {
                                     />
                                   </div>
 
-                                  <textarea
-                                    placeholder="Remarks..."
+                                  <RemarksField
                                     value={marks[sub]?.[student.id]?.remarks || ''}
-                                    onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                                    aiGenerated={aiGeneratedKeys.has(generatingKey)}
+                                    generating={generatingFor === generatingKey}
                                     rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
-                                    className="input-field flex-1 text-xs py-1.5 resize-y leading-snug"
+                                    onChange={(val) => handleRemarksChange(sub, student.id, val)}
+                                    onGenerate={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
                                   />
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
-                                    disabled={generatingFor === generatingKey}
-                                    title="AI Comment"
-                                    className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 transition-colors flex-shrink-0"
-                                  >
-                                    {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                                  </button>
                                 </div>
                               </div>
                             );
@@ -1379,23 +1365,15 @@ const MarksEntry = () => {
                             <span className="text-xs text-slate-400 font-medium">/ {getSubjectMaxMarks(sub)}</span>
                           </div>
 
-                          <textarea
-                            placeholder="Remarks..."
+                          <RemarksField
                             value={marks[sub]?.[student.id]?.remarks || ''}
-                            onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
+                            aiGenerated={aiGeneratedKeys.has(generatingKey)}
+                            generating={generatingFor === generatingKey}
                             rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
-                            className="input-field flex-1 text-xs py-2 resize-y leading-snug"
+                            onChange={(val) => handleRemarksChange(sub, student.id, val)}
+                            onGenerate={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                            textareaClassName="input-field flex-1 text-xs py-2 resize-y leading-snug"
                           />
-
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
-                            disabled={generatingFor === generatingKey}
-                            title="Generate AI Comment"
-                            className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 transition-colors flex-shrink-0"
-                          >
-                            {generatingFor === generatingKey ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          </button>
                         </div>
                       </div>
                     );
@@ -1494,28 +1472,15 @@ const MarksEntry = () => {
                                   />
                                 </td>
                                 <td className="px-3 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <textarea
-                                      placeholder="e.g. Excellent progress"
-                                      value={marks[sub]?.[student.id]?.remarks || ''}
-                                      onChange={(e) => handleRemarksChange(sub, student.id, e.target.value)}
-                                      rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
-                                      className="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px] resize-y leading-snug"
-                                    />
-                                    <button
-                                      onClick={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
-                                      disabled={generatingFor === generatingKey}
-                                      type="button"
-                                      title="Generate AI Comment"
-                                      className="p-2 rounded-xl bg-primary-50 hover:bg-primary-100 dark:bg-primary-600/20 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/30 hover:dark:bg-primary-600/40 transition-colors flex items-center justify-center disabled:opacity-50 flex-shrink-0"
-                                    >
-                                      {generatingFor === generatingKey ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Sparkles className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                  </div>
+                                  <RemarksField
+                                    value={marks[sub]?.[student.id]?.remarks || ''}
+                                    aiGenerated={aiGeneratedKeys.has(generatingKey)}
+                                    generating={generatingFor === generatingKey}
+                                    rows={getRemarksRows(marks[sub]?.[student.id]?.remarks || '')}
+                                    onChange={(val) => handleRemarksChange(sub, student.id, val)}
+                                    onGenerate={() => handleGenerateComment(sub, student.id, marks[sub]?.[student.id]?.score)}
+                                    textareaClassName="input-field flex-1 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-600 min-w-[150px] resize-y leading-snug"
+                                  />
                                 </td>
                               </React.Fragment>
                             );
@@ -1629,7 +1594,7 @@ const MarksEntry = () => {
                         onChange={(e) => setSelectedClass(e.target.value)}
                         className="input-field pr-10 min-w-[140px]"
                       >
-                        {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
+                        {adminClasses.map(cls => <option key={cls.id} value={cls.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls.name}</option>)}
                       </select>
                     </div>
                   </div>
@@ -1642,7 +1607,7 @@ const MarksEntry = () => {
                         onChange={(e) => setSelectedSection(e.target.value)}
                         className="input-field pr-10 min-w-[120px]"
                       >
-                        {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
+                        {adminSections.map(sec => <option key={sec.id} value={sec.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec.name}</option>)}
                       </select>
                     </div>
                   </div>
@@ -1796,7 +1761,7 @@ const MarksEntry = () => {
                       onChange={(e) => setSelectedClass(e.target.value)}
                       className="input-field pr-10 min-w-[140px]"
                     >
-                      {CLASSES.map(cls => <option key={cls} value={cls} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls}</option>)}
+                      {adminClasses.map(cls => <option key={cls.id} value={cls.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls.name}</option>)}
                     </select>
                   </div>
                 </div>
@@ -1809,7 +1774,7 @@ const MarksEntry = () => {
                       onChange={(e) => setSelectedSection(e.target.value)}
                       className="input-field pr-10 min-w-[120px]"
                     >
-                      {SECTIONS.map(sec => <option key={sec} value={sec} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec}</option>)}
+                      {adminSections.map(sec => <option key={sec.id} value={sec.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec.name}</option>)}
                     </select>
                   </div>
                 </div>

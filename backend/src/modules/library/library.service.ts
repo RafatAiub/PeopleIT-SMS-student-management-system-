@@ -1,8 +1,8 @@
 import * as libraryRepository from './library.repository';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
-import { CreateLibraryBookInput, IssueBookInput, ReturnBookInput } from './library.dto';
-import { AppError } from '../../utils/AppError';
+import { CreateLibraryBookInput, IssueBookInput, ReturnBookInput, UpdateLibraryBookInput } from './library.dto';
+import { AppError, NotFoundError, ConflictError, BadRequestError } from '../../utils/AppError';
 import { UserRole } from '@prisma/client';
 
 export type RequestingUser = { sub: string; role: string };
@@ -15,7 +15,33 @@ export async function getBooks(institutionId: string, query: any = {}) {
   return libraryRepository.findBooks(institutionId, query);
 }
 
+export async function updateBook(institutionId: string, bookId: string, data: UpdateLibraryBookInput) {
+  const updated = await libraryRepository.updateBook(institutionId, bookId, data);
+  if (!updated) throw new NotFoundError('Book not found');
+  return updated;
+}
+
+export async function deleteBook(institutionId: string, bookId: string) {
+  const book = await libraryRepository.findBookById(institutionId, bookId);
+  if (!book) throw new NotFoundError('Book not found');
+
+  const activeIssues = await libraryRepository.countActiveIssuesForBook(institutionId, bookId);
+  if (activeIssues > 0) {
+    throw new ConflictError('This book has active loans and cannot be deleted — wait until all copies are returned');
+  }
+
+  const result = await libraryRepository.deleteBook(institutionId, bookId);
+  if (result.count === 0) throw new NotFoundError('Book not found');
+  return { id: bookId };
+}
+
 export async function issueBook(institutionId: string, data: IssueBookInput) {
+  // F3: studentId is client-supplied and must belong to this tenant.
+  const student = await studentRepository.findById(institutionId, data.studentId);
+  if (!student) {
+    throw new BadRequestError('Student not found in your institution');
+  }
+
   try {
     return await libraryRepository.issueBook(institutionId, data);
   } catch (error: any) {

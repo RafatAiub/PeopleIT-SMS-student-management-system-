@@ -12,7 +12,7 @@ export const CreateVehicleDto = z.object({
 });
 export type CreateVehicleInput = z.infer<typeof CreateVehicleDto>;
 
-export const CreateRouteDto = z.object({
+const RouteBaseDto = z.object({
   name: z.string().min(1, 'Route name is required'),
   stops: z
     .preprocess((val) => {
@@ -49,7 +49,9 @@ export const CreateRouteDto = z.object({
     .optional()
     .nullable(),
   isActive: z.boolean().optional().default(true),
-}).transform((data) => {
+});
+
+function normalizeRoute(data: Partial<z.infer<typeof RouteBaseDto>>) {
   let finalStops = data.stops?.trim();
   if (!finalStops && (data.startPoint || data.endPoint)) {
     finalStops = [data.startPoint?.trim(), data.endPoint?.trim()].filter(Boolean).join(' -> ');
@@ -61,9 +63,23 @@ export const CreateRouteDto = z.object({
     routeFare: finalFare,
     isActive: data.isActive ?? true,
   };
-});
+}
 
+export const CreateRouteDto = RouteBaseDto.transform((data) => ({
+  ...normalizeRoute(data),
+  name: data.name,
+}));
 export type CreateRouteInput = z.infer<typeof CreateRouteDto>;
+
+// Update reuses the same shape/normalization as create — the edit form
+// resubmits the whole route, not a partial patch. All fields are optional
+// here purely so a partial PUT body doesn't fail validation; Prisma treats
+// an `undefined` field as "leave unchanged".
+export const UpdateRouteDto = RouteBaseDto.partial().transform((data) => normalizeRoute(data));
+export type UpdateRouteInput = z.infer<typeof UpdateRouteDto>;
+
+export const UpdateVehicleDto = CreateVehicleDto.partial();
+export type UpdateVehicleInput = z.infer<typeof UpdateVehicleDto>;
 
 export const CreateAssignmentDto = z.object({
   studentId: z.string().min(1, 'Student ID is required'),

@@ -1,54 +1,52 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { messagesService } from './messages.service';
 import { SendMessageSchema } from './messages.dto';
+import { successResponse } from '../../utils/response';
 
 export class MessagesController {
-  async getInbox(req: Request, res: Response) {
+  async getInbox(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.sub;
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const messages = await messagesService.getInbox(institutionId, userId);
-      res.json({ success: true, data: messages });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, messages, 'Inbox retrieved successfully');
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getConversations(req: Request, res: Response) {
+  async getConversations(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.sub;
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const conversations = await messagesService.getConversations(institutionId, userId);
-      res.json({ success: true, data: conversations });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, conversations, 'Conversations retrieved successfully');
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getConversationHistory(req: Request, res: Response) {
+  async getConversationHistory(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.sub;
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const { userId: otherUserId } = req.params;
       const history = await messagesService.getConversationHistory(institutionId, userId, otherUserId);
-      res.json({ success: true, data: history });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, history, 'Conversation history retrieved successfully');
+    } catch (error) {
+      next(error);
     }
   }
 
-  async sendMessage(req: Request, res: Response) {
+  async sendMessage(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.sub;
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const validatedData = SendMessageSchema.parse(req.body);
       const message = await messagesService.sendMessage(institutionId, userId, validatedData);
-      res.status(201).json({ success: true, data: message });
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-         return res.status(400).json({ success: false, errors: error.errors });
-      }
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, message, 'Message sent successfully', 201);
+    } catch (error) {
+      next(error);
     }
   }
 }
