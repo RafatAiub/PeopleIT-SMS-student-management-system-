@@ -29,18 +29,28 @@ export default function AttachmentField({ resourceType, value, onChange, require
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!UPLOAD_TYPES.has(resourceType)) {
+    // Client-side only: block non-http(s) schemes (javascript:, data:, ftp:,
+    // etc). The backend still owns the real validation — this just stops an
+    // obviously-wrong link before it's saved.
+    const urlError = value.trim() && !/^https?:\/\//i.test(value.trim()) ? 'Link must start with http:// or https://' : undefined;
     return (
       <div className="space-y-2">
         <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label} Link</label>
         <input
           required={required}
           type="url"
+          pattern="https?://.+"
           placeholder="https://drive.google.com/... or https://youtube.com/..."
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          aria-invalid={urlError ? true : undefined}
           className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600"
         />
-        <p className="text-xs text-slate-400 dark:text-slate-500">Paste a link to Google Drive, YouTube, OneDrive, or any hosted file.</p>
+        {urlError ? (
+          <p className="text-xs text-rose-600 dark:text-red-400">{urlError}</p>
+        ) : (
+          <p className="text-xs text-slate-400 dark:text-slate-500">Paste a link to Google Drive, YouTube, OneDrive, or any hosted file (must start with https://).</p>
+        )}
       </div>
     );
   }
