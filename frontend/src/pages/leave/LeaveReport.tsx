@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CalendarClock } from 'lucide-react';
 import { EmptyState } from '@/components/common/EmptyState';
+import { PageHeader, ErrorState, Skeleton } from '@/components/ui';
 import { useLeaveTypes, useLeaveReport } from '@/hooks/useLeave';
 import { ApplicantFilter, type UserOption } from './ApplicantFilter';
 
@@ -15,7 +16,7 @@ export default function LeaveReport() {
   // fixed CL/LWP columns from the reference design to whatever leave types
   // this institution has configured in Leave Settings.
   const { data: leaveTypes = [] } = useLeaveTypes(false);
-  const { data: report, isLoading } = useLeaveReport(applicant?.id, year);
+  const { data: report, isLoading, isError, refetch } = useLeaveReport(applicant?.id, year);
 
   const usedByTypeLookup = useMemo(() => {
     if (!report) return new Map<number, Map<string, number>>();
@@ -30,12 +31,10 @@ export default function LeaveReport() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Leave Report</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Monthly leave usage for a teacher or staff member against the standard 2-day monthly allowance.
-        </p>
-      </div>
+      <PageHeader
+        title="Leave Report"
+        description="Monthly leave usage for a teacher or staff member against the standard 2-day monthly allowance."
+      />
 
       <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs p-4 flex flex-wrap items-center gap-3">
         <div>
@@ -67,9 +66,12 @@ export default function LeaveReport() {
           title="Select a staff member"
           description="Search and pick a teacher or staff member above to see their monthly leave report."
         />
+      ) : isError ? (
+        <ErrorState message="Could not load the leave report." onRetry={() => refetch()} />
       ) : isLoading ? (
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs p-8 text-center text-sm text-slate-500">
-          Loading report…
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs p-6 space-y-3">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-40 w-full" />
         </div>
       ) : report ? (
         <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-xs">

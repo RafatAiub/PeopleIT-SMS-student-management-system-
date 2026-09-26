@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarHeart, Edit2, Trash2, RefreshCw, RotateCcw, PartyPopper, Info, CloudDownload } from 'lucide-react';
+import { CalendarHeart, Edit2, Trash2, RefreshCw, RotateCcw, PartyPopper, Info, CloudDownload, List, CalendarDays } from 'lucide-react';
 import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { ErrorState } from '@/components/ui';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -15,6 +16,7 @@ import {
   useSyncGovernmentHolidays,
 } from '@/hooks/useHolidays';
 import type { Holiday, HolidayType } from '@/api/holiday.api';
+import HolidayMonthCalendar from './HolidayMonthCalendar';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -82,8 +84,9 @@ export default function ManageHoliday() {
   const [year, setYear] = useState(currentYear);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('HOLIDAYS');
 
-  const { data, isLoading, refetch, isFetching } = useHolidays(year);
+  const { data, isLoading, isError, refetch, isFetching } = useHolidays(year);
   const holidays = useMemo(() => data?.holidays ?? [], [data]);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const createMutation = useCreateHoliday();
   const updateMutation = useUpdateHoliday();
@@ -274,6 +277,10 @@ export default function ManageHoliday() {
         </div>
       </div>
 
+      {isError ? (
+        <ErrorState message="Could not load the holiday calendar." onRetry={() => refetch()} />
+      ) : (
+        <>
       {nextHoliday && nextIn !== null && (
         <div className="glass-card p-5 rounded-2xl flex items-center gap-4 border border-amber-200/60 dark:border-amber-500/20 bg-gradient-to-r from-amber-50 to-rose-50 dark:from-amber-500/5 dark:to-rose-500/5">
           <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
@@ -454,6 +461,26 @@ export default function ManageHoliday() {
             >
               <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
             </button>
+            <div className="flex rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden" role="group" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                title="List view"
+                className={`p-2.5 transition-colors ${viewMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                aria-pressed={viewMode === 'calendar'}
+                title="Calendar view"
+                className={`p-2.5 transition-colors ${viewMode === 'calendar' ? 'bg-primary-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+              >
+                <CalendarDays className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -499,16 +526,23 @@ export default function ManageHoliday() {
           </p>
         )}
 
-        <DataTable
-          data={visible}
-          columns={columns}
-          isLoading={isLoading}
-          pageSize={25}
-          searchPlaceholder="Search holidays..."
-          emptyTitle="No holidays found"
-          emptyDescription={isAdmin ? 'Add a holiday above, or restore the default holidays.' : 'No holidays have been published for this year yet.'}
-        />
+        {viewMode === 'calendar' ? (
+          <HolidayMonthCalendar year={year} holidays={visible} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} />
+        ) : (
+          <DataTable
+            data={visible}
+            columns={columns}
+            isLoading={isLoading}
+            pageSize={25}
+            searchPlaceholder="Search holidays..."
+            exportFileName="holiday-calendar"
+            emptyTitle="No holidays found"
+            emptyDescription={isAdmin ? 'Add a holiday above, or restore the default holidays.' : 'No holidays have been published for this year yet.'}
+          />
+        )}
       </div>
+        </>
+      )}
 
       {/* Edit modal */}
       <Modal isOpen={!!editing} onClose={() => setEditing(null)} className="max-w-lg p-0">

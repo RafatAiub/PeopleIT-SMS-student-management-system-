@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PartyPopper, Edit2, Trash2, ImagePlus, X, MapPin, Clock, CalendarDays, Sparkles } from 'lucide-react';
+import { PartyPopper, Edit2, Trash2, ImagePlus, X, MapPin, Clock, CalendarDays, Sparkles, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
+import { ErrorState } from '@/components/ui';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useAuthStore } from '@/store/authStore';
 import { useSessionYears } from '@/hooks/useSessionYears';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
 import { compressImage } from '@/utils/imageCompressor';
 import type { SchoolEvent, EventAudience, EventCategory, EventType, EventWhen } from '@/api/event.api';
+import EventMonthCalendar from './EventMonthCalendar';
 
 const CATEGORIES: { value: EventCategory; label: string; style: string }[] = [
   { value: 'ACADEMIC', label: 'Academic', style: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20' },
@@ -115,12 +117,13 @@ export default function Events() {
   const [listSessionId, setListSessionId] = useState('');
   const [when, setWhen] = useState<EventWhen>('upcoming');
   const [category, setCategory] = useState<EventCategory | ''>('');
-  const { data, isLoading } = useEvents({
+  const { data, isLoading, isError, refetch } = useEvents({
     academicYearId: listSessionId || undefined,
     when,
     category: category || undefined,
   });
   const events = useMemo(() => data?.events ?? [], [data]);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const createMutation = useCreateEvent();
   const updateMutation = useUpdateEvent();
@@ -642,17 +645,44 @@ export default function Events() {
                 <option key={y.id} value={y.id}>{y.label}</option>
               ))}
             </select>
+            <div className="flex rounded-lg border border-slate-200 dark:border-white/10 overflow-hidden" role="group" aria-label="View mode">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                aria-pressed={viewMode === 'list'}
+                title="List view"
+                className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-primary-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                aria-pressed={viewMode === 'calendar'}
+                title="Calendar view"
+                className={`p-2 transition-colors ${viewMode === 'calendar' ? 'bg-primary-600 text-white' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5'}`}
+              >
+                <CalendarDays className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <DataTable
-          data={events}
-          columns={columns}
-          isLoading={isLoading}
-          searchPlaceholder="Search events..."
-          emptyTitle={when === 'upcoming' ? 'No upcoming events' : 'No events found'}
-          emptyDescription={isAdmin ? 'Create an event above to let everyone know what’s coming up.' : 'Check back soon for new school events!'}
-        />
+        {isError ? (
+          <ErrorState message="Could not load events." onRetry={() => refetch()} />
+        ) : viewMode === 'calendar' ? (
+          <EventMonthCalendar events={events} isAdmin={isAdmin} onEdit={startEdit} onDelete={setDeleteTarget} formatTiming={formatTiming} />
+        ) : (
+          <DataTable
+            data={events}
+            columns={columns}
+            isLoading={isLoading}
+            searchPlaceholder="Search events..."
+            exportFileName="school-events"
+            emptyTitle={when === 'upcoming' ? 'No upcoming events' : 'No events found'}
+            emptyDescription={isAdmin ? 'Create an event above to let everyone know what’s coming up.' : 'Check back soon for new school events!'}
+          />
+        )}
       </div>
 
       <Modal isOpen={!!preview} onClose={() => setPreview(null)} className="max-w-2xl p-0 overflow-hidden">

@@ -4,6 +4,7 @@ import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { Input, Textarea, PageHeader, ErrorState } from '@/components/ui';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useLeaveTypes, useCreateLeaveType, useUpdateLeaveType, useDeleteLeaveType } from '@/hooks/useLeave';
 import type { LeaveType } from '@/api/leave.api';
@@ -19,7 +20,7 @@ interface LeaveTypeFormState {
 const EMPTY_LEAVE_TYPE_FORM: LeaveTypeFormState = { name: '', description: '', isPaid: true, color: '', isActive: true };
 
 export default function LeaveSettings() {
-  const { data: leaveTypes = [] } = useLeaveTypes(true);
+  const { data: leaveTypes = [], isLoading, isError, refetch } = useLeaveTypes(true);
   const createLeaveTypeMutation = useCreateLeaveType();
   const updateLeaveTypeMutation = useUpdateLeaveType();
   const deleteLeaveTypeMutation = useDeleteLeaveType();
@@ -27,8 +28,16 @@ export default function LeaveSettings() {
   const [isLeaveTypeModalOpen, setIsLeaveTypeModalOpen] = useState(false);
   const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
   const [leaveTypeForm, setLeaveTypeForm] = useState<LeaveTypeFormState>(EMPTY_LEAVE_TYPE_FORM);
+  const [leaveTypeErrors, setLeaveTypeErrors] = useState<Record<string, string>>({});
   const [leaveTypeSubmitting, setLeaveTypeSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<LeaveType | null>(null);
+
+  const validate = (state: LeaveTypeFormState): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!state.name.trim()) errs.name = 'Name is required';
+    else if (state.name.trim().length < 2) errs.name = 'Name must be at least 2 characters';
+    return errs;
+  };
 
   const handleDeleteConfirm = () => {
     if (!deleteTarget) return;
@@ -38,6 +47,7 @@ export default function LeaveSettings() {
   const openCreateLeaveTypeModal = () => {
     setEditingLeaveType(null);
     setLeaveTypeForm(EMPTY_LEAVE_TYPE_FORM);
+    setLeaveTypeErrors({});
     setIsLeaveTypeModalOpen(true);
   };
 
@@ -50,12 +60,15 @@ export default function LeaveSettings() {
       color: leaveType.color || '',
       isActive: leaveType.isActive,
     });
+    setLeaveTypeErrors({});
     setIsLeaveTypeModalOpen(true);
   };
 
   const handleLeaveTypeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leaveTypeForm.name.trim()) return;
+    const errs = validate(leaveTypeForm);
+    setLeaveTypeErrors(errs);
+    if (Object.keys(errs).length > 0) return;
     setLeaveTypeSubmitting(true);
     try {
       if (editingLeaveType) {
@@ -158,55 +171,49 @@ export default function LeaveSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Leave Settings</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">Manage the leave types staff and students can request against.</p>
-        </div>
-        <Button variant="gradient" onClick={openCreateLeaveTypeModal} className="px-4 py-2.5 text-sm self-start sm:self-auto">
-          <Plus className="w-4 h-4" />
-          Add Leave Type
-        </Button>
-      </div>
+      <PageHeader
+        title="Leave Settings"
+        description="Manage the leave types staff and students can request against."
+        actions={
+          <Button variant="gradient" onClick={openCreateLeaveTypeModal} className="px-4 py-2.5 text-sm">
+            <Plus className="w-4 h-4" />
+            Add Leave Type
+          </Button>
+        }
+      />
 
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-xs p-4">
-        <DataTable
-          data={leaveTypes}
-          columns={leaveTypeColumns}
-          emptyTitle="No leave types yet"
-          emptyDescription="Add a leave type to let staff and students start requesting leave."
-        />
-      </div>
+      {isError ? (
+        <ErrorState message="Could not load leave types." onRetry={() => refetch()} />
+      ) : (
+        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-xs p-4">
+          <DataTable
+            data={leaveTypes}
+            columns={leaveTypeColumns}
+            isLoading={isLoading}
+            emptyTitle="No leave types yet"
+            emptyDescription="Add a leave type to let staff and students start requesting leave."
+          />
+        </div>
+      )}
 
       {/* Create / Edit Leave Type modal */}
-      <Modal isOpen={isLeaveTypeModalOpen} onClose={() => setIsLeaveTypeModalOpen(false)} className="max-w-lg p-0">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            {editingLeaveType ? `Edit ${editingLeaveType.name}` : 'Add Leave Type'}
-          </h3>
-        </div>
-        <form onSubmit={handleLeaveTypeSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Name *</label>
-            <input
-              type="text"
-              required
-              value={leaveTypeForm.name}
-              onChange={(e) => setLeaveTypeForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="e.g. Casual Leave"
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Description</label>
-            <textarea
-              rows={2}
-              value={leaveTypeForm.description}
-              onChange={(e) => setLeaveTypeForm((prev) => ({ ...prev, description: e.target.value }))}
-              placeholder="Optional description"
-              className="input-field resize-none"
-            />
-          </div>
+      <Modal isOpen={isLeaveTypeModalOpen} onClose={() => setIsLeaveTypeModalOpen(false)} title={editingLeaveType ? `Edit ${editingLeaveType.name}` : 'Add Leave Type'} size="md">
+        <form onSubmit={handleLeaveTypeSubmit} className="space-y-4">
+          <Input
+            label="Name"
+            required
+            value={leaveTypeForm.name}
+            onChange={(e) => setLeaveTypeForm((prev) => ({ ...prev, name: e.target.value }))}
+            placeholder="e.g. Casual Leave"
+            error={leaveTypeErrors.name}
+          />
+          <Textarea
+            label="Description"
+            rows={2}
+            value={leaveTypeForm.description}
+            onChange={(e) => setLeaveTypeForm((prev) => ({ ...prev, description: e.target.value }))}
+            placeholder="Optional description"
+          />
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
             <Button type="button" variant="secondary" onClick={() => setIsLeaveTypeModalOpen(false)} className="py-2 px-4 text-sm">
               Cancel
