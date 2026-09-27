@@ -33,7 +33,9 @@ See `.env.example`. None of the variables below are required for the app to run.
 | bKash fees | `BKASH_APP_KEY`, `BKASH_APP_SECRET`, `BKASH_USERNAME`, `BKASH_PASSWORD`, `BKASH_BASE_URL` | Demo checkout |
 | Nagad fees | `NAGAD_MERCHANT_ID`, `NAGAD_MERCHANT_PUBLIC_KEY` / `NAGAD_PUBLIC_KEY`, `NAGAD_MERCHANT_PRIVATE_KEY` / `NAGAD_PRIVATE_KEY`, `NAGAD_BASE_URL`, optional `NAGAD_CLIENT_IP` | Demo checkout |
 | Demo payments switch | `FEE_DEMO_PAYMENTS_ENABLED` | **Off in production by default.** Set it to `true` only on staging or for demos: a simulated success marks invoices paid without money moving |
-| AI features | `ANTHROPIC_API_KEY`, optional `AI_MODEL`, `AI_MODEL_ADVANCED` | Rule-based output from real school data, labelled demo |
+| AI features | `ANTHROPIC_API_KEY` and/or `GEMINI_API_KEY`; optional `AI_MODEL`, `AI_MODEL_ADVANCED`, `GEMINI_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`. Order: Claude → Gemini → demo | Rule-based output from real school data, labelled demo |
+| Knowledge-base semantic search | `VOYAGE_API_KEY`, optional `VOYAGE_MODEL` | Keyword ranking |
+| QR check-in signing | `QR_SECRET` (16+ chars) | Derived from `JWT_ACCESS_SECRET`; rotating either invalidates printed QR codes |
 | SMS / email campaigns | SMS provider and SMTP variables | Messages are logged but not sent, labelled demo |
 
 ## 3. Payment gateway setup
@@ -53,3 +55,15 @@ The backend runs these as in-process timers, so they work without Redis:
 |---|---|
 | Government holiday sync | Daily |
 | Fee overdue marking | Daily; can also be run from **Fees → Mark overdue** |
+| Library overdue marking | Daily; can also be run from **Library → Run overdue check** (`POST /library/overdue/run`) |
+
+## 5. Screens that break if the backend ships before the migration
+
+The regenerated Prisma client reads the new columns on every query of these models, so these **existing** screens fail until step 1 is done:
+
+- **Fees:** recording a payment (`Payment.receiptNo`).
+- **HR:** processing payroll and listing payslips (`PayrollRecord.breakdown`, `payslipNo`).
+- **Library:** book and loan lists (`LibraryBook.category`, `shelfLocation`).
+- **Transport:** assignment and vehicle lists (`TransportAssignment.stopId`, `TransportVehicle.lastLat`).
+
+Attendance saving, marks entry, the monthly attendance summary and the three original AI endpoints keep working without the migration.
