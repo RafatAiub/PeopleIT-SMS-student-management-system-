@@ -1,21 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Eye,
   EyeOff,
   Lock,
-  Building2,
   AlertTriangle,
   AtSign,
   Phone,
   User,
   MailCheck,
-  Check,
-  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
 import { AuthShell, ButtonSpinner } from '../components/auth/AuthShell';
+import { InstitutionCombobox, type InstitutionOption } from '../components/auth/InstitutionCombobox';
+import { PasswordStrengthMeter } from '../components/auth/PasswordStrengthMeter';
 import { authApi } from '../api/auth.api';
 import {
   isValidEmail,
@@ -48,6 +47,7 @@ const Register = () => {
   const [institutions, setInstitutions] = useState<any[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRateLimited, setIsRateLimited] = useState(false);
 
   // Which fields the user has left, so errors appear on blur rather than
   // scolding them mid-typing.
@@ -60,7 +60,7 @@ const Register = () => {
   const [submitted, setSubmitted] = useState(false);
 
   const navigate = useNavigate();
-  const firstFieldRef = useRef<HTMLSelectElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -88,6 +88,11 @@ const Register = () => {
       cancelled = true;
     };
   }, []);
+
+  const institutionOptions = useMemo<InstitutionOption[]>(
+    () => institutions.map((inst) => ({ value: inst.slug, label: `${inst.name} (${inst.slug})` })),
+    [institutions],
+  );
 
   const passwordChecks = checkPassword(password);
   const phoneError = phone.trim() ? describeBdMobile(phone) : null;
@@ -125,6 +130,7 @@ const Register = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setIsRateLimited(false);
 
     // Reveal every outstanding problem at once rather than one per submit.
     setTouched({ firstName: true, lastName: true, email: true, phone: true, password: true });
@@ -153,6 +159,7 @@ const Register = () => {
       if (!err?.response) return;
       const message = err.response.data?.message || 'We could not create your account. Please try again.';
       setErrorMessage(message);
+      setIsRateLimited(err.response.status === 429);
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -200,35 +207,29 @@ const Register = () => {
         </p>
       </div>
 
+      {isRateLimited && (
+        <div
+          role="alert"
+          className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 p-3.5 text-amber-800 dark:text-amber-300"
+        >
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p className="text-xs font-medium leading-relaxed">{errorMessage}</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
         {/* Institution */}
         <Field label="Institution / Portal" htmlFor="reg-institution">
-          <div className="relative">
-            <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <select
-              id="reg-institution"
-              ref={firstFieldRef}
-              required
-              value={institutionCode}
-              onChange={(e) => setInstitutionCode(e.target.value)}
-              className="input-field pl-11 pr-10 py-3 text-sm font-medium appearance-none cursor-pointer"
-            >
-              <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
-                {institutions.length === 0 ? 'Loading institutions…' : 'Select your institution…'}
-              </option>
-              {institutions.map((inst) => (
-                <option key={inst.slug} value={inst.slug} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
-                  {inst.name} ({inst.slug})
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
+          <InstitutionCombobox
+            id="reg-institution"
+            ref={firstFieldRef}
+            required
+            value={institutionCode}
+            onChange={setInstitutionCode}
+            options={institutionOptions}
+            placeholder={institutions.length === 0 ? 'Loading institutions…' : 'Select your institution…'}
+          />
         </Field>
 
         {/* Name */}
@@ -375,29 +376,10 @@ const Register = () => {
             </p>
           )}
 
-          {/* Live requirements, shown once they start typing. Ticking items off
-              as they go beats rejecting the whole thing on submit. */}
-          {password.length > 0 && (
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-1 pt-2 pl-1">
-              {passwordChecks.map((check) => (
-                <li
-                  key={check.label}
-                  className={`flex items-center gap-1.5 text-xs ${
-                    check.met
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {check.met ? (
-                    <Check className="w-3 h-3 shrink-0" />
-                  ) : (
-                    <X className="w-3 h-3 shrink-0 opacity-50" />
-                  )}
-                  {check.label}
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Live strength meter + requirements, shown once they start typing.
+              Ticking items off as they go beats rejecting the whole thing on
+              submit. */}
+          <PasswordStrengthMeter password={password} checks={passwordChecks} />
         </Field>
 
         <button

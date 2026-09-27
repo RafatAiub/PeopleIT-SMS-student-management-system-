@@ -68,8 +68,11 @@ const VerifyEmail = () => {
     try {
       const { message } = await authApi.resendVerification(resendEmail.trim());
       toast.success(message);
-    } catch {
-      toast.error('Could not send the email. Please try again shortly.');
+    } catch (err: any) {
+      // A 429 here carries the rate limiter's own friendly, specific
+      // sentence (see backend/src/app.ts authEmailLimiter) — show it as-is
+      // instead of a generic message that hides *why* it failed.
+      toast.error(err?.response?.data?.message || 'Could not send the email. Please try again shortly.');
     } finally {
       setResending(false);
     }

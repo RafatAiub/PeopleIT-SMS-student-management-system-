@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, CheckCircle2, XCircle, AlertTriangle, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { AuthShell, ButtonSpinner } from '../components/auth/AuthShell';
+import { PasswordStrengthMeter } from '../components/auth/PasswordStrengthMeter';
 import { authApi } from '../api/auth.api';
 import { checkPassword, isValidPassword } from '../utils/identifier';
 
@@ -176,27 +177,7 @@ const ResetPassword = () => {
             </p>
           )}
 
-          {password.length > 0 && (
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-1 pt-2 pl-1">
-              {checks.map((check) => (
-                <li
-                  key={check.label}
-                  className={`flex items-center gap-1.5 text-xs ${
-                    check.met
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {check.met ? (
-                    <Check className="w-3 h-3 shrink-0" />
-                  ) : (
-                    <X className="w-3 h-3 shrink-0 opacity-50" />
-                  )}
-                  {check.label}
-                </li>
-              ))}
-            </ul>
-          )}
+          <PasswordStrengthMeter password={password} checks={checks} />
         </div>
 
         <div className="space-y-1.5">

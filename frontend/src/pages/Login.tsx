@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   Eye,
   EyeOff,
   Lock,
-  Building2,
   AlertTriangle,
   AtSign,
   ShieldCheck,
   ArrowLeft,
   MailCheck,
+  KeyRound,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../api/client';
@@ -18,6 +18,7 @@ import { REMEMBER_ME_KEY } from '../store/authStore';
 import { Modal } from '../components/ui/Modal';
 import { Button } from '../components/ui/Button';
 import { AuthShell, ButtonSpinner } from '../components/auth/AuthShell';
+import { InstitutionCombobox, type InstitutionOption } from '../components/auth/InstitutionCombobox';
 import { authApi, isTwoFactorChallenge, type TwoFactorChallenge } from '../api/auth.api';
 import { describeIdentifier, isValidIdentifier } from '../utils/identifier';
 
@@ -54,6 +55,11 @@ const Login = () => {
   // history — a back-button press cannot resurrect it.
   const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
   const [code, setCode] = useState('');
+  // The backend accepts the same `code` field for an authenticator/emailed
+  // code or an 8-character backup code and figures out which — this toggle
+  // is purely a UI affordance to switch the label/placeholder, not a second
+  // API contract.
+  const [useBackupCode, setUseBackupCode] = useState(false);
 
   // Set when the backend reports EMAIL_NOT_VERIFIED, so we can offer a resend
   // to the exact address instead of asking the user to type it again.
@@ -64,13 +70,39 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const institutionSelectRef = useRef<HTMLSelectElement>(null);
   const identifierRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const codeRef = useRef<HTMLInputElement>(null);
 
   const identifierInvalid =
     identifierTouched && identifier.trim() !== '' && !isValidIdentifier(identifier);
+
+  // Institution / Portal picker options — "Detect from my account" (auto,
+  // sends no institutionCode) plus every institution plus Global Admin.
+  const institutionOptions = useMemo<InstitutionOption[]>(() => {
+    const detectLabel = institutions.length === 0 ? 'Loading institutions…' : 'Detect from my account';
+    return [
+      { value: '', label: detectLabel },
+      ...institutions.map((inst) => ({ value: inst.slug, label: `${inst.name} (${inst.slug})` })),
+      { value: 'global-admin', label: 'Global Admin' },
+    ];
+  }, [institutions]);
+
+  const handleInstitutionChange = (val: string) => {
+    if (val === 'global-admin') {
+      setIsSuperAdmin(true);
+      setInstitutionCode('');
+      localStorage.setItem(LAST_PORTAL_STORAGE_KEY, 'global-admin');
+    } else {
+      setIsSuperAdmin(false);
+      setInstitutionCode(val);
+      if (val) {
+        localStorage.setItem(LAST_PORTAL_STORAGE_KEY, val);
+      } else {
+        localStorage.removeItem(LAST_PORTAL_STORAGE_KEY);
+      }
+    }
+  };
 
   useEffect(() => {
     identifierRef.current?.focus();
@@ -220,6 +252,7 @@ const Login = () => {
   const cancelChallenge = () => {
     setChallenge(null);
     setCode('');
+    setUseBackupCode(false);
     setPassword('');
     passwordRef.current?.focus();
   };
@@ -230,8 +263,11 @@ const Login = () => {
     try {
       const { message } = await authApi.resendVerification(unverifiedEmail);
       toast.success(message);
-    } catch {
-      toast.error('Could not send the email. Please try again shortly.');
+    } catch (err: any) {
+      // A 429 here carries the rate limiter's own friendly, specific
+      // sentence (see backend/src/app.ts authEmailLimiter) — show it as-is
+      // instead of a generic message that hides *why* it failed.
+      toast.error(err?.response?.data?.message || 'Could not send the email. Please try again shortly.');
     } finally {
       setResending(false);
     }
@@ -239,6 +275,16 @@ const Login = () => {
 
   const isLockedOut = lockoutSecondsLeft !== null && lockoutSecondsLeft > 0;
   const loginErrorMessage = (login.error as any)?.response?.data?.message as string | undefined;
+
+  // The rate limiter's own message is already a friendly, specific sentence
+  // (see backend/src/app.ts authLimiter / twoFactorLimiter) — surface it
+  // inline rather than letting it disappear as a passing toast.
+  const loginRateLimitMessage =
+    (login.error as any)?.response?.status === 429 ? loginErrorMessage : null;
+  const twoFactorRateLimitMessage =
+    (verifyTwoFactor.error as any)?.response?.status === 429
+      ? ((verifyTwoFactor.error as any)?.response?.data?.message as string | undefined)
+      : null;
 
   return (
     <AuthShell liveMessage={loginErrorMessage}>
@@ -254,16 +300,28 @@ const Login = () => {
                   Two-step verification
                 </h2>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 leading-relaxed">
-                  {challenge.method === 'TOTP'
+                  {useBackupCode
+                    ? 'Enter one of the 8-character backup codes you saved when you turned this on.'
+                    : challenge.method === 'TOTP'
                     ? 'Open your authenticator app and enter the 6-digit code it shows.'
                     : `We sent a 6-digit code to ${challenge.sentTo ?? 'your email address'}.`}
                 </p>
               </div>
 
+              {twoFactorRateLimitMessage && (
+                <div
+                  role="alert"
+                  className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 p-3.5 text-amber-800 dark:text-amber-300"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p className="text-xs font-medium leading-relaxed">{twoFactorRateLimitMessage}</p>
+                </div>
+              )}
+
               <form onSubmit={handleVerifyCode} className="space-y-5" noValidate>
                 <div className="space-y-1.5">
                   <label htmlFor="login-code" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Verification code
+                    {useBackupCode ? 'Backup code' : 'Verification code'}
                   </label>
                   <input
                     id="login-code"
@@ -274,13 +332,24 @@ const Login = () => {
                     required
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    className="input-field py-3 text-center text-lg font-mono font-bold tracking-[0.4em]"
-                    placeholder="000000"
+                    className={`input-field py-3 text-center font-mono font-bold ${
+                      useBackupCode ? 'text-base tracking-[0.2em]' : 'text-lg tracking-[0.4em]'
+                    }`}
+                    placeholder={useBackupCode ? 'XXXX-XXXX' : '000000'}
                     maxLength={20}
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 pl-1 pt-1">
-                    Lost your device? Enter one of your backup codes instead.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUseBackupCode((v) => !v);
+                      setCode('');
+                      codeRef.current?.focus();
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline pl-1 pt-1"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    {useBackupCode ? 'Use my verification code instead' : 'Lost your device? Use a backup code'}
+                  </button>
                 </div>
 
                 <button
@@ -321,6 +390,16 @@ const Login = () => {
                 </div>
               )}
 
+              {loginRateLimitMessage && (
+                <div
+                  role="alert"
+                  className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 p-3.5 text-amber-800 dark:text-amber-300"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p className="text-xs font-medium leading-relaxed">{loginRateLimitMessage}</p>
+                </div>
+              )}
+
               {unverifiedEmail && (
                 <div
                   role="alert"
@@ -353,46 +432,16 @@ const Login = () => {
                   <label htmlFor="institution-select" className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Institution / Portal <span className="font-medium normal-case tracking-normal text-slate-400">(optional)</span>
                   </label>
-                  <div className="relative">
-                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <select
-                      id="institution-select"
-                      ref={institutionSelectRef}
-                      value={isSuperAdmin ? 'global-admin' : institutionCode}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === 'global-admin') {
-                          setIsSuperAdmin(true);
-                          setInstitutionCode('');
-                          localStorage.setItem(LAST_PORTAL_STORAGE_KEY, 'global-admin');
-                        } else {
-                          setIsSuperAdmin(false);
-                          setInstitutionCode(val);
-                          if (val) {
-                            localStorage.setItem(LAST_PORTAL_STORAGE_KEY, val);
-                          } else {
-                            localStorage.removeItem(LAST_PORTAL_STORAGE_KEY);
-                          }
-                        }
-                      }}
-                      className="input-field pl-11 pr-10 py-3 text-sm font-medium appearance-none cursor-pointer"
-                    >
-                      <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
-                        {institutions.length === 0 ? 'Loading institutions…' : 'Detect from my account'}
-                      </option>
-                      {institutions.map((inst) => (
-                        <option key={inst.slug} value={inst.slug} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">
-                          {inst.name} ({inst.slug})
-                        </option>
-                      ))}
-                      <option value="global-admin" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200">Global Admin</option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                  <InstitutionCombobox
+                    id="institution-select"
+                    value={isSuperAdmin ? 'global-admin' : institutionCode}
+                    onChange={handleInstitutionChange}
+                    options={institutionOptions}
+                    placeholder={institutions.length === 0 ? 'Loading institutions…' : 'Detect from my account'}
+                  />
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 pl-1">
+                    Type to search — left on auto-detect, your email or phone alone finds your account.
+                  </p>
                 </div>
 
                 {/* Email or phone */}
@@ -564,8 +613,11 @@ function ForgotPasswordModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     try {
       await authApi.forgotPassword(value.trim());
       setSent(true);
-    } catch {
-      toast.error('Something went wrong. Please try again shortly.');
+    } catch (err: any) {
+      // A 429 is not an account-enumeration signal (it fires regardless of
+      // whether the address matches an account), so it's safe to surface the
+      // rate limiter's own friendly message here.
+      toast.error(err?.response?.data?.message || 'Something went wrong. Please try again shortly.');
     } finally {
       setSending(false);
     }
