@@ -4,6 +4,49 @@ The UI redesign is a running log, grouped by phase and module. The hard rules st
 
 ---
 
+## Wave C — Missing features (2026-09-27/28)
+
+The owner approved building the missing features, including additive schema changes. **Read `DEPLOYMENT.md` before deploying: the migration `20260927000000_wave_c_feature_foundation` must be applied first.** Features that need an API key run in a clearly labelled demo mode until the key is set.
+
+| Commit | Area | What was added |
+|---|---|---|
+| `d9dff01` | Schema | 47 new models, 14 enums, new nullable/defaulted columns. Migration written, not applied |
+| `dfebf5e` | Fees | Online payments (SSLCommerz, bKash, Nagad, demo checkout), receipts, concessions, bulk invoicing, overdue job, reconciliation |
+| `c0d4b8d` | Communication, admissions | SMS/email/in-app campaigns, message groups, admission enquiry CRM with public enquiry and status pages, custom fields, targeted notices |
+| `1b5c575` | Academics | Configurable grading scales, bulk promotion with undo, merit list, class performance, transcript and progress report, exam timetable with clash detection |
+| `f89aa7e` | AI | Claude → Gemini → demo fallback, review queue for all AI text shown to guardians/students, knowledge base with Voyage semantic search, risk scoring breakdown, attendance and fee risk, workload, enrolment forecast, data cleanup, guardian and admission assistants |
+| `98b1694` | Attendance, HR | Teacher section restriction, monthly summary, deduplicated absence alerts, staff and subject attendance, signed QR check-in kiosk, salary components, batch payroll, payroll report |
+| `ad58a69` | Inventory, library, transport | Asset register, stock and purchases, library fine rules and overdue job, route stops, vehicle last-known location, monthly transport invoicing |
+| `0ecb266` | Analytics | Role-scoped finance, attendance and academic analytics with shared filters, saved views, CSV export and scheduled report emails |
+| `91219ae` | SaaS | Plan entitlements and limits, institution locale defaults, branch management and switcher, device sessions, setup wizard and onboarding checklist |
+| `cd2739f` | i18n | 1,821 Bangla strings for the new pages |
+
+### Behaviour changes to existing features
+
+- Teachers can only mark attendance for sections they are class teacher of or teach in the timetable.
+- `POST /students` and student approval return 402 when a plan's student cap would be exceeded (tenants without a plan are unaffected).
+- Library `status=ISSUED` now includes overdue loans; `status=OVERDUE` includes issued loans already past due.
+- `/ai/risk-scoring` is paginated and returns `null` instead of a made-up score when a student has no data.
+- The AI and reports routers now write audit logs for mutating requests.
+- Access tokens carry a `sessionId`; refresh-token ids are UUIDs.
+
+### Known limits
+
+- Live GPS needs a tracking device integration; only last-known location is supported.
+- Two concurrent batch-payroll or transport-billing runs on different servers could duplicate a record (no unique constraint in the schema).
+- The branch switcher only scopes the branch screens so far; other lists can adopt `resolveBranchScope` later.
+- Signing out a device doesn't revoke its current access token until it expires (15 min).
+- None of the new endpoints has been exercised against a database yet: the production `.env` rules out running tests or migrations locally.
+
+---
+
+## Phase 3 and Wave A — Screen redesign and security fixes (2026-09-26/27)
+
+- `635ffdd`: security fixes U1–U6 (no SUPER_ADMIN creation by tenant admins, SSLCommerz transaction checks, audit redaction, URL validation, role guards on reports and AI, tenant-prefixed invoice numbers), role dashboards, full student profile, removed fake trend data.
+- `3fbba52` … `b8aa88e`: every module redesigned on the Phase 2 design system (academics, admission wizard, attendance grid, fees, students, marks entry, timetable, lectures, HR, reports, leave, calendar, library, transport, ID cards, settings, billing, website builder, notices, messages, users, super admin console, login and public pages). Front-end routes for library, transport and fees now match the roles the API allows.
+
+---
+
 ## Phase 2 — Design system (2026-09-26)
 
 ### Summary
