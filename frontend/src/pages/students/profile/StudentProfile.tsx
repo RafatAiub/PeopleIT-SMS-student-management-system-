@@ -17,6 +17,7 @@ import { EmptyState } from '../../../components/common/EmptyState';
 import { AttendanceHeatmap, HeatmapDay } from '../../../components/Charts/AttendanceHeatmap';
 import { formatCurrency, formatDate, useT } from '../../../i18n';
 import { ProfileExtras, type StudentExtras } from './ProfileExtras';
+import ProgressReport from '../../results/ProgressReport';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types (only the fields this page actually reads — the real payload has
@@ -186,6 +187,12 @@ const StudentProfile: React.FC = () => {
       </TabPanel>
       <TabPanel id="academics" value={tab} idPrefix="student-profile">
         <AcademicsTab studentId={student.id} canWrite={canWrite} />
+        {/* Progress across exams — GET /results/progress/:id allows SA/A/T only */}
+        {canWrite && (
+          <div className="mt-6">
+            <ProgressReport studentId={student.id} compact />
+          </div>
+        )}
       </TabPanel>
       <TabPanel id="attendance" value={tab} idPrefix="student-profile">
         <AttendanceTab studentId={student.id} />

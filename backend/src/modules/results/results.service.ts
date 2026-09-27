@@ -5,6 +5,8 @@ import { logger } from '../../utils/logger';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
+import { getDefaultBands } from '../grading/grading.resolver';
+import { gradeFor, gradePointFor, type GradeBandInput } from '../grading/grading.core';
 import { UserRole, StudentGroup } from '@prisma/client';
 import type {
   CreateExamDtoType,
@@ -16,6 +18,24 @@ import type {
 } from './results.dto';
 
 export type RequestingUser = { sub: string; role: string };
+
+/**
+ * Regrades stored result rows with the institution's default grading scale.
+ * With no scale configured (bands === null) rows are returned untouched, so
+ * existing responses stay byte-for-byte identical; with a scale, `grade` is
+ * recomputed from the marks and `gradePoint` is added.
+ */
+function applyScale<T extends { marksObtained: unknown; maxMarks: unknown; grade: string | null }>(
+  rows: T[],
+  bands: GradeBandInput[] | null,
+): Array<T & { gradePoint?: number }> {
+  if (!bands) return rows;
+  return rows.map((r) => {
+    const marks = Number(r.marksObtained);
+    const max = Number(r.maxMarks);
+    return { ...r, grade: gradeFor(marks, max, bands), gradePoint: gradePointFor(marks, max, bands) };
+  });
+}
 
 // ── Exam Services ──────────────────────────────────────────────────────────
 
@@ -115,7 +135,8 @@ export async function submitExamResults(
     throw new BadRequestError('Some student IDs are invalid or belong to another institution');
   }
 
-  const result = await resultsRepository.upsertBulkResults(institutionId, examId, results);
+  const bands = await getDefaultBands(institutionId);
+  const result = await resultsRepository.upsertBulkResults(institutionId, examId, results, bands);
   logger.info('Exam results submitted', { institutionId, examId, count: results.length });
   return result;
 }
@@ -137,6 +158,19 @@ export async function listResults(
  * 200 + []).
  */
 export async function getMyResults(
+  institutionId: string,
+  requester: RequestingUser,
+  query: { studentId?: string; examId?: string } = {},
+) {
+  if (requester.role !== UserRole.STUDENT && requester.role !== UserRole.GUARDIAN) return [];
+  const [records, bands] = await Promise.all([
+    getMyResultsRaw(institutionId, requester, query),
+    getDefaultBands(institutionId),
+  ]);
+  return applyScale(records, bands);
+}
+
+async function getMyResultsRaw(
   institutionId: string,
   requester: RequestingUser,
   query: { studentId?: string; examId?: string } = {},
@@ -291,6 +325,10 @@ export async function generateReportCard(
   if (!exam) throw new NotFoundError('Exam not found');
   if (results.length === 0) throw new NotFoundError('No results found for this student in this exam');
 
+  // Default grading scale (null → fixed fallback; the PDF is then identical
+  // to before grading scales existed).
+  const bands = await getDefaultBands(institutionId);
+
   // isCore per subject — best-effort match against the curriculum catalogue
   // (a subject offered with isGraded:false is co-curricular/pass-fail and
   // excluded from the totals below). Computed before the totals since it
@@ -408,7 +446,7 @@ export async function generateReportCard(
       subject: r.subject,
       marksObtained: Number(r.marksObtained),
       maxMarks: Number(r.maxMarks),
-      grade: r.grade ?? '-',
+      grade: bands ? gradeFor(Number(r.marksObtained), Number(r.maxMarks), bands) : r.grade ?? '-',
       remarks: r.remarks ?? '',
       isCore: isCore(r.subject),
     })),
@@ -417,6 +455,7 @@ export async function generateReportCard(
     overallPercentage,
     attendance,
     classRank,
+    ...(bands ? { gradingBands: bands } : {}),
   });
 
   logger.info('Report card generated', { institutionId, studentId, examId });
@@ -457,7 +496,11 @@ export async function getMarksheet(institutionId: string, query: MarksheetQueryD
     throw new NotFoundError(`Exam with ID '${examId}' not found`);
   }
 
-  const rows = await resultsRepository.findMarksheetRows(institutionId, { examId, classId, sectionId });
+  const [rawRows, bands] = await Promise.all([
+    resultsRepository.findMarksheetRows(institutionId, { examId, classId, sectionId }),
+    getDefaultBands(institutionId),
+  ]);
+  const rows = applyScale(rawRows, bands);
 
   // Per-subject highest mark across the whole (already institutionId +
   // examId + classId/sectionId-scoped) row set — single pass, no second
@@ -480,6 +523,7 @@ export async function getMarksheet(institutionId: string, query: MarksheetQueryD
     maxMarks: Number(row.maxMarks),
     grade: row.grade,
     highestMarkInSubject: highestBySubject.get(row.subject) ?? Number(row.marksObtained),
+    ...(row.gradePoint !== undefined ? { gradePoint: row.gradePoint } : {}),
   }));
 
   return {

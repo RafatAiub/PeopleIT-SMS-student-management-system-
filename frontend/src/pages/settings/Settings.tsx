@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User } from 'lucide-react';
+import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { SettingsTabNav, type SettingsNavItem } from './tabs/SettingsTabNav';
@@ -10,8 +10,9 @@ import ManageExamsTab from './tabs/ManageExamsTab';
 import NotificationsTab from './tabs/NotificationsTab';
 import LanguageRegionTab from './tabs/LanguageRegionTab';
 import SecuritySettings from './SecuritySettings';
+import GradingTab from './tabs/GradingTab';
 
-type TabId = 'profile' | 'branding' | 'exams' | 'security' | 'notifications' | 'locale';
+type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'locale';
 
 const Settings = () => {
   const { user } = useAuthStore();
@@ -22,6 +23,7 @@ const Settings = () => {
         { id: 'profile', label: 'Institution Profile', icon: <Building className="w-5 h-5" /> },
         { id: 'branding', label: 'Branding', icon: <Palette className="w-5 h-5" /> },
         { id: 'exams', label: 'Manage Exams', icon: <GraduationCap className="w-5 h-5" /> },
+        { id: 'grading', label: 'Grading', icon: <Scale className="w-5 h-5" /> },
         { id: 'security', label: 'Security', icon: <ShieldCheck className="w-5 h-5" /> },
         { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" /> },
         { id: 'locale', label: 'Language & Region', icon: <Globe2 className="w-5 h-5" /> },
@@ -56,6 +58,7 @@ const Settings = () => {
             {activeTab === 'profile' && (isAdmin ? <InstitutionProfileTab /> : <ProfileTab />)}
             {activeTab === 'branding' && isAdmin && <BrandingTab />}
             {activeTab === 'exams' && isAdmin && <ManageExamsTab />}
+            {activeTab === 'grading' && isAdmin && <GradingTab />}
             {activeTab === 'security' && <SecuritySettings />}
             {activeTab === 'notifications' && <NotificationsTab />}
             {activeTab === 'locale' && <LanguageRegionTab />}

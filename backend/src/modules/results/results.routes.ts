@@ -14,6 +14,9 @@ import {
   ExamResultQueryDto,
   ResultIdParamDto,
   MarksheetQueryDto,
+  MeritListQueryDto,
+  ClassAnalyticsQueryDto,
+  StudentIdParamDto,
 } from './results.dto';
 import * as resultsController from './results.controller';
 
@@ -35,6 +38,23 @@ router.get('/marksheet', STAFF_ROLES, validate({ query: MarksheetQueryDto }), re
 // STUDENT/GUARDIAN "my results" — ownership-scoped in the service. Must be
 // declared before the exam wildcard routes below (:id).
 router.get('/me', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), resultsController.getMyResults);
+
+// Merit list + class analytics — staff, same audience as the marksheet.
+// Static paths, must stay above the `/:id` exam wildcard below.
+router.get('/merit-list', STAFF_ROLES, validate({ query: MeritListQueryDto }), resultsController.getMeritList);
+router.get('/class-analytics', STAFF_ROLES, validate({ query: ClassAnalyticsQueryDto }), resultsController.getClassAnalytics);
+
+// Transcript + progress report — ownership-scoped in the service for
+// STUDENT (":studentId" may be "me") and GUARDIAN (linked children only).
+const STUDENT_RECORD_ROLES = requireRole(
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.TEACHER,
+  UserRole.STUDENT,
+  UserRole.GUARDIAN,
+);
+router.get('/transcript/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), resultsController.getTranscript);
+router.get('/progress/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), resultsController.getProgress);
 router.get(
   '/:studentId/report-card',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN),

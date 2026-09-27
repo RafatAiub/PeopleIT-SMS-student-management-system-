@@ -1,5 +1,5 @@
 import { prisma } from '../../config/prisma';
-import { computeGrade } from '../../utils/grading';
+import { gradeFor, type GradeBandInput } from '../grading/grading.core';
 import type {
   CreateExamDtoType,
   UpdateExamDtoType,
@@ -72,13 +72,17 @@ export async function upsertBulkResults(
   institutionId: string,
   examId: string,
   results: SubmitExamResultsDtoType['results'],
+  // The institution's default grading scale; null/undefined → the fixed
+  // utils/grading.ts scale (gradeFor() delegates to computeGrade()), so
+  // grades are unchanged for institutions without a configured scale.
+  bands?: GradeBandInput[] | null,
 ) {
   const operations = results.map((res) => {
     const maxMarks = res.maxMarks ?? 100.0;
     // Grade is always server-computed from marks, never trusted from the
     // client — a client-supplied grade could drift from the actual marks
     // and corrupt report cards / transcripts.
-    const grade = computeGrade(res.marksObtained, maxMarks);
+    const grade = gradeFor(res.marksObtained, maxMarks, bands);
     const data = {
       institutionId,
       examId,

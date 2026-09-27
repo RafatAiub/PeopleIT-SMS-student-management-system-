@@ -43,6 +43,9 @@ import { feeGatewayRouter } from './modules/fees/online/feeGateway.routes';
 import { campaignsRouter, messageGroupsRouter } from './modules/campaigns/campaigns.routes';
 import { enquiriesRouter, admissionsPublicRouter } from './modules/enquiries/enquiries.routes';
 import customFieldsRouter from './modules/custom-fields/customFields.routes';
+import gradingRouter from './modules/grading/grading.routes';
+import promotionRouter from './modules/promotion/promotion.routes';
+import examTimetableRouter from './modules/exam-timetable/examTimetable.routes';
 
 const app = express();
 
@@ -248,6 +251,9 @@ app.use('/api/v1/message-groups', messageGroupsRouter);
 app.use('/api/v1/enquiries', enquiriesRouter);
 app.use('/api/v1/admissions-public', admissionsPublicRouter);
 app.use('/api/v1/custom-fields', customFieldsRouter);
+app.use('/api/v1/grading', gradingRouter);
+app.use('/api/v1/promotion', promotionRouter);
+app.use('/api/v1/exam-timetable', examTimetableRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);

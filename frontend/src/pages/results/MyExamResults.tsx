@@ -20,6 +20,8 @@ interface ExamResult {
   remarks: string | null;
   studentId: string;
   highestMarkInSubject: number | null;
+  /** Present only when the institution has a default grading scale (server-computed). */
+  gradePoint?: number;
 }
 
 interface ChildSummary {
@@ -144,7 +146,13 @@ const MyExamResults: React.FC = () => {
     const totalObtained = selectedGroup.records.reduce((sum, r) => sum + Number(r.marksObtained), 0);
     const totalPossible = selectedGroup.records.reduce((sum, r) => sum + Number(r.maxMarks), 0);
     const percentage = totalPossible > 0 ? Math.round((totalObtained / totalPossible) * 100) : null;
-    const gpa = computeGpa(selectedGroup.records.map((r) => r.grade));
+    // Server grade points (configured grading scale) win; otherwise the
+    // standard NCTB mapping of the server-computed letter grade.
+    const serverPoints = selectedGroup.records.map((r) => r.gradePoint).filter((p): p is number => typeof p === 'number');
+    const gpa =
+      serverPoints.length === selectedGroup.records.length && serverPoints.length > 0
+        ? Math.round((serverPoints.reduce((a, b) => a + b, 0) / serverPoints.length) * 100) / 100
+        : computeGpa(selectedGroup.records.map((r) => r.grade));
     return { totalObtained, totalPossible, percentage, gpa };
   }, [selectedGroup]);
 

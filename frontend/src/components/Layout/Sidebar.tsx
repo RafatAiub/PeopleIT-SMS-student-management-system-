@@ -103,6 +103,12 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
       { to: '/results', label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/exams/timetable', label: 'Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/results/merit-list', label: 'Merit List', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/class-performance', label: 'Class Performance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/transcript', label: 'Transcript & Progress', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/promotion', label: 'Promotion', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/grading', label: 'Grading Scales', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
       { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },

@@ -80,6 +80,12 @@ const DemoCheckout = lazyWithRetry(() => import('./pages/fees/DemoCheckout'));
 const CampaignsPage = lazyWithRetry(() => import('./pages/communication/campaigns/CampaignsPage'));
 const EnquiriesPage = lazyWithRetry(() => import('./pages/admissions/EnquiriesPage'));
 const CustomFieldsSettings = lazyWithRetry(() => import('./pages/settings/custom-fields/CustomFieldsSettings'));
+const GradingScales = lazyWithRetry(() => import('./pages/grading/GradingScales'));
+const Promotion = lazyWithRetry(() => import('./pages/promotion/Promotion'));
+const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'));
+const MeritList = lazyWithRetry(() => import('./pages/results/MeritList'));
+const ClassPerformance = lazyWithRetry(() => import('./pages/results/ClassPerformance'));
+const TranscriptPage = lazyWithRetry(() => import('./pages/results/TranscriptPage'));
 const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
 const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
@@ -477,6 +483,54 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <CustomFieldsSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/grading" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <GradingScales />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/promotion" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Promotion />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/exams/timetable" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <ExamTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/merit-list" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <MeritList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/class-performance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ClassPerformance />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/transcript" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <TranscriptPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />
