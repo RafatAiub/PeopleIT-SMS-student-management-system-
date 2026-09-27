@@ -50,6 +50,10 @@ const MyInvoices = lazyWithRetry(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/AttendanceEntry'));
 const MarksEntry = lazyWithRetry(() => import('./pages/results/MarksEntry'));
 const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'));
+const ManageExam = lazyWithRetry(() => import('./pages/exams/ManageExam'));
+const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'));
+const ExamResult = lazyWithRetry(() => import('./pages/exams/ExamResult'));
+const ExamGrade = lazyWithRetry(() => import('./pages/exams/ExamGrade'));
 const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
 const Lacture = lazyWithRetry(() => import('./pages/lacture/Lacture'));
 const MyLectureMaterials = lazyWithRetry(() => import('./pages/lacture/MyLectureMaterials'));
@@ -580,6 +584,39 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <ResultsRoute />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Exam module — role sets mirror backend exams.routes.ts */}
+        <Route path="/exams" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ManageExam />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/exams/timetable" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ExamTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/exams/result" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ExamResult />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/exams/grades" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ExamGrade />
             </DashboardLayout>
           </ProtectedRoute>
         } />

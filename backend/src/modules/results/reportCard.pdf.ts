@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { drawLetterhead, type PdfInstitution } from '../../utils/pdfHeader';
-import { computeGrade } from '../../utils/grading';
+import { computeGrade, type GradeBand } from '../../utils/grading';
 
 interface ReportCardData {
   institution: PdfInstitution;
@@ -20,6 +20,8 @@ interface ReportCardData {
   totalObtained: number;
   totalMax: number;
   overallPercentage: number;
+  // Institution-configured bands (Exam > Exam Grade); empty = built-in scale.
+  gradeBands?: GradeBand[];
   attendance: { totalDays: number; present: number; absent: number; late: number; halfDay: number; rate: number } | null;
   classRank: { rank: number; totalStudents: number } | null;
 }
@@ -112,6 +114,13 @@ function generatePerformanceSummary(firstName: string, results: ReportCardData['
  * Puppeteer/Chromium could not launch on the hosted Node environment).
  */
 export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer> {
+  // Institution-configured bands replace the built-in legend; they carry no
+  // descriptor, so that column is left blank for them.
+  const gradingScale = data.gradeBands && data.gradeBands.length > 0
+    ? [...data.gradeBands]
+        .sort((a, b) => b.minPercent - a.minPercent)
+        .map((b) => ({ range: `${b.minPercent} - ${b.maxPercent}`, grade: b.grade, descriptor: '' }))
+    : GRADING_SCALE;
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   const chunks: Buffer[] = [];
   doc.on('data', (chunk) => chunks.push(chunk));
@@ -247,19 +256,19 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   const scaleTop = twoColY + 16;
   const scaleRowH = 14;
   const scaleColW = [twoColWidth * 0.3, twoColWidth * 0.2, twoColWidth * 0.5];
-  doc.rect(startX, scaleTop, twoColWidth, scaleRowH * (GRADING_SCALE.length + 1)).lineWidth(1).strokeColor(BORDER).stroke();
+  doc.rect(startX, scaleTop, twoColWidth, scaleRowH * (gradingScale.length + 1)).lineWidth(1).strokeColor(BORDER).stroke();
   doc.rect(startX, scaleTop, twoColWidth, scaleRowH).fill('#f1f5f9');
   doc.font('Helvetica-Bold').fontSize(7).fillColor(MUTED);
   doc.text('RANGE', startX + 6, scaleTop + 4, { width: scaleColW[0] - 6 });
   doc.text('GRADE', startX + scaleColW[0], scaleTop + 4, { width: scaleColW[1] });
   doc.text('DESCRIPTOR', startX + scaleColW[0] + scaleColW[1], scaleTop + 4, { width: scaleColW[2] - 6 });
-  GRADING_SCALE.forEach((row, i) => {
+  gradingScale.forEach((row, i) => {
     const ry = scaleTop + scaleRowH * (i + 1);
     doc.font('Helvetica').fontSize(8).fillColor(INK).text(row.range, startX + 6, ry + 3, { width: scaleColW[0] - 6 });
     doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY).text(row.grade, startX + scaleColW[0], ry + 3, { width: scaleColW[1] });
     doc.font('Helvetica').fontSize(8).fillColor(INK).text(row.descriptor, startX + scaleColW[0] + scaleColW[1], ry + 3, { width: scaleColW[2] - 6 });
   });
-  const scaleBottom = scaleTop + scaleRowH * (GRADING_SCALE.length + 1);
+  const scaleBottom = scaleTop + scaleRowH * (gradingScale.length + 1);
 
   // Right: Attendance Record
   const attX = startX + twoColWidth + colGap;
@@ -296,7 +305,7 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   // "fits") looks worse than moving the whole block together, since it
   // strands a mostly-empty page. Measure the whole block up front and make
   // one page-break decision.
-  const overallGrade = computeGrade(data.overallPercentage, 100);
+  const overallGrade = computeGrade(data.overallPercentage, 100, data.gradeBands);
   const summaryText = `"${generatePerformanceSummary(data.student.firstName, data.results, overallGrade, data.overallPercentage)}"`;
   const summaryPadding = 10;
   doc.font('Times-Italic').fontSize(10);
