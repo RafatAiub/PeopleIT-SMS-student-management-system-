@@ -40,6 +40,15 @@ const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsA
 const OnlineRegistrations = lazyWithRetry(() => import('./pages/students/OnlineRegistrations'));
 const AddNewTeacher = lazyWithRetry(() => import('./pages/teacher/AddNewTeacher'));
 const TeacherDetails = lazyWithRetry(() => import('./pages/teacher/TeacherDetails'));
+const ParentsList = lazyWithRetry(() => import('./pages/parents/ParentsList'));
+const StaffRoles = lazyWithRetry(() => import('./pages/staff/StaffRoles'));
+const StaffList = lazyWithRetry(() => import('./pages/staff/StaffList'));
+const CreateTimetable = lazyWithRetry(() => import('./pages/timetable/CreateTimetable'));
+const ClassTimetable = lazyWithRetry(() => import('./pages/timetable/ClassTimetable'));
+const TeacherTimetable = lazyWithRetry(() => import('./pages/timetable/TeacherTimetable'));
+const StaffAttendance = lazyWithRetry(() => import('./pages/attendance/StaffAttendance'));
+const AttendanceMonthly = lazyWithRetry(() => import('./pages/attendance/AttendanceMonthly'));
+const AttendanceReport = lazyWithRetry(() => import('./pages/attendance/AttendanceReport'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
 const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
 const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
@@ -528,6 +537,78 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <TeacherDetails />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/parents" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ParentsList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/roles" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffRoles />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/create" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CreateTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/class" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ClassTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/teacher" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <TeacherTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/staff" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffAttendance />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/monthly" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceMonthly />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/report" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceReport />
             </DashboardLayout>
           </ProtectedRoute>
         } />

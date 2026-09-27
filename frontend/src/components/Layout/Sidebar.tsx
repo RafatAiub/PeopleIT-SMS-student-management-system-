@@ -5,7 +5,7 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature, UsersRound, UserCog, ClipboardCheck,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -130,6 +130,17 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
+  { kind: 'link', to: '/parents', icon: <UsersRound className="w-4.5 h-4.5" />, label: 'Parents', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Staff Management',
+    icon: <UserCog className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/staff/roles', label: 'Roles & Permissions', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff', label: 'Staff', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
   {
     kind: 'category',
     label: 'Management',
@@ -154,6 +165,26 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/leave/requests', label: 'Leave Request', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       // Student Leave: Admin reviews/acts on student requests, Student self-service (apply/track/cancel own) — Guardian excluded
       { to: '/leave/student', label: 'Student Leave', roles: ['ADMIN', 'STUDENT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Timetable',
+    icon: <CalendarClock className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/timetable/create', label: 'Create Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/timetable/class', label: 'Class Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/timetable/teacher', label: 'Teacher Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Attendance',
+    icon: <ClipboardCheck className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/attendance/staff', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/attendance/monthly', label: 'Monthly Wise', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/attendance/report', label: 'Attendance Report', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
     ],
   },
   {

@@ -45,6 +45,8 @@ model Institution {
   contactEmail            String?
   contactPhone            String?
   staffProfiles           StaffProfile[]
+  staffRoles              StaffRole[]
+  staffAttendances        StaffAttendance[]
   payrollRecords          PayrollRecord[]
   messages                Message[]
   subjects                Subject[]
@@ -1303,13 +1305,53 @@ model StaffProfile {
   joiningDate   DateTime?
   baseSalary    Decimal         @db.Decimal(12, 2)
   status        String          @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  staffRoleId   String?
+  staffRole     StaffRole?      @relation(fields: [staffRoleId], references: [id])
+  gender        String?
+  dateOfBirth   DateTime?
+  address       String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   payrolls      PayrollRecord[]
   idCards       IdCard[]
+  attendances   StaffAttendance[]
 
   @@index([institutionId])
   @@index([userId])
+  @@index([staffRoleId])
+}
+
+model StaffAttendance {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  staffId       String
+  staff         StaffProfile @relation(fields: [staffId], references: [id])
+  date          DateTime
+  status        String // PRESENT, ABSENT, HALF_DAY, HOLIDAY
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([institutionId, staffId, date])
+  @@index([institutionId])
+  @@index([staffId])
+  @@index([date])
+}
+
+// Custom staff roles (Staff Management > Roles & Permissions). permissions
+// holds "<module>.<action>" keys, e.g. "student.list".
+model StaffRole {
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  name          String
+  permissions   String[]       @default([])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  staff         StaffProfile[]
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
 }
 
 model PayrollRecord {
