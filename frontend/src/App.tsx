@@ -91,6 +91,12 @@ const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'))
 const MeritList = lazyWithRetry(() => import('./pages/results/MeritList'));
 const ClassPerformance = lazyWithRetry(() => import('./pages/results/ClassPerformance'));
 const TranscriptPage = lazyWithRetry(() => import('./pages/results/TranscriptPage'));
+const StaffAttendancePage = lazyWithRetry(() => import('./pages/staff-attendance/StaffAttendancePage'));
+const MyStaffAttendance = lazyWithRetry(() => import('./pages/staff-attendance/MyStaffAttendance'));
+const SubjectAttendancePage = lazyWithRetry(() => import('./pages/subject-attendance/SubjectAttendancePage'));
+const QrKioskPage = lazyWithRetry(() => import('./pages/qr/QrKioskPage'));
+const QrCodesPage = lazyWithRetry(() => import('./pages/qr/QrCodesPage'));
+const MyQrCode = lazyWithRetry(() => import('./pages/qr/MyQrCode'));
 const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
 const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
@@ -537,6 +543,54 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <TranscriptPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff-attendance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffAttendancePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff-attendance/me" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <MyStaffAttendance />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/subject-attendance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <SubjectAttendancePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/kiosk" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <QrKioskPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/codes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <QrCodesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/me" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT', 'STUDENT']}>
+            <DashboardLayout>
+              <MyQrCode />
             </DashboardLayout>
           </ProtectedRoute>
         } />

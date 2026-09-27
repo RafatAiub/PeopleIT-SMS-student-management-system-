@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Users, ShieldAlert, UserCheck } from 'lucide-react';
+import { Users, ShieldAlert, UserCheck, ClipboardCheck, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { AttendanceRegisterSheet, AttendanceStatus, StudentRecord } from './AttendanceRegisterSheet';
 import { AttendanceMyView, type AttendanceHistoryRecord } from './AttendanceMyView';
 import { AssignTeacherModal } from './AssignTeacherModal';
-import { PageHeader, Select, Button, Skeleton } from '../../components/ui';
+import { PageHeader, Select, Button, Skeleton, Tabs } from '../../components/ui';
+import { AttendanceMonthlySummary } from './AttendanceMonthlySummary';
 import { ErrorState } from '../../components/ui/Feedback';
 import { useClassSectionMeta } from '../../utils/classSections';
 
@@ -31,6 +32,9 @@ const AttendanceEntry = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayStr());
+  // Register (daily keyboard sheet) vs Monthly summary. Register state lives
+  // in this component, so switching tabs never loses unsaved marks.
+  const [activeView, setActiveView] = useState<'register' | 'summary'>('register');
 
   // Real institution classes/sections for the ADMIN picker. TEACHER uses
   // `assignedSections` from /attendance/my-sections instead, unchanged.
@@ -483,10 +487,14 @@ const AttendanceEntry = () => {
 
   if (isAccountant) {
     return (
-      <div className="glass-card p-10 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
-        <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-primary-500" />
-        <p>Institution-wide attendance trends are available on the Reports page.</p>
-        <a href="/reports" className="inline-block mt-4 text-primary-600 dark:text-primary-400 font-semibold text-sm hover:underline">Go to Reports →</a>
+      <div className="space-y-6">
+        <PageHeader title="Monthly Attendance Summary" description="Per-student monthly attendance with chronic-absentee highlighting." />
+        <AttendanceMonthlySummary isTeacher={false} />
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 text-center text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
+          <UserCheck className="w-10 h-10 mx-auto mb-3 opacity-40 text-primary-500" />
+          <p>Institution-wide attendance trends are available on the Reports page.</p>
+          <a href="/reports" className="inline-block mt-4 text-primary-600 dark:text-primary-400 font-semibold text-sm hover:underline">Go to Reports →</a>
+        </div>
       </div>
     );
   }
@@ -506,7 +514,19 @@ const AttendanceEntry = () => {
         }
       />
 
-      {!hasAssignments && isTeacher ? (
+      <Tabs
+        tabs={[
+          { id: 'register', label: 'Daily register', icon: <ClipboardCheck className="w-4 h-4" /> },
+          { id: 'summary', label: 'Monthly summary', icon: <BarChart3 className="w-4 h-4" /> },
+        ]}
+        value={activeView}
+        onChange={(id) => setActiveView(id as 'register' | 'summary')}
+        className="no-print"
+      />
+
+      {activeView === 'summary' ? (
+        <AttendanceMonthlySummary isTeacher={isTeacher} />
+      ) : !hasAssignments && isTeacher ? (
         <div className="glass-card p-8 rounded-2xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
           <ShieldAlert className="w-12 h-12 text-rose-500" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Assigned Sections</h3>

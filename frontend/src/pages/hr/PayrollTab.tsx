@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { Users, Landmark, RefreshCw, CheckCircle, Printer, DollarSign } from 'lucide-react';
+import { Users, Landmark, RefreshCw, CheckCircle, Printer, DollarSign, Layers } from 'lucide-react';
 import { useTableParams } from '@/hooks/useTableParams';
 import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { Modal, Select, Input, Button, StatCard, ErrorState } from '@/components/ui';
+import { Modal, Select, Input, Button, StatCard, ErrorState, Alert } from '@/components/ui';
 import { formatCurrency, useT } from '@/i18n';
-import { usePayrollList, useProcessPayroll, usePayPayroll } from './hr.queries';
-import { PAY_PERIOD_OPTIONS, CURRENT_PAY_PERIOD, type PayrollRecord, type StaffProfile } from './hr.types';
+import { usePayrollList, useProcessPayroll, usePayPayroll, usePayrollBatch } from './hr.queries';
+import { PAY_PERIOD_OPTIONS, CURRENT_PAY_PERIOD, type PayrollBatchResult, type PayrollRecord, type StaffProfile } from './hr.types';
 import PayslipPrint from './PayslipPrint';
 
 interface PayrollTabProps {
@@ -30,6 +30,15 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
 
   const processMutation = useProcessPayroll();
   const payMutation = usePayPayroll();
+  const batchMutation = usePayrollBatch();
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchPeriod, setBatchPeriod] = useState(CURRENT_PAY_PERIOD);
+  const [batchResult, setBatchResult] = useState<PayrollBatchResult | null>(null);
+
+  const handleRunBatch = async () => {
+    const result = await batchMutation.mutateAsync(batchPeriod);
+    setBatchResult(result);
+  };
 
   const [isProcessOpen, setIsProcessOpen] = useState(!!presetStaff);
   const [payTarget, setPayTarget] = useState<PayrollRecord | null>(null);
@@ -102,6 +111,13 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
       ),
     },
     { key: 'payPeriod', header: 'Salary Month', accessor: 'payPeriod' },
+    {
+      key: 'payslipNo',
+      header: 'Payslip No.',
+      hideOnMobile: true,
+      exportValue: (record) => record.payslipNo ?? '',
+      render: (record) => <span className="font-mono text-xs text-slate-600 dark:text-slate-400">{record.payslipNo || '—'}</span>,
+    },
     {
       key: 'baseSalary',
       header: 'Base',
@@ -204,6 +220,17 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
             emptyTitle="No payroll payouts released yet"
             emptyDescription="Process a payroll from the Staff Directory to see it listed here."
             toolbar={
+              <div className="flex flex-wrap items-center gap-2">
+              {canWrite && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<Layers className="w-4 h-4" />}
+                  onClick={() => { setBatchResult(null); setBatchPeriod(payPeriodFilter || CURRENT_PAY_PERIOD); setIsBatchOpen(true); }}
+                >
+                  Run payroll for all staff
+                </Button>
+              )}
               <label htmlFor="payroll-cycle-filter" className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                 Cycle
                 <select
@@ -218,6 +245,7 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
                   ))}
                 </select>
               </label>
+              </div>
             }
           />
         </div>
@@ -278,6 +306,9 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
                 <span className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{formatCurrency(calculatedNetPayout)}</span>
               </div>
               <div className="text-[10px] text-slate-500 mt-1">
+                If salary components are assigned to this staff member (Staff tab → Components), they are added on top of the amounts above and itemised on the payslip.
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">
                 Formula: Basic + Allowance - Deduction. Submits as unpaid — mark it paid from the Salary Release Ledger to release payment.
               </div>
             </div>
@@ -290,6 +321,49 @@ export default function PayrollTab({ canWrite, presetStaff, onConsumePreset }: P
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Batch payroll run */}
+      <Modal
+        isOpen={isBatchOpen}
+        onClose={() => setIsBatchOpen(false)}
+        title="Run payroll for all active staff"
+        description="Processes every active staff member who has no payroll for the chosen month yet. Safe to run again — already-processed staff are skipped."
+        size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsBatchOpen(false)}>{batchResult ? 'Close' : 'Cancel'}</Button>
+            {!batchResult && (
+              <Button isLoading={batchMutation.isPending} leftIcon={<Layers className="w-4 h-4" />} onClick={handleRunBatch}>
+                Run batch
+              </Button>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Select
+            label="Payout Month"
+            value={batchPeriod}
+            onChange={(e) => { setBatchPeriod(e.target.value); setBatchResult(null); }}
+            options={PAY_PERIOD_OPTIONS.map((p) => ({ value: p, label: p }))}
+            disabled={batchMutation.isPending}
+          />
+          <p className="text-xs text-slate-500">
+            Each payroll uses the staff member&apos;s base salary plus any assigned salary components. No manual allowances or deductions are added in a batch run.
+          </p>
+          {batchResult && (
+            <Alert tone={batchResult.failed ? 'warning' : 'success'} title={`${batchResult.payPeriod}: ${batchResult.processed} processed`}>
+              <p>{batchResult.skipped} already processed · {batchResult.failed} failed · {batchResult.activeStaff} active staff</p>
+              <p>Total net payable (new records): {formatCurrency(batchResult.totalNet)}</p>
+              {batchResult.errors.length > 0 && (
+                <ul className="mt-2 list-disc pl-4 text-xs">
+                  {batchResult.errors.map((err) => <li key={err.staffId}>{err.staffName}: {err.message}</li>)}
+                </ul>
+              )}
+            </Alert>
+          )}
+        </div>
       </Modal>
 
       <ConfirmModal

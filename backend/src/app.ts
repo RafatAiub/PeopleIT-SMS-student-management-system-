@@ -46,6 +46,10 @@ import customFieldsRouter from './modules/custom-fields/customFields.routes';
 import gradingRouter from './modules/grading/grading.routes';
 import promotionRouter from './modules/promotion/promotion.routes';
 import examTimetableRouter from './modules/exam-timetable/examTimetable.routes';
+import staffAttendanceRouter from './modules/staff-attendance/staff-attendance.routes';
+import subjectAttendanceRouter from './modules/subject-attendance/subject-attendance.routes';
+import qrCheckinRouter from './modules/qr-checkin/qr.routes';
+import payrollComponentsRouter from './modules/payroll-components/payroll-components.routes';
 
 const app = express();
 
@@ -254,6 +258,10 @@ app.use('/api/v1/custom-fields', customFieldsRouter);
 app.use('/api/v1/grading', gradingRouter);
 app.use('/api/v1/promotion', promotionRouter);
 app.use('/api/v1/exam-timetable', examTimetableRouter);
+app.use('/api/v1/staff-attendance', staffAttendanceRouter);
+app.use('/api/v1/subject-attendance', subjectAttendanceRouter);
+app.use('/api/v1/qr', qrCheckinRouter);
+app.use('/api/v1/payroll-components', payrollComponentsRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);

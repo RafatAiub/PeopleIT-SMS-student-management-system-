@@ -1,7 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import apiClient from '@/api/client';
-import type { EditStaffForm, NewStaffForm, PayrollRecord, PayrollSummary, StaffProfile, StaffSummary } from './hr.types';
+import type {
+  EditStaffForm,
+  NewStaffForm,
+  PayrollBatchResult,
+  PayrollRecord,
+  PayrollReport,
+  PayrollSummary,
+  SalaryComponent,
+  StaffComponents,
+  StaffProfile,
+  StaffSummary,
+} from './hr.types';
 
 export const STAFF_KEY = 'hr-staff';
 export const PAYROLL_KEY = 'hr-payroll';
@@ -132,5 +143,89 @@ export function usePayPayroll() {
       toast.success('Payroll marked as paid.');
     },
     onError: (error: any) => toast.error(errorMessage(error, 'Failed to mark payroll as paid.')),
+  });
+}
+
+// ── Salary components (Wave C) ────────────────────────────────────────────
+
+export const COMPONENTS_KEY = 'hr-salary-components';
+export const PAYROLL_REPORT_KEY = 'hr-payroll-report';
+
+export function useSalaryComponents() {
+  return useQuery({
+    queryKey: [COMPONENTS_KEY],
+    queryFn: async (): Promise<SalaryComponent[]> =>
+      (await apiClient.get('/payroll-components?page=1&pageSize=100')).data.data?.items ?? [],
+  });
+}
+
+export type ComponentPayload = Omit<SalaryComponent, 'id' | 'assignedCount'>;
+
+export function useSaveSalaryComponent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id?: string; data: Partial<ComponentPayload> }) =>
+      id ? apiClient.patch(`/payroll-components/${id}`, data) : apiClient.post('/payroll-components', data),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: [COMPONENTS_KEY] });
+      toast.success(vars.id ? 'Salary component updated.' : 'Salary component created.');
+    },
+    onError: (error: any) => toast.error(errorMessage(error, 'Failed to save salary component.')),
+  });
+}
+
+export function useDeleteSalaryComponent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/payroll-components/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [COMPONENTS_KEY] });
+      toast.success('Salary component deleted.');
+    },
+    onError: (error: any) => toast.error(errorMessage(error, 'Failed to delete salary component.')),
+  });
+}
+
+export function useStaffComponents(staffId: string | null) {
+  return useQuery({
+    queryKey: [COMPONENTS_KEY, 'staff', staffId],
+    queryFn: async (): Promise<StaffComponents> => (await apiClient.get(`/payroll-components/staff/${staffId}`)).data.data,
+    enabled: !!staffId,
+  });
+}
+
+export function useAssignStaffComponents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ staffId, components }: { staffId: string; components: { componentId: string; overrideValue: number | null }[] }) =>
+      apiClient.put(`/payroll-components/staff/${staffId}`, { components }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [COMPONENTS_KEY] });
+      toast.success('Salary components updated.');
+    },
+    onError: (error: any) => toast.error(errorMessage(error, 'Failed to update salary components.')),
+  });
+}
+
+export function usePayrollBatch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payPeriod: string): Promise<PayrollBatchResult> =>
+      (await apiClient.post('/hr/payroll/batch', { payPeriod })).data.data,
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: [PAYROLL_KEY] });
+      qc.invalidateQueries({ queryKey: [PAYROLL_REPORT_KEY] });
+      toast.success(`Batch done: ${result.processed} processed, ${result.skipped} already processed.`);
+    },
+    onError: (error: any) => toast.error(errorMessage(error, 'Failed to run payroll batch.')),
+  });
+}
+
+export function usePayrollReport(payPeriod: string) {
+  return useQuery({
+    queryKey: [PAYROLL_REPORT_KEY, payPeriod],
+    queryFn: async (): Promise<PayrollReport> =>
+      (await apiClient.get('/hr/payroll/report', { params: { payPeriod } })).data.data,
+    enabled: !!payPeriod,
   });
 }

@@ -2,6 +2,21 @@ import * as hrRepository from './hr.repository';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, ConflictError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import { Prisma } from '@prisma/client';
+import { getInvoiceTenantTag } from '../../utils/invoiceNumber';
+import {
+  computePayrollBreakdown,
+  toComponentInput,
+  type ComponentInput,
+  type PayrollBreakdown,
+} from '../payroll-components/payroll.logic';
+import {
+  aggregatePayrollReport,
+  formatPayslipNo,
+  parsePayslipCounter,
+  payPeriodToYearMonth,
+  payslipPrefix,
+} from './payslip.logic';
 import type {
   CreateStaffDtoType,
   UpdateStaffDtoType,
@@ -128,6 +143,120 @@ export async function updateStaff(institutionId: string, id: string, data: Updat
 
 // --- Payroll Services ---
 
+/**
+ * Loads a staff member's active salary components as calculation inputs.
+ * Tolerant: if the Wave C tables aren't migrated yet (or the lookup fails for
+ * any reason) payroll falls back to today's manual allowances/deductions.
+ */
+async function loadComponentInputs(institutionId: string, staffId: string): Promise<ComponentInput[]> {
+  try {
+    const rows = await hrRepository.findStaffComponentAssignments(institutionId, staffId);
+    return rows
+      .map((a) =>
+        toComponentInput({
+          overrideValue: a.overrideValue === null ? null : Number(a.overrideValue),
+          component: { ...a.component, value: Number(a.component.value) },
+        }),
+      )
+      .filter((x): x is ComponentInput => x !== null);
+  } catch (error) {
+    logger.warn('Salary components unavailable — processing payroll without them', {
+      institutionId,
+      staffId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
+function isPayslipCollision(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return false;
+  const target = (error.meta as { target?: unknown } | undefined)?.target;
+  const text = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return text.includes('payslipNo');
+}
+
+/**
+ * Hands out sequential payslip numbers for one tenant + pay period. The
+ * counter starts above the DB max; after a unique collision (a concurrent
+ * run took the number) it re-reads the DB.
+ */
+class PayslipAllocator {
+  private counter: number | null = null;
+  private tag: string | null = null;
+  private readonly yearMonth: string;
+
+  constructor(
+    private readonly institutionId: string,
+    payPeriod: string,
+    now = new Date(),
+  ) {
+    this.yearMonth =
+      payPeriodToYearMonth(payPeriod) ?? `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  async next(): Promise<string> {
+    if (this.tag === null) this.tag = await getInvoiceTenantTag(this.institutionId);
+    const prefix = payslipPrefix(this.tag, this.yearMonth);
+    if (this.counter === null) {
+      this.counter = parsePayslipCounter(await hrRepository.findLatestPayslipNo(this.institutionId, prefix), prefix);
+    }
+    this.counter += 1;
+    return formatPayslipNo(this.tag, this.yearMonth, this.counter);
+  }
+
+  reset() {
+    this.counter = null;
+  }
+}
+
+async function createPayrollRecord(
+  institutionId: string,
+  staff: { id: string; baseSalary: unknown },
+  payPeriod: string,
+  manual: { allowances: number; deductions: number },
+  allocator: PayslipAllocator,
+) {
+  const baseSalary = Number(staff.baseSalary);
+  const components = await loadComponentInputs(institutionId, staff.id);
+
+  // No components configured → identical amounts to the pre-Wave-C behaviour.
+  let allowances = manual.allowances;
+  let deductions = manual.deductions;
+  let netAmount = baseSalary + allowances - deductions;
+  let breakdown: PayrollBreakdown | null = null;
+  if (components.length > 0) {
+    breakdown = computePayrollBreakdown(baseSalary, components, manual);
+    allowances = breakdown.allowances;
+    deductions = breakdown.deductions;
+    netAmount = breakdown.netAmount;
+  }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const payslipNo = await allocator.next();
+    try {
+      return await hrRepository.createPayroll(institutionId, {
+        staffId: staff.id,
+        payPeriod,
+        baseSalary,
+        allowances,
+        deductions,
+        netAmount,
+        status: 'UNPAID',
+        paidAt: null,
+        breakdown: breakdown as unknown as Prisma.InputJsonValue | null,
+        payslipNo,
+      });
+    } catch (error) {
+      if (!isPayslipCollision(error)) throw error;
+      lastError = error;
+      allocator.reset();
+    }
+  }
+  throw lastError;
+}
+
 export async function processPayroll(institutionId: string, data: ProcessPayrollDtoType) {
   const staff = await hrRepository.findStaffById(institutionId, data.staffId);
   if (!staff) {
@@ -146,31 +275,96 @@ export async function processPayroll(institutionId: string, data: ProcessPayroll
     );
   }
 
-  const baseSalary = Number(staff.baseSalary);
-  const allowances = data.allowances;
-  const deductions = data.deductions;
-  const netAmount = baseSalary + allowances - deductions;
-
-  const payroll = await hrRepository.createPayroll(institutionId, {
-    staffId: data.staffId,
-    payPeriod: data.payPeriod,
-    baseSalary,
-    allowances,
-    deductions,
-    netAmount,
-    status: 'UNPAID',
-    paidAt: null,
-  });
+  const payroll = await createPayrollRecord(
+    institutionId,
+    staff,
+    data.payPeriod,
+    { allowances: data.allowances, deductions: data.deductions },
+    new PayslipAllocator(institutionId, data.payPeriod),
+  );
 
   logger.info('Payroll processed successfully', {
     payrollId: payroll.id,
     staffId: data.staffId,
     payPeriod: data.payPeriod,
-    netAmount,
+    netAmount: Number(payroll.netAmount),
     institutionId,
   });
 
   return mapPayroll(payroll);
+}
+
+/**
+ * Processes payroll for every ACTIVE staff member who has no record for the
+ * period yet. Idempotent: running it twice processes nobody the second time.
+ */
+export async function processPayrollBatch(institutionId: string, payPeriod: string) {
+  const [staffList, processed] = await Promise.all([
+    hrRepository.findActiveStaffForBatch(institutionId),
+    hrRepository.findProcessedStaffIds(institutionId, payPeriod),
+  ]);
+  const allocator = new PayslipAllocator(institutionId, payPeriod);
+  const errors: { staffId: string; staffName: string; message: string }[] = [];
+  let created = 0;
+  let totalNet = 0;
+
+  for (const staff of staffList) {
+    if (processed.has(staff.id)) continue;
+    try {
+      const record = await createPayrollRecord(institutionId, staff, payPeriod, { allowances: 0, deductions: 0 }, allocator);
+      created++;
+      totalNet += Number(record.netAmount);
+    } catch (error) {
+      errors.push({
+        staffId: staff.id,
+        staffName: mapStaff(staff).name,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const skipped = staffList.filter((s) => processed.has(s.id)).length;
+  logger.info('Payroll batch processed', { institutionId, payPeriod, created, skipped, failed: errors.length });
+  return {
+    payPeriod,
+    activeStaff: staffList.length,
+    processed: created,
+    skipped,
+    failed: errors.length,
+    totalNet: Math.round(totalNet * 100) / 100,
+    errors,
+  };
+}
+
+export async function getPayrollReport(institutionId: string, payPeriod: string) {
+  const records = await hrRepository.findPayrollsForReport(institutionId, payPeriod);
+  const normalized = records.map((r) => ({
+    department: r.staff?.department ?? null,
+    baseSalary: Number(r.baseSalary),
+    allowances: Number(r.allowances),
+    deductions: Number(r.deductions),
+    netAmount: Number(r.netAmount),
+    status: r.status,
+    breakdown: (r.breakdown as unknown as PayrollBreakdown | null) ?? null,
+  }));
+  return {
+    payPeriod,
+    ...aggregatePayrollReport(normalized),
+    rows: records.map((r, i) => ({
+      id: r.id,
+      payslipNo: r.payslipNo,
+      staffName: `${r.staff?.user?.firstName ?? ''} ${r.staff?.user?.lastName ?? ''}`.trim() || 'Unknown Staff',
+      employeeId: r.staff?.employeeId ?? null,
+      department: r.staff?.department || 'Unassigned',
+      designation: r.staff?.designation ?? null,
+      baseSalary: normalized[i].baseSalary,
+      allowances: normalized[i].allowances,
+      deductions: normalized[i].deductions,
+      netAmount: normalized[i].netAmount,
+      status: r.status,
+      components: normalized[i].breakdown?.items ?? null,
+    })),
+  };
 }
 
 export async function getPayroll(institutionId: string, id: string) {

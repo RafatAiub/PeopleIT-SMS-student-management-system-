@@ -101,6 +101,11 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
       { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/subject-attendance', label: 'Subject Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/staff-attendance', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff-attendance/me', label: 'My Attendance', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      { to: '/qr/kiosk', label: 'QR Check-in', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/qr/codes', label: 'Check-in QR Codes', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
       { to: '/results', label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       { to: '/exams/timetable', label: 'Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
@@ -240,6 +245,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/id-cards/generate', label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
       { to: '/id-cards/mine', label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
+      { to: '/qr/me', label: 'My Check-in QR', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
     ],
   },
   {

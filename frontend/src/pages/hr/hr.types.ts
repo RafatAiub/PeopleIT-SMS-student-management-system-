@@ -31,6 +31,80 @@ export interface PayrollRecord {
   netAmount: number;
   status: 'PAID' | 'UNPAID' | 'PENDING';
   paidAt?: string | null;
+  /** Wave C: PAY-<TAG>-YYYYMM-NNNN; null on records processed before payslip numbers existed. */
+  payslipNo?: string | null;
+  /** Wave C: component breakdown; null when no salary components applied. */
+  breakdown?: PayrollBreakdown | null;
+}
+
+export type SalaryComponentType = 'ALLOWANCE' | 'DEDUCTION';
+export type SalaryCalcType = 'FIXED' | 'PERCENT_OF_BASE';
+
+export interface SalaryComponent {
+  id: string;
+  name: string;
+  type: SalaryComponentType;
+  calcType: SalaryCalcType;
+  value: number;
+  isActive: boolean;
+  assignedCount?: number;
+}
+
+export interface BreakdownItem {
+  componentId: string | null;
+  name: string;
+  type: SalaryComponentType;
+  calcType: SalaryCalcType;
+  value: number;
+  amount: number;
+}
+
+export interface PayrollBreakdown {
+  version: 1;
+  baseSalary: number;
+  items: BreakdownItem[];
+  allowances: number;
+  deductions: number;
+  netAmount: number;
+}
+
+export interface StaffComponents {
+  staffId: string;
+  staffName: string;
+  baseSalary: number;
+  assignments: { id: string; componentId: string; overrideValue: number | null; component: SalaryComponent }[];
+  preview: PayrollBreakdown;
+}
+
+export interface PayrollBatchResult {
+  payPeriod: string;
+  activeStaff: number;
+  processed: number;
+  skipped: number;
+  failed: number;
+  totalNet: number;
+  errors: { staffId: string; staffName: string; message: string }[];
+}
+
+export interface PayrollReport {
+  payPeriod: string;
+  totals: { count: number; baseSalary: number; allowances: number; deductions: number; netAmount: number; paidAmount: number; unpaidAmount: number };
+  byDepartment: { department: string; count: number; baseSalary: number; allowances: number; deductions: number; netAmount: number }[];
+  byComponent: { name: string; type: SalaryComponentType; count: number; total: number }[];
+  rows: {
+    id: string;
+    payslipNo: string | null;
+    staffName: string;
+    employeeId: string | null;
+    department: string;
+    designation: string | null;
+    baseSalary: number;
+    allowances: number;
+    deductions: number;
+    netAmount: number;
+    status: string;
+    components: BreakdownItem[] | null;
+  }[];
 }
 
 export interface PayrollSummary {

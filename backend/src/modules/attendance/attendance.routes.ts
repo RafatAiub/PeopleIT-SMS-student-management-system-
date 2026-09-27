@@ -5,7 +5,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
-import { BulkSubmitAttendanceDto, AttendanceQueryDto } from './attendance.dto';
+import { BulkSubmitAttendanceDto, AttendanceQueryDto, AttendanceSummaryQueryDto } from './attendance.dto';
 import * as attendanceController from './attendance.controller';
 
 const router = Router();
@@ -31,6 +31,14 @@ router.get(
   '/sheet',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER),
   attendanceController.getAttendanceSheet,
+);
+
+// 1b. Monthly summary per class/section (TEACHER scoped to own sections in the service)
+router.get(
+  '/summary',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT),
+  validate({ query: AttendanceSummaryQueryDto }),
+  attendanceController.getMonthlySummary,
 );
 
 // 2. Teacher specific assigned sections

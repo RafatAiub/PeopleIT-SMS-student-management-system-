@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, DollarSign, Edit2, UserCheck, UserX, Users, UserPlus, Landmark, Building2 } from 'lucide-react';
+import { Plus, DollarSign, Edit2, UserCheck, UserX, Users, UserPlus, Landmark, Building2, Layers } from 'lucide-react';
 import { useTableParams } from '@/hooks/useTableParams';
 import { DataTable, Column } from '@/components/DataTable/DataTable';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { Modal, Drawer, Input, Select, Button, StatCard, DescriptionList, ErrorState } from '@/components/ui';
 import { formatCurrency, formatDate, useT } from '@/i18n';
 import { useStaffList, useCreateStaff, useUpdateStaff } from './hr.queries';
+import StaffComponentsDrawer from './StaffComponentsDrawer';
 import { DEPARTMENT_OPTIONS, ROLE_OPTIONS, type EditStaffForm, type NewStaffForm, type StaffProfile } from './hr.types';
 
 const EMPTY_NEW_STAFF: NewStaffForm = {
@@ -27,6 +28,7 @@ interface StaffTabProps {
 export default function StaffTab({ canWrite, onOpenPayroll }: StaffTabProps) {
   const t = useT();
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
+  const [componentsFor, setComponentsFor] = useState<StaffProfile | null>(null);
   const { data, isLoading, isError, refetch } = useStaffList({
     page: params.page,
     pageSize: params.pageSize,
@@ -167,6 +169,14 @@ export default function StaffTab({ canWrite, onOpenPayroll }: StaffTabProps) {
       sortable: false,
       render: (staff) => (
         <div className="flex items-center gap-1.5 flex-wrap justify-end" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setComponentsFor(staff)}
+            title="Salary components"
+            aria-label={`Salary components for ${staff.name}`}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <Layers className="w-4 h-4" />
+          </button>
           {canWrite && (
             <>
               <button
@@ -388,6 +398,7 @@ export default function StaffTab({ canWrite, onOpenPayroll }: StaffTabProps) {
         onConfirm={handleConfirmToggleStatus}
         onCancel={() => setStaffToToggle(null)}
       />
+      <StaffComponentsDrawer staff={componentsFor} canWrite={canWrite} onClose={() => setComponentsFor(null)} />
     </div>
   );
 }
