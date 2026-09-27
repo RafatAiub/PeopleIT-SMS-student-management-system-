@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/common/EmptyState';
+import { PageHeader } from '../../components/ui';
 import { IdCardPreview, IdCardTemplate } from './IdCardPreview';
 
 interface Guardian {
@@ -100,10 +101,14 @@ export default function MyIdCard() {
   if (notIssued || !card) {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-primary-500" />
-          My ID Card
-        </h2>
+        <PageHeader
+          title={
+            <span className="flex items-center gap-2">
+              <CreditCard className="w-6 h-6 text-primary-500" />
+              My ID Card
+            </span>
+          }
+        />
         <div className="glass-card">
           <EmptyState
             icon={<Inbox className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
@@ -149,16 +154,20 @@ export default function MyIdCard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-primary-500" />
-          My ID Card
-        </h2>
-        <Button variant="gradient" onClick={handleDownload} disabled={downloading} isLoading={downloading}>
-          <Download className="w-4 h-4" />
-          Download PDF
-        </Button>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <CreditCard className="w-6 h-6 text-primary-500" />
+            My ID Card
+          </span>
+        }
+        actions={
+          <Button variant="gradient" onClick={handleDownload} disabled={downloading} isLoading={downloading}>
+            <Download className="w-4 h-4" />
+            Download PDF
+          </Button>
+        }
+      />
 
       <div className="glass-card p-8 flex flex-col items-center gap-5">
         <IdCardPreview template={card.template} data={previewData} />

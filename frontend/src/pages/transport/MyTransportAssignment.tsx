@@ -1,27 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { Bus, MapPin, User, Phone, Users } from 'lucide-react';
+import { Bus, MapPin, User, Phone, Users, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/common/EmptyState';
+import { PageHeader, ErrorState, SkeletonText } from '../../components/ui';
+import { formatCurrency, formatDate } from '../../i18n';
+import { StopsChips } from './StopsChips';
 
 interface TransportAssignment {
   id: string;
   studentId: string;
-  pickupPoint: string;
+  pickupPoint: string | null;
   assignedAt: string;
   route: {
     id: string;
     name: string;
-    stops: number;
-    routeFare: number;
+    stops: string;
+    routeFare: number | string;
   };
   vehicle: {
     id: string;
     registrationNumber: string;
     capacity: number;
     driverName: string;
-    driverPhone: string;
+    driverPhone: string | null;
   };
 }
 
@@ -47,7 +50,6 @@ const MyTransportAssignment: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Load linked children for GUARDIAN role
   useEffect(() => {
     if (!isGuardian) return;
     const fetchChildren = async () => {
@@ -95,33 +97,39 @@ const MyTransportAssignment: React.FC = () => {
   }, [selectedChildId, childrenLoading]);
 
   if (isGuardian && childrenLoading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your dashboard...</div>;
+    return (
+      <div className="space-y-6">
+        <PageHeader title="My Transport Assignment" description="View your assigned transport route and vehicle details." />
+        <SkeletonText lines={4} />
+      </div>
+    );
   }
 
   if (isGuardian && children.length === 0) {
     return (
-      <div className="glass-card p-8">
-        <EmptyState
-          title="No linked children found"
-          description="Contact your school administrator to link your account to your child's student profile."
-          icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-        />
+      <div className="space-y-6">
+        <PageHeader title="My Transport Assignment" description="View your assigned transport route and vehicle details." />
+        <div className="glass-card p-8">
+          <EmptyState
+            title="No linked children found"
+            description="Contact your school administrator to link your account to your child's student profile."
+            icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Transport Assignment</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">View your assigned transport route and vehicle details.</p>
-      </div>
+      <PageHeader title="My Transport Assignment" description="View your assigned transport route and vehicle details." />
 
       {isGuardian && children.length > 1 && (
         <div className="flex gap-2 flex-wrap">
           {children.map((child) => (
             <button
               key={child.id}
+              type="button"
               onClick={() => setSelectedChildId(child.id)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 selectedChildId === child.id
@@ -136,23 +144,9 @@ const MyTransportAssignment: React.FC = () => {
       )}
 
       {loading ? (
-        <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your transport assignment...</div>
+        <SkeletonText lines={5} />
       ) : error ? (
-        <div className="glass-card p-8">
-          <EmptyState
-            title="Failed to load transport assignment"
-            description="Something went wrong while fetching your transport details."
-            icon={<Bus className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            action={
-              <button
-                onClick={fetchAssignment}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
-              >
-                Retry
-              </button>
-            }
-          />
-        </div>
+        <ErrorState message="Something went wrong while fetching your transport details." onRetry={fetchAssignment} />
       ) : !assignment ? (
         <div className="glass-card p-8">
           <EmptyState
@@ -162,54 +156,31 @@ const MyTransportAssignment: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-              <Bus className="w-4 h-4" />
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
+              <Bus className="w-4.5 h-4.5" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">{assignment.route?.name}</h3>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">{assignment.route?.name}</h3>
+              {assignment.pickupPoint && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3" /> Pickup at {assignment.pickupPoint}
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Route details */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-                  <Bus className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Route</p>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    {assignment.route?.name} &middot; {assignment.route?.stops} stops
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Pickup Point</p>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">{assignment.pickupPoint}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-                  <Bus className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Route Fare</p>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
-                    ৳{Number(assignment.route?.routeFare || 0).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+          {/* Stops timeline */}
+          <div>
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Route Stops</p>
+            <StopsChips stops={assignment.route?.stops} />
+          </div>
 
-            {/* Vehicle / driver details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100 dark:border-white/10">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
+                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
                   <Bus className="w-4 h-4" />
                 </div>
                 <div>
@@ -220,7 +191,7 @@ const MyTransportAssignment: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
+                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
                   <User className="w-4 h-4" />
                 </div>
                 <div>
@@ -229,25 +200,41 @@ const MyTransportAssignment: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
+                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Driver Phone</p>
-                  <a
-                    href={`tel:${assignment.vehicle?.driverPhone}`}
-                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    {assignment.vehicle?.driverPhone}
-                  </a>
+                  {assignment.vehicle?.driverPhone ? (
+                    <a
+                      href={`tel:${assignment.vehicle.driverPhone}`}
+                      className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {assignment.vehicle.driverPhone}
+                    </a>
+                  ) : (
+                    <p className="text-sm text-slate-500 dark:text-slate-400">—</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Monthly Fare</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-white">{formatCurrency(assignment.route?.routeFare)}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10">
+          <div className="pt-4 border-t border-slate-100 dark:border-white/10">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Assigned on {assignment.assignedAt ? new Date(assignment.assignedAt).toLocaleDateString() : '-'}
+              Assigned on {assignment.assignedAt ? formatDate(assignment.assignedAt) : '-'}
             </p>
           </div>
         </div>

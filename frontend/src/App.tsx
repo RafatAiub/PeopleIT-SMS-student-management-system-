@@ -181,6 +181,10 @@ const LibraryRoute = () => {
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyLibraryIssues />;
   }
+  // Staff screen only for roles the API allows; others go home instead of a page of 403s.
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'LIBRARIAN'].includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
   return <LibraryManagement />;
 };
 
@@ -189,6 +193,9 @@ const TransportRoute = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyTransportAssignment />;
+  }
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'TRANSPORT_OFFICER'].includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
   return <TransportManagement />;
 };
@@ -216,6 +223,9 @@ const FeesRoute = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyInvoices />;
+  }
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
   return <InvoiceList />;
 };

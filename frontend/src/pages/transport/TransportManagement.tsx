@@ -1,439 +1,512 @@
-import React, { useState, useEffect } from 'react';
-import { Bus, Search, Plus, Filter, Map, Users, Settings } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Bus, Map, Users, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
-import { Pagination } from '../../components/Pagination';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
-import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
-
-interface RouteType {
-  id: string;
-  name: string;
-  startPoint: string;
-  endPoint: string;
-  distance: string;
-  vehicleId: string;
-  stops: number;
-}
+import { PageHeader, ErrorState, Tabs } from '../../components/ui';
+import { formatCurrency } from '../../i18n';
+import { VehicleModal, VehicleFormValues } from './VehicleModal';
+import { RouteModal, RouteFormValues } from './RouteModal';
+import { AssignmentModal, AssignmentFormValues, RouteOption, VehicleOption } from './AssignmentModal';
+import { StopsChips } from './StopsChips';
 
 interface VehicleType {
   id: string;
   registrationNumber: string;
   capacity: number;
   driverName: string;
+  driverPhone: string | null;
+  isActive: boolean;
+}
+
+interface RouteType {
+  id: string;
+  name: string;
+  stops: string;
+  startPoint?: string | null;
+  endPoint?: string | null;
+  distance?: string | null;
+  vehicleId: string | null;
+  routeFare: number | string;
   isActive: boolean;
 }
 
 interface AssignmentType {
   id: string;
-  studentName: string;
-  routeName: string;
-  stopName: string;
-  fee: string;
-  student?: { firstName: string; lastName: string };
-  route?: { routeName: string };
+  pickupPoint: string | null;
+  assignedAt: string;
+  student?: { firstName: string; lastName: string; studentId: string };
+  route?: { name: string; routeFare: number | string };
+  vehicle?: { registrationNumber: string };
 }
 
 export default function TransportManagement() {
-  const [activeTab, setActiveTab] = useState<'routes' | 'vehicles' | 'assignments'>('routes');
-  const [routes, setRoutes] = useState<RouteType[]>([]);
-  const [totalRoutes, setTotalRoutes] = useState(0);
+  const [activeTab, setActiveTab] = useState<'vehicles' | 'routes' | 'assignments'>('vehicles');
+
+  // ---- Vehicles ----
+  const vehiclesParams = useTableParams(10);
   const [vehicles, setVehicles] = useState<VehicleType[]>([]);
-  const [totalVehicles, setTotalVehicles] = useState(0);
-  const [assignments, setAssignments] = useState<AssignmentType[]>([]);
-  const [totalAssignments, setTotalAssignments] = useState(0);
-  const [loading, setLoading] = useState(false);
-  
-  const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
-  const [isAddRouteModalOpen, setIsAddRouteModalOpen] = useState(false);
-  const [isAddVehicleModalOpen, setIsAddVehicleModalOpen] = useState(false);
-  const [newRoute, setNewRoute] = useState({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
-  const [newVehicle, setNewVehicle] = useState({ registrationNumber: '', capacity: 40, driverName: '' });
-  const [editingRouteId, setEditingRouteId] = useState<string | null>(null);
+  const [vehiclesTotal, setVehiclesTotal] = useState(0);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [vehiclesError, setVehiclesError] = useState(false);
+  const [allVehicles, setAllVehicles] = useState<VehicleOption[]>([]);
+
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<VehicleType | null>(null);
+  const [savingVehicle, setSavingVehicle] = useState(false);
+  const [vehicleToDelete, setVehicleToDelete] = useState<VehicleType | null>(null);
+  const [deletingVehicle, setDeletingVehicle] = useState(false);
+
+  // ---- Routes ----
+  const routesParams = useTableParams(10);
+  const [routes, setRoutes] = useState<RouteType[]>([]);
+  const [routesTotal, setRoutesTotal] = useState(0);
+  const [routesLoading, setRoutesLoading] = useState(false);
+  const [routesError, setRoutesError] = useState(false);
+  const [allRoutes, setAllRoutes] = useState<RouteOption[]>([]);
+
+  const [routeModalOpen, setRouteModalOpen] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<RouteType | null>(null);
   const [savingRoute, setSavingRoute] = useState(false);
+  const [routeToDelete, setRouteToDelete] = useState<RouteType | null>(null);
+  const [deletingRoute, setDeletingRoute] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab, params.page, params.pageSize, debouncedSearch]);
+  // ---- Assignments ----
+  const assignmentsParams = useTableParams(10);
+  const [assignments, setAssignments] = useState<AssignmentType[]>([]);
+  const [assignmentsTotal, setAssignmentsTotal] = useState(0);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentsError, setAssignmentsError] = useState(false);
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [savingAssignment, setSavingAssignment] = useState(false);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchVehicles = async () => {
+    setVehiclesLoading(true);
+    setVehiclesError(false);
     try {
-      const queryParams = new URLSearchParams({
-        page: params.page.toString(),
-        pageSize: params.pageSize.toString(),
+      const res = await apiClient.get('/transport/vehicles', {
+        params: { page: vehiclesParams.params.page, pageSize: vehiclesParams.params.pageSize, search: vehiclesParams.debouncedSearch || undefined },
       });
-      if (debouncedSearch) {
-        queryParams.append('search', debouncedSearch);
-      }
-
-      if (activeTab === 'routes') {
-        const routesRes = await apiClient.get(`/transport/routes?${queryParams.toString()}`);
-        setRoutes(routesRes.data.data?.routes || routesRes.data.data || []);
-        setTotalRoutes(routesRes.data.data?.total || routesRes.data.meta?.total || 0);
-      } else if (activeTab === 'vehicles') {
-        const vehiclesRes = await apiClient.get(`/transport/vehicles?${queryParams.toString()}`);
-        setVehicles(vehiclesRes.data.data?.vehicles || vehiclesRes.data.data || []);
-        setTotalVehicles(vehiclesRes.data.data?.total || vehiclesRes.data.meta?.total || 0);
-      } else if (activeTab === 'assignments') {
-        const assignmentsRes = await apiClient.get(`/transport/assignments?${queryParams.toString()}`);
-        setAssignments(assignmentsRes.data.data?.assignments || assignmentsRes.data.data || []);
-        setTotalAssignments(assignmentsRes.data.data?.total || assignmentsRes.data.meta?.total || 0);
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch transport data:', error);
-      toast.error(error.response?.data?.message || 'Failed to load transport data');
+      setVehicles(res.data.data?.vehicles || res.data.data || []);
+      setVehiclesTotal(res.data.meta?.total || res.data.data?.total || 0);
+    } catch (err: any) {
+      console.error('Failed to fetch vehicles:', err);
+      setVehiclesError(true);
+      toast.error(err.response?.data?.message || 'Failed to load vehicles');
     } finally {
-      setLoading(false);
+      setVehiclesLoading(false);
     }
   };
 
-  const handleAddRoute = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchAllVehicles = async () => {
+    try {
+      const res = await apiClient.get('/transport/vehicles', { params: { page: 1, pageSize: 200 } });
+      setAllVehicles(res.data.data?.vehicles || res.data.data || []);
+    } catch {
+      setAllVehicles([]);
+    }
+  };
+
+  const fetchRoutes = async () => {
+    setRoutesLoading(true);
+    setRoutesError(false);
+    try {
+      const res = await apiClient.get('/transport/routes', {
+        params: { page: routesParams.params.page, pageSize: routesParams.params.pageSize, search: routesParams.debouncedSearch || undefined },
+      });
+      setRoutes(res.data.data?.routes || res.data.data || []);
+      setRoutesTotal(res.data.meta?.total || res.data.data?.total || 0);
+    } catch (err: any) {
+      console.error('Failed to fetch routes:', err);
+      setRoutesError(true);
+      toast.error(err.response?.data?.message || 'Failed to load routes');
+    } finally {
+      setRoutesLoading(false);
+    }
+  };
+
+  const fetchAllRoutes = async () => {
+    try {
+      const res = await apiClient.get('/transport/routes', { params: { page: 1, pageSize: 200 } });
+      setAllRoutes(res.data.data?.routes || res.data.data || []);
+    } catch {
+      setAllRoutes([]);
+    }
+  };
+
+  const fetchAssignments = async () => {
+    setAssignmentsLoading(true);
+    setAssignmentsError(false);
+    try {
+      const res = await apiClient.get('/transport/assignments', {
+        params: { page: assignmentsParams.params.page, pageSize: assignmentsParams.params.pageSize, search: assignmentsParams.debouncedSearch || undefined },
+      });
+      setAssignments(res.data.data?.assignments || res.data.data || []);
+      setAssignmentsTotal(res.data.meta?.total || res.data.data?.total || 0);
+    } catch (err: any) {
+      console.error('Failed to fetch assignments:', err);
+      setAssignmentsError(true);
+      toast.error(err.response?.data?.message || 'Failed to load assignments');
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'vehicles') fetchVehicles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, vehiclesParams.params.page, vehiclesParams.params.pageSize, vehiclesParams.debouncedSearch]);
+
+  useEffect(() => {
+    if (activeTab === 'routes') fetchRoutes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, routesParams.params.page, routesParams.params.pageSize, routesParams.debouncedSearch]);
+
+  useEffect(() => {
+    if (activeTab === 'assignments') fetchAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, assignmentsParams.params.page, assignmentsParams.params.pageSize, assignmentsParams.debouncedSearch]);
+
+  useEffect(() => {
+    fetchAllVehicles();
+    fetchAllRoutes();
+  }, []);
+
+  // ---- Vehicle CRUD ----
+  const openAddVehicle = () => { setEditingVehicle(null); setVehicleModalOpen(true); };
+  const openEditVehicle = (v: VehicleType) => { setEditingVehicle(v); setVehicleModalOpen(true); };
+
+  const handleSaveVehicle = async (values: VehicleFormValues) => {
+    setSavingVehicle(true);
+    try {
+      if (editingVehicle) {
+        await apiClient.put(`/transport/vehicles/${editingVehicle.id}`, values);
+        toast.success('Vehicle updated successfully');
+      } else {
+        await apiClient.post('/transport/vehicles', values);
+        toast.success('Vehicle added successfully');
+      }
+      setVehicleModalOpen(false);
+      setEditingVehicle(null);
+      fetchVehicles();
+      fetchAllVehicles();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Failed to ${editingVehicle ? 'update' : 'add'} vehicle`);
+    } finally {
+      setSavingVehicle(false);
+    }
+  };
+
+  const handleConfirmDeleteVehicle = async () => {
+    if (!vehicleToDelete) return;
+    setDeletingVehicle(true);
+    try {
+      await apiClient.delete(`/transport/vehicles/${vehicleToDelete.id}`);
+      toast.success('Vehicle deleted successfully');
+      setVehicleToDelete(null);
+      fetchVehicles();
+      fetchAllVehicles();
+    } catch (err: any) {
+      // 409 Conflict: vehicle referenced by existing assignments.
+      toast.error(err.response?.data?.message || 'Failed to delete vehicle');
+    } finally {
+      setDeletingVehicle(false);
+    }
+  };
+
+  // ---- Route CRUD ----
+  const openAddRoute = () => { setEditingRoute(null); setRouteModalOpen(true); };
+  const openEditRoute = (r: RouteType) => { setEditingRoute(r); setRouteModalOpen(true); };
+
+  const handleSaveRoute = async (values: RouteFormValues) => {
     setSavingRoute(true);
     try {
-      if (editingRouteId) {
-        await apiClient.put(`/transport/routes/${editingRouteId}`, newRoute);
+      if (editingRoute) {
+        await apiClient.put(`/transport/routes/${editingRoute.id}`, values);
         toast.success('Route updated successfully');
       } else {
-        await apiClient.post('/transport/routes', newRoute);
+        await apiClient.post('/transport/routes', values);
         toast.success('Route added successfully');
       }
-      setIsAddRouteModalOpen(false);
-      setEditingRouteId(null);
-      setNewRoute({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || `Failed to ${editingRouteId ? 'update' : 'add'} route`);
+      setRouteModalOpen(false);
+      setEditingRoute(null);
+      fetchRoutes();
+      fetchAllRoutes();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Failed to ${editingRoute ? 'update' : 'add'} route`);
     } finally {
       setSavingRoute(false);
     }
   };
 
-  const openAddRoute = () => {
-    setEditingRouteId(null);
-    setNewRoute({ name: '', startPoint: '', endPoint: '', distance: '', vehicleId: '', stops: 1 });
-    setIsAddRouteModalOpen(true);
-  };
-
-  const openEditRoute = (route: RouteType) => {
-    setEditingRouteId(route.id);
-    setNewRoute({ name: route.name, startPoint: route.startPoint, endPoint: route.endPoint, distance: route.distance, vehicleId: route.vehicleId, stops: route.stops });
-    setIsAddRouteModalOpen(true);
-  };
-
-  const handleAddVehicle = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirmDeleteRoute = async () => {
+    if (!routeToDelete) return;
+    setDeletingRoute(true);
     try {
-      await apiClient.post('/transport/vehicles', newVehicle);
-      toast.success('Vehicle added successfully');
-      setIsAddVehicleModalOpen(false);
-      setNewVehicle({ registrationNumber: '', capacity: 40, driverName: '' });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add vehicle');
+      await apiClient.delete(`/transport/routes/${routeToDelete.id}`);
+      toast.success('Route deleted successfully');
+      setRouteToDelete(null);
+      fetchRoutes();
+      fetchAllRoutes();
+    } catch (err: any) {
+      // 409 Conflict: route referenced by existing assignments.
+      toast.error(err.response?.data?.message || 'Failed to delete route');
+    } finally {
+      setDeletingRoute(false);
+    }
+  };
+
+  // ---- Assignment create ----
+  const handleCreateAssignment = async (values: AssignmentFormValues) => {
+    setSavingAssignment(true);
+    try {
+      await apiClient.post('/transport/assignments', values);
+      toast.success('Assignment created successfully');
+      setAssignmentModalOpen(false);
+      fetchAssignments();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to create assignment');
+    } finally {
+      setSavingAssignment(false);
     }
   };
 
   const vehicleColumns: Column<VehicleType>[] = [
-    {
-      key: 'id',
-      header: 'Vehicle ID',
-      accessor: 'id',
-      render: (vehicle) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary-500 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-            <Bus className="w-4 h-4" />
-          </div>
-          <span className="text-sm font-semibold text-slate-900 dark:text-white">{vehicle.id}</span>
-        </div>
-      ),
-    },
-    { key: 'registrationNumber', header: 'Registration', accessor: 'registrationNumber' },
-    {
-      key: 'capacity',
-      header: 'Capacity',
-      accessor: 'capacity',
-      render: (vehicle) => `${vehicle.capacity} seats`,
-    },
+    { key: 'registrationNumber', header: 'Registration', accessor: 'registrationNumber', primary: true },
     { key: 'driverName', header: 'Driver', accessor: 'driverName' },
+    { key: 'driverPhone', header: 'Driver Phone', render: (v) => v.driverPhone || '—', hideOnMobile: true },
+    { key: 'capacity', header: 'Capacity', align: 'right', render: (v) => `${v.capacity} seats`, exportValue: (v) => v.capacity },
     {
       key: 'status',
       header: 'Status',
       sortable: false,
-      render: (vehicle) => <StatusBadge status={vehicle.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
+      render: (v) => <StatusBadge status={v.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
+    },
+  ];
+
+  const routeColumns: Column<RouteType>[] = [
+    { key: 'name', header: 'Route Name', accessor: 'name', primary: true },
+    {
+      key: 'stops',
+      header: 'Stops',
+      sortable: false,
+      exportValue: (r) => r.stops,
+      render: (r) => <StopsChips stops={r.stops} />,
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      hideOnMobile: true,
+      render: (r) => allVehicles.find((v) => v.id === r.vehicleId)?.registrationNumber || '—',
+    },
+    { key: 'distance', header: 'Distance', render: (r) => r.distance || '—', hideOnMobile: true },
+    {
+      key: 'routeFare',
+      header: 'Monthly Fare',
+      align: 'right',
+      exportValue: (r) => Number(r.routeFare) || 0,
+      render: (r) => <span className="tabular-nums">{formatCurrency(r.routeFare)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: false,
+      render: (r) => <StatusBadge status={r.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
     },
   ];
 
   const assignmentColumns: Column<AssignmentType>[] = [
     {
       key: 'studentName',
-      header: 'Student Name',
-      accessor: 'studentName',
-      render: (assignment) => assignment.studentName || `${assignment.student?.firstName || ''} ${assignment.student?.lastName || ''}`.trim(),
+      header: 'Student',
+      primary: true,
+      render: (a) => `${a.student?.firstName || ''} ${a.student?.lastName || ''}`.trim() || '—',
+      exportValue: (a) => `${a.student?.firstName || ''} ${a.student?.lastName || ''}`.trim(),
     },
-    {
-      key: 'routeName',
-      header: 'Route',
-      accessor: 'routeName',
-      render: (assignment) => assignment.routeName || assignment.route?.routeName,
-    },
-    { key: 'stopName', header: 'Stop', accessor: 'stopName' },
+    { key: 'studentId', header: 'Student ID', render: (a) => a.student?.studentId || '—', hideOnMobile: true },
+    { key: 'routeName', header: 'Route', render: (a) => a.route?.name || '—', exportValue: (a) => a.route?.name || '' },
+    { key: 'vehicle', header: 'Vehicle', render: (a) => a.vehicle?.registrationNumber || '—' },
+    { key: 'pickupPoint', header: 'Pickup Point', render: (a) => a.pickupPoint || '—', hideOnMobile: true },
     {
       key: 'fee',
       header: 'Monthly Fee',
-      accessor: 'fee',
-      render: (assignment) => <span className="tabular-nums">{assignment.fee}</span>,
+      align: 'right',
+      exportValue: (a) => Number(a.route?.routeFare) || 0,
+      render: (a) => <span className="tabular-nums">{formatCurrency(a.route?.routeFare)}</span>,
     },
   ];
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Transport Management</h2>
-          <p className="text-slate-600 dark:text-slate-400 text-sm">Manage routes, vehicles, and student assignments.</p>
-        </div>
-        {activeTab !== 'assignments' && (
-          <Button variant="gradient" onClick={() => activeTab === 'routes' ? openAddRoute() : setIsAddVehicleModalOpen(true)} className="px-4 py-2.5 text-sm">
-            <Plus className="w-4 h-4" />
-            {activeTab === 'routes' ? 'Add Route' : 'Add Vehicle'}
-          </Button>
-        )}
-      </div>
-
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1 shadow-xs">
-        <button
-          onClick={() => { setActiveTab('routes'); setSearch(''); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === 'routes'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-2"><Map className="w-4 h-4" /> Routes</div>
-        </button>
-        <button
-          onClick={() => { setActiveTab('vehicles'); setSearch(''); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === 'vehicles'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-2"><Bus className="w-4 h-4" /> Vehicles</div>
-        </button>
-        <button
-          onClick={() => { setActiveTab('assignments'); setSearch(''); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === 'assignments'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <div className="flex items-center justify-center gap-2"><Users className="w-4 h-4" /> Assignments</div>
-        </button>
-      </div>
-
-      {activeTab === 'routes' && (
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search routes..."
-              className="input-field pl-10"
-              value={params.search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
-            <Filter className="w-4 h-4 text-slate-500" />
-            Filter
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center text-slate-500 py-10">Loading...</div>
-      ) : activeTab === 'routes' ? (
-        <div className="space-y-4">
-          {routes.length === 0 ? (
-            <div className="glass-card p-8">
-              <EmptyState
-                title="No routes yet"
-                description="Add a route to start assigning vehicles and students."
-                icon={<Map className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-                action={
-                  <Button variant="gradient" onClick={openAddRoute} className="px-4 py-2 text-sm">
-                    <Plus className="w-4 h-4" /> Add Route
-                  </Button>
-                }
-              />
-            </div>
+      <PageHeader
+        title="Transport Management"
+        description="Manage vehicles, routes, and student transport assignments."
+        actions={
+          activeTab === 'vehicles' ? (
+            <Button variant="gradient" onClick={openAddVehicle}><Plus className="w-4 h-4" /> Add Vehicle</Button>
+          ) : activeTab === 'routes' ? (
+            <Button variant="gradient" onClick={openAddRoute}><Plus className="w-4 h-4" /> Add Route</Button>
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {routes.map((route) => (
-            <div key={route.id} className="glass-card p-5 rounded-2xl hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-colors">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
-                    <Map className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{route.name}</h3>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Vehicle: {route.vehicleId}</p>
-                  </div>
-                </div>
-                <button onClick={() => openEditRoute(route)} aria-label={`Edit ${route.name}`} title="Edit route" className="p-1.5 text-slate-500 hover:text-slate-800 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
-                  <Settings className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200/50 dark:border-white/5 space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">From</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-semibold">{route.startPoint}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">To</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-semibold">{route.endPoint}</span>
-                </div>
-                <div className="flex justify-between text-sm pt-3 border-t border-slate-200 dark:border-white/10">
-                  <span className="text-slate-500">Distance</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">{route.distance}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Stops</span>
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">{route.stops}</span>
-                </div>
-              </div>
-            </div>
-            ))}
-          </div>
-          )}
-          <Pagination
-            page={params.page}
-            pageSize={params.pageSize}
-            total={totalRoutes}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      ) : activeTab === 'vehicles' ? (
-        <div className="glass-card rounded-2xl overflow-hidden p-4">
+            <Button variant="gradient" onClick={() => setAssignmentModalOpen(true)}><Plus className="w-4 h-4" /> Assign Student</Button>
+          )
+        }
+      />
+
+      <Tabs
+        variant="pills"
+        label="Transport sections"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        tabs={[
+          { id: 'vehicles', label: 'Vehicles', icon: <Bus className="w-4 h-4" /> },
+          { id: 'routes', label: 'Routes', icon: <Map className="w-4 h-4" /> },
+          { id: 'assignments', label: 'Assignments', icon: <Users className="w-4 h-4" /> },
+        ]}
+      />
+
+      {activeTab === 'vehicles' ? (
+        vehiclesError && vehicles.length === 0 ? (
+          <ErrorState onRetry={fetchVehicles} message="Could not load vehicles." />
+        ) : (
           <DataTable
             data={vehicles}
             columns={vehicleColumns}
-            isLoading={loading}
-            searchPlaceholder="Search vehicles..."
+            isLoading={vehiclesLoading}
             serverSearch
-            onSearch={setSearch}
+            onSearch={vehiclesParams.setSearch}
+            searchPlaceholder="Search vehicles by registration or driver..."
             serverPagination
-            totalCount={totalVehicles}
-            page={params.page}
-            pageSize={params.pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
+            totalCount={vehiclesTotal}
+            page={vehiclesParams.params.page}
+            pageSize={vehiclesParams.params.pageSize}
+            onPageChange={vehiclesParams.setPage}
+            onPageSizeChange={vehiclesParams.setPageSize}
+            exportFileName="transport-vehicles"
             emptyTitle="No vehicles yet"
             emptyDescription="Add a vehicle to assign it to a route."
+            emptyAction={<Button variant="gradient" size="sm" onClick={openAddVehicle}><Plus className="w-4 h-4" /> Add Vehicle</Button>}
+            actions={[
+              { label: 'Edit', icon: 'edit', onClick: openEditVehicle },
+              { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (v) => setVehicleToDelete(v) },
+            ]}
           />
-        </div>
-      ) : (
-        <div className="glass-card rounded-2xl overflow-hidden p-4">
+        )
+      ) : activeTab === 'routes' ? (
+        routesError && routes.length === 0 ? (
+          <ErrorState onRetry={fetchRoutes} message="Could not load routes." />
+        ) : (
           <DataTable
-            data={assignments}
-            columns={assignmentColumns}
-            isLoading={loading}
-            searchPlaceholder="Search assignments..."
+            data={routes}
+            columns={routeColumns}
+            isLoading={routesLoading}
             serverSearch
-            onSearch={setSearch}
+            onSearch={routesParams.setSearch}
+            searchPlaceholder="Search routes by name..."
             serverPagination
-            totalCount={totalAssignments}
-            page={params.page}
-            pageSize={params.pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            emptyTitle="No student assignments yet"
-            emptyDescription="Assign students to a transport route to see them listed here."
+            totalCount={routesTotal}
+            page={routesParams.params.page}
+            pageSize={routesParams.params.pageSize}
+            onPageChange={routesParams.setPage}
+            onPageSizeChange={routesParams.setPageSize}
+            exportFileName="transport-routes"
+            emptyTitle="No routes yet"
+            emptyDescription="Add a route to start assigning vehicles and students."
+            emptyAction={<Button variant="gradient" size="sm" onClick={openAddRoute}><Plus className="w-4 h-4" /> Add Route</Button>}
+            actions={[
+              { label: 'Edit', icon: 'edit', onClick: openEditRoute },
+              { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (r) => setRouteToDelete(r) },
+            ]}
           />
-        </div>
+        )
+      ) : assignmentsError && assignments.length === 0 ? (
+        <ErrorState onRetry={fetchAssignments} message="Could not load assignments." />
+      ) : (
+        <DataTable
+          data={assignments}
+          columns={assignmentColumns}
+          isLoading={assignmentsLoading}
+          serverSearch
+          onSearch={assignmentsParams.setSearch}
+          searchPlaceholder="Search assignments by student or route..."
+          serverPagination
+          totalCount={assignmentsTotal}
+          page={assignmentsParams.params.page}
+          pageSize={assignmentsParams.params.pageSize}
+          onPageChange={assignmentsParams.setPage}
+          onPageSizeChange={assignmentsParams.setPageSize}
+          exportFileName="transport-assignments"
+          emptyTitle="No student assignments yet"
+          emptyDescription="Assign students to a transport route to see them listed here."
+          emptyAction={<Button variant="gradient" size="sm" onClick={() => setAssignmentModalOpen(true)}><Plus className="w-4 h-4" /> Assign Student</Button>}
+        />
       )}
 
-      {/* Add Route Modal */}
-      <Modal isOpen={isAddRouteModalOpen} onClose={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }} className="max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingRouteId ? 'Edit Route' : 'Add New Route'}</h3>
-            </div>
-            <form onSubmit={handleAddRoute} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Route Name</label>
-                <input required type="text" value={newRoute.name} onChange={e => setNewRoute({...newRoute, name: e.target.value})} className="input-field" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Start Point</label>
-                  <input required type="text" value={newRoute.startPoint} onChange={e => setNewRoute({...newRoute, startPoint: e.target.value})} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">End Point</label>
-                  <input required type="text" value={newRoute.endPoint} onChange={e => setNewRoute({...newRoute, endPoint: e.target.value})} className="input-field" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Distance (e.g. 15 km)</label>
-                  <input required type="text" value={newRoute.distance} onChange={e => setNewRoute({...newRoute, distance: e.target.value})} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stops</label>
-                  <input required type="number" min="1" value={newRoute.stops} onChange={e => setNewRoute({...newRoute, stops: parseInt(e.target.value)})} className="input-field" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Vehicle ID</label>
-                <input required type="text" value={newRoute.vehicleId} onChange={e => setNewRoute({...newRoute, vehicleId: e.target.value})} className="input-field" />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <Button type="button" variant="secondary" onClick={() => { setIsAddRouteModalOpen(false); setEditingRouteId(null); }} className="px-4 py-2 text-sm">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="gradient" isLoading={savingRoute} className="px-5 py-2 text-sm">
-                  {savingRoute ? 'Saving...' : editingRouteId ? 'Save Changes' : 'Add Route'}
-                </Button>
-              </div>
-            </form>
-      </Modal>
+      <VehicleModal
+        isOpen={vehicleModalOpen}
+        isEditing={!!editingVehicle}
+        isSaving={savingVehicle}
+        initialValues={editingVehicle ? { registrationNumber: editingVehicle.registrationNumber, capacity: editingVehicle.capacity, driverName: editingVehicle.driverName, driverPhone: editingVehicle.driverPhone || '', isActive: editingVehicle.isActive } : null}
+        onClose={() => { setVehicleModalOpen(false); setEditingVehicle(null); }}
+        onSubmit={handleSaveVehicle}
+      />
 
-      {/* Add Vehicle Modal */}
-      <Modal isOpen={isAddVehicleModalOpen} onClose={() => setIsAddVehicleModalOpen(false)} className="max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Vehicle</h3>
-            </div>
-            <form onSubmit={handleAddVehicle} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Registration Number</label>
-                <input required type="text" value={newVehicle.registrationNumber} onChange={e => setNewVehicle({...newVehicle, registrationNumber: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Driver Name</label>
-                <input required type="text" value={newVehicle.driverName} onChange={e => setNewVehicle({...newVehicle, driverName: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Capacity</label>
-                <input required type="number" min="1" value={newVehicle.capacity} onChange={e => setNewVehicle({...newVehicle, capacity: parseInt(e.target.value)})} className="input-field" />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <Button type="button" variant="secondary" onClick={() => setIsAddVehicleModalOpen(false)} className="px-4 py-2 text-sm">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="gradient" className="px-5 py-2 text-sm">Add Vehicle</Button>
-              </div>
-            </form>
-      </Modal>
+      <RouteModal
+        isOpen={routeModalOpen}
+        vehicles={allVehicles}
+        isEditing={!!editingRoute}
+        isSaving={savingRoute}
+        initialValues={
+          editingRoute
+            ? {
+                name: editingRoute.name,
+                stops: editingRoute.stops || '',
+                startPoint: editingRoute.startPoint || '',
+                endPoint: editingRoute.endPoint || '',
+                distance: editingRoute.distance || '',
+                vehicleId: editingRoute.vehicleId || '',
+                routeFare: Number(editingRoute.routeFare) || 0,
+                isActive: editingRoute.isActive,
+              }
+            : null
+        }
+        onClose={() => { setRouteModalOpen(false); setEditingRoute(null); }}
+        onSubmit={handleSaveRoute}
+      />
+
+      <AssignmentModal
+        isOpen={assignmentModalOpen}
+        routes={allRoutes}
+        vehicles={allVehicles}
+        isSaving={savingAssignment}
+        onClose={() => setAssignmentModalOpen(false)}
+        onSubmit={handleCreateAssignment}
+      />
+
+      <ConfirmModal
+        isOpen={!!vehicleToDelete}
+        title="Delete vehicle"
+        message={`Are you sure you want to delete "${vehicleToDelete?.registrationNumber}"? This cannot be undone. Vehicles with active assignments cannot be deleted.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingVehicle}
+        onConfirm={handleConfirmDeleteVehicle}
+        onCancel={() => setVehicleToDelete(null)}
+      />
+
+      <ConfirmModal
+        isOpen={!!routeToDelete}
+        title="Delete route"
+        message={`Are you sure you want to delete "${routeToDelete?.name}"? This cannot be undone. Routes with active assignments cannot be deleted.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deletingRoute}
+        onConfirm={handleConfirmDeleteRoute}
+        onCancel={() => setRouteToDelete(null)}
+      />
     </div>
   );
 }
