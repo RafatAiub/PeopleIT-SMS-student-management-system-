@@ -20,6 +20,8 @@ import { Avatar, Kbd } from '../ui/Display';
 import { cn } from '../../lib/cn';
 import { getPageLabel, ROLE_LABEL } from './Sidebar';
 import { openCommandPalette } from './CommandPalette';
+import { BranchSwitcher } from '../saas/BranchSwitcher';
+import { InstitutionLocaleSync } from '../saas/InstitutionLocaleSync';
 
 // The server sends the business event type; the header maps it to a severity
 // purely for iconography. Unknown/new types degrade to 'info' rather than
@@ -127,6 +129,8 @@ export const Header: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-30 flex items-center gap-2 h-16 px-3 sm:px-6 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md border-b border-slate-200 dark:border-white/8">
+      {/* Applies institution locale defaults (never overrides a personal choice). */}
+      {showInstitutionBranding && <InstitutionLocaleSync />}
       {/* Mobile menu */}
       <button id="mobile-menu-toggle" type="button" onClick={toggleMobileMenu} className={cn(iconBtn, 'md:hidden -ml-1')} aria-label={t('Open menu')}>
         <Menu className="w-5 h-5" />
@@ -144,12 +148,17 @@ export const Header: React.FC = () => {
       <div className="hidden md:flex items-center gap-3 min-w-0">
         <span className="text-[15px] font-semibold text-slate-900 dark:text-white truncate">{pageLabel}</span>
         {showInstitutionBranding && (institutionName || user?.institutionName) && (
-          // Branch/campus switcher slot. The API exposes no branch endpoints yet,
-          // so this shows the institution only (no switching) until approved.
-          <span className="hidden lg:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-slate-100 dark:bg-white/6 text-xs font-medium text-slate-600 dark:text-slate-300 max-w-56" title="Institution">
-            <Building2 className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{institutionName || user?.institutionName}</span>
-          </span>
+          // Branch switcher for admins of multi-branch institutions; everyone
+          // else (and single-branch schools) sees the plain institution chip.
+          <BranchSwitcher
+            institutionName={institutionName || user?.institutionName}
+            fallback={
+              <span className="hidden lg:inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-slate-100 dark:bg-white/6 text-xs font-medium text-slate-600 dark:text-slate-300 max-w-56" title="Institution">
+                <Building2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{institutionName || user?.institutionName}</span>
+              </span>
+            }
+          />
         )}
       </div>
 

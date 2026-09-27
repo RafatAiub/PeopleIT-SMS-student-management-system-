@@ -8,42 +8,101 @@ import { bn } from './bn';
  * an untranslated key simply renders in English — no screen ever shows a raw
  * key. `t('Hello {name}', { name })` interpolates.
  *
- * Preferences are per browser (`locale-storage`). The institution record has
- * no timezone / date-format / numeral columns yet; making these
- * institution-wide needs a schema change (pending approval).
+ * Preferences are per browser (`locale-storage`). Institution-wide defaults
+ * (GET /institution/settings) are applied via `applyInstitutionDefaults` —
+ * only while the user hasn't made an explicit choice of their own. Currency
+ * is institution-wide, never a personal preference.
  */
 
 export type Lang = 'en' | 'bn';
 export type Numerals = 'latn' | 'beng';
 export type DateFormat = 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' | 'D MMM YYYY';
 
+export interface InstitutionLocaleDefaults {
+  lang: Lang;
+  numerals: Numerals;
+  timeZone: string;
+  dateFormat: DateFormat;
+  currency: string;
+}
+
+const BUILTIN_DEFAULTS = { lang: 'en', numerals: 'latn', timeZone: 'Asia/Dhaka', dateFormat: 'D MMM YYYY' } as const;
+
 interface LocaleState {
   lang: Lang;
   numerals: Numerals;
   timeZone: string;
   dateFormat: DateFormat;
+  /** ISO 4217, institution-wide (formatCurrency). */
+  currency: string;
+  /**
+   * true once the user picks language/numerals/date/time zone themselves.
+   * undefined on state persisted before this flag existed — see isExplicitChoice.
+   */
+  explicit?: boolean;
+  institutionDefaults: InstitutionLocaleDefaults | null;
   setLang: (lang: Lang) => void;
   setNumerals: (n: Numerals) => void;
   setTimeZone: (tz: string) => void;
   setDateFormat: (f: DateFormat) => void;
+  /** Apply institution defaults unless the user has an explicit preference. */
+  applyInstitutionDefaults: (d: InstitutionLocaleDefaults) => void;
+  /** Drop the personal preference and follow the institution defaults again. */
+  resetToInstitutionDefaults: () => void;
+}
+
+/** Legacy state (no flag) counts as explicit if it differs from the built-in defaults. */
+export function isExplicitChoice(s: Pick<LocaleState, 'explicit' | 'lang' | 'numerals' | 'timeZone' | 'dateFormat'>): boolean {
+  if (s.explicit !== undefined) return s.explicit;
+  return (
+    s.lang !== BUILTIN_DEFAULTS.lang ||
+    s.numerals !== BUILTIN_DEFAULTS.numerals ||
+    s.timeZone !== BUILTIN_DEFAULTS.timeZone ||
+    s.dateFormat !== BUILTIN_DEFAULTS.dateFormat
+  );
 }
 
 export const useLocaleStore = create<LocaleState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       lang: 'en',
       numerals: 'latn',
       timeZone: 'Asia/Dhaka',
       dateFormat: 'D MMM YYYY',
+      currency: 'BDT',
+      explicit: false,
+      institutionDefaults: null,
       setLang: (lang) => {
         document.documentElement.lang = lang;
         // Bangla UI reads most naturally with Bangla digits; users can still
         // switch numerals back independently.
-        set(lang === 'bn' ? { lang, numerals: 'beng' } : { lang, numerals: 'latn' });
+        set(lang === 'bn' ? { lang, numerals: 'beng', explicit: true } : { lang, numerals: 'latn', explicit: true });
       },
-      setNumerals: (numerals) => set({ numerals }),
-      setTimeZone: (timeZone) => set({ timeZone }),
-      setDateFormat: (dateFormat) => set({ dateFormat }),
+      setNumerals: (numerals) => set({ numerals, explicit: true }),
+      setTimeZone: (timeZone) => set({ timeZone, explicit: true }),
+      setDateFormat: (dateFormat) => set({ dateFormat, explicit: true }),
+      applyInstitutionDefaults: (d) => {
+        const state = get();
+        if (isExplicitChoice(state)) {
+          set({ institutionDefaults: d, currency: d.currency, explicit: true });
+          return;
+        }
+        document.documentElement.lang = d.lang;
+        set({
+          institutionDefaults: d,
+          currency: d.currency,
+          lang: d.lang,
+          numerals: d.numerals,
+          timeZone: d.timeZone,
+          dateFormat: d.dateFormat,
+          explicit: false,
+        });
+      },
+      resetToInstitutionDefaults: () => {
+        const d = get().institutionDefaults;
+        set({ explicit: false });
+        if (d) get().applyInstitutionDefaults(d);
+      },
     }),
     { name: 'locale-storage' }
   )
@@ -84,15 +143,16 @@ export function formatNumber(value: number | null | undefined, opts?: Intl.Numbe
   return new Intl.NumberFormat(numberLocale(lang, numerals), opts).format(value);
 }
 
-/** BDT with the ৳ symbol and lakh grouping, e.g. ৳1,23,456 or ৳১,২৩,৪৫৬ */
+/** Institution currency (BDT ৳ by default) with lakh grouping, e.g. ৳1,23,456 or ৳১,২৩,৪৫৬ */
 export function formatCurrency(value: number | string | null | undefined, opts?: { decimals?: number }): string {
   const n = typeof value === 'string' ? Number(value) : value;
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
   const decimals = opts?.decimals ?? (Number.isInteger(n) ? 0 : 2);
-  const { lang, numerals } = useLocaleStore.getState();
+  const { lang, numerals, currency } = useLocaleStore.getState();
   return new Intl.NumberFormat(numberLocale(lang, numerals), {
     style: 'currency',
-    currency: 'BDT',
+    // Institution currency (defaults to BDT) — set from /institution/settings.
+    currency: currency || 'BDT',
     currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,

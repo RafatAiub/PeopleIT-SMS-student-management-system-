@@ -24,6 +24,8 @@ import {
 import { sendTwoFactorCodeEmail } from './auth.mail';
 import type { LoginDtoType, RefreshDtoType, VerifyTwoFactorDtoType } from './auth.dto';
 import type { JwtPayload } from '../../middleware/auth.middleware';
+import { recordSessionMeta } from './sessions.service';
+import type { SessionContext } from './sessions.logic';
 
 // =============================================================================
 // Auth Service — Login, Refresh, Logout
@@ -130,7 +132,7 @@ function identifierWhere(identifier: string): { email: string } | { phone: strin
   return { email: identifier.trim().toLowerCase() };
 }
 
-export async function login(dto: LoginDtoType): Promise<LoginOutcome> {
+export async function login(dto: LoginDtoType, ctx?: SessionContext): Promise<LoginOutcome> {
   const where = identifierWhere(dto.identifier);
   const hasCode = Boolean(dto.institutionCode && dto.institutionCode.trim() !== '');
 
@@ -219,7 +221,7 @@ export async function login(dto: LoginDtoType): Promise<LoginOutcome> {
     return startTwoFactorChallenge(user);
   }
 
-  return issueSession(user);
+  return issueSession(user, ctx);
 }
 
 /**
@@ -258,19 +260,26 @@ function assertAccountUsable(user: { status: string; isActive: boolean; emailVer
 }
 
 /** Mint the access + refresh pair and record the login. */
-async function issueSession(user: {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  institutionId: string | null;
-}): Promise<AuthResult> {
+async function issueSession(
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    institutionId: string | null;
+  },
+  ctx?: SessionContext,
+): Promise<AuthResult> {
+  // The refresh-token row id doubles as the session id carried in the access
+  // token, so Settings → Security can flag "this device".
+  const sessionId = crypto.randomUUID();
   const jwtPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
     sub: user.id,
     institutionId: user.institutionId,
     role: user.role,
     email: user.email,
+    sessionId,
   };
 
   const accessToken = signAccessToken(jwtPayload);
@@ -280,15 +289,20 @@ async function issueSession(user: {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
+  // Narrow `select`s: RETURNING only pre-existing columns keeps login working
+  // even before the Wave C migration adds RefreshToken/User columns.
   await prisma.$transaction([
     prisma.refreshToken.create({
-      data: { userId: user.id, token: refreshTokenHash, expiresAt },
+      data: { id: sessionId, userId: user.id, token: refreshTokenHash, expiresAt },
+      select: { id: true },
     }),
     prisma.user.update({
       where: { id: user.id },
       data: { lastLoginAt: new Date() },
+      select: { id: true },
     }),
   ]);
+  await recordSessionMeta(sessionId, ctx);
 
   logger.info('User logged in', { userId: user.id, institutionId: user.institutionId });
 
@@ -403,7 +417,7 @@ async function startTwoFactorChallenge(user: {
  * Second step of login: exchange a challenge token plus a code for a session.
  * Accepts an emailed OTP, a TOTP code, or a one-time backup code.
  */
-export async function verifyTwoFactor(dto: VerifyTwoFactorDtoType): Promise<AuthResult> {
+export async function verifyTwoFactor(dto: VerifyTwoFactorDtoType, ctx?: SessionContext): Promise<AuthResult> {
   const userId = verifyChallengeToken(dto.challengeToken);
 
   const user = await prisma.user.findUnique({
@@ -432,7 +446,7 @@ export async function verifyTwoFactor(dto: VerifyTwoFactorDtoType): Promise<Auth
   }
 
   logger.info('2FA verification succeeded', { userId: user.id, method: user.twoFactorMethod });
-  return issueSession(user);
+  return issueSession(user, ctx);
 }
 
 async function tryEmailOtp(userId: string, code: string): Promise<boolean> {
@@ -495,7 +509,7 @@ async function tryBackupCode(userId: string, code: string): Promise<boolean> {
 
 // ── Refresh Token ──────────────────────────────────────────────────────────────
 
-export async function refreshToken(dto: RefreshDtoType): Promise<TokenPair> {
+export async function refreshToken(dto: RefreshDtoType, ctx?: SessionContext): Promise<TokenPair> {
   const tokenHash = hashToken(dto.refreshToken);
 
   const stored = await prisma.refreshToken.findUnique({
@@ -523,7 +537,7 @@ export async function refreshToken(dto: RefreshDtoType): Promise<TokenPair> {
 
   if (stored.expiresAt < new Date()) {
     // Cleanup expired token
-    await prisma.refreshToken.delete({ where: { id: stored.id } });
+    await prisma.refreshToken.delete({ where: { id: stored.id }, select: { id: true } });
     throw new UnauthorizedError('Refresh token has expired');
   }
 
@@ -536,26 +550,32 @@ export async function refreshToken(dto: RefreshDtoType): Promise<TokenPair> {
   const newRefreshTokenHash = hashToken(newRefreshToken);
   const newExpiresAt = new Date();
   newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+  const newSessionId = crypto.randomUUID();
 
   await prisma.$transaction([
     prisma.refreshToken.update({
       where: { id: stored.id },
       data: { isRevoked: true },
+      select: { id: true },
     }),
     prisma.refreshToken.create({
       data: {
+        id: newSessionId,
         userId: stored.userId,
         token: newRefreshTokenHash,
         expiresAt: newExpiresAt,
       },
+      select: { id: true },
     }),
   ]);
+  await recordSessionMeta(newSessionId, ctx);
 
   const jwtPayload: Omit<JwtPayload, 'iat' | 'exp'> = {
     sub: stored.user.id,
     institutionId: stored.user.institutionId,
     role: stored.user.role,
     email: stored.user.email,
+    sessionId: newSessionId,
   };
 
   const accessToken = signAccessToken(jwtPayload);
@@ -582,6 +602,7 @@ export async function logout(refreshTokenValue: string): Promise<void> {
     await prisma.refreshToken.update({
       where: { id: stored.id },
       data: { isRevoked: true },
+      select: { id: true },
     });
     logger.info('Refresh token revoked on logout');
   }

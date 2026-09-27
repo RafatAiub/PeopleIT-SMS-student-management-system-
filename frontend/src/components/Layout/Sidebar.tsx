@@ -261,6 +261,7 @@ const NAV_ENTRIES: NavEntry[] = [
       // Branches & Classes: Super Admin/Admin Full, everyone else Read
       { to: '/settings', label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       { to: '/settings/custom-fields', label: 'Custom Fields', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/onboarding/setup', label: 'Setup Wizard', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Inventory & assets: SA/A manage, Accountant read-only (enforced by API)
       { to: '/inventory', label: 'Inventory & Assets', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
     ],

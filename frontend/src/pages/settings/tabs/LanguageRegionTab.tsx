@@ -1,28 +1,19 @@
 import React from 'react';
-import { Globe2 } from 'lucide-react';
-import { Select, Alert } from '@/components/ui';
-import { useLocaleStore, type Lang, type Numerals, type DateFormat } from '@/i18n';
-
-// A short, curated list — this product's primary market is Bangladesh, with
-// a couple of neighbouring/common zones for institutions with overseas staff.
-const TIME_ZONES = [
-  { value: 'Asia/Dhaka', label: 'Dhaka (GMT+6)' },
-  { value: 'Asia/Kolkata', label: 'Kolkata (GMT+5:30)' },
-  { value: 'Asia/Kathmandu', label: 'Kathmandu (GMT+5:45)' },
-  { value: 'Asia/Yangon', label: 'Yangon (GMT+6:30)' },
-  { value: 'Asia/Dubai', label: 'Dubai (GMT+4)' },
-  { value: 'UTC', label: 'UTC' },
-];
-
-const DATE_FORMATS: { value: DateFormat; label: string }[] = [
-  { value: 'D MMM YYYY', label: '5 Jan 2026' },
-  { value: 'DD/MM/YYYY', label: '05/01/2026' },
-  { value: 'MM/DD/YYYY', label: '01/05/2026' },
-  { value: 'YYYY-MM-DD', label: '2026-01-05' },
-];
+import { Globe2, RotateCcw } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Select, Alert, Button } from '@/components/ui';
+import { useAuthStore } from '@/store/authStore';
+import { isExplicitChoice, useLocaleStore, useT, type Lang, type Numerals, type DateFormat } from '@/i18n';
+import { DATE_FORMATS, LANGUAGE_OPTIONS, NUMERAL_OPTIONS, TIME_ZONES } from './localeOptions';
+import { InstitutionDefaultsCard } from './InstitutionDefaultsCard';
 
 const LanguageRegionTab: React.FC = () => {
-  const { lang, numerals, timeZone, dateFormat, setLang, setNumerals, setTimeZone, setDateFormat } = useLocaleStore();
+  const t = useT();
+  const locale = useLocaleStore();
+  const { lang, numerals, timeZone, dateFormat, setLang, setNumerals, setTimeZone, setDateFormat } = locale;
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = (user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && Boolean(user?.institutionId);
+  const followsInstitution = !isExplicitChoice(locale);
 
   return (
     <div className="space-y-6">
@@ -31,8 +22,27 @@ const LanguageRegionTab: React.FC = () => {
         Language &amp; Region
       </h3>
 
-      <Alert tone="info">
-        Saved on this device. Institution-wide defaults need a backend setting (planned).
+      <Alert
+        tone="info"
+        action={
+          !followsInstitution && locale.institutionDefaults ? (
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={<RotateCcw className="w-4 h-4" />}
+              onClick={() => {
+                locale.resetToInstitutionDefaults();
+                toast.success(t('Now following your institution’s defaults'));
+              }}
+            >
+              {t('Use institution defaults')}
+            </Button>
+          ) : undefined
+        }
+      >
+        {followsInstitution
+          ? t('Your preferences follow your institution’s defaults. Changing anything below saves a personal preference on this device.')
+          : t('Your personal preference is saved on this device and overrides your institution’s defaults.')}
       </Alert>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -41,10 +51,7 @@ const LanguageRegionTab: React.FC = () => {
           label="Language"
           value={lang}
           onChange={(e) => setLang(e.target.value as Lang)}
-          options={[
-            { value: 'en', label: 'English' },
-            { value: 'bn', label: 'বাংলা (Bangla)' },
-          ]}
+          options={LANGUAGE_OPTIONS}
         />
 
         <Select
@@ -52,10 +59,7 @@ const LanguageRegionTab: React.FC = () => {
           label="Numerals"
           value={numerals}
           onChange={(e) => setNumerals(e.target.value as Numerals)}
-          options={[
-            { value: 'latn', label: '1, 2, 3 (Latin)' },
-            { value: 'beng', label: '১, ২, ৩ (Bangla)' },
-          ]}
+          options={NUMERAL_OPTIONS}
         />
 
         <Select
@@ -71,9 +75,11 @@ const LanguageRegionTab: React.FC = () => {
           label="Time zone"
           value={timeZone}
           onChange={(e) => setTimeZone(e.target.value)}
-          options={TIME_ZONES}
+          options={TIME_ZONES.some((z) => z.value === timeZone) ? TIME_ZONES : [...TIME_ZONES, { value: timeZone, label: timeZone }]}
         />
       </div>
+
+      {isAdmin && <InstitutionDefaultsCard />}
     </div>
   );
 };

@@ -100,6 +100,7 @@ const MyQrCode = lazyWithRetry(() => import('./pages/qr/MyQrCode'));
 const InventoryHub = lazyWithRetry(() => import('./pages/inventory/InventoryHub'));
 const AnalyticsHub = lazyWithRetry(() => import('./pages/analytics/AnalyticsHub'));
 const ScheduledReports = lazyWithRetry(() => import('./pages/analytics/ScheduledReports'));
+const SetupWizard = lazyWithRetry(() => import('./pages/onboarding/SetupWizard'));
 const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
 const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
@@ -618,6 +619,14 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
               <ScheduledReports />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/onboarding/setup" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SetupWizard />
             </DashboardLayout>
           </ProtectedRoute>
         } />

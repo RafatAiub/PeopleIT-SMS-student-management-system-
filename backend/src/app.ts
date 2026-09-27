@@ -51,6 +51,8 @@ import subjectAttendanceRouter from './modules/subject-attendance/subject-attend
 import qrCheckinRouter from './modules/qr-checkin/qr.routes';
 import payrollComponentsRouter from './modules/payroll-components/payroll-components.routes';
 import inventoryRouter from './modules/inventory/inventory.routes';
+import saasRouter from './modules/saas/saas.routes';
+import branchRouter from './modules/branches/branch.routes';
 
 const app = express();
 
@@ -264,6 +266,8 @@ app.use('/api/v1/subject-attendance', subjectAttendanceRouter);
 app.use('/api/v1/qr', qrCheckinRouter);
 app.use('/api/v1/payroll-components', payrollComponentsRouter);
 app.use('/api/v1/inventory', inventoryRouter);
+app.use('/api/v1/saas', saasRouter);
+app.use('/api/v1/branches', branchRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);

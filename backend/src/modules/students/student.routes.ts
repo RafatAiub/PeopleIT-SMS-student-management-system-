@@ -19,6 +19,7 @@ import {
   SelfUpdateStudentDto,
 } from './student.dto';
 import * as studentController from './student.controller';
+import { checkLimit } from '../saas/entitlements.middleware';
 
 const READ_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT, UserRole.LIBRARIAN];
 const WRITE_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER];
@@ -64,6 +65,8 @@ router.post(
   '/',
   requireRole(...WRITE_ROLES),
   validate({ body: CreateStudentDto }),
+  // Plan limit on active students — no plan / no configured limit ⇒ no-op.
+  checkLimit('students'),
   studentController.createStudent,
 );
 
@@ -127,6 +130,8 @@ router.post(
   '/:id/approve',
   requireRole(...WRITE_ROLES),
   validate({ params: StudentIdParamDto, body: ApproveStudentApplicationDto }),
+  // Approval turns a PENDING application into an ACTIVE student.
+  checkLimit('students'),
   studentController.approveStudentApplication,
 );
 

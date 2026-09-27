@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { SettingsTabNav, type SettingsNavItem } from './tabs/SettingsTabNav';
@@ -11,12 +12,16 @@ import NotificationsTab from './tabs/NotificationsTab';
 import LanguageRegionTab from './tabs/LanguageRegionTab';
 import SecuritySettings from './SecuritySettings';
 import GradingTab from './tabs/GradingTab';
+import PlanUsageTab from './tabs/PlanUsageTab';
+import BranchesTab from './tabs/BranchesTab';
 
-type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'locale';
+type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'locale' | 'plan' | 'branches';
 
 const Settings = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+  // Plan & branches are tenant-scoped — hidden for a Super Admin with no institution selected.
+  const hasTenant = isAdmin && Boolean(user?.institutionId);
 
   const items: SettingsNavItem[] = isAdmin
     ? [
@@ -27,6 +32,12 @@ const Settings = () => {
         { id: 'security', label: 'Security', icon: <ShieldCheck className="w-5 h-5" /> },
         { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" /> },
         { id: 'locale', label: 'Language & Region', icon: <Globe2 className="w-5 h-5" /> },
+        ...(hasTenant
+          ? [
+              { id: 'branches', label: 'Branches', icon: <Building2 className="w-5 h-5" /> },
+              { id: 'plan', label: 'Plan & usage', icon: <Gauge className="w-5 h-5" /> },
+            ]
+          : []),
       ]
     : [
         { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
@@ -35,7 +46,12 @@ const Settings = () => {
         { id: 'locale', label: 'Language & Region', icon: <Globe2 className="w-5 h-5" /> },
       ];
 
-  const [activeTab, setActiveTab] = useState<TabId>('profile');
+  // `?tab=` deep link (e.g. from the onboarding checklist); unknown ids fall back to profile.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState<TabId>(
+    items.some((i) => i.id === requestedTab) ? (requestedTab as TabId) : 'profile'
+  );
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -62,6 +78,8 @@ const Settings = () => {
             {activeTab === 'security' && <SecuritySettings />}
             {activeTab === 'notifications' && <NotificationsTab />}
             {activeTab === 'locale' && <LanguageRegionTab />}
+            {activeTab === 'branches' && hasTenant && <BranchesTab />}
+            {activeTab === 'plan' && hasTenant && <PlanUsageTab />}
           </div>
         </div>
       </div>

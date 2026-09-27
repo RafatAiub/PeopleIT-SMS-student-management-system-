@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { Modal, Button, Card, CardHeader, Input } from '@/components/ui';
 import { authApi, type TwoFactorStatus, type TotpSetup } from '../../api/auth.api';
 import { ChangePasswordCard } from './ChangePasswordCard';
+import { SessionsCard } from './SessionsCard';
 
 // =============================================================================
 // Settings → Security (per-user, not per-institution)
@@ -235,6 +236,8 @@ const SecuritySettings = () => {
       </Card>
 
       <ChangePasswordCard />
+
+      <SessionsCard />
 
       {/* ── TOTP setup: QR + confirmation ───────────────────────────────────── */}
       <Modal

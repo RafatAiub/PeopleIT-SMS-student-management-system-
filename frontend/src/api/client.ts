@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { selectedBranchFor } from '@/store/branchStore';
 import toast from 'react-hot-toast';
 
 const apiClient = axios.create({
@@ -37,6 +38,16 @@ apiClient.interceptors.request.use(
     const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Header branch switcher (admins only). Sent only when a branch is
+    // selected for the current institution; endpoints that don't opt in ignore it.
+    const auth = useAuthStore.getState();
+    const branchId =
+      auth.user && (auth.user.role === 'ADMIN' || auth.user.role === 'SUPER_ADMIN')
+        ? selectedBranchFor(auth.user.institutionId)
+        : null;
+    if (branchId && !config.headers['X-Branch-Id']) {
+      config.headers['X-Branch-Id'] = branchId;
     }
     return config;
   },

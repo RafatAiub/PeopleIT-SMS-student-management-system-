@@ -12,6 +12,7 @@ import { DashboardSkeleton } from '../../components/common/DashboardSkeleton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { PageHeader, StatCard, ErrorState } from '../../components/ui';
 import { formatCurrency, formatDate } from '../../i18n';
+import { OnboardingChecklist } from '../../components/saas';
 
 interface AdminOverview {
   counts: {
@@ -124,6 +125,9 @@ export const SchoolAdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader title={`Welcome, ${user?.firstName ?? ''}`} description="Here's an overview of your institution's performance, staff activity, and academic operations." />
+
+      {/* Setup checklist — renders nothing once dismissed or complete */}
+      <OnboardingChecklist />
 
       {/* KPI Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
