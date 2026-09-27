@@ -79,8 +79,8 @@ export const PrintInvoiceModal: React.FC<{ invoice: InvoiceDetail | null; onClos
               <tbody>
                 {invoice.payments.map((p) => (
                   <tr key={p.id} className="border-b border-slate-100">
-                    <td className="py-1.5">{formatDate(p.createdAt)}</td>
-                    <td className="py-1.5">{METHOD_LABEL[p.method] || p.method}</td>
+                    <td className="py-1.5">{formatDate(p.paidAt ?? p.createdAt ?? '')}</td>
+                    <td className="py-1.5">{METHOD_LABEL[p.method] || p.method}{p.receiptNo ? ` · ${p.receiptNo}` : ''}</td>
                     <td className="py-1.5 text-right">{formatCurrency(p.amount)}</td>
                   </tr>
                 ))}
@@ -97,6 +97,9 @@ export const PrintInvoiceModal: React.FC<{ invoice: InvoiceDetail | null; onClos
   );
 };
 
+// Demo payments are created by the backend with a "DEMO MODE" note.
+const isDemoPayment = (payment: Payment) => (payment.notes ?? '').startsWith('DEMO MODE');
+
 /** Print-only receipt for a single payment against an invoice. */
 export const PrintReceiptModal: React.FC<{ invoice: InvoiceDetail | null; payment: Payment | null; onClose: () => void }> = ({
   invoice,
@@ -107,8 +110,24 @@ export const PrintReceiptModal: React.FC<{ invoice: InvoiceDetail | null; paymen
   const student = invoice.student;
   return (
     <Modal isOpen onClose={onClose} size="lg">
-      <PrintLayout title="Money Receipt" reference={`Invoice No. ${invoice.invoiceNo}`} date={payment.createdAt} size="a5">
+      <PrintLayout
+        title="Money Receipt"
+        reference={payment.receiptNo ? `Receipt No. ${payment.receiptNo}` : `Invoice No. ${invoice.invoiceNo}`}
+        date={payment.paidAt ?? payment.createdAt}
+        size="a5"
+      >
         <div className="space-y-3">
+          {isDemoPayment(payment) && (
+            <p className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+              DEMO MODE — simulated online payment, no money was charged.
+            </p>
+          )}
+          {payment.receiptNo && (
+            <div className="flex justify-between">
+              <span className="text-slate-500">Invoice No.</span>
+              <span>{invoice.invoiceNo}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-slate-500">Received from</span>
             <span className="font-semibold">{student ? `${student.firstName} ${student.lastName}` : '—'}</span>

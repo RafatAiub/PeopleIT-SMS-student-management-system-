@@ -61,9 +61,16 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Line items</p>
             <div className="rounded-lg border border-slate-200 dark:border-white/10 divide-y divide-slate-100 dark:divide-white/5">
               {invoice.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between px-3 py-2.5 text-sm">
-                  <span className="text-slate-700 dark:text-slate-300">{item.description}</span>
-                  <span className="tabular-nums font-medium text-slate-900 dark:text-white">{formatCurrency(item.netAmount)}</span>
+                <div key={item.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <span className="text-slate-700 dark:text-slate-300 break-words">{item.description}</span>
+                    {Number(item.discount) > 0 && (
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(item.amount)} − {formatCurrency(item.discount)} discount
+                      </p>
+                    )}
+                  </div>
+                  <span className="tabular-nums font-medium text-slate-900 dark:text-white shrink-0">{formatCurrency(item.netAmount)}</span>
                 </div>
               ))}
             </div>
@@ -86,7 +93,8 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
                     <div className="min-w-0">
                       <p className="font-medium text-slate-900 dark:text-white tabular-nums">{formatCurrency(p.amount)}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {METHOD_LABEL[p.method] || p.method} &middot; {formatDate(p.createdAt)}
+                        {METHOD_LABEL[p.method] || p.method} &middot; {formatDate(p.paidAt ?? p.createdAt ?? '')}
+                        {p.receiptNo ? ` · ${p.receiptNo}` : ''}
                         {p.transactionRef ? ` · Ref: ${p.transactionRef}` : ''}
                       </p>
                     </div>

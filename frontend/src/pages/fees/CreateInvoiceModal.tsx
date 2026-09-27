@@ -5,6 +5,8 @@ import { Modal, Button, Input, Select } from '../../components/ui';
 import { formatCurrency } from '../../i18n';
 import { StudentPicker } from './StudentPicker';
 import { useCreateInvoice } from './hooks';
+import { StudentConcessionPreview } from './StudentConcessionPreview';
+import { AssignConcessionModal } from './ConcessionModals';
 import type { FeeCategory, StudentSearchResult } from './types';
 
 interface LineItemDraft {
@@ -27,9 +29,11 @@ interface CreateInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   categories: FeeCategory[];
+  /** SUPER_ADMIN/ADMIN only (backend requireRole on POST /fees/concessions/assignments). */
+  canAssignConcession?: boolean;
 }
 
-export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, onClose, categories }) => {
+export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, onClose, categories, canAssignConcession = false }) => {
   const createInvoice = useCreateInvoice();
   const activeCategories = categories.filter((c) => c.isActive !== false);
 
@@ -38,6 +42,8 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineItemDraft[]>([emptyLine()]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [applyConcessions, setApplyConcessions] = useState(true);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const reset = () => {
     setStudent(null);
@@ -45,6 +51,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
     setNotes('');
     setLines([emptyLine()]);
     setErrors({});
+    setApplyConcessions(true);
   };
 
   const handleClose = () => {
@@ -89,7 +96,8 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
       return;
     }
     try {
-      await createInvoice.mutateAsync({
+      const created = await createInvoice.mutateAsync({
+        applyConcessions,
         studentId: student!.id,
         dueDate: new Date(dueDate).toISOString(),
         notes: notes || undefined,
@@ -103,7 +111,12 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
           };
         }),
       });
-      toast.success('Invoice generated successfully');
+      const applied = (created as { appliedConcessions?: { name: string; amount: number }[] } | null)?.appliedConcessions ?? [];
+      toast.success(
+        applied.length > 0
+          ? `Invoice generated — concession discount ${formatCurrency(applied.reduce((s, a) => s + a.amount, 0))} applied`
+          : 'Invoice generated successfully',
+      );
       handleClose();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to generate invoice');
@@ -116,6 +129,16 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
         <div>
           <label className="field-label">Student *</label>
           <StudentPicker value={student} onChange={setStudent} error={errors.student} />
+          {student && (
+            <StudentConcessionPreview
+              studentId={student.id}
+              categories={categories}
+              lines={lines.map((l) => ({ feeCategoryId: l.feeCategoryId, amount: Number(l.amount) || 0, discount: Number(l.discount) || 0 }))}
+              apply={applyConcessions}
+              onApplyChange={setApplyConcessions}
+              onAssign={canAssignConcession ? () => setAssignOpen(true) : undefined}
+            />
+          )}
         </div>
 
         <div className="space-y-3">
@@ -201,7 +224,7 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
           />
           <div className="flex items-end justify-end sm:justify-start">
             <div className="rounded-lg bg-slate-50 dark:bg-white/5 px-4 py-2.5 w-full text-right sm:text-left">
-              <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Total{applyConcessions ? ' (before concessions)' : ''}</p>
               <p className="text-lg font-semibold text-slate-900 dark:text-white tabular-nums">{formatCurrency(total)}</p>
             </div>
           </div>
@@ -219,6 +242,9 @@ export const CreateInvoiceModal: React.FC<CreateInvoiceModalProps> = ({ isOpen, 
           <Button type="submit" isLoading={createInvoice.isPending}>Create invoice</Button>
         </div>
       </form>
+      {canAssignConcession && (
+        <AssignConcessionModal isOpen={assignOpen} student={student} onClose={() => setAssignOpen(false)} />
+      )}
     </Modal>
   );
 };

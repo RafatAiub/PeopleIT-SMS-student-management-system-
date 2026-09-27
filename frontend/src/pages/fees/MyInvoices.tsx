@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { PageHeader, Skeleton, ErrorState } from '../../components/ui';
+import { PaymentReturnBanner } from './PaymentReturnBanner';
 import { EmptyState } from '../../components/common/EmptyState';
 import { useAuthStore } from '../../store/authStore';
 import { formatCurrency } from '../../i18n';
@@ -14,6 +16,9 @@ import type { InvoiceListItem, Payment } from './types';
 const MyInvoices: React.FC = () => {
   const { user } = useAuthStore();
   const isGuardian = user?.role === 'GUARDIAN';
+  // Set by the backend's gateway redirect: /fees?payment=success|failed|cancelled|pending&txn=<id>
+  const [searchParams, setSearchParams] = useSearchParams();
+  const paymentReturn = searchParams.get('payment');
 
   const { data: children = [], isLoading: childrenLoading } = useLinkedChildren(isGuardian);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -74,6 +79,19 @@ const MyInvoices: React.FC = () => {
           ) : undefined
         }
       />
+
+      {paymentReturn && (
+        <PaymentReturnBanner
+          status={paymentReturn}
+          txnId={searchParams.get('txn')}
+          onDismiss={() => {
+            const next = new URLSearchParams(searchParams);
+            next.delete('payment');
+            next.delete('txn');
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      )}
 
       {isGuardian && (
         <ChildSwitcher

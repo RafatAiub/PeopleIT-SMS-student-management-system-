@@ -9,6 +9,7 @@ import { billingWorker } from './queues/billingWorker';
 import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
 import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holiday.scheduler';
+import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/overdue.scheduler';
 
 const server = http.createServer(app);
 
@@ -47,6 +48,8 @@ async function startServer() {
     // Keeps government holidays in step with the published Bangladesh
     // holiday calendar (next year's list, moon-sighting date changes).
     startHolidaySyncJob();
+    // Daily: mark past-due UNPAID/PARTIAL invoices OVERDUE (in-process, Redis-independent).
+    startFeeOverdueJob();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -78,6 +81,7 @@ async function gracefulShutdown(signal: string) {
   logger.info(`Received ${signal}. Shutting down server gracefully...`);
 
   stopHolidaySyncJob();
+  stopFeeOverdueJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

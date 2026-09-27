@@ -39,6 +39,7 @@ import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
 import { tenantBillingRouter, superAdminBillingRouter, gatewayBillingRouter } from './modules/billing/billing.routes';
+import { feeGatewayRouter } from './modules/fees/online/feeGateway.routes';
 
 const app = express();
 
@@ -68,7 +69,7 @@ app.use(
     // Origin header (e.g. sandbox.sslcommerz.com) by design and must not be
     // subject to the frontend origin allow-list, or every payment callback
     // gets silently blocked before it reaches the controller.
-    if (req.path.startsWith('/api/v1/billing/gateway/')) {
+    if (req.path.startsWith('/api/v1/billing/gateway/') || req.path.startsWith('/api/v1/fees/gateway/')) {
       callback(null, { origin: true, credentials: false });
       return;
     }
@@ -103,7 +104,12 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests from this IP, please try again after a minute' },
-  skip: () => env.NODE_ENV === 'test',
+  // Payment gateway callbacks come from a few gateway IPs in bursts; they are
+  // verified with the gateway before crediting, so they skip the IP limiter.
+  skip: (req) =>
+    env.NODE_ENV === 'test' ||
+    req.originalUrl.startsWith('/api/v1/billing/gateway/') ||
+    req.originalUrl.startsWith('/api/v1/fees/gateway/'),
 });
 app.use('/api/', globalLimiter);
 
@@ -226,6 +232,8 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
 app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
+// Public fee-gateway callbacks must be mounted before the authenticated fee router.
+app.use('/api/v1/fees/gateway', feeGatewayRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/attendance', attendanceRouter);

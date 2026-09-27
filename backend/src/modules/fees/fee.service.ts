@@ -1,9 +1,10 @@
 import { FeeRepository } from './fee.repository';
 import { generateInvoiceNumber, generateInvoiceNumberFromDbMax } from '../../utils/invoiceNumber';
 import { Prisma } from '@prisma/client';
-import { BkashGateway } from './gateways/bkash.stub';
-import { NagadGateway } from './gateways/nagad.stub';
-import { SslCommerzGateway } from './gateways/sslcommerz.stub';
+import * as onlinePayments from './online/onlinePayment.service';
+import { withReceiptNumber } from './receipts/receiptNumber';
+import { applyConcessions, type AppliedConcession } from './concessions/concession.calc';
+import { getActiveConcessionRulesSafe } from './concessions/concession.service';
 import { NotFoundError, BadRequestError, ConflictError } from '../../utils/AppError';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
@@ -20,7 +21,7 @@ export class FeeService {
   // for these roles. ADMIN/SUPER_ADMIN/ACCOUNTANT remain tenant-scoped only.
   // Throws NotFoundError (not ForbiddenError) to avoid confirming that a
   // given invoice id exists at all for another family.
-  private static async assertInvoiceAccess(
+  static async assertInvoiceAccess(
     tenantId: string,
     invoice: { studentId: string },
     requester: RequestingUser,
@@ -90,6 +91,7 @@ export class FeeService {
       studentId: string;
       dueDate: string;
       notes?: string;
+      applyConcessions?: boolean;
       items: {
         feeCategoryId: string;
         description: string;
@@ -118,11 +120,29 @@ export class FeeService {
       }
     }
 
-    // Sum net total amount
-    const totalAmount = data.items.reduce((sum, item) => {
-      const net = item.amount - item.discount;
-      return sum + net;
-    }, 0);
+    // Wave C: active student concessions are applied automatically as line
+    // discounts (on top of any manual discount), unless the caller opts out
+    // with applyConcessions: false. The lookup never throws — before the
+    // concession tables exist it simply yields no concessions.
+    let items = data.items;
+    let appliedConcessions: AppliedConcession[] = [];
+    if (data.applyConcessions !== false) {
+      const rules = (await getActiveConcessionRulesSafe(tenantId, [data.studentId])).get(data.studentId) ?? [];
+      if (rules.length > 0) {
+        const result = applyConcessions(data.items, rules);
+        items = result.items.map((i) => ({
+          feeCategoryId: i.feeCategoryId,
+          description: i.description,
+          amount: i.amount,
+          discount: i.discount,
+        }));
+        appliedConcessions = result.applied;
+      }
+    }
+
+    // Sum net total amount (in paisa to avoid float drift)
+    const totalAmount =
+      items.reduce((sum, item) => sum + Math.round(item.amount * 100) - Math.round(item.discount * 100), 0) / 100;
 
     if (totalAmount <= 0) {
       throw new BadRequestError('Invoice total amount must be greater than zero');
@@ -144,7 +164,7 @@ export class FeeService {
           dueDate: new Date(data.dueDate),
           notes: data.notes,
         },
-        data.items,
+        items,
       );
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -158,7 +178,7 @@ export class FeeService {
             dueDate: new Date(data.dueDate),
             notes: data.notes,
           },
-          data.items,
+          items,
         );
       } else {
         throw error;
@@ -212,7 +232,7 @@ export class FeeService {
       },
     });
 
-    return invoice;
+    return invoice ? { ...invoice, appliedConcessions } : invoice;
   }
 
   static async getInvoice(tenantId: string, id: string, requester: RequestingUser) {
@@ -272,39 +292,12 @@ export class FeeService {
   static async initiateOnlinePayment(
     tenantId: string,
     invoiceId: string,
-    method: 'BKASH' | 'NAGAD' | 'SSLCOMMERZ',
-    callbackUrl: string,
+    input: { method: string; callbackUrl?: string; amount?: number },
     requester: RequestingUser,
   ) {
-    const invoice = await FeeRepository.getInvoiceById(tenantId, invoiceId);
-    if (!invoice) throw new NotFoundError('Invoice not found');
-    await FeeService.assertInvoiceAccess(tenantId, invoice, requester);
-
-    const amount = Number(invoice.dueAmount);
-    if (amount <= 0 || invoice.status === 'PAID') {
-      throw new BadRequestError('Invoice is already fully paid');
-    }
-
-    let gatewayResult;
-    switch (method) {
-      case 'BKASH':
-        gatewayResult = await BkashGateway.initiatePayment(invoiceId, amount, callbackUrl);
-        break;
-      case 'NAGAD':
-        gatewayResult = await NagadGateway.initiatePayment(invoiceId, amount, callbackUrl);
-        break;
-      case 'SSLCOMMERZ':
-        gatewayResult = await SslCommerzGateway.initiatePayment(invoiceId, amount, callbackUrl);
-        break;
-      default:
-        throw new BadRequestError('Invalid online payment method');
-    }
-
-    if (!gatewayResult.success) {
-      throw new BadRequestError(gatewayResult.message);
-    }
-
-    return gatewayResult;
+    // Response keeps the original { success, message, paymentUrl, transactionId }
+    // fields and adds demo, txnId, checkoutPath, gateway, amount, invoiceNo.
+    return onlinePayments.initiateOnlinePayment(tenantId, invoiceId, input, requester, FeeService.assertInvoiceAccess);
   }
 
   static async recordOfflinePayment(
@@ -343,13 +336,18 @@ export class FeeService {
       throw new BadRequestError('Payment amount exceeds invoice due amount');
     }
 
-    const payment = await FeeRepository.recordPayment(tenantId, invoiceId, {
-      amount: data.amount,
-      method: data.method,
-      transactionRef: data.transactionRef,
-      notes: data.notes,
-      recordedBy: userId,
-    });
+    // Wave C: every payment gets a tenant-prefixed receipt number
+    // (RCP-<TAG>-YYYY-NNNNNN), retried on a unique collision.
+    const payment = await withReceiptNumber(tenantId, (receiptNo) =>
+      FeeRepository.recordPayment(tenantId, invoiceId, {
+        amount: data.amount,
+        method: data.method,
+        transactionRef: data.transactionRef,
+        notes: data.notes,
+        recordedBy: userId,
+        receiptNo,
+      }),
+    );
 
     // Receipt confirmation to the student's own login (see the note in
     // createInvoice on why the student, not a linked guardian, is the

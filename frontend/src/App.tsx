@@ -76,6 +76,7 @@ const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
 const DesignSystem = lazyWithRetry(() => import('./pages/design-system/DesignSystem'));
 const StudentDashboard = lazyWithRetry(() => import('./pages/dashboards/StudentDashboard'));
 const StudentProfile = lazyWithRetry(() => import('./pages/students/profile/StudentProfile'));
+const DemoCheckout = lazyWithRetry(() => import('./pages/fees/DemoCheckout'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
@@ -445,6 +446,15 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Demo payment checkout (only reachable when a gateway runs in demo mode) */}
+        <Route path="/fees/demo-checkout" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'GUARDIAN', 'STUDENT']}>
+            <DashboardLayout>
+              <DemoCheckout />
             </DashboardLayout>
           </ProtectedRoute>
         } />

@@ -14,6 +14,7 @@ import type {
   FeeCategory,
   CategorySummary,
   PaymentMethod,
+  InitiateOnlineResult,
 } from './types';
 
 export const FEES_INVOICES_KEY = 'fees-invoices';
@@ -71,6 +72,8 @@ export interface CreateInvoicePayload {
   dueDate: string; // ISO datetime
   notes?: string;
   items: CreateInvoiceItemInput[];
+  /** Wave C: apply the student's active concessions (backend default: true). */
+  applyConcessions?: boolean;
 }
 
 export function useCreateInvoice() {
@@ -205,7 +208,7 @@ export function useInitiateOnlinePayment() {
   return useMutation({
     mutationFn: async ({ invoiceId, method, callbackUrl }: { invoiceId: string; method: Exclude<PaymentMethod, 'CASH' | 'BANK_TRANSFER'>; callbackUrl: string }) => {
       const { data } = await apiClient.post(`/fees/invoices/${invoiceId}/payments/online`, { method, callbackUrl });
-      return data.data;
+      return data.data as InitiateOnlineResult;
     },
   });
 }
