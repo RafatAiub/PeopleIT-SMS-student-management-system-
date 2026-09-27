@@ -37,8 +37,11 @@ const STATUS_TABS = [
   { id: 'OVERDUE', label: 'Overdue' },
 ];
 
+// OVERDUE is now stored by a daily backend job; until it runs, a past-due
+// ISSUED loan is overdue too.
 const isOverdue = (issue: LibraryIssue) =>
-  issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
+  issue.status === 'OVERDUE' ||
+  (issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0));
 
 const MyLibraryIssues: React.FC = () => {
   const { user } = useAuthStore();
@@ -77,16 +80,13 @@ const MyLibraryIssues: React.FC = () => {
     setLoading(true);
     setError(false);
     try {
-      // OVERDUE isn't a real backend status — ask for ISSUED loans and
-      // narrow to overdue ones below, otherwise this silently returned
-      // zero rows (the DB only ever stores ISSUED/RETURNED).
+      // The server resolves each filter: OVERDUE = stored OVERDUE + past-due
+      // ISSUED loans; ISSUED = every loan still out (ISSUED + OVERDUE).
       const params: Record<string, any> = { pageSize: 100 };
-      if (statusFilter === 'OVERDUE') params.status = 'ISSUED';
-      else if (statusFilter) params.status = statusFilter;
+      if (statusFilter) params.status = statusFilter;
       if (isGuardian && selectedChildId) params.studentId = selectedChildId;
       const res = await apiClient.get('/library/me/issues', { params });
-      let list: LibraryIssue[] = res.data.data?.issues || res.data.data || [];
-      if (statusFilter === 'OVERDUE') list = list.filter(isOverdue);
+      const list: LibraryIssue[] = res.data.data?.issues || res.data.data || [];
       setIssues(list);
     } catch (err: any) {
       console.error('Failed to load library issues', err);

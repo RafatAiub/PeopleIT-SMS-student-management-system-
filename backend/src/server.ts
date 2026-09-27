@@ -10,6 +10,7 @@ import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
 import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holiday.scheduler';
 import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/overdue.scheduler';
+import { startLibraryOverdueJob, stopLibraryOverdueJob } from './modules/library/library.scheduler';
 
 const server = http.createServer(app);
 
@@ -50,6 +51,8 @@ async function startServer() {
     startHolidaySyncJob();
     // Daily: mark past-due UNPAID/PARTIAL invoices OVERDUE (in-process, Redis-independent).
     startFeeOverdueJob();
+    // Daily: mark past-due library loans OVERDUE (in-process, Redis-independent).
+    startLibraryOverdueJob();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -82,6 +85,7 @@ async function gracefulShutdown(signal: string) {
 
   stopHolidaySyncJob();
   stopFeeOverdueJob();
+  stopLibraryOverdueJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

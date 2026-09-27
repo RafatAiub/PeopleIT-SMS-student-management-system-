@@ -9,9 +9,11 @@ export interface BookFormValues {
   isbn: string;
   publisher: string;
   totalCopies: number;
+  category: string;
+  shelfLocation: string;
 }
 
-const EMPTY: BookFormValues = { title: '', author: '', isbn: '', publisher: '', totalCopies: 1 };
+const EMPTY: BookFormValues = { title: '', author: '', isbn: '', publisher: '', totalCopies: 1, category: '', shelfLocation: '' };
 
 interface LibraryBookModalProps {
   isOpen: boolean;
@@ -91,6 +93,22 @@ export const LibraryBookModal: React.FC<LibraryBookModalProps> = ({ isOpen, init
             helperText="Optional"
             value={values.publisher}
             onChange={(e) => setValues((p) => ({ ...p, publisher: e.target.value }))}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            label="Category"
+            helperText="Optional — e.g. Fiction, Science, Reference"
+            value={values.category}
+            onChange={(e) => setValues((p) => ({ ...p, category: e.target.value }))}
+            maxLength={100}
+          />
+          <Input
+            label="Shelf Location"
+            helperText="Optional — e.g. Rack B, Shelf 3"
+            value={values.shelfLocation}
+            onChange={(e) => setValues((p) => ({ ...p, shelfLocation: e.target.value }))}
+            maxLength={100}
           />
         </div>
         <Input

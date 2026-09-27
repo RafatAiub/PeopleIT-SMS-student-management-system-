@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Book, Plus, ArrowRightLeft } from 'lucide-react';
+import { Book, Plus, ArrowRightLeft, BarChart3, Settings2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
@@ -14,6 +14,8 @@ import { formatCurrency, formatDate } from '../../i18n';
 import { LibraryBookModal, BookFormValues } from './LibraryBookModal';
 import { IssueBookModal, IssueBookValues, BookOption } from './IssueBookModal';
 import { ReturnBookModal } from './ReturnBookModal';
+import { FineRuleModal } from './FineRuleModal';
+import { LibraryReports } from './LibraryReports';
 
 interface BookType {
   id: string;
@@ -23,6 +25,8 @@ interface BookType {
   publisher: string | null;
   totalCopies: number;
   availableCopies: number;
+  category?: string | null;
+  shelfLocation?: string | null;
 }
 
 interface IssueType {
@@ -44,15 +48,20 @@ const ISSUE_STATUS_OPTIONS = [
   { value: 'OVERDUE', label: 'Overdue' },
 ];
 
-// The DB only ever stores ISSUED/RETURNED — OVERDUE is a computed view over
-// currently-issued loans whose due date has passed. There is no backend
-// column to filter on, so selecting "Overdue" asks the server for ISSUED
-// loans and narrows to overdue ones on the client; the "Showing X-Y of Z"
-// count on that tab reflects the ISSUED total, not the overdue-only count.
-const isOverdue = (issue: IssueType) => issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
+// A daily backend job now stores OVERDUE on ISSUED loans past their due
+// date (library.scheduler.ts). Until it runs, a loan can still be ISSUED and
+// past due, so both count as overdue here. The server's status filter
+// matches: status=OVERDUE returns stored OVERDUE + past-due ISSUED loans, and
+// status=ISSUED returns every loan still out (ISSUED + OVERDUE), so the
+// "Showing X-Y of Z" count is accurate for every filter.
+const isOverdue = (issue: IssueType) =>
+  issue.status === 'OVERDUE' || (issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0));
+// OVERDUE loans are still out and can be returned exactly like ISSUED ones.
+const isOut = (issue: IssueType) => issue.status === 'ISSUED' || issue.status === 'OVERDUE';
 
 export default function LibraryManagement() {
-  const [activeTab, setActiveTab] = useState<'books' | 'issues'>('books');
+  const [activeTab, setActiveTab] = useState<'books' | 'issues' | 'reports'>('books');
+  const [fineRuleOpen, setFineRuleOpen] = useState(false);
 
   // ---- Books tab ----
   const booksParams = useTableParams(10);
@@ -115,9 +124,8 @@ export default function LibraryManagement() {
     setIssuesLoading(true);
     setIssuesError(false);
     try {
-      // OVERDUE isn't a real backend status — ask for ISSUED loans and
-      // narrow to overdue ones below.
-      const statusParam = issueStatusFilter === 'OVERDUE' ? 'ISSUED' : issueStatusFilter || undefined;
+      // The server resolves OVERDUE (stored + past-due ISSUED) itself.
+      const statusParam = issueStatusFilter || undefined;
       const res = await apiClient.get('/library/issues', {
         params: {
           page: issuesParams.params.page,
@@ -126,11 +134,8 @@ export default function LibraryManagement() {
           status: statusParam,
         },
       });
-      let list: IssueType[] = res.data.data?.issues || res.data.data || [];
+      const list: IssueType[] = res.data.data?.issues || res.data.data || [];
       const total = res.data.meta?.total || res.data.data?.total || 0;
-      if (issueStatusFilter === 'OVERDUE') {
-        list = list.filter(isOverdue);
-      }
       setIssues(list);
       setIssuesTotal(total);
     } catch (err: any) {
@@ -236,6 +241,8 @@ export default function LibraryManagement() {
     { key: 'author', header: 'Author', accessor: 'author' },
     { key: 'isbn', header: 'ISBN', render: (b) => b.isbn || '—', hideOnMobile: true },
     { key: 'publisher', header: 'Publisher', render: (b) => b.publisher || '—', hideOnMobile: true },
+    { key: 'category', header: 'Category', render: (b) => b.category || '—', exportValue: (b) => b.category || '', hideOnMobile: true },
+    { key: 'shelfLocation', header: 'Shelf', render: (b) => b.shelfLocation || '—', exportValue: (b) => b.shelfLocation || '', hideOnMobile: true },
     {
       key: 'copies',
       header: 'Copies',
@@ -306,7 +313,7 @@ export default function LibraryManagement() {
       header: 'Actions',
       sortable: false,
       render: (issue) =>
-        issue.status === 'ISSUED' ? (
+        isOut(issue) ? (
           <button
             type="button"
             onClick={() => setIssueToReturn(issue)}
@@ -326,15 +333,22 @@ export default function LibraryManagement() {
         title="Library Management"
         description="Manage the book catalog and track issues and returns."
         actions={
-          activeTab === 'books' ? (
-            <Button variant="gradient" onClick={openAddBook}>
-              <Plus className="w-4 h-4" /> Add Book
+          <>
+            <Button variant="outline" onClick={() => setFineRuleOpen(true)}>
+              <Settings2 className="w-4 h-4" /> Fine settings
             </Button>
-          ) : (
-            <Button variant="gradient" onClick={() => setIssueModalOpen(true)}>
-              <Plus className="w-4 h-4" /> Issue Book
-            </Button>
-          )
+            {activeTab === 'reports' ? (
+        <LibraryReports />
+      ) : activeTab === 'books' ? (
+              <Button variant="gradient" onClick={openAddBook}>
+                <Plus className="w-4 h-4" /> Add Book
+              </Button>
+            ) : activeTab === 'issues' ? (
+              <Button variant="gradient" onClick={() => setIssueModalOpen(true)}>
+                <Plus className="w-4 h-4" /> Issue Book
+              </Button>
+            ) : null}
+          </>
         }
       />
 
@@ -346,6 +360,7 @@ export default function LibraryManagement() {
         tabs={[
           { id: 'books', label: 'Books', icon: <Book className="w-4 h-4" /> },
           { id: 'issues', label: 'Issues', icon: <ArrowRightLeft className="w-4 h-4" /> },
+          { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
         ]}
       />
 
@@ -359,7 +374,7 @@ export default function LibraryManagement() {
             isLoading={booksLoading}
             serverSearch
             onSearch={booksParams.setSearch}
-            searchPlaceholder="Search books by title, author, or ISBN..."
+            searchPlaceholder="Search books by title, author, ISBN, category or shelf..."
             serverPagination
             totalCount={booksTotal}
             page={booksParams.params.page}
@@ -412,7 +427,7 @@ export default function LibraryManagement() {
         isOpen={bookModalOpen}
         isEditing={!!editingBook}
         isSaving={savingBook}
-        initialValues={editingBook ? { title: editingBook.title, author: editingBook.author, isbn: editingBook.isbn || '', publisher: editingBook.publisher || '', totalCopies: editingBook.totalCopies } : null}
+        initialValues={editingBook ? { title: editingBook.title, author: editingBook.author, isbn: editingBook.isbn || '', publisher: editingBook.publisher || '', totalCopies: editingBook.totalCopies, category: editingBook.category || '', shelfLocation: editingBook.shelfLocation || '' } : null}
         onClose={() => { setBookModalOpen(false); setEditingBook(null); }}
         onSubmit={handleSaveBook}
       />
@@ -428,10 +443,13 @@ export default function LibraryManagement() {
       <ReturnBookModal
         isOpen={!!issueToReturn}
         bookTitle={issueToReturn?.book?.title || 'this book'}
+        issueId={issueToReturn?.id ?? null}
         isSaving={returningBook}
         onClose={() => setIssueToReturn(null)}
         onSubmit={handleReturnBook}
       />
+
+      <FineRuleModal isOpen={fineRuleOpen} onClose={() => setFineRuleOpen(false)} />
 
       <ConfirmModal
         isOpen={!!bookToDelete}

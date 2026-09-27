@@ -97,6 +97,7 @@ const SubjectAttendancePage = lazyWithRetry(() => import('./pages/subject-attend
 const QrKioskPage = lazyWithRetry(() => import('./pages/qr/QrKioskPage'));
 const QrCodesPage = lazyWithRetry(() => import('./pages/qr/QrCodesPage'));
 const MyQrCode = lazyWithRetry(() => import('./pages/qr/MyQrCode'));
+const InventoryHub = lazyWithRetry(() => import('./pages/inventory/InventoryHub'));
 const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
 const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
@@ -591,6 +592,14 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT', 'STUDENT']}>
             <DashboardLayout>
               <MyQrCode />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/inventory" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <InventoryHub />
             </DashboardLayout>
           </ProtectedRoute>
         } />

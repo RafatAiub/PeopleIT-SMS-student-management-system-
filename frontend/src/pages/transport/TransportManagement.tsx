@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bus, Map, Users, Plus } from 'lucide-react';
+import { Bus, Map, Users, Plus, BarChart3, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
@@ -7,11 +7,16 @@ import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { Button } from '../../components/ui/Button';
-import { PageHeader, ErrorState, Tabs } from '../../components/ui';
-import { formatCurrency } from '../../i18n';
+import { PageHeader, ErrorState, Tabs, IncompleteNotice } from '../../components/ui';
+import { formatCurrency, formatDate } from '../../i18n';
+import { useAuthStore } from '../../store/authStore';
 import { VehicleModal, VehicleFormValues } from './VehicleModal';
 import { RouteModal, RouteFormValues } from './RouteModal';
-import { AssignmentModal, AssignmentFormValues, RouteOption, VehicleOption } from './AssignmentModal';
+import { AssignmentModal, AssignmentFormValues, AssignmentEditTarget, RouteOption, VehicleOption } from './AssignmentModal';
+import { RouteStopsDrawer } from './RouteStopsDrawer';
+import { VehicleLocationModal } from './VehicleLocationModal';
+import { RouteReport } from './RouteReport';
+import { TransportFees } from './TransportFees';
 import { StopsChips } from './StopsChips';
 
 interface VehicleType {
@@ -21,6 +26,10 @@ interface VehicleType {
   driverName: string;
   driverPhone: string | null;
   isActive: boolean;
+  // Wave C — last-known position (manual entry today; GPS device later).
+  lastLat?: number | null;
+  lastLng?: number | null;
+  lastLocationAt?: string | null;
 }
 
 interface RouteType {
@@ -33,10 +42,15 @@ interface RouteType {
   vehicleId: string | null;
   routeFare: number | string;
   isActive: boolean;
+  _count?: { stopPoints: number; assignments: number };
 }
 
 interface AssignmentType {
   id: string;
+  routeId: string;
+  vehicleId: string;
+  stopId?: string | null;
+  stop?: { id: string; name: string; sequence: number; pickupTime: string | null } | null;
   pickupPoint: string | null;
   assignedAt: string;
   student?: { firstName: string; lastName: string; studentId: string };
@@ -45,7 +59,15 @@ interface AssignmentType {
 }
 
 export default function TransportManagement() {
-  const [activeTab, setActiveTab] = useState<'vehicles' | 'routes' | 'assignments'>('vehicles');
+  const [activeTab, setActiveTab] = useState<'vehicles' | 'routes' | 'assignments' | 'reports' | 'fees'>('vehicles');
+  // Fee billing creates invoices — SUPER_ADMIN / ADMIN only (backend BILLING_ROLES).
+  const role = useAuthStore((st) => st.user?.role);
+  const canBill = role === 'SUPER_ADMIN' || role === 'ADMIN';
+  const [stopsRoute, setStopsRoute] = useState<RouteType | null>(null);
+  const [locationVehicle, setLocationVehicle] = useState<VehicleType | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentEditTarget | null>(null);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<AssignmentType | null>(null);
+  const [deletingAssignment, setDeletingAssignment] = useState(false);
 
   // ---- Vehicles ----
   const vehiclesParams = useTableParams(10);
@@ -260,18 +282,57 @@ export default function TransportManagement() {
     }
   };
 
-  // ---- Assignment create ----
+  // ---- Assignment create / edit ----
   const handleCreateAssignment = async (values: AssignmentFormValues) => {
     setSavingAssignment(true);
     try {
-      await apiClient.post('/transport/assignments', values);
-      toast.success('Assignment created successfully');
+      if (editingAssignment) {
+        await apiClient.put(`/transport/assignments/${editingAssignment.id}`, {
+          routeId: values.routeId,
+          vehicleId: values.vehicleId,
+          pickupPoint: values.pickupPoint || null,
+          stopId: values.stopId || null,
+        });
+        toast.success('Assignment updated successfully');
+      } else {
+        const { stopId, ...rest } = values;
+        await apiClient.post('/transport/assignments', { ...rest, ...(stopId ? { stopId } : {}) });
+        toast.success('Assignment created successfully');
+      }
       setAssignmentModalOpen(false);
+      setEditingAssignment(null);
       fetchAssignments();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create assignment');
+      toast.error(err.response?.data?.message || `Failed to ${editingAssignment ? 'update' : 'create'} assignment`);
     } finally {
       setSavingAssignment(false);
+    }
+  };
+
+  const openEditAssignment = (a: AssignmentType) => {
+    setEditingAssignment({
+      id: a.id,
+      studentName: `${a.student?.firstName || ''} ${a.student?.lastName || ''}`.trim(),
+      routeId: a.routeId,
+      vehicleId: a.vehicleId,
+      pickupPoint: a.pickupPoint,
+      stopId: a.stopId ?? null,
+    });
+    setAssignmentModalOpen(true);
+  };
+
+  const handleConfirmDeleteAssignment = async () => {
+    if (!assignmentToDelete) return;
+    setDeletingAssignment(true);
+    try {
+      await apiClient.delete(`/transport/assignments/${assignmentToDelete.id}`);
+      toast.success('Assignment removed');
+      setAssignmentToDelete(null);
+      fetchAssignments();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to remove assignment');
+    } finally {
+      setDeletingAssignment(false);
     }
   };
 
@@ -286,6 +347,28 @@ export default function TransportManagement() {
       sortable: false,
       render: (v) => <StatusBadge status={v.isActive !== false ? 'ACTIVE' : 'INACTIVE'} />,
     },
+    {
+      key: 'lastLocation',
+      header: 'Last Location',
+      sortable: false,
+      hideOnMobile: true,
+      exportValue: (v) => (v.lastLat != null && v.lastLng != null ? `${v.lastLat},${v.lastLng} @ ${v.lastLocationAt ?? ''}` : ''),
+      render: (v) =>
+        v.lastLat != null && v.lastLng != null ? (
+          <a
+            href={`https://www.openstreetmap.org/?mlat=${v.lastLat}&mlon=${v.lastLng}#map=16/${v.lastLat}/${v.lastLng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-700 dark:text-blue-300 hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {v.lastLat.toFixed(4)}, {v.lastLng.toFixed(4)}
+            <span className="block text-xs text-slate-500 dark:text-slate-400">{v.lastLocationAt ? formatDate(v.lastLocationAt, true) : ''}</span>
+          </a>
+        ) : (
+          <span className="text-slate-400 text-sm">Never reported</span>
+        ),
+    },
   ];
 
   const routeColumns: Column<RouteType>[] = [
@@ -295,7 +378,14 @@ export default function TransportManagement() {
       header: 'Stops',
       sortable: false,
       exportValue: (r) => r.stops,
-      render: (r) => <StopsChips stops={r.stops} />,
+      render: (r) =>
+        (r._count?.stopPoints ?? 0) > 0 ? (
+          <button type="button" onClick={(e) => { e.stopPropagation(); setStopsRoute(r); }} className="text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline">
+            {r._count!.stopPoints} structured stop{r._count!.stopPoints === 1 ? '' : 's'}
+          </button>
+        ) : (
+          <StopsChips stops={r.stops} />
+        ),
     },
     {
       key: 'vehicle',
@@ -330,6 +420,7 @@ export default function TransportManagement() {
     { key: 'studentId', header: 'Student ID', render: (a) => a.student?.studentId || '—', hideOnMobile: true },
     { key: 'routeName', header: 'Route', render: (a) => a.route?.name || '—', exportValue: (a) => a.route?.name || '' },
     { key: 'vehicle', header: 'Vehicle', render: (a) => a.vehicle?.registrationNumber || '—' },
+    { key: 'stop', header: 'Stop', render: (a) => (a.stop ? `${a.stop.sequence}. ${a.stop.name}` : '—'), exportValue: (a) => a.stop?.name || '' },
     { key: 'pickupPoint', header: 'Pickup Point', render: (a) => a.pickupPoint || '—', hideOnMobile: true },
     {
       key: 'fee',
@@ -350,9 +441,9 @@ export default function TransportManagement() {
             <Button variant="gradient" onClick={openAddVehicle}><Plus className="w-4 h-4" /> Add Vehicle</Button>
           ) : activeTab === 'routes' ? (
             <Button variant="gradient" onClick={openAddRoute}><Plus className="w-4 h-4" /> Add Route</Button>
-          ) : (
-            <Button variant="gradient" onClick={() => setAssignmentModalOpen(true)}><Plus className="w-4 h-4" /> Assign Student</Button>
-          )
+          ) : activeTab === 'assignments' ? (
+            <Button variant="gradient" onClick={() => { setEditingAssignment(null); setAssignmentModalOpen(true); }}><Plus className="w-4 h-4" /> Assign Student</Button>
+          ) : null
         }
       />
 
@@ -365,13 +456,24 @@ export default function TransportManagement() {
           { id: 'vehicles', label: 'Vehicles', icon: <Bus className="w-4 h-4" /> },
           { id: 'routes', label: 'Routes', icon: <Map className="w-4 h-4" /> },
           { id: 'assignments', label: 'Assignments', icon: <Users className="w-4 h-4" /> },
+          { id: 'reports', label: 'Route Report', icon: <BarChart3 className="w-4 h-4" /> },
+          ...(canBill ? [{ id: 'fees', label: 'Transport Fees', icon: <Receipt className="w-4 h-4" /> }] : []),
         ]}
       />
 
-      {activeTab === 'vehicles' ? (
+      {activeTab === 'reports' ? (
+        <RouteReport />
+      ) : activeTab === 'fees' && canBill ? (
+        <TransportFees routes={allRoutes} />
+      ) : activeTab === 'vehicles' ? (
         vehiclesError && vehicles.length === 0 ? (
           <ErrorState onRetry={fetchVehicles} message="Could not load vehicles." />
         ) : (
+          <div className="space-y-3">
+          <IncompleteNotice
+            title="Live GPS tracking"
+            reason="Live GPS tracking needs a GPS device integration (planned). Until then, each vehicle shows its last-known location, updated manually with “Update location”."
+          />
           <DataTable
             data={vehicles}
             columns={vehicleColumns}
@@ -391,9 +493,11 @@ export default function TransportManagement() {
             emptyAction={<Button variant="gradient" size="sm" onClick={openAddVehicle}><Plus className="w-4 h-4" /> Add Vehicle</Button>}
             actions={[
               { label: 'Edit', icon: 'edit', onClick: openEditVehicle },
+              { label: 'Update location', onClick: (v) => setLocationVehicle(v) },
               { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (v) => setVehicleToDelete(v) },
             ]}
           />
+          </div>
         )
       ) : activeTab === 'routes' ? (
         routesError && routes.length === 0 ? (
@@ -417,6 +521,7 @@ export default function TransportManagement() {
             emptyDescription="Add a route to start assigning vehicles and students."
             emptyAction={<Button variant="gradient" size="sm" onClick={openAddRoute}><Plus className="w-4 h-4" /> Add Route</Button>}
             actions={[
+              { label: 'Stops', icon: 'view', onClick: (r) => setStopsRoute(r) },
               { label: 'Edit', icon: 'edit', onClick: openEditRoute },
               { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (r) => setRouteToDelete(r) },
             ]}
@@ -441,7 +546,11 @@ export default function TransportManagement() {
           exportFileName="transport-assignments"
           emptyTitle="No student assignments yet"
           emptyDescription="Assign students to a transport route to see them listed here."
-          emptyAction={<Button variant="gradient" size="sm" onClick={() => setAssignmentModalOpen(true)}><Plus className="w-4 h-4" /> Assign Student</Button>}
+          emptyAction={<Button variant="gradient" size="sm" onClick={() => { setEditingAssignment(null); setAssignmentModalOpen(true); }}><Plus className="w-4 h-4" /> Assign Student</Button>}
+          actions={[
+            { label: 'Edit', icon: 'edit', onClick: openEditAssignment },
+            { label: 'Remove', icon: 'delete', variant: 'danger', onClick: (a) => setAssignmentToDelete(a) },
+          ]}
         />
       )}
 
@@ -482,8 +591,24 @@ export default function TransportManagement() {
         routes={allRoutes}
         vehicles={allVehicles}
         isSaving={savingAssignment}
-        onClose={() => setAssignmentModalOpen(false)}
+        editing={editingAssignment}
+        onClose={() => { setAssignmentModalOpen(false); setEditingAssignment(null); }}
         onSubmit={handleCreateAssignment}
+      />
+
+      <RouteStopsDrawer route={stopsRoute} onClose={() => setStopsRoute(null)} onChanged={fetchRoutes} />
+
+      <VehicleLocationModal vehicle={locationVehicle} onClose={() => setLocationVehicle(null)} onSaved={fetchVehicles} />
+
+      <ConfirmModal
+        isOpen={!!assignmentToDelete}
+        title="Remove assignment"
+        message={`Remove ${`${assignmentToDelete?.student?.firstName || ''} ${assignmentToDelete?.student?.lastName || ''}`.trim() || 'this student'} from transport? Existing invoices are not affected.`}
+        confirmLabel="Remove"
+        variant="danger"
+        isLoading={deletingAssignment}
+        onConfirm={handleConfirmDeleteAssignment}
+        onCancel={() => setAssignmentToDelete(null)}
       />
 
       <ConfirmModal

@@ -12,6 +12,8 @@ interface TransportAssignment {
   id: string;
   studentId: string;
   pickupPoint: string | null;
+  // Wave C — structured stop, when staff picked one.
+  stop?: { name: string; sequence: number; pickupTime: string | null; dropTime: string | null } | null;
   assignedAt: string;
   route: {
     id: string;
@@ -166,6 +168,13 @@ const MyTransportAssignment: React.FC = () => {
               {assignment.pickupPoint && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
                   <MapPin className="w-3 h-3" /> Pickup at {assignment.pickupPoint}
+                </p>
+              )}
+              {assignment.stop && (
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3" /> Stop {assignment.stop.sequence}: {assignment.stop.name}
+                  {assignment.stop.pickupTime ? ` · pickup ${assignment.stop.pickupTime}` : ''}
+                  {assignment.stop.dropTime ? ` · drop ${assignment.stop.dropTime}` : ''}
                 </p>
               )}
             </div>

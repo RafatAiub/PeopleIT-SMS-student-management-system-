@@ -110,3 +110,58 @@ export async function getMyAssignment(req: Request, res: Response, next: NextFun
     next(error);
   }
 }
+
+// ── Wave C ──────────────────────────────────────────────────────────────────
+type Handler = (req: Request) => Promise<unknown>;
+function handle(fn: Handler, message: string, status = 200) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      successResponse(res, await fn(req), message, status);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+export const updateAssignment = handle(
+  (req) => transportService.updateAssignment(req.tenantId!, req.params.id, req.body),
+  'Assignment updated successfully',
+);
+export const deleteAssignment = handle(
+  (req) => transportService.deleteAssignment(req.tenantId!, req.params.id),
+  'Assignment removed successfully',
+);
+
+export const listStops = handle((req) => transportService.listStops(req.tenantId!, req.params.id), 'Stops fetched successfully');
+export const createStop = handle(
+  (req) => transportService.createStop(req.tenantId!, req.params.id, req.body),
+  'Stop created successfully',
+  201,
+);
+export const reorderStops = handle(
+  (req) => transportService.reorderStops(req.tenantId!, req.params.id, req.body.stopIds),
+  'Stops reordered successfully',
+);
+export const updateStop = handle(
+  (req) => transportService.updateStop(req.tenantId!, req.params.stopId, req.body),
+  'Stop updated successfully',
+);
+export const deleteStop = handle((req) => transportService.deleteStop(req.tenantId!, req.params.stopId), 'Stop deleted successfully');
+
+export const updateVehicleLocation = handle(
+  (req) => transportService.updateVehicleLocation(req.tenantId!, req.params.id, req.body),
+  'Vehicle location updated',
+);
+export const getLivePositions = handle((req) => transportService.getLivePositions(req.tenantId!), 'Vehicle positions fetched');
+
+export const getRouteReport = handle((req) => transportService.getRouteReport(req.tenantId!), 'Route report generated');
+
+export const previewTransportFees = handle(
+  (req) => transportService.previewTransportFees(req.tenantId!, req.body),
+  'Transport fee preview generated',
+);
+export const generateTransportFees = handle(
+  (req) => transportService.generateTransportFees(req.tenantId!, req.body),
+  'Transport fees generated',
+  201,
+);

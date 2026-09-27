@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as libraryService from './library.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
+import type { LibraryReportQuery } from './library.dto';
 
 export async function createBook(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -80,6 +81,47 @@ export async function getMyIssues(req: Request, res: Response, next: NextFunctio
       req.query as any,
     );
     paginatedResponse(res, issues, total, page, pageSize, 'Issues fetched successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ── Wave C ──────────────────────────────────────────────────────────────────
+export async function getFineRule(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    successResponse(res, await libraryService.getFineRule(req.tenantId!), 'Fine rule fetched');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function saveFineRule(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    successResponse(res, await libraryService.saveFineRule(req.tenantId!, req.body), 'Fine rule saved');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getFinePreview(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    successResponse(res, await libraryService.getFinePreview(req.tenantId!, req.params.issueId), 'Fine preview calculated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function runOverdueSweep(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    successResponse(res, await libraryService.markOverdueLoans({ institutionId: req.tenantId! }), 'Overdue loans updated');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getReports(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    successResponse(res, await libraryService.getReports(req.tenantId!, req.query as unknown as LibraryReportQuery), 'Library reports generated');
   } catch (error) {
     next(error);
   }

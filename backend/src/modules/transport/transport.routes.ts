@@ -11,6 +11,14 @@ import {
   CreateRouteDto,
   UpdateRouteDto,
   CreateAssignmentDto,
+  UpdateAssignmentDto,
+  StopFieldsDto,
+  UpdateStopDto,
+  ReorderStopsDto,
+  IdParamDto,
+  StopIdParamDto,
+  VehicleLocationDto,
+  TransportFeeDto,
 } from './transport.dto';
 import * as transportController from './transport.controller';
 
@@ -37,5 +45,30 @@ router.delete('/routes/:id', STAFF_ROLES, transportController.deleteRoute);
 
 router.post('/assignments', STAFF_ROLES, validate({ body: CreateAssignmentDto }), transportController.createAssignment);
 router.get('/assignments', STAFF_ROLES, transportController.getAssignments);
+
+// ── Wave C ──────────────────────────────────────────────────────────────────
+// Billing creates invoices, so it is SUPER_ADMIN / ADMIN only (not
+// TRANSPORT_OFFICER).
+const BILLING_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN);
+const idParam = validate({ params: IdParamDto });
+const stopParam = validate({ params: StopIdParamDto });
+
+router.put('/assignments/:id', STAFF_ROLES, idParam, validate({ body: UpdateAssignmentDto }), transportController.updateAssignment);
+router.delete('/assignments/:id', STAFF_ROLES, idParam, transportController.deleteAssignment);
+
+router.get('/routes/:id/stops', STAFF_ROLES, idParam, transportController.listStops);
+router.post('/routes/:id/stops', STAFF_ROLES, idParam, validate({ body: StopFieldsDto }), transportController.createStop);
+router.put('/routes/:id/stops/order', STAFF_ROLES, idParam, validate({ body: ReorderStopsDto }), transportController.reorderStops);
+router.put('/stops/:stopId', STAFF_ROLES, stopParam, validate({ body: UpdateStopDto }), transportController.updateStop);
+router.delete('/stops/:stopId', STAFF_ROLES, stopParam, transportController.deleteStop);
+
+// GPS-device readiness: last-known position per vehicle.
+router.get('/vehicles/live', STAFF_ROLES, transportController.getLivePositions);
+router.post('/vehicles/:id/location', STAFF_ROLES, idParam, validate({ body: VehicleLocationDto }), transportController.updateVehicleLocation);
+
+router.get('/reports/routes', STAFF_ROLES, transportController.getRouteReport);
+
+router.post('/fees/preview', BILLING_ROLES, validate({ body: TransportFeeDto }), transportController.previewTransportFees);
+router.post('/fees/generate', BILLING_ROLES, validate({ body: TransportFeeDto }), transportController.generateTransportFees);
 
 export default router;

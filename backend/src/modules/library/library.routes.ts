@@ -5,7 +5,15 @@ import { validate } from '../../middleware/validate.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { UserRole } from '@prisma/client';
-import { CreateLibraryBookDto, UpdateLibraryBookDto, IssueBookDto, ReturnBookDto } from './library.dto';
+import {
+  CreateLibraryBookDto,
+  UpdateLibraryBookDto,
+  IssueBookDto,
+  ReturnBookDto,
+  FineRuleDto,
+  IssueIdParamDto,
+  LibraryReportQueryDto,
+} from './library.dto';
 import * as libraryController from './library.controller';
 
 const router = Router();
@@ -26,5 +34,12 @@ router.delete('/books/:id', STAFF_ROLES, libraryController.deleteBook);
 router.post('/issues', STAFF_ROLES, validate({ body: IssueBookDto }), libraryController.issueBook);
 router.get('/issues', STAFF_ROLES, libraryController.getIssues);
 router.put('/issues/:issueId/return', STAFF_ROLES, validate({ body: ReturnBookDto }), libraryController.returnBook);
+
+// Wave C — fine rule, fine preview, on-demand overdue sweep, reports.
+router.get('/fine-rule', STAFF_ROLES, libraryController.getFineRule);
+router.put('/fine-rule', STAFF_ROLES, validate({ body: FineRuleDto }), libraryController.saveFineRule);
+router.get('/issues/:issueId/fine-preview', STAFF_ROLES, validate({ params: IssueIdParamDto }), libraryController.getFinePreview);
+router.post('/overdue/run', STAFF_ROLES, libraryController.runOverdueSweep);
+router.get('/reports', STAFF_ROLES, validate({ query: LibraryReportQueryDto }), libraryController.getReports);
 
 export default router;
