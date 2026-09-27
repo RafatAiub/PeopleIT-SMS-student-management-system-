@@ -66,4 +66,8 @@ The regenerated Prisma client reads the new columns on every query of these mode
 - **Library:** book and loan lists (`LibraryBook.category`, `shelfLocation`).
 - **Transport:** assignment and vehicle lists (`TransportAssignment.stopId`, `TransportVehicle.lastLat`).
 
+- **Anything that reads a whole `User` row without a `select`** (for example parts of user management and profile screens), because of the new `User.branchId` column. Login, 2FA and token refresh were narrowed so they keep working, but **treat the migration as mandatory before this release**, not optional.
+
+**Plan limits:** tenants whose plan already sets `studentCap` will be capped for the first time (HTTP 402 on new or approved students over the cap). Review plan caps before deploying.
+
 Attendance saving, marks entry, the monthly attendance summary and the three original AI endpoints keep working without the migration.
