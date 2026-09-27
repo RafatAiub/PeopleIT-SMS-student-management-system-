@@ -53,6 +53,12 @@ import payrollComponentsRouter from './modules/payroll-components/payroll-compon
 import inventoryRouter from './modules/inventory/inventory.routes';
 import saasRouter from './modules/saas/saas.routes';
 import branchRouter from './modules/branches/branch.routes';
+import { apiKeysRouter, publicApiRouter } from './modules/api-keys/apiKeys.routes';
+import webhooksRouter from './modules/webhooks/webhooks.routes';
+import supportRouter from './modules/support/support.routes';
+import dataExportRouter from './modules/data-export/dataExport.routes';
+import usageRouter from './modules/usage/usage.routes';
+import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
 
@@ -268,6 +274,12 @@ app.use('/api/v1/payroll-components', payrollComponentsRouter);
 app.use('/api/v1/inventory', inventoryRouter);
 app.use('/api/v1/saas', saasRouter);
 app.use('/api/v1/branches', branchRouter);
+app.use('/api/v1/api-keys', apiKeysRouter);
+app.use('/api/v1/public-api', publicApiRouter);
+app.use('/api/v1/webhooks', webhooksRouter);
+app.use('/api/v1/support', supportRouter);
+app.use('/api/v1/data-export', dataExportRouter);
+app.use('/api/v1/usage', usageRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);
@@ -305,6 +317,8 @@ app.get('/health', (_req, res) => {
 });
 
 // Error handling middleware (must be registered last)
+// Optional Sentry reporting — a no-op unless SENTRY_DSN is set (see docs/redesign/OPERATIONS.md).
+app.use(errorTrackingHandler);
 app.use(globalErrorHandler);
 
 export default app;

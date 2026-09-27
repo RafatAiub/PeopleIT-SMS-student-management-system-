@@ -1,3 +1,5 @@
+import { initErrorTracking } from './config/errorTracking';
+initErrorTracking();
 import http from 'http';
 import { app } from './app';
 import { env } from './config/env';
@@ -12,6 +14,7 @@ import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holi
 import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/overdue.scheduler';
 import { startLibraryOverdueJob, stopLibraryOverdueJob } from './modules/library/library.scheduler';
 import { startReportScheduleJob, stopReportScheduleJob } from './modules/reports/reportSchedule.scheduler';
+import { startDataExportJob, stopDataExportJob } from './modules/data-export/dataExport.scheduler';
 
 const server = http.createServer(app);
 
@@ -56,6 +59,8 @@ async function startServer() {
     startLibraryOverdueJob();
     // Every 5 min: email due scheduled reports (demo/log-only when SMTP is not configured).
     startReportScheduleJob();
+    // Builds requested tenant data exports and deletes expired ones.
+    startDataExportJob();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -90,6 +95,7 @@ async function gracefulShutdown(signal: string) {
   stopFeeOverdueJob();
   stopLibraryOverdueJob();
   stopReportScheduleJob();
+  stopDataExportJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

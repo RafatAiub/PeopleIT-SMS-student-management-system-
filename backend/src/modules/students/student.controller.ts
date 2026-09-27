@@ -5,6 +5,7 @@ import {
   paginatedResponse,
 } from '../../utils/response';
 import { NotFoundError } from '../../utils/AppError';
+import { emitStudentCreatedWebhook } from '../webhooks/webhooks.hooks';
 
 // =============================================================================
 // Student Controller — thin layer, delegates to student.service.ts
@@ -53,6 +54,7 @@ export async function createStudent(
   try {
     const student = await studentService.createStudent(req.tenantId!, req.body);
     successResponse(res, student, 'Student created successfully', 201);
+    emitStudentCreatedWebhook(req.tenantId!, student);
   } catch (error) {
     next(error);
   }

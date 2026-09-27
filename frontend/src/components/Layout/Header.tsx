@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   Menu, Bell, Sun, Moon, Monitor, Info, CheckCircle2, AlertTriangle, AlertCircle,
   Search, Languages, Settings as SettingsIcon, LogOut, Keyboard, Building2, CreditCard as IdCard,
+  LifeBuoy, Sparkles,
 } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import {
@@ -318,6 +319,8 @@ export const Header: React.FC = () => {
             items: [
               ...(canSeeSettings ? [{ id: 'settings', label: t('Settings'), icon: <SettingsIcon />, onSelect: () => navigate('/settings') }] : []),
               ...(canSeeIdCard ? [{ id: 'idcard', label: t('My ID Card'), icon: <IdCard />, onSelect: () => navigate('/id-cards/mine') }] : []),
+              { id: 'help', label: t('Help centre'), icon: <LifeBuoy />, onSelect: () => navigate('/help') },
+              { id: 'whats-new', label: t("What's new"), icon: <Sparkles />, onSelect: () => navigate('/help/whats-new') },
               {
                 id: 'lang',
                 label: `${t('Language')}: ${lang === 'en' ? 'English' : 'বাংলা'}`,

@@ -6,6 +6,7 @@ import { getPaymentReceipt } from './receipts/receipt.service';
 import * as bulkService from './bulk/bulk.service';
 import { markOverdueInvoices } from './overdue/overdue.service';
 import { listReconciliation, type ReconciliationQuery } from './reconciliation/reconciliation.service';
+import { emitPaymentReceivedWebhook } from '../webhooks/webhooks.hooks';
 
 export class FeeController {
   static async createCategory(req: Request, res: Response, next: NextFunction) {
@@ -94,7 +95,9 @@ export class FeeController {
         req.user!.sub,
         req.body
       );
-      return successResponse(res, payment, 'Offline payment recorded successfully', 201);
+      successResponse(res, payment, 'Offline payment recorded successfully', 201);
+      emitPaymentReceivedWebhook(req.tenantId!, req.params.id, payment);
+      return;
     } catch (error) {
       next(error);
     }

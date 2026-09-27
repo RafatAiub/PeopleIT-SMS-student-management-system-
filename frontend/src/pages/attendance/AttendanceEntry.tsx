@@ -10,6 +10,8 @@ import { PageHeader, Select, Button, Skeleton, Tabs } from '../../components/ui'
 import { AttendanceMonthlySummary } from './AttendanceMonthlySummary';
 import { ErrorState } from '../../components/ui/Feedback';
 import { useClassSectionMeta } from '../../utils/classSections';
+import { useOfflineAttendanceQueue } from '../../pwa/useOfflineAttendanceQueue';
+import { OfflineBanner } from '../../components/saas/OfflineBanner';
 
 const todayStr = () => new Date().toISOString().split('T')[0];
 
@@ -322,6 +324,10 @@ const AttendanceEntry = () => {
     setNotes((prev) => ({ ...prev, [studentId]: note }));
   };
 
+  // Offline-capable submit: queues the register in IndexedDB when offline and
+  // replays it on reconnect. Server rejections are re-thrown to the catch blocks below.
+  const offline = useOfflineAttendanceQueue({ onReplayed: () => fetchAttendanceSheet() });
+
   const handleWeeklyStatusChange = async (studentId: string, dateStr: string, status: AttendanceStatus, note?: string) => {
     if (dateStr > todayStr()) {
       toast.error('Cannot mark attendance for future dates!');
@@ -333,11 +339,11 @@ const AttendanceEntry = () => {
     });
 
     try {
-      await apiClient.post('/attendance/bulk', {
-        date: new Date(dateStr).toISOString(),
-        records: [{ studentId, status, notes: note || null }],
-      });
-      toast.success(`Updated status for ${dateStr}`);
+      const r = await offline.submit(
+        { date: new Date(dateStr).toISOString(), records: [{ studentId, status, notes: note || null }] },
+        { scopeKey: `${selectedClass}-${selectedSection}-${dateStr}-${studentId}`, label: `${selectedClass}-${selectedSection} ${dateStr}` },
+      );
+      toast.success(r.queued ? 'Saved offline — will sync when back online' : `Updated status for ${dateStr}`);
       if (dateStr === selectedDate) {
         baselineRef.current = { ...baselineRef.current, attendance: { ...baselineRef.current.attendance, [studentId]: status } };
       }
@@ -382,7 +388,14 @@ const AttendanceEntry = () => {
         status: attendance[student.id] || 'PRESENT',
         notes: notes[student.id]?.trim() ? notes[student.id].trim() : null,
       }));
-      await apiClient.post('/attendance/bulk', { date: new Date(selectedDate).toISOString(), records });
+      const r = await offline.submit(
+        { date: new Date(selectedDate).toISOString(), records },
+        { scopeKey: `${selectedClass}-${selectedSection}`, label: `${selectedClass}-${selectedSection}` },
+      );
+      if (r.queued) {
+        toast.success('Saved offline — will sync when back online');
+        return;
+      }
       toast.success(`Attendance register submitted successfully for ${selectedClass}-${selectedSection}`);
       fetchAttendanceSheet();
     } catch (error: any) {
@@ -523,6 +536,8 @@ const AttendanceEntry = () => {
         onChange={(id) => setActiveView(id as 'register' | 'summary')}
         className="no-print"
       />
+
+      <OfflineBanner className="no-print" />
 
       {activeView === 'summary' ? (
         <AttendanceMonthlySummary isTeacher={isTeacher} />

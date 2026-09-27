@@ -101,6 +101,14 @@ const InventoryHub = lazyWithRetry(() => import('./pages/inventory/InventoryHub'
 const AnalyticsHub = lazyWithRetry(() => import('./pages/analytics/AnalyticsHub'));
 const ScheduledReports = lazyWithRetry(() => import('./pages/analytics/ScheduledReports'));
 const SetupWizard = lazyWithRetry(() => import('./pages/onboarding/SetupWizard'));
+const DeveloperSettings = lazyWithRetry(() => import('./pages/developer/DeveloperSettings'));
+const DataExport = lazyWithRetry(() => import('./pages/data-export/DataExport'));
+const UsageReport = lazyWithRetry(() => import('./pages/usage/UsageReport'));
+const SupportTickets = lazyWithRetry(() => import('./pages/support/SupportTickets'));
+const HelpCenter = lazyWithRetry(() => import('./pages/help/HelpCenter'));
+const WhatsNew = lazyWithRetry(() => import('./pages/help/WhatsNew'));
+const PlatformSupportConsole = lazyWithRetry(() => import('./pages/support/PlatformSupportConsole'));
+const PlatformUsageReport = lazyWithRetry(() => import('./pages/usage/PlatformUsageReport'));
 const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
 const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
@@ -627,6 +635,70 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <SetupWizard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/developer" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DeveloperSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/data-export" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DataExport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/usage" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <UsageReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/support" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <SupportTickets />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/help" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <HelpCenter />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/help/whats-new" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <WhatsNew />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/support" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <PlatformSupportConsole />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/usage" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <PlatformUsageReport />
             </DashboardLayout>
           </ProtectedRoute>
         } />

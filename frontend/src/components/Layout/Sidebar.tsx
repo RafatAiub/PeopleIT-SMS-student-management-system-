@@ -75,6 +75,8 @@ const SUPER_ADMIN_NAV_ENTRIES: NavEntry[] = [
       { to: '/super-admin/support-access', label: 'Support Access' },
       { to: '/super-admin/audit-logs', label: 'Audit Logs' },
       { to: '/super-admin/system-health', label: 'System Health' },
+      { to: '/super-admin/support', label: 'Support Tickets' },
+      { to: '/super-admin/usage', label: 'Usage & Costs' },
     ],
   },
 ];
@@ -162,6 +164,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/ai/review', label: 'AI Review Queue', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/ai/knowledge', label: 'Knowledge Base', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/website-builder', label: 'Website Builder', roles: ['ADMIN'] },
+      { to: '/developer', label: 'API & Webhooks', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/data-export', label: 'Data Export', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -208,6 +212,7 @@ const NAV_ENTRIES: NavEntry[] = [
       // Analytics hub: tabs filtered by role; teachers limited to their own sections by the API
       { to: '/analytics', label: 'Analytics', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER'] },
       { to: '/analytics/schedules', label: 'Scheduled Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      { to: '/usage', label: 'Usage & Costs', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
       { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
     ],
@@ -221,6 +226,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
       { to: '/notices', label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/support', label: 'Support', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT'] },
       // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
       { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       // AI school assistant for guardians (answers from records; open questions go to staff review)
