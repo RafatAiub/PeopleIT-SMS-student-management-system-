@@ -20,6 +20,7 @@ The owner approved building the missing features, including additive schema chan
 | `0ecb266` | Analytics | Role-scoped finance, attendance and academic analytics with shared filters, saved views, CSV export and scheduled report emails |
 | `91219ae` | SaaS | Plan entitlements and limits, institution locale defaults, branch management and switcher, device sessions, setup wizard and onboarding checklist |
 | `cd2739f` | i18n | 1,821 Bangla strings for the new pages |
+| `3d2925e` | SaaS | Scoped API keys and read-only public API, signed webhooks with delivery log, support tickets with a platform console, tenant data export, usage and estimated cost reports, help centre and What's new, installable PWA with offline attendance queue, optional Sentry. See `OPERATIONS.md` |
 
 ### Behaviour changes to existing features
 
@@ -29,6 +30,8 @@ The owner approved building the missing features, including additive schema chan
 - `/ai/risk-scoring` is paginated and returns `null` instead of a made-up score when a student has no data.
 - The AI and reports routers now write audit logs for mutating requests.
 - Access tokens carry a `sessionId`; refresh-token ids are UUIDs.
+- Saving attendance while offline queues the register on the device and syncs it on reconnect (previously it failed).
+- Creating a student and recording an offline payment also fire webhooks (after the response; they can't affect it).
 
 ### Known limits
 
@@ -36,6 +39,9 @@ The owner approved building the missing features, including additive schema chan
 - Two concurrent batch-payroll or transport-billing runs on different servers could duplicate a record (no unique constraint in the schema).
 - The branch switcher only scopes the branch screens so far; other lists can adopt `resolveBranchScope` later.
 - Signing out a device doesn't revoke its current access token until it expires (15 min).
+- Webhook retries and the public-API rate limit live in memory (lost on restart, per instance). Only `student.created` and `payment.received` are emitted so far.
+- Data export files sit on local disk; a redeploy on Render removes them (download then asks for a new export).
+- PWA icons: only `favicon.svg` exists; add 192/512 px PNGs and an apple-touch icon for iOS.
 - None of the new endpoints has been exercised against a database yet: the production `.env` rules out running tests or migrations locally.
 
 ---
