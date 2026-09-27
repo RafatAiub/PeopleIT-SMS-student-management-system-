@@ -205,6 +205,9 @@ const NAV_ENTRIES: NavEntry[] = [
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
       { to: '/fees', label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
       { to: '/reports', label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
+      // Analytics hub: tabs filtered by role; teachers limited to their own sections by the API
+      { to: '/analytics', label: 'Analytics', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER'] },
+      { to: '/analytics/schedules', label: 'Scheduled Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
       // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
       { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
     ],
