@@ -12,9 +12,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
+import { Modal, Button, Card, CardHeader, Input } from '@/components/ui';
 import { authApi, type TwoFactorStatus, type TotpSetup } from '../../api/auth.api';
+import { ChangePasswordCard } from './ChangePasswordCard';
 
 // =============================================================================
 // Settings → Security (per-user, not per-institution)
@@ -36,8 +36,10 @@ const SecuritySettings = () => {
   const [busy, setBusy] = useState(false);
 
   const [confirmCode, setConfirmCode] = useState('');
+  const [codeTouched, setCodeTouched] = useState(false);
   const [passwordPrompt, setPasswordPrompt] = useState<null | 'disable' | 'regenerate'>(null);
   const [password, setPassword] = useState('');
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
   const refresh = async () => {
     try {
@@ -60,6 +62,7 @@ const SecuritySettings = () => {
     try {
       const setup = await authApi.beginTotpSetup();
       setConfirmCode('');
+      setCodeTouched(false);
       setFlow({ kind: 'totp-setup', setup });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Could not start setup. Please try again.');
@@ -68,8 +71,15 @@ const SecuritySettings = () => {
     }
   };
 
+  const confirmCodeError =
+    codeTouched && confirmCode.trim().length > 0 && confirmCode.trim().length < 6
+      ? 'Enter the full 6-digit code from your app.'
+      : undefined;
+
   const confirmTotp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCodeTouched(true);
+    if (confirmCode.trim().length < 6) return;
     setBusy(true);
     try {
       const { backupCodes } = await authApi.confirmTotpSetup(confirmCode.trim());
@@ -97,6 +107,8 @@ const SecuritySettings = () => {
 
   const submitPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPasswordTouched(true);
+    if (!password) return;
     setBusy(true);
     try {
       if (passwordPrompt === 'disable') {
@@ -109,6 +121,7 @@ const SecuritySettings = () => {
       }
       setPasswordPrompt(null);
       setPassword('');
+      setPasswordTouched(false);
       await refresh();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'That did not work. Please try again.');
@@ -131,92 +144,97 @@ const SecuritySettings = () => {
   const enabled = status?.enabled ?? false;
 
   return (
-    <>
-      <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-        <ShieldCheck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-        Two-Step Verification
-      </h3>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader
+          icon={<ShieldCheck className="w-5 h-5" />}
+          title="Two-Step Verification"
+          description="Add a second check when you sign in, so a stolen password is not enough on its own."
+        />
 
-      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed -mt-2">
-        Add a second check when you sign in, so a stolen password is not enough on its own.
-      </p>
-
-      {/* Current state */}
-      <div
-        className={`flex items-start gap-3 rounded-xl border p-4 ${
-          enabled
-            ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10'
-            : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
-        }`}
-      >
-        {enabled ? (
-          <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-        ) : (
-          <ShieldOff className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
-        )}
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
-            {enabled ? 'Turned on' : 'Turned off'}
-          </p>
-          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-            {enabled
-              ? status?.method === 'TOTP'
-                ? 'You use an authenticator app to sign in.'
-                : 'We email you a code when you sign in.'
-              : 'Your password is the only thing protecting your account.'}
-          </p>
-          {enabled && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
-              {status?.backupCodesRemaining ?? 0} backup code
-              {status?.backupCodesRemaining === 1 ? '' : 's'} remaining
-              {(status?.backupCodesRemaining ?? 0) <= 2 && (
-                <span className="text-amber-600 dark:text-amber-400 font-medium"> — running low</span>
-              )}
+        {/* Current state */}
+        <div
+          className={`flex items-start gap-3 rounded-xl border p-4 ${
+            enabled
+              ? 'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10'
+              : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
+          }`}
+        >
+          {enabled ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+          ) : (
+            <ShieldOff className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {enabled ? 'Turned on' : 'Turned off'}
             </p>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
+              {enabled
+                ? status?.method === 'TOTP'
+                  ? 'You use an authenticator app to sign in.'
+                  : 'We email you a code when you sign in.'
+                : 'Your password is the only thing protecting your account.'}
+            </p>
+            {enabled && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5">
+                {status?.backupCodesRemaining ?? 0} backup code
+                {status?.backupCodesRemaining === 1 ? '' : 's'} remaining
+                {(status?.backupCodesRemaining ?? 0) <= 2 && (
+                  <span className="text-amber-600 dark:text-amber-400 font-medium"> — running low</span>
+                )}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {enabled ? (
+            <div className="flex flex-wrap gap-2.5">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setPasswordPrompt('regenerate')}
+                className="text-sm py-2.5"
+              >
+                <KeyRound className="w-4 h-4 mr-1.5" />
+                New backup codes
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={() => setPasswordPrompt('disable')}
+                className="text-sm py-2.5"
+              >
+                <ShieldOff className="w-4 h-4 mr-1.5" />
+                Turn off
+              </Button>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <MethodCard
+                icon={<Smartphone className="w-5 h-5" />}
+                title="Authenticator app"
+                description="Use Google Authenticator or any similar app. Works without a network connection."
+                recommended
+                actionLabel="Set up"
+                busy={busy}
+                onClick={startTotp}
+              />
+              <MethodCard
+                icon={<Mail className="w-5 h-5" />}
+                title="Email code"
+                description="We send a 6-digit code to your confirmed email address each time you sign in."
+                actionLabel="Turn on"
+                busy={busy}
+                onClick={enableEmail}
+              />
+            </div>
           )}
         </div>
-      </div>
+      </Card>
 
-      {enabled ? (
-        <div className="flex flex-wrap gap-2.5">
-          <Button
-            variant="secondary"
-            onClick={() => setPasswordPrompt('regenerate')}
-            className="text-sm py-2.5"
-          >
-            <KeyRound className="w-4 h-4 mr-1.5" />
-            New backup codes
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => setPasswordPrompt('disable')}
-            className="text-sm py-2.5"
-          >
-            <ShieldOff className="w-4 h-4 mr-1.5" />
-            Turn off
-          </Button>
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-3">
-          <MethodCard
-            icon={<Smartphone className="w-5 h-5" />}
-            title="Authenticator app"
-            description="Use Google Authenticator or any similar app. Works without a network connection."
-            recommended
-            actionLabel="Set up"
-            busy={busy}
-            onClick={startTotp}
-          />
-          <MethodCard
-            icon={<Mail className="w-5 h-5" />}
-            title="Email code"
-            description="We send a 6-digit code to your confirmed email address each time you sign in."
-            actionLabel="Turn on"
-            busy={busy}
-            onClick={enableEmail}
-          />
-        </div>
-      )}
+      <ChangePasswordCard />
 
       {/* ── TOTP setup: QR + confirmation ───────────────────────────────────── */}
       <Modal
@@ -262,27 +280,23 @@ const SecuritySettings = () => {
               </button>
             </div>
 
-            <div className="space-y-1.5 mb-5">
-              <label
-                htmlFor="totp-confirm"
-                className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider"
-              >
-                6-digit code
-              </label>
-              <input
-                id="totp-confirm"
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                autoFocus
-                required
-                maxLength={10}
-                value={confirmCode}
-                onChange={(e) => setConfirmCode(e.target.value)}
-                className="input-field py-3 text-center text-lg font-mono font-bold tracking-[0.4em]"
-                placeholder="000000"
-              />
-            </div>
+            <Input
+              id="totp-confirm"
+              label="6-digit code"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              required
+              maxLength={10}
+              value={confirmCode}
+              onChange={(e) => setConfirmCode(e.target.value)}
+              onBlur={() => setCodeTouched(true)}
+              error={confirmCodeError}
+              className="py-3 text-center text-lg font-mono font-bold tracking-[0.4em]"
+              placeholder="000000"
+              containerClassName="mb-5"
+            />
 
             <div className="flex gap-2.5">
               <Button
@@ -327,6 +341,7 @@ const SecuritySettings = () => {
         onClose={() => {
           setPasswordPrompt(null);
           setPassword('');
+          setPasswordTouched(false);
         }}
         className="max-w-sm"
       >
@@ -339,15 +354,19 @@ const SecuritySettings = () => {
               ? 'Your account will be protected by your password alone. Enter your password to confirm.'
               : 'Your existing backup codes will stop working and be replaced with a new set.'}
           </p>
-          <input
+          <Input
+            id="security-password-confirm"
             type="password"
             autoComplete="current-password"
             autoFocus
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="input-field py-3 text-sm font-medium mb-5"
+            onBlur={() => setPasswordTouched(true)}
+            error={passwordTouched && !password ? 'Your password is required.' : undefined}
+            className="py-3 text-sm font-medium"
             placeholder="Your password"
+            containerClassName="mb-5"
           />
           <div className="flex gap-2.5">
             <Button
@@ -356,6 +375,7 @@ const SecuritySettings = () => {
               onClick={() => {
                 setPasswordPrompt(null);
                 setPassword('');
+                setPasswordTouched(false);
               }}
               className="flex-1 justify-center py-2.5 text-sm"
             >
@@ -372,7 +392,7 @@ const SecuritySettings = () => {
           </div>
         </form>
       </Modal>
-    </>
+    </div>
   );
 };
 
@@ -408,6 +428,7 @@ function MethodCard({
         {description}
       </p>
       <Button
+        type="button"
         variant="secondary"
         onClick={onClick}
         disabled={busy}
@@ -488,10 +509,10 @@ function BackupCodesPanel({
       </ul>
 
       <div className="flex gap-2.5 mb-5">
-        <Button variant="secondary" onClick={copyAll} className="flex-1 justify-center py-2 text-sm">
+        <Button type="button" variant="secondary" onClick={copyAll} className="flex-1 justify-center py-2 text-sm">
           <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy
         </Button>
-        <Button variant="secondary" onClick={download} className="flex-1 justify-center py-2 text-sm">
+        <Button type="button" variant="secondary" onClick={download} className="flex-1 justify-center py-2 text-sm">
           <Download className="w-3.5 h-3.5 mr-1.5" /> Download
         </Button>
       </div>
@@ -509,6 +530,7 @@ function BackupCodesPanel({
       </label>
 
       <Button
+        type="button"
         variant="primary"
         onClick={onDone}
         disabled={!acknowledged}

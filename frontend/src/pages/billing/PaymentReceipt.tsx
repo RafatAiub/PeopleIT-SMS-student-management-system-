@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { AlertTriangle, Printer, ArrowLeft, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import {
   billingApi,
@@ -11,6 +11,7 @@ import {
 } from '@/api/billing.api';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { PrintLayout, SignatureLines } from '@/components/print/PrintLayout';
 
 // Two routes (App.tsx): /billing/receipt/:paymentId (ADMIN) and
 // /super-admin/billing/receipt/:paymentId (SUPER_ADMIN). Branches on role.
@@ -27,9 +28,9 @@ const PAYMENT_STATUS_BADGE: Record<
 };
 
 const Row: React.FC<{ label: string; children: React.ReactNode; mono?: boolean }> = ({ label, children, mono }) => (
-  <div className="flex items-start justify-between gap-4 py-3">
-    <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
-    <span className={`text-sm text-slate-900 dark:text-white text-right ${mono ? 'font-mono text-xs break-all' : 'font-medium'}`}>
+  <div className="flex items-start justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
+    <span className="text-xs text-slate-500">{label}</span>
+    <span className={`text-sm text-slate-900 text-right ${mono ? 'font-mono text-xs break-all' : 'font-medium'}`}>
       {children}
     </span>
   </div>
@@ -92,41 +93,33 @@ const PaymentReceipt: React.FC = () => {
 
   return (
     <div className="max-w-lg mx-auto space-y-4 pb-12 animate-fadeIn">
-      <div className="flex items-center justify-between no-print">
+      <div className="no-print">
         <Link
           to={backTo}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to billing
         </Link>
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
-          <Printer className="w-3.5 h-3.5" /> Print / Save PDF
-        </Button>
       </div>
 
-      <div className="glass-card border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-white/5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Payment receipt</p>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white mt-1">{payment.institution.name}</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {new Date(payment.createdAt).toLocaleString()}
-            </p>
-          </div>
+      <PrintLayout
+        title="Payment Receipt"
+        reference={payment.gatewayTransactionId ? `Txn ${payment.gatewayTransactionId}` : undefined}
+        date={payment.createdAt}
+        institution={{ name: payment.institution.name }}
+        size="a5"
+        footer={<SignatureLines labels={['Received by', "Payer's signature"]} />}
+      >
+        <div className="flex items-start justify-between gap-4 mb-4">
           <Badge variant={status.variant}>{status.label}</Badge>
         </div>
 
-        {/* Amount */}
-        <div className="px-6 py-6 border-b border-slate-100 dark:border-white/5 text-center bg-slate-50/60 dark:bg-slate-950/40">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Amount</p>
-          <p className="text-3xl font-bold text-slate-900 dark:text-white mt-1">
-            {formatCurrency(payment.amount, payment.currency)}
-          </p>
+        <div className="text-center bg-slate-50 rounded-lg py-6 mb-2">
+          <p className="text-xs text-slate-500">Amount</p>
+          <p className="text-3xl font-bold text-slate-900 mt-1">{formatCurrency(payment.amount, payment.currency)}</p>
         </div>
 
-        {/* Details */}
-        <div className="px-6 py-2 divide-y divide-slate-100 dark:divide-white/5">
+        <div>
           <Row label="Plan">{payment.planPrice?.plan.name ?? '—'}</Row>
           <Row label="Billing cycle">{BILLING_CYCLE_LABELS[payment.billingCycle]}</Row>
           <Row label="Method">
@@ -142,19 +135,17 @@ const PaymentReceipt: React.FC = () => {
           <Row label="Gateway validation ID" mono>
             {payment.gatewayValId || '—'}
           </Row>
-          {payment.isManualOverride && payment.overrideReason && (
-            <Row label="Note">{payment.overrideReason}</Row>
-          )}
+          {payment.isManualOverride && payment.overrideReason && <Row label="Note">{payment.overrideReason}</Row>}
         </div>
 
         {payment.refundedAt && (
-          <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 bg-amber-50/60 dark:bg-amber-500/5">
-            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+            <p className="text-xs font-semibold text-amber-700">
               Refunded on {new Date(payment.refundedAt).toLocaleDateString()}
             </p>
           </div>
         )}
-      </div>
+      </PrintLayout>
     </div>
   );
 };
