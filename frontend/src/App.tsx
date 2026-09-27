@@ -68,6 +68,11 @@ const ManageHoliday = lazyWithRetry(() => import('./pages/holidays/ManageHoliday
 const SessionYears = lazyWithRetry(() => import('./pages/academics/SessionYears'));
 const Events = lazyWithRetry(() => import('./pages/events/Events'));
 const AiInsights = lazyWithRetry(() => import('./pages/ai/AiInsights'));
+const AiHub = lazyWithRetry(() => import('./pages/ai/AiHub'));
+const AiDrafts = lazyWithRetry(() => import('./pages/ai/AiDrafts'));
+const KnowledgeBase = lazyWithRetry(() => import('./pages/ai/KnowledgeBase'));
+const GuardianChat = lazyWithRetry(() => import('./pages/ai/GuardianChat'));
+const AdmissionAssistant = lazyWithRetry(() => import('./pages/ai/AdmissionAssistant'));
 const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
 const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
 const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
@@ -430,6 +435,7 @@ const App = () => {
         <Route path="/apply-admission" element={<StudentRegistration />} />
         <Route path="/admission-enquiry" element={<PublicEnquiryPage />} />
         <Route path="/admission-status" element={<ApplicationStatusPage />} />
+        <Route path="/admission-assistant/:slug" element={<AdmissionAssistant />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         {/* Self-service signup and the landing pages for the links sent by
             the confirmation / password-reset emails. All unauthenticated. */}
@@ -863,6 +869,38 @@ const App = () => {
           <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER']}>
             <DashboardLayout>
               <AiInsights />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <AiHub />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/review" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AiDrafts />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/knowledge" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <KnowledgeBase />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/assistant" element={
+          <ProtectedRoute allowedRoles={['GUARDIAN']}>
+            <DashboardLayout>
+              <GuardianChat />
             </DashboardLayout>
           </ProtectedRoute>
         } />

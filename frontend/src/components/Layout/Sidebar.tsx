@@ -153,6 +153,9 @@ const NAV_ENTRIES: NavEntry[] = [
       // HR & Payroll: Admin Full, Accountant Read
       { to: '/hr', label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
       { to: '/ai-insights', label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
+      { to: '/ai', label: 'AI Assistant', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      { to: '/ai/review', label: 'AI Review Queue', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/ai/knowledge', label: 'Knowledge Base', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/website-builder', label: 'Website Builder', roles: ['ADMIN'] },
     ],
   },
@@ -212,6 +215,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/notices', label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
       { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      // AI school assistant for guardians (answers from records; open questions go to staff review)
+      { to: '/ai/assistant', label: 'School Assistant', roles: ['GUARDIAN'] },
     ],
   },
   {
