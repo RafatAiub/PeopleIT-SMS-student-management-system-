@@ -1,5 +1,5 @@
 import React from 'react';
-import { Input } from '@/components/ui';
+import { Input, Textarea } from '@/components/ui';
 import { HOBBY_OPTIONS } from './validation';
 import type { AdmissionFormApi } from './useAdmissionForm';
 
@@ -163,6 +163,58 @@ export const Step1StudentDetails: React.FC<{ form: AdmissionFormApi }> = ({ form
         value={data.permanentAddress}
         onChange={handleCreateChange}
       />
+
+      {/* Health & emergency contact — optional, never blocks the wizard */}
+      <div className="pt-1">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Health &amp; Emergency Contact</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Optional. Shown to staff on the student profile.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Textarea
+            label="Medical Notes"
+            name="medicalNotes"
+            rows={2}
+            maxLength={2000}
+            placeholder="e.g. Asthma — carries an inhaler"
+            value={data.medicalNotes}
+            onChange={handleCreateChange}
+          />
+          <Textarea
+            label="Allergies"
+            name="allergies"
+            rows={2}
+            maxLength={500}
+            placeholder="e.g. Peanuts, penicillin"
+            value={data.allergies}
+            onChange={handleCreateChange}
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <Input
+            label="Emergency Contact Name"
+            name="emergencyContactName"
+            maxLength={150}
+            value={data.emergencyContactName}
+            onChange={handleCreateChange}
+          />
+          <Input
+            label="Emergency Contact Phone"
+            name="emergencyContactPhone"
+            maxLength={20}
+            value={data.emergencyContactPhone}
+            onChange={handleCreateChange}
+            onBlur={handleCreateBlur}
+            error={errors.emergencyContactPhone}
+          />
+          <Input
+            label="Relation"
+            name="emergencyContactRelation"
+            maxLength={50}
+            placeholder="e.g. Uncle"
+            value={data.emergencyContactRelation}
+            onChange={handleCreateChange}
+          />
+        </div>
+      </div>
 
       {/* Hobby */}
       <div>

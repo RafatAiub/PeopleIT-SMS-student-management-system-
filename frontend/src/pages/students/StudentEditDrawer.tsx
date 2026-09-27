@@ -20,6 +20,26 @@ interface SectionMeta {
   name: string;
 }
 
+// Extra fields a STUDENT may edit about themselves via PUT /students/me
+// (backend SelfUpdateStudentDto). Staff mode does not use these.
+interface SelfEditExtras {
+  permanentAddress: string;
+  hobbies: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelation: string;
+}
+
+const emptySelfExtras: SelfEditExtras = {
+  permanentAddress: '',
+  hobbies: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelation: '',
+};
+
+const PHONE_PATTERN = /^[+]?[\d\s()-]{7,20}$/;
+
 interface StudentEditDrawerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,6 +64,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [availableSections, setAvailableSections] = useState<SectionMeta[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selfExtras, setSelfExtras] = useState<SelfEditExtras>(emptySelfExtras);
 
   const fetchSectionsForEdit = async (classId: string, selectFirst: boolean) => {
     if (!classId) {
@@ -96,7 +117,20 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
       nationality: student.nationality || 'Bangladeshi',
       avatarUrl: student.avatarUrl || student.user?.avatarUrl || '',
     });
+    setSelfExtras({
+      permanentAddress: student.permanentAddress || '',
+      hobbies: student.hobbies || '',
+      emergencyContactName: student.emergencyContactName || '',
+      emergencyContactPhone: student.emergencyContactPhone || '',
+      emergencyContactRelation: student.emergencyContactRelation || '',
+    });
   }, [isOpen, student, isStudentMode]);
+
+  const handleSelfExtraChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setSelfExtras((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -130,17 +164,28 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
     e.preventDefault();
     if (!student) return;
 
+    // A student can only change contact/self-service fields, so only those
+    // are validated in student mode (name/email are read-only there).
     const fieldsToValidate = isStudentMode
-      ? ['firstName', 'lastName', 'email']
+      ? []
       : ['firstName', 'lastName', 'email', 'department'];
     const nextErrors: Record<string, string> = {};
     for (const field of fieldsToValidate) {
       const err = validateEditField(field, (formData as any)[field] || '', formData, classes);
       if (err) nextErrors[field] = err;
     }
+    if (isStudentMode) {
+      if (formData.phone.trim() && !PHONE_PATTERN.test(formData.phone.trim())) {
+        nextErrors.phone = 'Enter a valid phone number';
+      }
+      if (selfExtras.emergencyContactPhone.trim() && !PHONE_PATTERN.test(selfExtras.emergencyContactPhone.trim())) {
+        nextErrors.emergencyContactPhone = 'Enter a valid phone number';
+      }
+    }
+    const invalidFields = [...fieldsToValidate, 'phone', 'emergencyContactPhone'];
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      const firstInvalidField = fieldsToValidate.find((f) => nextErrors[f]);
+      const firstInvalidField = invalidFields.find((f) => nextErrors[f]);
       if (firstInvalidField) {
         (e.target as HTMLFormElement).querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)?.focus();
       }
@@ -150,17 +195,20 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
 
     setIsSubmitting(true);
 
+    // Student self-service goes to PUT /students/me, which accepts ONLY these
+    // safe fields (PUT /students/:id is staff-only and returned 403 here).
+    // Empty strings clear a value (null) so a student can remove old data.
+    const orNull = (v: string) => (v.trim() ? v.trim() : null);
     const payload: any = isStudentMode
       ? {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          phone: formData.phone || undefined,
-          gender: formData.gender,
-          address: formData.address || undefined,
-          bloodGroup: formData.bloodGroup || undefined,
-          religion: formData.religion || undefined,
-          nationality: formData.nationality || undefined,
+          phone: orNull(formData.phone),
+          address: orNull(formData.address),
+          permanentAddress: orNull(selfExtras.permanentAddress),
           avatarUrl: formData.avatarUrl || undefined,
+          hobbies: orNull(selfExtras.hobbies),
+          emergencyContactName: orNull(selfExtras.emergencyContactName),
+          emergencyContactPhone: orNull(selfExtras.emergencyContactPhone),
+          emergencyContactRelation: orNull(selfExtras.emergencyContactRelation),
         }
       : {
           firstName: formData.firstName,
@@ -181,7 +229,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
         };
 
     try {
-      await apiClient.put(`/students/${student.id}`, payload);
+      await apiClient.put(isStudentMode ? '/students/me' : `/students/${student.id}`, payload);
       toast.success('Profile updated successfully');
       onClose();
       onSaved();
@@ -215,7 +263,8 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
           <Input
             label="First Name"
             name="firstName"
-            required
+            required={!isStudentMode}
+            disabled={isStudentMode}
             value={formData.firstName}
             onChange={handleChange}
             onBlur={handleBlur}
@@ -224,13 +273,19 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
           <Input
             label="Last Name"
             name="lastName"
-            required
+            required={!isStudentMode}
+            disabled={isStudentMode}
             value={formData.lastName}
             onChange={handleChange}
             onBlur={handleBlur}
             error={errors.lastName}
           />
         </div>
+        {isStudentMode && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
+            Name, gender, blood group, religion and nationality are managed by the school office — contact them to change these.
+          </p>
+        )}
 
         {!isStudentMode && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -302,6 +357,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
             label="Gender"
             name="gender"
             value={formData.gender}
+            disabled={isStudentMode}
             onChange={handleChange}
             options={[
               { value: 'MALE', label: 'Male' },
@@ -315,6 +371,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
             placeholder="e.g. +8801700000000"
             value={formData.phone}
             onChange={handleChange}
+            error={errors.phone}
           />
         </div>
 
@@ -336,6 +393,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
             label="Blood Group"
             name="bloodGroup"
             value={formData.bloodGroup}
+            disabled={isStudentMode}
             onChange={handleChange}
             placeholder="Select Blood Group"
             options={BLOOD_GROUPS.map((b) => ({ value: b, label: b }))}
@@ -344,6 +402,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
             label="Religion"
             name="religion"
             value={formData.religion}
+            disabled={isStudentMode}
             onChange={handleChange}
             placeholder="Select Religion"
             options={RELIGIONS.map((r) => ({ value: r, label: r }))}
@@ -356,6 +415,7 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
             name="nationality"
             placeholder="e.g. Bangladeshi"
             value={formData.nationality}
+            disabled={isStudentMode}
             onChange={handleChange}
           />
           <div className="flex flex-col">
@@ -377,6 +437,55 @@ export const StudentEditDrawer: React.FC<StudentEditDrawerProps> = ({
           onChange={handleChange}
           placeholder="Enter permanent address"
         />
+
+        {isStudentMode && (
+          <>
+            <Textarea
+              label="Permanent Address"
+              name="permanentAddress"
+              rows={2}
+              maxLength={500}
+              value={selfExtras.permanentAddress}
+              onChange={handleSelfExtraChange}
+            />
+            <Input
+              label="Hobbies"
+              name="hobbies"
+              maxLength={200}
+              placeholder="e.g. Reading, Football"
+              value={selfExtras.hobbies}
+              onChange={handleSelfExtraChange}
+            />
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-white mb-2">Emergency Contact</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input
+                  label="Name"
+                  name="emergencyContactName"
+                  maxLength={150}
+                  value={selfExtras.emergencyContactName}
+                  onChange={handleSelfExtraChange}
+                />
+                <Input
+                  label="Phone"
+                  name="emergencyContactPhone"
+                  maxLength={20}
+                  value={selfExtras.emergencyContactPhone}
+                  onChange={handleSelfExtraChange}
+                  error={errors.emergencyContactPhone}
+                />
+                <Input
+                  label="Relation"
+                  name="emergencyContactRelation"
+                  maxLength={50}
+                  placeholder="e.g. Uncle"
+                  value={selfExtras.emergencyContactRelation}
+                  onChange={handleSelfExtraChange}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </form>
     </Drawer>
   );

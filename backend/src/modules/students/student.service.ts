@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { BulkImportRowDto } from './student.dto';
+import { resolveStudentCustomFields } from '../custom-fields/customFields.service';
 import type {
   CreateStudentDtoType,
   UpdateStudentDtoType,
@@ -15,6 +16,7 @@ import type {
   UpdateRollNumbersDtoType,
   BulkAssignClassDtoType,
   PublicStudentApplicationDtoType,
+  SelfUpdateStudentDtoType,
 } from './student.dto';
 
 // =============================================================================
@@ -131,7 +133,11 @@ export async function createStudent(
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
   await assertStudentLookupsBelongToInstitution(institutionId, data);
 
-  const { password, ...studentFields } = data;
+  // Validated against the tenant's CustomFieldDefinitions (types + required);
+  // undefined when nothing is configured and nothing was sent.
+  const customFields = await resolveStudentCustomFields(institutionId, data.customFields, { isCreate: true });
+
+  const { password, customFields: _submittedCustomFields, ...studentFields } = data;
   // New admissions land in the school's default session year unless one was picked.
   if (!studentFields.academicYearId) {
     const defaultSession = await prisma.academicYear.findFirst({
@@ -161,6 +167,7 @@ export async function createStudent(
     return tx.student.create({
       data: {
         ...studentFields,
+        ...(customFields !== undefined ? { customFields } : {}),
         institutionId,
         userId: user.id,
       },
@@ -190,8 +197,50 @@ export async function updateStudent(
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
   await assertStudentLookupsBelongToInstitution(institutionId, data);
 
-  const updated = await studentRepository.update(institutionId, id, data);
+  // Only touched when the payload carries customFields; merged over the
+  // stored values so a partial update never wipes other fields.
+  const customFields = await resolveStudentCustomFields(institutionId, data.customFields, {
+    isCreate: false,
+    existing: existing.customFields,
+  });
+  const { customFields: _submittedCustomFields, ...rest } = data;
+
+  const updated = await studentRepository.update(institutionId, id, {
+    ...rest,
+    ...(customFields !== undefined ? { customFields } : {}),
+  });
   logger.info('Student updated', { studentId: id, institutionId });
+  return updated;
+}
+
+/**
+ * PUT /students/me — a STUDENT edits their own safe fields only. Scoped to
+ * the caller's own Student row via req.user.sub; the DTO has already stripped
+ * every key outside the self-editable allow-list.
+ */
+export async function updateMe(institutionId: string, userId: string, data: SelfUpdateStudentDtoType) {
+  const own = await studentRepository.findByUserId(institutionId, userId);
+  if (!own) {
+    throw new NotFoundError('Student profile not found');
+  }
+
+  const patch: SelfUpdateStudentDtoType = {};
+  const keys = [
+    'phone',
+    'address',
+    'permanentAddress',
+    'avatarUrl',
+    'hobbies',
+    'emergencyContactName',
+    'emergencyContactPhone',
+    'emergencyContactRelation',
+  ] as const;
+  for (const key of keys) {
+    if (data[key] !== undefined) patch[key] = data[key];
+  }
+
+  const updated = await studentRepository.update(institutionId, own.id, patch);
+  logger.info('Student self-updated profile', { studentId: own.id, institutionId, fields: Object.keys(patch) });
   return updated;
 }
 

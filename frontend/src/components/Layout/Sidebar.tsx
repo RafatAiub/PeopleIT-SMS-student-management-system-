@@ -114,6 +114,8 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: <GraduationCap className="w-4.5 h-4.5" />,
     children: [
       { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Admission enquiries CRM (pipeline + funnel) — Admin only
+      { to: '/admissions/enquiries', label: 'Admission Enquiries', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
@@ -202,6 +204,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
       { to: '/notices', label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
+      { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
     ],
   },
   {
@@ -236,6 +240,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Branches & Classes: Super Admin/Admin Full, everyone else Read
       { to: '/settings', label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/settings/custom-fields', label: 'Custom Fields', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
 ];

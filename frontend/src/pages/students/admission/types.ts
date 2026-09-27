@@ -27,6 +27,14 @@ export interface CreateFormData {
   height: string;
   weight: string;
   hobbies: string[];
+  // Optional profile extras (Wave C) — never required by the wizard.
+  previousSchool: string;
+  previousClass: string;
+  medicalNotes: string;
+  allergies: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelation: string;
 }
 
 export interface GuardianFormData {

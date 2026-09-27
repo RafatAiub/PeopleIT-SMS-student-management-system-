@@ -405,6 +405,19 @@ export async function applyForAdmission(
   }
 }
 
+export async function updateMe(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const student = await studentService.updateMe(req.tenantId!, req.user!.sub, req.body);
+    successResponse(res, student, 'Profile updated successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getMe(
   req: Request,
   res: Response,

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Megaphone, Plus, Users, Clock, BookOpen, UserCheck, Shield, Search, Pencil, Trash2 } from 'lucide-react';
+import { Megaphone, Plus, Users, Clock, BookOpen, UserCheck, Shield, Search, Pencil, Trash2, CalendarClock, GraduationCap, Eye } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useTableParams } from '@/hooks/useTableParams';
 import { Pagination } from '@/components/Pagination';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PageHeader, Button, Badge, Skeleton, ErrorState } from '@/components/ui';
-import { formatDate } from '@/i18n';
+import { formatDate, useT } from '@/i18n';
 import { useNotices, useCreateNotice, useUpdateNotice, useDeleteNotice } from './notices.queries';
 import NoticeFormModal from './NoticeFormModal';
-import type { Notice, NoticeAudience, NoticeFormValues } from './notices.types';
+import { isScheduled, toPayload, type Notice, type NoticeAudience, type NoticeFormValues } from './notices.types';
 
 const WRITE_ROLES = ['SUPER_ADMIN', 'ADMIN', 'TEACHER'];
 
@@ -37,6 +37,7 @@ const AUDIENCE_STYLES: Record<NoticeAudience, { icon: React.ReactNode; color: st
 };
 
 const NoticeBoard = () => {
+  const t = useT();
   const { user } = useAuthStore();
   const canWrite = !!user && WRITE_ROLES.includes(user.role);
 
@@ -47,6 +48,8 @@ const NoticeBoard = () => {
     pageSize: params.pageSize,
     search: debouncedSearch,
     audience: (params.filters.audience || '') as NoticeAudience | '',
+    // Staff-only: the backend already hides scheduled notices from everyone else.
+    visibility: canWrite ? ((params.filters.visibility || '') as '' | 'scheduled' | 'published') : '',
     // No status filter here: the backend's `isActive` query param is
     // `z.coerce.boolean()`, which coerces the *string* "false" to `true`
     // (JS `Boolean("false") === true`) — so a working "Inactive only" filter
@@ -73,7 +76,8 @@ const NoticeBoard = () => {
     setFormOpen(true);
   };
 
-  const handleSubmit = (values: NoticeFormValues) => {
+  const handleSubmit = (formValues: NoticeFormValues) => {
+    const values = toPayload(formValues);
     if (editingNotice) {
       updateMutation.mutate(
         { id: editingNotice.id, data: values },
@@ -131,6 +135,21 @@ const NoticeBoard = () => {
             <option value="STUDENTS">Students</option>
           </select>
         </div>
+        {canWrite && (
+          <div className="relative">
+            <Eye className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <select
+              aria-label={t('Filter by visibility')}
+              value={params.filters.visibility || ''}
+              onChange={(e) => setFilter('visibility', e.target.value)}
+              className="input-field pl-11 pr-8 cursor-pointer"
+            >
+              <option value="">{t('All notices')}</option>
+              <option value="published">{t('Published')}</option>
+              <option value="scheduled">{t('Scheduled')}</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Notices Feed List */}
@@ -175,10 +194,25 @@ const NoticeBoard = () => {
                           {notice.audience}
                         </span>
                         {!notice.isActive && <Badge variant="neutral">Inactive</Badge>}
+                        {isScheduled(notice) && (
+                          <Badge variant="warning">
+                            <CalendarClock className="w-3 h-3 mr-1 inline" aria-hidden="true" />
+                            {t('Scheduled')}
+                          </Badge>
+                        )}
+                        {notice.class && (
+                          <Badge variant="info">
+                            <GraduationCap className="w-3 h-3 mr-1 inline" aria-hidden="true" />
+                            {notice.class.name}
+                            {notice.section ? ` · ${notice.section.name}` : ''}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-900/30 w-fit px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/5">
                         <Clock className="w-3.5 h-3.5" />
-                        {formatDate(notice.publishedAt, true)}
+                        {isScheduled(notice)
+                          ? t('Goes live {date}', { date: formatDate(notice.scheduledAt, true) })
+                          : formatDate(notice.publishedAt, true)}
                       </div>
                       {canWrite && (
                         <div className="flex items-center gap-2">

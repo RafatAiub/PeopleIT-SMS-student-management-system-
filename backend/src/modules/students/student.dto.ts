@@ -39,6 +39,42 @@ export const CreateStudentDto = z.object({
   // reference's simple checkbox-list hobby field, no separate join table.
   hobbies: z.string().max(200).optional().nullable(),
   avatarUrl: z.string().optional().nullable(),
+  // ── Wave C profile extras — all optional, so existing payloads are unchanged.
+  ...profileExtraFields(),
+  // Values keyed by CustomFieldDefinition.key; validated against the tenant's
+  // definitions in student.service.ts (types + required), unknown keys dropped.
+  customFields: z.record(z.union([z.string().max(1000), z.number(), z.null()])).optional().nullable(),
+});
+
+function profileExtraFields() {
+  return {
+    previousSchool: z.string().max(200).optional().nullable(),
+    previousClass: z.string().max(100).optional().nullable(),
+    medicalNotes: z.string().max(2000).optional().nullable(),
+    allergies: z.string().max(500).optional().nullable(),
+    ...emergencyContactFields(),
+  };
+}
+
+function emergencyContactFields() {
+  return {
+    emergencyContactName: z.string().max(150).optional().nullable(),
+    emergencyContactPhone: z.string().max(20).optional().nullable(),
+    emergencyContactRelation: z.string().max(50).optional().nullable(),
+  };
+}
+
+// PUT /students/me — STUDENT self-service. Only fields a student may safely
+// change about themselves: contact details, addresses, photo, hobbies and
+// emergency contact. Name, class, status, email, etc. stay staff-managed; any
+// other key in the body is stripped by zod, never written.
+export const SelfUpdateStudentDto = z.object({
+  phone: z.string().max(20).optional().nullable(),
+  address: z.string().max(500).optional().nullable(),
+  permanentAddress: z.string().max(500).optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
+  hobbies: z.string().max(200).optional().nullable(),
+  ...emergencyContactFields(),
 });
 
 export const UpdateStudentDto = CreateStudentDto.partial().extend({
@@ -153,3 +189,4 @@ export type PublicStudentApplicationDtoType = z.infer<typeof PublicStudentApplic
 export type ApproveStudentApplicationDtoType = z.infer<typeof ApproveStudentApplicationDto>;
 export type ResetStudentPasswordDtoType = z.infer<typeof ResetStudentPasswordDto>;
 export type BulkAssignClassDtoType = z.infer<typeof BulkAssignClassDto>;
+export type SelfUpdateStudentDtoType = z.infer<typeof SelfUpdateStudentDto>;

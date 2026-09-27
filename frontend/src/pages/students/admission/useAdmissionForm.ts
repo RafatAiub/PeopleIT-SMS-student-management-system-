@@ -11,6 +11,12 @@ import {
   UploadedFile,
   WizardStep,
 } from './types';
+import { useCustomFieldDefinitions } from '@/pages/settings/custom-fields/customFields.queries';
+import {
+  toPayload as customFieldsToPayload,
+  validateCustomFields,
+  type CustomFieldFormState,
+} from '@/pages/settings/custom-fields/customFields.types';
 import {
   SUBMIT_VALIDATION_FIELDS,
   STEP_FIELDS,
@@ -27,6 +33,9 @@ import {
  * fields, same API call sequence, same error handling) — only reorganised
  * behind a hook so the step components can stay presentational.
  */
+/** Wizard step that renders the institution's custom fields. */
+export const CUSTOM_FIELDS_STEP: WizardStep = 2;
+
 export function useAdmissionForm() {
   const [step, setStep] = useState<WizardStep>(1);
   const [highestStepReached, setHighestStepReached] = useState<WizardStep>(1);
@@ -57,7 +66,37 @@ export function useAdmissionForm() {
   const [showGuardianDropdown, setShowGuardianDropdown] = useState(false);
   const [guardianSearchError, setGuardianSearchError] = useState(false);
 
+  // Institution-defined custom fields (Settings -> Custom fields). Rendered on
+  // the Academic Placement step; a load failure simply hides the section.
+  const customFieldsQuery = useCustomFieldDefinitions();
+  const customFieldDefs = customFieldsQuery.data || [];
+  const [customFieldValues, setCustomFieldValues] = useState<CustomFieldFormState>({});
+  const [customFieldErrors, setCustomFieldErrors] = useState<Record<string, string>>({});
+
   const markDirty = () => setIsDirty(true);
+
+  const handleCustomFieldChange = (key: string, value: string) => {
+    setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
+    if (customFieldErrors[key]) setCustomFieldErrors((prev) => ({ ...prev, [key]: '' }));
+    setIsDirty(true);
+  };
+
+  const handleCustomFieldBlur = (key: string) => {
+    const errs = validateCustomFields(customFieldDefs, customFieldValues);
+    setCustomFieldErrors((prev) => ({ ...prev, [key]: errs[key] || '' }));
+  };
+
+  /** True when valid; otherwise shows errors, jumps to the step and focuses the first bad field. */
+  const checkCustomFields = (): boolean => {
+    const errs = validateCustomFields(customFieldDefs, customFieldValues);
+    setCustomFieldErrors(errs);
+    const firstKey = customFieldDefs.find((d) => errs[d.key])?.key;
+    if (!firstKey) return true;
+    if (step !== CUSTOM_FIELDS_STEP) setStep(CUSTOM_FIELDS_STEP);
+    setTimeout(() => document.querySelector<HTMLElement>(`[name="custom_${firstKey}"]`)?.focus(), 0);
+    toast.error('Please fix the highlighted fields');
+    return false;
+  };
 
   const fetchAllSections = async () => {
     setSectionsLoading(true);
@@ -313,6 +352,8 @@ export function useAdmissionForm() {
   const resetAllState = () => {
     setCreateFormData(emptyCreateFormData());
     setCreateErrors({});
+    setCustomFieldValues({});
+    setCustomFieldErrors({});
     setPhotoFileName('');
     setBirthCertificate(null);
     setLastPassingResult(null);
@@ -340,6 +381,7 @@ export function useAdmissionForm() {
       toast.error('Please fix the highlighted fields');
       return;
     }
+    if (step === CUSTOM_FIELDS_STEP && !checkCustomFields()) return;
     if (step < 5) {
       const next = (step + 1) as WizardStep;
       setStep(next);
@@ -369,6 +411,7 @@ export function useAdmissionForm() {
       toast.error('Please fix the highlighted fields');
       return;
     }
+    if (!checkCustomFields()) return;
 
     setIsSubmitting(true);
     try {
@@ -397,6 +440,15 @@ export function useAdmissionForm() {
         height: createFormData.height || undefined,
         weight: createFormData.weight || undefined,
         hobbies: createFormData.hobbies.length > 0 ? createFormData.hobbies.join(',') : undefined,
+        previousSchool: createFormData.previousSchool.trim() || undefined,
+        previousClass: createFormData.previousClass.trim() || undefined,
+        medicalNotes: createFormData.medicalNotes.trim() || undefined,
+        allergies: createFormData.allergies.trim() || undefined,
+        emergencyContactName: createFormData.emergencyContactName.trim() || undefined,
+        emergencyContactPhone: createFormData.emergencyContactPhone.trim() || undefined,
+        emergencyContactRelation: createFormData.emergencyContactRelation.trim() || undefined,
+        // Only sent when the institution has defined custom fields.
+        customFields: customFieldDefs.length > 0 ? customFieldsToPayload(customFieldDefs, customFieldValues) : undefined,
       };
       const created = await apiClient.post('/students', payload);
       const studentId: string = created.data?.data?.id;
@@ -488,7 +540,20 @@ export function useAdmissionForm() {
       resetAllState();
     } catch (error: any) {
       console.error('Failed to create student', error);
-      toast.error(error.response?.data?.message || 'Failed to create student');
+      // Server-side custom field validation (422) lists fields as "customFields.<key>".
+      const serverErrors: { field?: string; message?: string }[] = Array.isArray(error.response?.data?.errors)
+        ? error.response.data.errors
+        : [];
+      const customErrs: Record<string, string> = {};
+      for (const item of serverErrors) {
+        const match = item.field ? /customFields\.(.+)$/.exec(item.field) : null;
+        if (match && item.message) customErrs[match[1]] = item.message;
+      }
+      if (Object.keys(customErrs).length > 0) {
+        setCustomFieldErrors(customErrs);
+        setStep(CUSTOM_FIELDS_STEP);
+      }
+      toast.error(serverErrors[0]?.message || error.response?.data?.message || 'Failed to create student');
       // A stale GR Number suggestion (two admissions clerks racing) surfaces
       // as a 409 here — refresh it so the next submit attempt has a fresh one.
       if (error.response?.status === 409) {
@@ -555,6 +620,14 @@ export function useAdmissionForm() {
     clearGuardianSelection,
     handleGuardianSearchChange,
     retryGuardianSearch,
+
+    customFieldDefs,
+    customFieldsLoading: customFieldsQuery.isLoading,
+    customFieldsError: customFieldsQuery.isError,
+    customFieldValues,
+    customFieldErrors,
+    handleCustomFieldChange,
+    handleCustomFieldBlur,
 
     handleCreateSubmit,
   };

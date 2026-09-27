@@ -16,6 +16,7 @@ import {
   ResetStudentPasswordDto,
   BulkAssignClassDto,
   ApproveStudentApplicationDto,
+  SelfUpdateStudentDto,
 } from './student.dto';
 import * as studentController from './student.controller';
 
@@ -31,6 +32,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 // GET    /api/v1/students
 // POST   /api/v1/students
 // GET    /api/v1/students/:id
+// PUT    /api/v1/students/me   (STUDENT — own safe fields only)
 // PUT    /api/v1/students/:id
 // DELETE /api/v1/students/:id
 // GET    /api/v1/students/:id/documents
@@ -46,6 +48,14 @@ router.get('/', requireRole(...READ_ROLES), validate({ query: StudentQueryDto })
 
 // Self-service — any authenticated role, scoped server-side to req.user.sub.
 router.get('/me', studentController.getMe);
+// STUDENT self-edit of safe fields only (see SelfUpdateStudentDto). Must stay
+// above PUT '/:id', which would otherwise capture "me" and 403 a student.
+router.put(
+  '/me',
+  requireRole(UserRole.STUDENT),
+  validate({ body: SelfUpdateStudentDto }),
+  studentController.updateMe,
+);
 
 router.get('/meta/classes', requireRole(...READ_ROLES), studentController.listClasses);
 router.get('/meta/sections', requireRole(...READ_ROLES), studentController.listSections);

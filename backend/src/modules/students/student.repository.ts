@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import type {
   CreateStudentDtoType,
@@ -75,6 +76,16 @@ export const studentDetailSelect = {
   status: true,
   admissionDate: true,
   rollNumber: true,
+  // Wave C profile extras (need migration 20260927000000_wave_c_feature_foundation)
+  previousSchool: true,
+  previousClass: true,
+  medicalNotes: true,
+  allergies: true,
+  emergencyContactName: true,
+  emergencyContactPhone: true,
+  emergencyContactRelation: true,
+  customFields: true,
+  applicationStatus: true,
   createdAt: true,
   updatedAt: true,
   class: { select: { id: true, name: true, level: true } },
@@ -183,7 +194,10 @@ export async function findUserIdForStudent(
   return student?.userId ?? null;
 }
 
-export async function create(institutionId: string, data: CreateStudentDtoType) {
+export async function create(
+  institutionId: string,
+  data: Omit<CreateStudentDtoType, 'customFields'> & { customFields?: Prisma.InputJsonValue },
+) {
   return prisma.student.create({
     data: {
       ...data,
@@ -193,10 +207,15 @@ export async function create(institutionId: string, data: CreateStudentDtoType) 
   });
 }
 
+/** customFields arrives already validated/normalised by the service as JSON. */
+export type StudentWriteData = Omit<UpdateStudentDtoType, 'customFields'> & {
+  customFields?: Prisma.InputJsonValue;
+};
+
 export async function update(
   institutionId: string,
   id: string,
-  data: UpdateStudentDtoType,
+  data: StudentWriteData,
 ) {
   // Scope the write itself to the tenant (defense in depth, not just the
   // service-layer existence check) — matches remove()'s pattern below.

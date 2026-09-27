@@ -2,13 +2,25 @@ import React from 'react';
 import { DescriptionList } from '@/components/ui';
 import type { AdmissionFormApi } from './useAdmissionForm';
 import type { WizardStep } from './types';
+import { formatCustomFieldValue } from '@/pages/settings/custom-fields/CustomFieldInputs';
 
 // Step 5: read-only summary of everything entered on the previous steps,
 // grouped the same way, each group linking back to its step for edits.
 // Nothing here is computed beyond simple lookups (section/category labels) —
 // the actual submit still runs the full validation + API call sequence.
 export const Step5Review: React.FC<{ form: AdmissionFormApi; onEditStep: (step: WizardStep) => void }> = ({ form, onEditStep }) => {
-  const { createFormData: data, guardianData, guardianMode, photoFileName, birthCertificate, lastPassingResult, allSections, categories } = form;
+  const {
+    createFormData: data,
+    guardianData,
+    guardianMode,
+    photoFileName,
+    birthCertificate,
+    lastPassingResult,
+    allSections,
+    categories,
+    customFieldDefs,
+    customFieldValues,
+  } = form;
 
   const section = allSections.find((s) => s.id === data.sectionId);
   const category = categories.find((c) => c.id === data.categoryId);
@@ -44,6 +56,16 @@ export const Step5Review: React.FC<{ form: AdmissionFormApi; onEditStep: (step: 
             { label: 'Current Address', value: data.address },
             { label: 'Permanent Address', value: data.permanentAddress },
             { label: 'Hobbies', value: data.hobbies.length ? data.hobbies.join(', ') : '—' },
+            { label: 'Medical Notes', value: data.medicalNotes || '—' },
+            { label: 'Allergies', value: data.allergies || '—' },
+            {
+              label: 'Emergency Contact',
+              value: data.emergencyContactName || data.emergencyContactPhone
+                ? [data.emergencyContactName, data.emergencyContactRelation && `(${data.emergencyContactRelation})`, data.emergencyContactPhone]
+                    .filter(Boolean)
+                    .join(' ')
+                : '—',
+            },
           ]}
         />
       </section>
@@ -62,6 +84,12 @@ export const Step5Review: React.FC<{ form: AdmissionFormApi; onEditStep: (step: 
             { label: 'Roll Number', value: data.rollNumber || '—' },
             { label: 'Department', value: data.department || '—' },
             { label: 'Admission Date', value: data.admissionDate },
+            { label: 'Previous School', value: data.previousSchool || '—' },
+            { label: 'Previous Class', value: data.previousClass || '—' },
+            ...customFieldDefs.map((def) => ({
+              label: def.label,
+              value: formatCustomFieldValue(def, customFieldValues[def.key]),
+            })),
           ]}
         />
       </section>

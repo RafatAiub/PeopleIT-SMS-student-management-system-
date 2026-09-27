@@ -16,12 +16,13 @@ import { StatusBadge } from '../../../components/common/StatusBadge';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { AttendanceHeatmap, HeatmapDay } from '../../../components/Charts/AttendanceHeatmap';
 import { formatCurrency, formatDate, useT } from '../../../i18n';
+import { ProfileExtras, type StudentExtras } from './ProfileExtras';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types (only the fields this page actually reads — the real payload has
 // more, see student.repository.ts studentDetailSelect).
 // ─────────────────────────────────────────────────────────────────────────
-interface StudentDetail {
+interface StudentDetail extends StudentExtras {
   id: string;
   studentId: string;
   firstName: string;
@@ -181,7 +182,7 @@ const StudentProfile: React.FC = () => {
       <Tabs tabs={tabs} value={tab} onChange={(v) => setTab(v as TabId)} label="Student profile sections" idPrefix="student-profile" />
 
       <TabPanel id="overview" value={tab} idPrefix="student-profile">
-        <OverviewTab student={student} />
+        <OverviewTab student={student} canWrite={canWrite} onSaved={fetchStudent} />
       </TabPanel>
       <TabPanel id="academics" value={tab} idPrefix="student-profile">
         <AcademicsTab studentId={student.id} canWrite={canWrite} />
@@ -235,38 +236,45 @@ const StudentProfile: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────
 // Overview
 // ─────────────────────────────────────────────────────────────────────────
-const OverviewTab: React.FC<{ student: StudentDetail }> = ({ student }) => (
-  <Card className="p-5 sm:p-6">
-    <DescriptionList
-      columns={3}
-      items={[
-        { label: 'Full name', value: `${student.firstName} ${student.lastName}` },
-        { label: 'Student ID', value: student.studentId },
-        { label: 'Gender', value: student.gender },
-        { label: 'Date of birth', value: student.dateOfBirth ? formatDate(student.dateOfBirth) : null },
-        { label: 'Email', value: student.email },
-        { label: 'Phone', value: student.phone },
-        { label: 'Blood group', value: student.bloodGroup },
-        { label: 'Religion', value: student.religion },
-        { label: 'Nationality', value: student.nationality },
-        { label: 'Caste', value: student.caste },
-        { label: 'Height', value: student.height },
-        { label: 'Weight', value: student.weight },
-        { label: 'Hobbies', value: student.hobbies },
-        { label: 'Category', value: student.category?.name },
-        { label: 'Department', value: student.department },
-        { label: 'Class', value: student.class?.name },
-        { label: 'Section', value: student.section?.name },
-        { label: 'Roll number', value: student.rollNumber },
-        { label: 'Branch', value: student.branch?.name },
-        { label: 'Academic year', value: student.academicYear?.label },
-        { label: 'Admission date', value: student.admissionDate ? formatDate(student.admissionDate) : null },
-        { label: 'Address', value: student.address },
-        { label: 'Permanent address', value: student.permanentAddress },
-        { label: 'Status', value: <StatusBadge status={student.status} /> },
-      ]}
-    />
-  </Card>
+const OverviewTab: React.FC<{ student: StudentDetail; canWrite: boolean; onSaved: () => void }> = ({
+  student,
+  canWrite,
+  onSaved,
+}) => (
+  <div className="space-y-4">
+    <Card className="p-5 sm:p-6">
+      <DescriptionList
+        columns={3}
+        items={[
+          { label: 'Full name', value: `${student.firstName} ${student.lastName}` },
+          { label: 'Student ID', value: student.studentId },
+          { label: 'Gender', value: student.gender },
+          { label: 'Date of birth', value: student.dateOfBirth ? formatDate(student.dateOfBirth) : null },
+          { label: 'Email', value: student.email },
+          { label: 'Phone', value: student.phone },
+          { label: 'Blood group', value: student.bloodGroup },
+          { label: 'Religion', value: student.religion },
+          { label: 'Nationality', value: student.nationality },
+          { label: 'Caste', value: student.caste },
+          { label: 'Height', value: student.height },
+          { label: 'Weight', value: student.weight },
+          { label: 'Hobbies', value: student.hobbies },
+          { label: 'Category', value: student.category?.name },
+          { label: 'Department', value: student.department },
+          { label: 'Class', value: student.class?.name },
+          { label: 'Section', value: student.section?.name },
+          { label: 'Roll number', value: student.rollNumber },
+          { label: 'Branch', value: student.branch?.name },
+          { label: 'Academic year', value: student.academicYear?.label },
+          { label: 'Admission date', value: student.admissionDate ? formatDate(student.admissionDate) : null },
+          { label: 'Address', value: student.address },
+          { label: 'Permanent address', value: student.permanentAddress },
+          { label: 'Status', value: <StatusBadge status={student.status} /> },
+        ]}
+      />
+    </Card>
+    <ProfileExtras student={student} canWrite={canWrite} onSaved={onSaved} />
+  </div>
 );
 
 // ─────────────────────────────────────────────────────────────────────────

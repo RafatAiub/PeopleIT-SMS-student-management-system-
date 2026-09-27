@@ -34,6 +34,13 @@ export const emptyCreateFormData = (): CreateFormData => ({
   height: '',
   weight: '',
   hobbies: [],
+  previousSchool: '',
+  previousClass: '',
+  medicalNotes: '',
+  allergies: '',
+  emergencyContactName: '',
+  emergencyContactPhone: '',
+  emergencyContactRelation: '',
 });
 
 export const emptyGuardianData = (): GuardianFormData => ({
@@ -91,6 +98,10 @@ export const validateCreateField = (
   if (name === 'phone' && trimmed && !/^[+]?[\d\s()-]{7,20}$/.test(trimmed)) {
     return 'Enter a valid phone number';
   }
+  // Optional — only checked when something was typed.
+  if (name === 'emergencyContactPhone' && trimmed && !/^[+]?[\d\s()-]{7,20}$/.test(trimmed)) {
+    return 'Enter a valid phone number';
+  }
   if (name === 'rollNumber' && trimmed && !/^[A-Za-z0-9-]{1,50}$/.test(trimmed)) {
     return 'Roll number has invalid characters';
   }
@@ -103,7 +114,7 @@ export const validateCreateField = (
 // Which of the rule-checked fields live on which wizard step — used to run
 // only that step's validations on "Next", and all of them before submit.
 export const STEP_FIELDS: Record<WizardStep, string[]> = {
-  1: ['firstName', 'lastName', 'email', 'password', 'phone'],
+  1: ['firstName', 'lastName', 'email', 'password', 'phone', 'emergencyContactPhone'],
   2: ['studentId', 'rollNumber', 'department'],
   3: [],
   4: [],
@@ -112,7 +123,7 @@ export const STEP_FIELDS: Record<WizardStep, string[]> = {
 
 // Exactly the fields validated by the original submit handler, in the same
 // order (used for focusing the first invalid field and for the final gate).
-export const SUBMIT_VALIDATION_FIELDS = ['studentId', 'firstName', 'lastName', 'email', 'password', 'phone', 'rollNumber', 'department'];
+export const SUBMIT_VALIDATION_FIELDS = ['studentId', 'firstName', 'lastName', 'email', 'password', 'phone', 'emergencyContactPhone', 'rollNumber', 'department'];
 
 export const validateFields = (
   fields: string[],

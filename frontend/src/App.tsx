@@ -77,6 +77,11 @@ const DesignSystem = lazyWithRetry(() => import('./pages/design-system/DesignSys
 const StudentDashboard = lazyWithRetry(() => import('./pages/dashboards/StudentDashboard'));
 const StudentProfile = lazyWithRetry(() => import('./pages/students/profile/StudentProfile'));
 const DemoCheckout = lazyWithRetry(() => import('./pages/fees/DemoCheckout'));
+const CampaignsPage = lazyWithRetry(() => import('./pages/communication/campaigns/CampaignsPage'));
+const EnquiriesPage = lazyWithRetry(() => import('./pages/admissions/EnquiriesPage'));
+const CustomFieldsSettings = lazyWithRetry(() => import('./pages/settings/custom-fields/CustomFieldsSettings'));
+const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
+const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
@@ -417,6 +422,8 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
         <Route path="/apply-admission" element={<StudentRegistration />} />
+        <Route path="/admission-enquiry" element={<PublicEnquiryPage />} />
+        <Route path="/admission-status" element={<ApplicationStatusPage />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         {/* Self-service signup and the landing pages for the links sent by
             the confirmation / password-reset emails. All unauthenticated. */}
@@ -446,6 +453,30 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/communication/campaigns" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <CampaignsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admissions/enquiries" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <EnquiriesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings/custom-fields" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CustomFieldsSettings />
             </DashboardLayout>
           </ProtectedRoute>
         } />

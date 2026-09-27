@@ -1,6 +1,64 @@
 import React from 'react';
-import { Input, ErrorState } from '@/components/ui';
+import { Input, ErrorState, Skeleton } from '@/components/ui';
+import { CustomFieldInputs } from '@/pages/settings/custom-fields/CustomFieldInputs';
 import type { AdmissionFormApi } from './useAdmissionForm';
+
+// Previous schooling + institution-defined custom fields. Rendered even when
+// the class list fails to load, so a required custom field is never hidden.
+const AdditionalDetails: React.FC<{ form: AdmissionFormApi }> = ({ form }) => {
+  const {
+    createFormData: data,
+    handleCreateChange,
+    customFieldDefs,
+    customFieldsLoading,
+    customFieldValues,
+    customFieldErrors,
+    handleCustomFieldChange,
+    handleCustomFieldBlur,
+  } = form;
+
+  return (
+    <>
+      <div className="pt-1">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Previous Schooling</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Optional.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="Previous School"
+            name="previousSchool"
+            maxLength={200}
+            value={data.previousSchool}
+            onChange={handleCreateChange}
+          />
+          <Input
+            label="Previous Class"
+            name="previousClass"
+            maxLength={100}
+            placeholder="e.g. Class 5"
+            value={data.previousClass}
+            onChange={handleCreateChange}
+          />
+        </div>
+      </div>
+
+      {customFieldsLoading ? (
+        <Skeleton className="h-16 w-full rounded-xl" />
+      ) : customFieldDefs.length > 0 ? (
+        <div className="pt-1">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Additional Details</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Fields defined by your institution.</p>
+          <CustomFieldInputs
+            definitions={customFieldDefs}
+            values={customFieldValues}
+            errors={customFieldErrors}
+            onChange={handleCustomFieldChange}
+            onBlur={handleCustomFieldBlur}
+          />
+        </div>
+      ) : null}
+    </>
+  );
+};
 
 // Step 2: class/section, category, GR Number, roll number, department
 // (conditional on class 9/10) and admission date — the same "academic
@@ -25,14 +83,17 @@ export const Step2AcademicPlacement: React.FC<{ form: AdmissionFormApi }> = ({ f
 
   if (sectionsError || categoriesError) {
     return (
-      <ErrorState
-        title="Couldn't load class/section or category list"
-        message="These are needed to place the student. Retry, or leave them blank and add placement later from Student Details."
-        onRetry={() => {
-          if (sectionsError) refetchSections();
-          if (categoriesError) refetchCategories();
-        }}
-      />
+      <div className="space-y-4">
+        <ErrorState
+          title="Couldn't load class/section or category list"
+          message="These are needed to place the student. Retry, or leave them blank and add placement later from Student Details."
+          onRetry={() => {
+            if (sectionsError) refetchSections();
+            if (categoriesError) refetchCategories();
+          }}
+        />
+        <AdditionalDetails form={form} />
+      </div>
     );
   }
 
@@ -132,6 +193,8 @@ export const Step2AcademicPlacement: React.FC<{ form: AdmissionFormApi }> = ({ f
           onChange={handleCreateChange}
         />
       </div>
+
+      <AdditionalDetails form={form} />
     </div>
   );
 };
