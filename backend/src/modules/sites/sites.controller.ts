@@ -191,7 +191,7 @@ export const dataToppers = dataHandler((req) => data.toppers(req.params.siteId, 
 export const dataRoutine = dataHandler((req) => data.routine(req.params.siteId, { ...q(req), preview: previewOf(req) }), 600);
 export const dataStats = dataHandler((req) => data.stats(req.params.siteId, previewOf(req)), 600);
 export const dataFeesLink = dataHandler((req) => data.feesLink(req.params.siteId, previewOf(req)), 600);
-export const dataCourses = dataHandler((req) => data.courses(req.params.siteId, previewOf(req)), 600);
+export const dataCourses = dataHandler((req) => data.courses(req.params.siteId, { ...q(req), preview: previewOf(req) }), 600);
 export const dataResultsLookup = wrap(async (req, res) => {
   res.setHeader('Cache-Control', 'private, no-store');
   successResponse(res, await data.resultsLookup(req.params.siteId, req.body, previewOf(req)));

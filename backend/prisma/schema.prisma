@@ -2677,11 +2677,11 @@ enum SiteFormTarget {
 }
 
 model Site {
-  id            String       @id @default(cuid())
-  institutionId String       @unique
-  institution   Institution  @relation(fields: [institutionId], references: [id])
+  id            String           @id @default(cuid())
+  institutionId String           @unique
+  institution   Institution      @relation(fields: [institutionId], references: [id])
   // Free platform subdomain; defaults to the institution slug.
-  subdomain     String       @unique
+  subdomain     String           @unique
   templateKey   String?
   // { primary, accent, font, radius, mode }
   theme         Json
@@ -2690,14 +2690,19 @@ model Site {
   // { siteName, logoUrl, faviconUrl, social{}, analyticsId?, defaultLanguage,
   //   languages[], liteMode, publicResults, showToppers, establishedYear? }
   settings      Json
-  status        SiteStatus   @default(DRAFT)
+  status        SiteStatus       @default(DRAFT)
   publishedAt   DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   pages         SitePage[]
   domains       SiteDomain[]
   posts         SitePost[]
   forms         SiteForm[]
+  products      SiteProduct[]
+  courses       SiteCourse[]
+  customers     SiteCustomer[]
+  orders        SiteOrder[]
+  enrollments   SiteEnrollment[]
 }
 
 model SitePage {
@@ -2840,4 +2845,229 @@ model SiteFormSubmission {
 
   @@index([formId, createdAt])
   @@index([institutionId])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Website Builder v2 — Shop (commerce) and Courses (LMS). Additive to the
+// Sites block above; see docs/redesign/WEBSITE_V2_BRIEF.md §2.
+// ══════════════════════════════════════════════════════════════════════
+
+enum SiteProductKind {
+  PHYSICAL
+  DIGITAL
+}
+
+enum SiteLessonKind {
+  VIDEO
+  TEXT
+  FILE
+  EMBED
+}
+
+enum SiteOrderStatus {
+  PENDING
+  PAID
+  FULFILLED
+  CANCELLED
+  REFUNDED
+}
+
+enum SiteOrderPaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  SSLCOMMERZ
+  FREE
+}
+
+enum SiteEnrollmentStatus {
+  ACTIVE
+  REVOKED
+}
+
+model SiteProduct {
+  id             String          @id @default(cuid())
+  siteId         String
+  site           Site            @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId  String
+  slug           String
+  name           String
+  nameBn         String?
+  // Sanitised HTML; may be ''.
+  description    String          @db.Text
+  images         String[]
+  price          Decimal         @db.Decimal(12, 2)
+  compareAtPrice Decimal?        @db.Decimal(12, 2)
+  sku            String?
+  // null = unlimited stock
+  stock          Int?
+  category       String?
+  kind           SiteProductKind @default(PHYSICAL)
+  // Never returned by the public API; revealed only on a PAID order.
+  digitalUrl     String?
+  status         SiteStatus      @default(DRAFT)
+  sortOrder      Int             @default(0)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([siteId, slug])
+  @@index([institutionId])
+  @@index([siteId, status])
+}
+
+model SiteCourse {
+  id              String             @id @default(cuid())
+  siteId          String
+  site            Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId   String
+  slug            String
+  title           String
+  titleBn         String?
+  summary         String?
+  description     String             @db.Text
+  coverUrl        String?
+  // 0 = free
+  price           Decimal            @default(0) @db.Decimal(12, 2)
+  compareAtPrice  Decimal?           @db.Decimal(12, 2)
+  level           String?
+  language        String?
+  category        String?
+  instructorName  String?
+  instructorBio   String?
+  instructorPhoto String?
+  durationText    String?
+  status          SiteStatus         @default(DRAFT)
+  sortOrder       Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  lessons         SiteCourseLesson[]
+  enrollments     SiteEnrollment[]
+
+  @@unique([siteId, slug])
+  @@index([institutionId])
+  @@index([siteId, status])
+}
+
+// Lessons with the same `module` are grouped into a section in the curriculum.
+model SiteCourseLesson {
+  id            String               @id @default(cuid())
+  courseId      String
+  course        SiteCourse           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  institutionId String
+  module        String?
+  title         String
+  kind          SiteLessonKind       @default(VIDEO)
+  videoUrl      String?
+  // Sanitised HTML.
+  body          String?              @db.Text
+  fileUrl       String?
+  durationMin   Int?
+  isFreePreview Boolean              @default(false)
+  sortOrder     Int                  @default(0)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  progress      SiteLessonProgress[]
+
+  @@index([courseId, sortOrder])
+  @@index([institutionId])
+}
+
+// Shop buyer / course learner account, scoped per site (one school website).
+model SiteCustomer {
+  id            String           @id @default(cuid())
+  siteId        String
+  site          Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  // Always stored lowercase.
+  email         String
+  name          String
+  phone         String?
+  // Set to an unguessable random hash when an admin grants access before the
+  // learner has registered; register() then sets the real password and
+  // "claims" the account (sites.customer.auth.ts).
+  passwordHash  String
+  lastLoginAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  orders        SiteOrder[]
+  enrollments   SiteEnrollment[]
+
+  @@unique([siteId, email])
+  @@index([institutionId])
+}
+
+model SiteOrder {
+  id               String                 @id @default(cuid())
+  siteId           String
+  site             Site                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId    String
+  // e.g. SO-260929-7K3F
+  orderNo          String                 @unique
+  customerId       String?
+  customer         SiteCustomer?          @relation(fields: [customerId], references: [id])
+  customerName     String
+  email            String
+  phone            String
+  // { line1, city, area?, postcode? }
+  address          Json?
+  // [{ kind: 'PRODUCT' | 'COURSE', refId, name, unitPrice, qty }] — server-priced snapshot
+  items            Json
+  subtotal         Decimal                @db.Decimal(12, 2)
+  shipping         Decimal                @default(0) @db.Decimal(12, 2)
+  total            Decimal                @db.Decimal(12, 2)
+  currency         String                 @default("BDT")
+  status           SiteOrderStatus        @default(PENDING)
+  paymentMethod    SiteOrderPaymentMethod
+  gatewayTranId    String?                @unique
+  // bKash paymentID / Nagad paymentReferenceId returned at initiate time —
+  // needed to correlate the async callback back to this order (bKash's
+  // callback carries only paymentID + status, not our tranId). Internal only;
+  // never exposed by the public or admin API.
+  gatewayPaymentId String?
+  gatewayRef       String?                @unique
+  isDemo           Boolean                @default(false)
+  returnUrl        String?
+  paidAt           DateTime?
+  note             String?
+  adminNote        String?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  enrollments      SiteEnrollment[]
+
+  @@index([siteId, status])
+  @@index([institutionId])
+  @@index([customerId])
+}
+
+model SiteEnrollment {
+  id            String               @id @default(cuid())
+  siteId        String
+  site          Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        SiteCourse           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      SiteCustomer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  institutionId String
+  orderId       String?
+  order         SiteOrder?           @relation(fields: [orderId], references: [id])
+  status        SiteEnrollmentStatus @default(ACTIVE)
+  createdAt     DateTime             @default(now())
+  progress      SiteLessonProgress[]
+
+  @@unique([courseId, customerId])
+  @@index([institutionId])
+  @@index([siteId])
+}
+
+// No institutionId: tenant isolation is enforced through the parent
+// enrollment (customer/course/site), which every query joins through.
+model SiteLessonProgress {
+  id           String           @id @default(cuid())
+  enrollmentId String
+  enrollment   SiteEnrollment   @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       SiteCourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt  DateTime         @default(now())
+
+  @@unique([enrollmentId, lessonId])
 }

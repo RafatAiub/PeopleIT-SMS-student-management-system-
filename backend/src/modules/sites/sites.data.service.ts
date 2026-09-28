@@ -298,8 +298,39 @@ export async function feesLink(siteId: string, preview?: string) {
   };
 }
 
-export async function courses(siteId: string, preview?: string) {
-  await visibleSite(siteId, preview);
-  // Placeholder until the LMS wave.
-  return { items: [] as unknown[], comingSoon: true };
+export async function courses(siteId: string, q: { limit: number; preview?: string }) {
+  const { site } = await visibleSite(siteId, q.preview);
+  const settings = (site.settings && typeof site.settings === 'object' ? site.settings : {}) as Record<string, unknown>;
+  const coursesSettings = (settings.courses && typeof settings.courses === 'object' ? settings.courses : {}) as Record<string, unknown>;
+  if (coursesSettings.enabled !== true) return { items: [] as unknown[], comingSoon: true };
+
+  const items = await prisma.siteCourse.findMany({
+    where: { siteId: site.id, institutionId: site.institutionId, status: 'PUBLISHED' },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    take: q.limit,
+  });
+  const ids = items.map((c) => c.id);
+  const agg = ids.length
+    ? await prisma.siteCourseLesson.groupBy({ by: ['courseId'], where: { courseId: { in: ids } }, _count: { _all: true }, _sum: { durationMin: true } })
+    : [];
+  const byId = new Map(agg.map((a) => [a.courseId, { count: a._count._all, minutes: a._sum.durationMin ?? 0 }]));
+  return {
+    items: items.map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      title: c.title,
+      titleBn: c.titleBn,
+      summary: c.summary,
+      coverUrl: c.coverUrl,
+      price: Number(c.price),
+      currency: 'BDT',
+      level: c.level,
+      category: c.category,
+      instructorName: c.instructorName,
+      durationText: c.durationText,
+      lessonCount: byId.get(c.id)?.count ?? 0,
+      totalMinutes: byId.get(c.id)?.minutes ?? 0,
+    })),
+    comingSoon: false,
+  };
 }

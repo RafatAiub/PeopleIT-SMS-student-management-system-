@@ -177,6 +177,28 @@ export function emptyPuckData(): PuckData {
   return { root: { props: {} }, content: [] };
 }
 
+// ── Page code mode (Website Builder v2) ─────────────────────────────────────
+// `root.props = { mode: 'code', code: { html, css, js }, chrome }`. This is
+// the site owner's own HTML/CSS/JS, executed only inside a sandboxed iframe
+// (no allow-same-origin — see WEBSITE_V2_BRIEF.md §1) or the editor preview.
+// It must reach storage/the renderer verbatim: running it through
+// sanitizeHtml (built for visual-block content) would strip <script> tags and
+// event-handler attributes, defeating the whole feature. The size cap still
+// applies via the overall page-data byte limit below.
+
+export interface CodeModeBlock {
+  html: string;
+  css: string;
+  js: string;
+}
+
+function extractCodeBlock(rootProps: Record<string, unknown>): CodeModeBlock | null {
+  if (rootProps.mode !== 'code') return null;
+  const code = rootProps.code && typeof rootProps.code === 'object' && !Array.isArray(rootProps.code) ? (rootProps.code as Record<string, unknown>) : {};
+  const asStr = (v: unknown) => (typeof v === 'string' ? v : '');
+  return { html: asStr(code.html), css: asStr(code.css), js: asStr(code.js) };
+}
+
 function assertComponentList(list: unknown, where: string) {
   if (!Array.isArray(list)) throw new PageDataError(`${where} must be an array`);
   list.forEach((item, i) => {
@@ -202,7 +224,12 @@ export function normalizePuckData(input: unknown): PuckData {
   const raw = input as Record<string, unknown>;
   const root = raw.root ?? { props: {} };
   if (typeof root !== 'object' || root === null || Array.isArray(root)) throw new PageDataError('root must be an object');
-  assertComponentList(raw.content ?? [], 'content');
+  const rootProps = (root as Record<string, unknown>).props;
+  const rootPropsObj = rootProps && typeof rootProps === 'object' && !Array.isArray(rootProps) ? (rootProps as Record<string, unknown>) : {};
+  const codeBlock = extractCodeBlock(rootPropsObj);
+  // A code-mode page has no visual-builder content.
+  const content = codeBlock ? [] : (raw.content ?? []);
+  assertComponentList(content, 'content');
   if (raw.zones !== undefined) {
     if (typeof raw.zones !== 'object' || raw.zones === null || Array.isArray(raw.zones)) {
       throw new PageDataError('zones must be an object');
@@ -211,7 +238,19 @@ export function normalizePuckData(input: unknown): PuckData {
       assertComponentList(list, `zones.${zone}`);
     }
   }
-  const clean = sanitizeJson({ ...raw, root, content: raw.content ?? [] }) as PuckData;
+  // Strip the raw code out before the generic sanitiser walks the tree, then
+  // reattach it verbatim afterwards (see extractCodeBlock's comment above).
+  const rootForSanitize = codeBlock ? { ...root, props: { ...rootPropsObj, code: undefined } } : root;
+  const clean = sanitizeJson({ ...raw, root: rootForSanitize, content }) as PuckData;
+  if (codeBlock) {
+    const cleanRootProps = (clean.root.props ?? {}) as Record<string, unknown>;
+    clean.root.props = {
+      ...cleanRootProps,
+      mode: 'code',
+      chrome: cleanRootProps.chrome === 'none' ? 'none' : 'full',
+      code: codeBlock,
+    };
+  }
   const bytes = Buffer.byteLength(JSON.stringify(clean), 'utf8');
   if (bytes > MAX_PAGE_DATA_BYTES) {
     throw new PageDataError(
@@ -225,7 +264,11 @@ export function normalizePuckData(input: unknown): PuckData {
 
 /** Single path segment, lowercase. '' is reserved for the home page. */
 export const PAGE_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-export const RESERVED_PAGE_SLUGS = new Set(['_home', 'api', 'preview', 'sitemap.xml', 'robots.txt', 'admin', 'login']);
+export const RESERVED_PAGE_SLUGS = new Set([
+  '_home', 'api', 'preview', 'sitemap.xml', 'robots.txt', 'admin', 'login',
+  // Website Builder v2 — shop / LMS routes the public renderer owns.
+  'blog', 'shop', 'cart', 'checkout', 'order', 'courses', 'learn', 'account',
+]);
 export const SUBDOMAIN_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 export const RESERVED_SUBDOMAINS = new Set([
   'www', 'app', 'api', 'admin', 'mail', 'smtp', 'ftp', 'cpanel', 'webmail', 'ns1', 'ns2', 'static', 'cdn', 'assets',

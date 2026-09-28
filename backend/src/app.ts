@@ -145,7 +145,8 @@ const globalLimiter = rateLimit({
   skip: (req) =>
     env.NODE_ENV === 'test' ||
     req.originalUrl.startsWith('/api/v1/billing/gateway/') ||
-    req.originalUrl.startsWith('/api/v1/fees/gateway/'),
+    req.originalUrl.startsWith('/api/v1/fees/gateway/') ||
+    req.originalUrl.startsWith('/api/v1/public/sites/pay/'),
 });
 app.use('/api/', globalLimiter);
 

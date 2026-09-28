@@ -7,13 +7,15 @@ import { FORM_FIELD_TYPES, PAGE_SLUG_PATTERN, SUBDOMAIN_PATTERN } from './sites.
 // sanitised in sites.logic.normalizePuckData, so here they are `unknown`.
 // =============================================================================
 
-const id = z.string().trim().min(1).max(64);
-const optionalText = (max: number) =>
+// Exported so sites.commerce.dto.ts / sites.lms.dto.ts (Website Builder v2)
+// reuse the exact same primitives instead of redefining them.
+export const id = z.string().trim().min(1).max(64);
+export const optionalText = (max: number) =>
   z.preprocess((v) => (v === '' ? null : v), z.string().trim().max(max).nullable().optional());
-const optionalUrl = z.preprocess((v) => (v === '' ? null : v), httpUrl().nullable().optional());
+export const optionalUrl = z.preprocess((v) => (v === '' ? null : v), httpUrl().nullable().optional());
 const hexColor = z.string().trim().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Must be a hex colour');
 
-const pagination = {
+export const pagination = {
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
 };
@@ -56,6 +58,36 @@ export const NavigationDto = z.object({
   footer: z.array(NavItemDto).max(60).default([]),
 });
 
+// Website Builder v2 — site-wide custom code and the shop/courses toggles.
+// customCss is injected as a <style> (can't execute); headHtml/bodyEndHtml
+// run only in host mode on a non-app host (see WEBSITE_V2_BRIEF.md §1).
+const KB = 1024;
+const optionalCode = (maxBytes: number) =>
+  z.preprocess(
+    (v) => (v === '' ? null : v),
+    z
+      .string()
+      .nullable()
+      .optional()
+      .refine((v) => !v || Buffer.byteLength(v, 'utf8') <= maxBytes, {
+        message: `Must be at most ${Math.round(maxBytes / KB)} KB`,
+      }),
+  );
+
+export const ShopSettingsDto = z.object({
+  enabled: z.boolean().default(false),
+  currency: z.literal('BDT').default('BDT'),
+  shippingFee: z.coerce.number().nonnegative().max(1_000_000).default(0),
+  freeShippingOver: z.preprocess((v) => (v === '' ? null : v), z.coerce.number().nonnegative().max(10_000_000).nullable().optional()),
+  codEnabled: z.boolean().default(true),
+  notifyEmails: z.array(z.string().trim().toLowerCase().email().max(200)).max(10).default([]),
+  termsUrl: optionalUrl,
+});
+
+export const CoursesSettingsDto = z.object({
+  enabled: z.boolean().default(false),
+});
+
 export const SettingsDto = z
   .object({
     siteName: z.string().trim().min(1).max(150),
@@ -77,6 +109,12 @@ export const SettingsDto = z
     establishedYear: z.coerce.number().int().min(1800).max(2100).nullable().optional(),
     footerText: optionalText(500),
     footerTextBn: optionalText(500),
+    // Website Builder v2
+    customCss: optionalCode(100 * KB),
+    headHtml: optionalCode(50 * KB),
+    bodyEndHtml: optionalCode(50 * KB),
+    shop: ShopSettingsDto.optional(),
+    courses: CoursesSettingsDto.optional(),
   })
   // Extra keys are kept (sanitised) for the builder UI; only whitelisted keys
   // are ever exposed publicly (sites.logic.publicSettings).
@@ -296,6 +334,11 @@ export const SubmitFormDto = z.record(z.string().max(60), z.unknown()).refine((v
 
 export const DataNoticesQueryDto = z.object({
   limit: z.coerce.number().int().positive().max(50).default(10),
+  preview: z.string().max(2000).optional(),
+});
+
+export const DataCoursesQueryDto = z.object({
+  limit: z.coerce.number().int().positive().max(50).default(12),
   preview: z.string().max(2000).optional(),
 });
 

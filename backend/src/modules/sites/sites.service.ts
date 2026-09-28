@@ -61,6 +61,26 @@ function asObject(v: unknown): Record<string, unknown> {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }
 
+/** Settings keys whose value is the site owner's own code, never run through sanitizeHtml (see sites.dto.ts). */
+const RAW_CODE_SETTINGS_KEYS = ['customCss', 'headHtml', 'bodyEndHtml'] as const;
+
+/**
+ * Merges a settings patch over the stored settings the same way the rest of
+ * this file does (cleanJson), except customCss/headHtml/bodyEndHtml — those
+ * are validated (size-capped) by SettingsDto already, and sanitizeHtml would
+ * strip the <script> tags a tracking snippet legitimately needs. The
+ * boundary that keeps this safe is host-mode gating in the renderer, not
+ * string scrubbing here (WEBSITE_V2_BRIEF.md §1).
+ */
+function mergeSettingsJson(current: Record<string, unknown>, patch: Record<string, unknown>) {
+  const merged = { ...current, ...patch };
+  const clean = cleanJson(merged) as Record<string, unknown>;
+  for (const key of RAW_CODE_SETTINGS_KEYS) {
+    if (key in merged) clean[key] = merged[key] ?? null;
+  }
+  return clean;
+}
+
 function withoutUndefined(o: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 }
@@ -198,7 +218,7 @@ export async function updateMe(ctx: SitesCtx, data: UpdateSiteDtoType) {
   const site = await getOrCreateSite(ctx.institutionId);
   const patch: Prisma.SiteUpdateInput = {};
   if (data.theme) patch.theme = json(cleanJson({ ...asObject(site.theme), ...withoutUndefined(data.theme) }));
-  if (data.settings) patch.settings = json(cleanJson({ ...asObject(site.settings), ...withoutUndefined(data.settings) }));
+  if (data.settings) patch.settings = json(mergeSettingsJson(asObject(site.settings), withoutUndefined(data.settings)));
   if (data.navigation) patch.navigation = json(cleanJson(data.navigation));
   if (data.templateKey !== undefined) patch.templateKey = data.templateKey;
   if (data.subdomain && data.subdomain !== site.subdomain) {
