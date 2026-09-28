@@ -121,6 +121,10 @@ model Institution {
   knowledgeDocuments     KnowledgeDocument[]
   savedReportViews       SavedReportView[]
   reportSchedules        ReportSchedule[]
+
+  // ── Website builder (Sites) ────────────────────────────────────────
+  site      Site?
+  siteMedia SiteMedia[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -2638,4 +2642,202 @@ model ReportSchedule {
 
   @@index([institutionId])
   @@index([savedViewId])
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Website builder (Sites) — one public school website per institution:
+// Puck-JSON pages with draft/published copies and version history, media
+// metadata (files live on Cloudinary), blog posts, forms + submissions and
+// custom domains. Additive only; see docs/redesign/WEBSITE_BRIEF.md.
+// Child tables carry institutionId as a denormalised tenant key (indexed);
+// integrity comes from the cascade to their Site/Page/Form parent.
+// ══════════════════════════════════════════════════════════════════════
+
+enum SiteStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SiteMediaKind {
+  IMAGE
+  VIDEO
+  FILE
+}
+
+enum SiteDomainStatus {
+  PENDING_DNS
+  VERIFYING
+  ACTIVE
+  FAILED
+}
+
+enum SiteFormTarget {
+  ENQUIRY
+  INBOX
+}
+
+model Site {
+  id            String       @id @default(cuid())
+  institutionId String       @unique
+  institution   Institution  @relation(fields: [institutionId], references: [id])
+  // Free platform subdomain; defaults to the institution slug.
+  subdomain     String       @unique
+  templateKey   String?
+  // { primary, accent, font, radius, mode }
+  theme         Json
+  // { header: [{ label, labelBn?, href, children? }], footer: [...] }
+  navigation    Json
+  // { siteName, logoUrl, faviconUrl, social{}, analyticsId?, defaultLanguage,
+  //   languages[], liteMode, publicResults, showToppers, establishedYear? }
+  settings      Json
+  status        SiteStatus   @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  pages         SitePage[]
+  domains       SiteDomain[]
+  posts         SitePost[]
+  forms         SiteForm[]
+}
+
+model SitePage {
+  id                 String            @id @default(cuid())
+  siteId             String
+  site               Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId      String
+  // '' = home page
+  slug               String
+  title              String
+  titleBn            String?
+  // { title, description, ogImage, noindex }
+  seo                Json
+  // Puck Data: { root: { props }, content: [{ type, props }], zones? }
+  draft              Json
+  published          Json?
+  publishedAt        DateTime?
+  sortOrder          Int               @default(0)
+  // The home page is a system page and cannot be deleted.
+  isSystem           Boolean           @default(false)
+  scheduledPublishAt DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  versions           SitePageVersion[]
+
+  @@unique([siteId, slug])
+  @@index([institutionId])
+  @@index([scheduledPublishAt])
+}
+
+// Snapshot of a page's Puck data (on publish, restore, template apply or an
+// explicit checkpoint). Only the newest 30 per page are kept.
+model SitePageVersion {
+  id              String   @id @default(cuid())
+  pageId          String
+  page            SitePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  data            Json
+  createdByUserId String
+  note            String?
+  createdAt       DateTime @default(now())
+
+  @@index([pageId, createdAt])
+}
+
+// Metadata only — the browser uploads straight to Cloudinary.
+model SiteMedia {
+  id              String        @id @default(cuid())
+  institutionId   String
+  institution     Institution   @relation(fields: [institutionId], references: [id])
+  url             String
+  kind            SiteMediaKind @default(IMAGE)
+  name            String
+  size            Int?
+  width           Int?
+  height          Int?
+  alt             String?
+  createdByUserId String
+  createdAt       DateTime      @default(now())
+
+  @@index([institutionId, createdAt])
+}
+
+model SiteDomain {
+  id                String           @id @default(cuid())
+  siteId            String
+  site              Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId     String
+  // Always stored lowercase, without port or trailing dot.
+  hostname          String           @unique
+  isPrimary         Boolean          @default(false)
+  status            SiteDomainStatus @default(PENDING_DNS)
+  verificationToken String
+  // vercel | cloudflare | caddy | manual
+  provider          String           @default("manual")
+  providerRef       String?
+  lastCheckedAt     DateTime?
+  error             String?
+  // Manual/demo provider: DNS verified here, SSL must be set up by the operator.
+  isDemo            Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([siteId])
+  @@index([institutionId])
+  @@index([status])
+}
+
+// Blog / news. Status reuses SiteStatus (DRAFT/PUBLISHED); a PUBLISHED post
+// with a future publishedAt stays hidden until then (scheduled post).
+model SitePost {
+  id            String     @id @default(cuid())
+  siteId        String
+  site          Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  slug          String
+  title         String
+  excerpt       String?
+  coverUrl      String?
+  body          Json
+  status        SiteStatus @default(DRAFT)
+  publishedAt   DateTime?
+  authorUserId  String
+  tags          String[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([siteId, slug])
+  @@index([institutionId])
+  @@index([siteId, status, publishedAt])
+}
+
+model SiteForm {
+  id            String               @id @default(cuid())
+  siteId        String
+  site          Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  name          String
+  // [{ key, label, type, required, options? }]
+  fields        Json
+  target        SiteFormTarget       @default(INBOX)
+  notifyEmails  String[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  submissions   SiteFormSubmission[]
+
+  @@index([siteId])
+  @@index([institutionId])
+}
+
+model SiteFormSubmission {
+  id            String    @id @default(cuid())
+  formId        String
+  form          SiteForm  @relation(fields: [formId], references: [id], onDelete: Cascade)
+  institutionId String
+  data          Json
+  ip            String?
+  userAgent     String?
+  createdAt     DateTime  @default(now())
+  readAt        DateTime?
+
+  @@index([formId, createdAt])
+  @@index([institutionId])
 }

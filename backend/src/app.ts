@@ -58,6 +58,7 @@ import webhooksRouter from './modules/webhooks/webhooks.routes';
 import supportRouter from './modules/support/support.routes';
 import dataExportRouter from './modules/data-export/dataExport.routes';
 import usageRouter from './modules/usage/usage.routes';
+import { sitesRouter, publicSitesRouter } from './modules/sites/sites.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -98,6 +99,13 @@ app.use(
     // subject to the frontend origin allow-list, or every payment callback
     // gets silently blocked before it reaches the controller.
     if (req.path.startsWith('/api/v1/billing/gateway/') || req.path.startsWith('/api/v1/fees/gateway/')) {
+      callback(null, { origin: true, credentials: false });
+      return;
+    }
+
+    // Public school websites are served from any custom domain; these routes
+    // are read-only (plus rate-limited form submit) and never use credentials.
+    if (req.path.startsWith('/api/v1/public/sites/')) {
       callback(null, { origin: true, credentials: false });
       return;
     }
@@ -289,6 +297,8 @@ app.use('/api/v1/webhooks', webhooksRouter);
 app.use('/api/v1/support', supportRouter);
 app.use('/api/v1/data-export', dataExportRouter);
 app.use('/api/v1/usage', usageRouter);
+app.use('/api/v1/public/sites', publicSitesRouter);
+app.use('/api/v1/sites', sitesRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);

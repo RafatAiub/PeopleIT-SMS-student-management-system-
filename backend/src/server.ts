@@ -15,6 +15,7 @@ import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/ov
 import { startLibraryOverdueJob, stopLibraryOverdueJob } from './modules/library/library.scheduler';
 import { startReportScheduleJob, stopReportScheduleJob } from './modules/reports/reportSchedule.scheduler';
 import { startDataExportJob, stopDataExportJob } from './modules/data-export/dataExport.scheduler';
+import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.scheduler';
 
 const server = http.createServer(app);
 
@@ -61,6 +62,8 @@ async function startServer() {
     startReportScheduleJob();
     // Builds requested tenant data exports and deletes expired ones.
     startDataExportJob();
+    // Re-checks pending custom domains every 10 min; runs scheduled page publishes every minute.
+    startDomainCheckJob();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -96,6 +99,7 @@ async function gracefulShutdown(signal: string) {
   stopLibraryOverdueJob();
   stopReportScheduleJob();
   stopDataExportJob();
+  stopDomainCheckJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {
