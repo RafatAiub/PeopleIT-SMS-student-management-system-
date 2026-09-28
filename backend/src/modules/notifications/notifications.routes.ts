@@ -14,10 +14,14 @@ import {
   SendTestDto,
 } from './notifications.dto';
 import * as notificationsController from './notifications.controller';
+import customNotificationsRouter from './custom.routes';
 
 const router = Router();
 
 router.use(authenticate, setTenant);
+
+// Admin-sent broadcasts (Custom Notifications page); role-gated inside.
+router.use('/custom', customNotificationsRouter);
 
 // Deliberately no requireRole: a notification is addressed to a specific user,
 // so every authenticated role may read its own. Ownership (not role) is the

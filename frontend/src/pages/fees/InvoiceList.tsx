@@ -24,9 +24,9 @@ interface CategorySummary {
   revenuePotential: number;
 }
 
-const InvoiceList = () => {
+const InvoiceList = ({ initialTab = 'invoices' }: { initialTab?: 'invoices' | 'categories' }) => {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<'invoices' | 'categories'>('invoices');
+  const [activeTab, setActiveTab] = useState<'invoices' | 'categories'>(initialTab);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [totalInvoices, setTotalInvoices] = useState(0);
   const [invoiceSummary, setInvoiceSummary] = useState<InvoiceSummary | null>(null);

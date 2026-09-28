@@ -47,6 +47,9 @@ model Institution {
   staffProfiles           StaffProfile[]
   staffRoles              StaffRole[]
   staffAttendances        StaffAttendance[]
+  classFees               ClassFee[]
+  notificationBroadcasts  NotificationBroadcast[]
+  websiteItems            WebsiteItem[]
   payrollRecords          PayrollRecord[]
   messages                Message[]
   subjects                Subject[]
@@ -309,6 +312,7 @@ model Class {
   name       String // e.g. "Grade 5"
   level      Int       @default(1)
   sections   Section[]
+  classFees  ClassFee[]
   students   Student[]
   mediumId   String?
   medium     Medium?   @relation(fields: [mediumId], references: [id])
@@ -774,6 +778,7 @@ model FeeCategory {
   isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
   invoiceItems  InvoiceItem[]
+  classFees     ClassFee[]
 
   @@index([institutionId])
 }
@@ -1505,4 +1510,65 @@ model IdCard {
   @@index([studentId])
   @@index([staffId])
   @@index([verifyToken])
+}
+
+// Fee types assigned to a class (Fees > Assign Fees Classes). amount is the
+// per-class charge; FeeCategory.amount remains the default suggested value.
+model ClassFee {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  classId       String
+  class         Class       @relation(fields: [classId], references: [id])
+  feeCategoryId String
+  feeCategory   FeeCategory @relation(fields: [feeCategoryId], references: [id])
+  amount        Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([classId, feeCategoryId])
+  @@index([institutionId])
+}
+
+// One row per admin-sent custom notification; the per-recipient in-app rows
+// live in Notification (type CUSTOM, data.broadcastId = this id).
+model NotificationBroadcast {
+  id             String      @id @default(cuid())
+  institutionId  String
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  title          String
+  body           String      @db.Text
+  target         String // ALL, STUDENT, GUARDIAN, TEACHER, STAFF
+  sentByUserId   String
+  recipientCount Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  @@index([institutionId])
+}
+
+enum WebsiteItemType {
+  SLIDER
+  PHOTO
+  VIDEO
+  PROGRAM
+  FAQ
+}
+
+// Public-website content lists (Sliders, Gallery Photos/Videos, Educational
+// Program, FAQs) share one table keyed by type.
+model WebsiteItem {
+  id            String          @id @default(cuid())
+  institutionId String
+  institution   Institution     @relation(fields: [institutionId], references: [id])
+  type          WebsiteItemType
+  title         String
+  description   String?         @db.Text
+  mediaUrl      String?         @db.Text
+  linkUrl       String?
+  sortOrder     Int             @default(0)
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([institutionId, type])
 }

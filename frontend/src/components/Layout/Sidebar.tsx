@@ -6,6 +6,7 @@ import {
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
   Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature, UsersRound, UserCog, ClipboardCheck,
+  FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe, Settings, CloudDownload,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -149,7 +150,6 @@ const NAV_ENTRIES: NavEntry[] = [
       // HR & Payroll: Admin Full, Accountant Read
       { to: '/hr', label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
       { to: '/ai-insights', label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
-      { to: '/website-builder', label: 'Website Builder', roles: ['ADMIN'] },
     ],
   },
   {
@@ -204,14 +204,48 @@ const NAV_ENTRIES: NavEntry[] = [
   },
   {
     kind: 'category',
-    label: 'Finance',
+    label: 'Fees',
     icon: <Receipt className="w-4.5 h-4.5" />,
     children: [
+      // Fees Type = the fee-category tab of the Fees & Billing page (same data, no duplicate screen)
+      { to: '/fees/types', label: 'Fees Type', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/fees/assign-classes', label: 'Assign Fees Classes', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
-      { to: '/fees', label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees', label: 'Fees Paid', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees/transactions', label: 'Fees Transactions Logs', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Reports',
+    icon: <FileBarChart className="w-4.5 h-4.5" />,
+    children: [
       { to: '/reports', label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
-      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
-      { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
+    ],
+  },
+  { kind: 'link', to: '/custom-notifications', icon: <BellRing className="w-4.5 h-4.5" />, label: 'Custom Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Announcement = Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
+  { kind: 'link', to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Announcement', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  { kind: 'link', to: '/web/sliders', icon: <GalleryHorizontal className="w-4.5 h-4.5" />, label: 'Sliders', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Gallery',
+    icon: <Images className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/web/gallery/photos', label: 'Photos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/web/gallery/videos', label: 'Videos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Web Settings',
+    icon: <Globe className="w-4.5 h-4.5" />,
+    children: [
+      // Hero/About text and public contact details are both edited in the existing Website Builder.
+      { to: '/website-builder', label: 'Content Settings', roles: ['ADMIN'] },
+      { to: '/web/programs', label: 'Educational Program', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/web/faqs', label: "FAQ's", roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder#contact', label: 'Contact Us', roles: ['ADMIN'] },
     ],
   },
   {
@@ -221,8 +255,6 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       // Messages: Admin Full, everyone else Own conversations only (Super Admin excluded)
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-      // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
-      { to: '/notices', label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
@@ -255,10 +287,13 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
       { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Branches & Classes: Super Admin/Admin Full, everyone else Read
-      { to: '/settings', label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student fees.
+      { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
     ],
   },
+  // Branches & Classes, profile, security: Super Admin/Admin Full, everyone else Read
+  { kind: 'link', to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'System Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  { kind: 'link', to: '/system-update', icon: <CloudDownload className="w-4.5 h-4.5" />, label: 'System Update', roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 // Not a sidebar entry (reached via role-based redirect, not a direct nav
@@ -491,6 +526,7 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                           <NavLink
                             key={child.to}
                             to={child.to}
+                            end
                             id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                             onClick={() => isMobile && setMobileMenuOpen(false)}
                             className={({ isActive }) =>

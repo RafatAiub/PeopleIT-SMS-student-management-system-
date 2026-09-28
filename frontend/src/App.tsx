@@ -49,6 +49,11 @@ const TeacherTimetable = lazyWithRetry(() => import('./pages/timetable/TeacherTi
 const StaffAttendance = lazyWithRetry(() => import('./pages/attendance/StaffAttendance'));
 const AttendanceMonthly = lazyWithRetry(() => import('./pages/attendance/AttendanceMonthly'));
 const AttendanceReport = lazyWithRetry(() => import('./pages/attendance/AttendanceReport'));
+const AssignFeesClasses = lazyWithRetry(() => import('./pages/fees/AssignFeesClasses'));
+const FeesTransactionLogs = lazyWithRetry(() => import('./pages/fees/FeesTransactionLogs'));
+const CustomNotifications = lazyWithRetry(() => import('./pages/communication/CustomNotifications'));
+const WebsiteItemsManager = lazyWithRetry(() => import('./pages/website/WebsiteItemsManager'));
+const SystemUpdate = lazyWithRetry(() => import('./pages/settings/SystemUpdate'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
 const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
 const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
@@ -561,6 +566,86 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <StaffList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/types" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <InvoiceList initialTab="categories" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/assign-classes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignFeesClasses />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/transactions" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <FeesTransactionLogs />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/custom-notifications" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CustomNotifications />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/sliders" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <WebsiteItemsManager key="SLIDER" type="SLIDER" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/gallery/photos" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <WebsiteItemsManager key="PHOTO" type="PHOTO" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/gallery/videos" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <WebsiteItemsManager key="VIDEO" type="VIDEO" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/programs" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <WebsiteItemsManager key="PROGRAM" type="PROGRAM" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/faqs" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <WebsiteItemsManager key="FAQ" type="FAQ" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/system-update" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SystemUpdate />
             </DashboardLayout>
           </ProtectedRoute>
         } />

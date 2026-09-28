@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
 
@@ -40,6 +41,13 @@ const DEFAULT_CONFIG: CustomizerConfig = {
 export default function WebsiteBuilder() {
   const [config, setConfig] = useState<CustomizerConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+
+  // Sidebar "Contact Us" links here as /website-builder#contact.
+  useEffect(() => {
+    if (loading || location.hash !== '#contact') return;
+    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, location.hash]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -197,7 +205,7 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl space-y-4">
+          <div id="contact" className="glass-card p-6 rounded-2xl space-y-4 scroll-mt-6">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Phone className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Contact Information
