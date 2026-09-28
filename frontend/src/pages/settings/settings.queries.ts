@@ -66,9 +66,10 @@ export interface Exam {
 
 export const EXAMS_KEY = ['settings-exams'] as const;
 
-export function useExams() {
+export function useExams(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: EXAMS_KEY,
+    enabled: options.enabled ?? true,
     queryFn: async (): Promise<Exam[]> => {
       const { data } = await apiClient.get('/results?pageSize=100');
       return data?.data ?? [];

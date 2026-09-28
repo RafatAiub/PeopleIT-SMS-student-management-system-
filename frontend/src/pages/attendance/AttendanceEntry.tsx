@@ -180,7 +180,8 @@ const AttendanceEntry = () => {
   // Load attendance sheet for Teacher/Admin when parameters change
   const fetchAttendanceSheet = async () => {
     if (isStudent || isGuardian || isAccountant || (isTeacher && !hasAssignments)) return;
-    if (isAdmin && (!selectedClass || !selectedSection)) return;
+    // Teachers' selections are filled in asynchronously too — never query with an empty class/section.
+    if (!selectedClass || !selectedSection) return;
     try {
       setLoading(true);
       setSheetError(false);

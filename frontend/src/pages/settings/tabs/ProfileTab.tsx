@@ -17,7 +17,9 @@ const ProfileTab: React.FC = () => {
     isError: settingsError,
     refetch: refetchSettings,
   } = useInstitutionWebsite();
-  const { data: exams, isLoading: examsLoading, isError: examsError, refetch: refetchExams } = useExams();
+  // GET /results is limited to SA/A/T/STUDENT/GUARDIAN; other staff roles get no exam calendar.
+  const canSeeExams = ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'].includes(user?.role ?? '');
+  const { data: exams, isLoading: examsLoading, isError: examsError, refetch: refetchExams } = useExams({ enabled: canSeeExams });
 
   if (settingsLoading) {
     return (
@@ -112,6 +114,7 @@ const ProfileTab: React.FC = () => {
       </div>
 
       {/* Academic Schedule & Active Exams List */}
+      {canSeeExams && (
       <div className="md:col-span-2 space-y-4">
         <div className="glass-card p-6 rounded-2xl space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
@@ -166,6 +169,7 @@ const ProfileTab: React.FC = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
