@@ -1,5 +1,25 @@
 /** Layout blocks: Section, Columns (drop zones via Puck slots), Spacer, Divider. */
-import { BlockSection, optimiseImage, sectionDefaults, sectionFields, selectField, textField, type SectionProps, type SiteBlock, type SlotRender } from './shared';
+import { BlockSection, numberField, optimiseImage, sectionDefaults, sectionFields, selectField, textField, type SectionProps, type SiteBlock, type SlotRender } from './shared';
+
+const GRADIENT_PRESET: Record<string, string> = {
+  brand: 'linear-gradient({angle}deg, var(--site-primary), var(--site-accent))',
+  soft: 'linear-gradient({angle}deg, var(--site-primary-soft), var(--site-accent-soft))',
+};
+
+/** Advanced-prop background: gradient (brand/soft/custom) — image background wins when both are set. */
+function sectionGradient(p: Record<string, any>): string | undefined {
+  const gradient = p.gradient as string | undefined;
+  if (!gradient || gradient === 'none') return undefined;
+  const angle = Number.isFinite(Number(p.gradientAngle)) ? Number(p.gradientAngle) : 135;
+  if (gradient === 'custom') {
+    const from = String(p.gradientFrom ?? '').trim();
+    const to = String(p.gradientTo ?? '').trim();
+    if (!from || !to) return undefined;
+    return `linear-gradient(${angle}deg, ${from}, ${to})`;
+  }
+  const preset = GRADIENT_PRESET[gradient];
+  return preset ? preset.replace('{angle}', String(angle)) : undefined;
+}
 
 export const Section: SiteBlock = {
   label: 'Section',
@@ -7,9 +27,18 @@ export const Section: SiteBlock = {
     ...sectionFields,
     backgroundImage: textField('Background image URL'),
     overlay: selectField('Image overlay', [['none', 'None'], ['light', 'Light'], ['dark', 'Dark'], ['brand', 'Brand colour']]),
+    gradient: selectField('Background gradient (advanced)', [['none', 'None'], ['brand', 'Brand (primary → accent)'], ['soft', 'Soft brand tint'], ['custom', 'Custom colours']]),
+    gradientFrom: textField('Gradient start colour (hex; custom only)'),
+    gradientTo: textField('Gradient end colour (hex; custom only)'),
+    gradientAngle: numberField('Gradient angle (degrees)', 0, 360),
+    customClass: textField('Custom CSS class (advanced)'),
+    animate: selectField('Entrance animation', [['fade-up', 'Fade up'], ['fade', 'Fade in'], ['zoom', 'Zoom in'], ['none', 'None']]),
     content: { type: 'slot' },
   },
-  defaultProps: { ...sectionDefaults, backgroundImage: '', overlay: 'dark', content: [] },
+  defaultProps: {
+    ...sectionDefaults, backgroundImage: '', overlay: 'dark', gradient: 'none', gradientFrom: '', gradientTo: '', gradientAngle: 135,
+    customClass: '', animate: 'fade-up', content: [],
+  },
   render: (p) => {
     const Content = p.content as SlotRender;
     const img = optimiseImage(p.backgroundImage as string, 1920);
@@ -17,12 +46,19 @@ export const Section: SiteBlock = {
       light: 'rgb(255 255 255 / .75)', dark: 'rgb(15 23 42 / .62)', brand: 'color-mix(in srgb, var(--site-primary) 78%, transparent)',
     };
     const hasImg = Boolean(img);
+    const gradient = hasImg ? undefined : sectionGradient(p);
+    const anim = String(p.animate ?? 'fade-up');
     return (
-      <div className={hasImg ? 'site-hero' : undefined} style={hasImg && p.overlay !== 'light' ? { color: '#fff' } : undefined}>
+      <div
+        className={[hasImg ? 'site-hero' : '', p.customClass ? String(p.customClass) : ''].filter(Boolean).join(' ') || undefined}
+        style={{ ...(hasImg && p.overlay !== 'light' ? { color: '#fff' } : {}), ...(gradient ? { background: gradient } : {}) }}
+      >
         {hasImg && <img src={img} alt="" loading="lazy" decoding="async" className="site-hero-media" />}
         {hasImg && p.overlay !== 'none' && <div className="site-hero-overlay" style={{ background: overlay[p.overlay as string] }} />}
-        <BlockSection {...(p as SectionProps)} tone={hasImg ? undefined : (p.tone as SectionProps['tone'])} className={hasImg ? '!bg-transparent' : ''}>
-          <Content className="flex flex-col gap-6" minEmptyHeight={120} />
+        <BlockSection {...(p as SectionProps)} tone={hasImg || gradient ? undefined : (p.tone as SectionProps['tone'])} className={hasImg || gradient ? '!bg-transparent' : ''}>
+          <div className={anim !== 'none' ? 'site-anim' : undefined} data-anim={anim}>
+            <Content className="flex flex-col gap-6" minEmptyHeight={120} />
+          </div>
         </BlockSection>
       </div>
     );

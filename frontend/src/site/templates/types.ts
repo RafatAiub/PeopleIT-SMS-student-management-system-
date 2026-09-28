@@ -10,7 +10,12 @@ export type TemplateKey =
   | 'coaching'
   | 'polytechnic'
   | 'minimal'
-  | 'academy';
+  | 'academy'
+  | 'online-store'
+  | 'lms-academy'
+  | 'saas-landing'
+  | 'event-landing'
+  | 'course-launch';
 
 export type ThumbLayout = 'hero-center' | 'split' | 'playful' | 'classic' | 'arch' | 'cards' | 'bold' | 'grid' | 'minimal' | 'courses';
 
@@ -41,6 +46,6 @@ export interface SiteTemplate {
   preview: TemplatePreview;
   theme: SiteTheme;
   navigation: SiteNavigation;
-  settings?: Partial<Pick<SiteSettings, 'liteMode' | 'languages' | 'defaultLanguage'>>;
+  settings?: Partial<Pick<SiteSettings, 'liteMode' | 'languages' | 'defaultLanguage' | 'shop' | 'courses'>>;
   pages: TemplatePage[];
 }

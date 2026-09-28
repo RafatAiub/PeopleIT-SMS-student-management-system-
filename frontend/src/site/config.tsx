@@ -15,6 +15,12 @@ import { Embed, Gallery, ImageBlock, LogoStrip, MapBlock, Video } from './blocks
 import { Cards, ContactInfo, FAQ, PrincipalMessage, StatsCounter, Testimonials, Timeline } from './blocks/content';
 import { Courses, EventsCalendar, FeePayment, LatestNews, Notices, StatsLive, TeacherDirectory, Toppers } from './blocks/live-feeds';
 import { AiAssistant, ClassRoutine, EnquiryForm, ResultsLookup } from './blocks/live-forms';
+import {
+  AnnouncementBar, BentoGrid, ComparisonTable, Countdown, FeatureGrid, GradientBanner, Marquee, Newsletter, PricingTable,
+  SplitHero, Steps, Tabs, Team, TestimonialWall,
+} from './blocks/design';
+import { AccountButton, CartButton, FeaturedCourse, FeaturedProduct, CourseGrid, ProductGrid } from './blocks/commerce';
+import { CustomCode } from './blocks/code';
 import type { SiteBlock } from './blocks/shared';
 
 export const SITE_COMPONENTS = {
@@ -27,12 +33,19 @@ export const SITE_COMPONENTS = {
   // (StatsLive / EnquiryForm names match the backend AI site generator.)
   Notices, EventsCalendar, TeacherDirectory, Toppers, ResultsLookup, ClassRoutine, StatsLive, EnquiryForm,
   FeePayment, LatestNews, Courses, AiAssistant,
+  // Design (landing pages)
+  FeatureGrid, PricingTable, Steps, Team, BentoGrid, Countdown, Newsletter, Tabs, Marquee, ComparisonTable,
+  SplitHero, GradientBanner, TestimonialWall, AnnouncementBar,
+  // Commerce (shop + courses/LMS)
+  ProductGrid, FeaturedProduct, CartButton, CourseGrid, FeaturedCourse, AccountButton,
+  // Custom code
+  CustomCode,
 } satisfies Record<string, SiteBlock>;
 
 export type SiteBlockType = keyof typeof SITE_COMPONENTS;
 
 export interface BlockCategory {
-  key: 'layout' | 'content' | 'media' | 'live';
+  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code';
   title: string;
   titleBn: string;
   components: SiteBlockType[];
@@ -50,6 +63,15 @@ export const BLOCK_CATEGORIES: BlockCategory[] = [
     key: 'live', title: 'Live school data', titleBn: 'লাইভ তথ্য',
     components: ['Notices', 'EventsCalendar', 'TeacherDirectory', 'Toppers', 'ResultsLookup', 'ClassRoutine', 'StatsLive', 'EnquiryForm', 'FeePayment', 'LatestNews', 'Courses', 'AiAssistant'],
   },
+  {
+    key: 'design', title: 'Design (landing pages)', titleBn: 'ডিজাইন (ল্যান্ডিং পেজ)',
+    components: ['FeatureGrid', 'PricingTable', 'Steps', 'Team', 'BentoGrid', 'Countdown', 'Newsletter', 'Tabs', 'Marquee', 'ComparisonTable', 'SplitHero', 'GradientBanner', 'TestimonialWall', 'AnnouncementBar'],
+  },
+  {
+    key: 'commerce', title: 'Shop & courses', titleBn: 'দোকান ও কোর্স',
+    components: ['ProductGrid', 'FeaturedProduct', 'CartButton', 'CourseGrid', 'FeaturedCourse', 'AccountButton'],
+  },
+  { key: 'code', title: 'Custom code', titleBn: 'কাস্টম কোড', components: ['CustomCode'] },
 ];
 
 /** Blocks that fetch live data (the editor may badge them). */

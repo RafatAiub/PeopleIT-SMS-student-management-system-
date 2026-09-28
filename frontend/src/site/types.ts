@@ -53,6 +53,20 @@ export interface SiteSocial {
   [key: string]: string | undefined;
 }
 
+export interface SiteShopSettings {
+  enabled: boolean;
+  currency: 'BDT';
+  shippingFee: number;
+  freeShippingOver?: number | null;
+  codEnabled: boolean;
+  notifyEmails: string[];
+  termsUrl?: string;
+}
+
+export interface SiteCoursesSettings {
+  enabled: boolean;
+}
+
 export interface SiteSettings {
   siteName: string;
   siteNameBn?: string;
@@ -72,6 +86,13 @@ export interface SiteSettings {
   defaultEnquiryFormId?: string;
   footerText?: string;
   footerTextBn?: string;
+  /** Site-wide custom CSS (max 100 KB); injected as a <style> tag, never executed as script. */
+  customCss?: string;
+  /** Tracking pixels / chat widgets; run only in host mode on a non-app host (§1). Max 50 KB. */
+  headHtml?: string;
+  bodyEndHtml?: string;
+  shop?: SiteShopSettings;
+  courses?: SiteCoursesSettings;
 }
 
 export interface SiteSeo {
@@ -241,4 +262,167 @@ export interface PublicMarksheet {
   grade?: string;
   totalMarks?: number | string;
   subjects: Array<{ name: string; marks?: number | string; grade?: string; gradePoint?: number | string }>;
+}
+
+/* ── Shop, courses (LMS), orders (Website Builder v2) ───────────────────── */
+
+export type SiteProductKind = 'PHYSICAL' | 'DIGITAL';
+export type SiteOrderStatus = 'PENDING' | 'PAID' | 'FULFILLED' | 'CANCELLED' | 'REFUNDED';
+export type SitePaymentMethod = 'COD' | 'BKASH' | 'NAGAD' | 'SSLCOMMERZ' | 'FREE';
+
+export interface PublicProduct {
+  id: string;
+  slug: string;
+  name: string;
+  nameBn?: string;
+  /** Sanitised HTML; may be `''`. */
+  description: string;
+  images: string[];
+  price: number;
+  compareAtPrice?: number;
+  currency: string;
+  kind: SiteProductKind;
+  inStock: boolean;
+  stock?: number | null;
+  category?: string;
+}
+
+export interface PublicCourse {
+  id: string;
+  slug: string;
+  title: string;
+  titleBn?: string;
+  summary?: string;
+  description: string;
+  coverUrl?: string;
+  price: number;
+  compareAtPrice?: number;
+  currency: string;
+  level?: string;
+  language?: string;
+  category?: string;
+  instructorName?: string;
+  instructorBio?: string;
+  instructorPhoto?: string;
+  durationText?: string;
+  lessonCount: number;
+  totalMinutes: number;
+}
+
+export type SiteLessonKind = 'VIDEO' | 'TEXT' | 'FILE' | 'EMBED';
+
+export interface PublicCurriculumLesson {
+  id: string;
+  module?: string;
+  title: string;
+  kind: SiteLessonKind;
+  durationMin?: number;
+  isFreePreview: boolean;
+  /** Only present for free-preview lessons on the catalogue detail endpoint. */
+  preview?: { videoUrl?: string; body?: string; fileUrl?: string };
+}
+
+export interface PublicCourseDetail extends PublicCourse {
+  curriculum: PublicCurriculumLesson[];
+}
+
+/** A learner's curriculum item: full content, gated by enrollment (`GET /learn/:slug`). */
+export interface LearnLesson {
+  id: string;
+  module?: string;
+  title: string;
+  kind: SiteLessonKind;
+  durationMin?: number;
+  isFreePreview: boolean;
+  videoUrl?: string;
+  body?: string;
+  fileUrl?: string;
+}
+
+export interface LearnCourse extends PublicCourse {
+  curriculum: LearnLesson[];
+  completedLessonIds: string[];
+  /** 0–100. */
+  progress: number;
+}
+
+export interface EnrolledCourse {
+  courseSlug: string;
+  title: string;
+  titleBn?: string;
+  coverUrl?: string;
+  progress: number;
+  nextLessonId?: string;
+}
+
+export interface PublicOrderItem {
+  kind: 'PRODUCT' | 'COURSE';
+  refId: string;
+  name: string;
+  unitPrice: number;
+  qty: number;
+  /** Present only for PAID digital items belonging to the requesting customer/email. */
+  downloadUrl?: string;
+  courseSlug?: string;
+}
+
+export interface PublicOrderAddress {
+  line1?: string;
+  city?: string;
+  area?: string;
+  postcode?: string;
+}
+
+export interface PublicOrder {
+  orderNo: string;
+  status: SiteOrderStatus;
+  paymentMethod: SitePaymentMethod;
+  isDemo: boolean;
+  currency: string;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  createdAt: string;
+  paidAt?: string;
+  customerName: string;
+  email: string;
+  items: PublicOrderItem[];
+}
+
+export interface SiteCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+}
+
+export interface CheckoutGateway {
+  gateway: string;
+  label: string;
+  live: boolean;
+  demo: boolean;
+}
+
+export interface CheckoutOptions {
+  shopEnabled: boolean;
+  coursesEnabled: boolean;
+  currency: string;
+  shippingFee: number;
+  freeShippingOver?: number | null;
+  codEnabled: boolean;
+  gateways: CheckoutGateway[];
+}
+
+export interface CreateOrderInput {
+  items: Array<{ kind: 'PRODUCT' | 'COURSE'; refId: string; qty: number }>;
+  customer: { name: string; email: string; phone: string; address?: PublicOrderAddress };
+  paymentMethod: SitePaymentMethod;
+  note?: string;
+  returnUrl: string;
+}
+
+export interface CreateOrderResult {
+  order: PublicOrder;
+  paymentUrl?: string;
+  demo?: boolean;
 }

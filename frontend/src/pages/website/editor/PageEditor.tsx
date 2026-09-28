@@ -7,6 +7,7 @@ import { Button, Badge, ErrorState, Skeleton, Alert, Tooltip } from '@/component
 import { useT } from '@/i18n';
 import { SiteRuntimeProvider } from '@/site/runtime';
 import { normaliseNavigation, normaliseSettings, normaliseTheme } from '@/site/theme';
+import { isCodePage } from '@/site/code/codePage';
 import type { PublicInstitution, SiteLang } from '@/site/types';
 import { useInstitutionInfo, usePage, usePreviewToken, usePublishPage, useSite, useUpdatePage, apiError } from '../sites.queries';
 import { joinUrl, pagePath, useSiteRole } from '../siteUtils';
@@ -15,6 +16,7 @@ import { SeoDrawer } from './SeoDrawer';
 import { VersionHistoryDrawer } from './VersionHistoryDrawer';
 
 const PuckEditor = React.lazy(() => import('./PuckEditor'));
+const CodePageEditor = React.lazy(() => import('./CodePageEditor'));
 
 const toPuck = (d: PuckData | null | undefined): Data => (d && Array.isArray(d.content) ? (d as unknown as Data) : ({ root: { props: {} }, content: [] } as Data));
 
@@ -142,6 +144,8 @@ export default function PageEditor() {
   const previewBase = tokenQ.data?.previewUrl ?? me?.previewUrl ?? null;
   const previewHref = previewBase && page ? joinUrl(previewBase, pagePath(page.slug)) : null;
   const saving = update.isPending;
+  /** Code pages (`root.props.mode === 'code'`, WEBSITE_V2_BRIEF.md §2) get the HTML/CSS/JS editor instead of Puck's block canvas. */
+  const isCode = React.useMemo(() => (initial ? isCodePage(initial) : false), [initial]);
 
   const actions = (
     <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -240,9 +244,22 @@ export default function PageEditor() {
             basePath={`/s/${me.site.subdomain}`}
             previewToken={previewToken}
           >
-            <React.Suspense fallback={<EditorSkeleton />}>
-              <PuckEditor key={editorKey} data={initial} onChange={onChange} headerTitle={lang === 'bn' && page.titleBn ? page.titleBn : page.title} actions={actions} />
-            </React.Suspense>
+            {isCode ? (
+              <div className="h-full flex flex-col min-h-0">
+                <div className="flex items-center justify-end gap-2 px-3 py-2 border-b border-slate-200 dark:border-white/10 shrink-0">
+                  {actions}
+                </div>
+                <div className="flex-1 min-h-0">
+                  <React.Suspense fallback={<EditorSkeleton />}>
+                    <CodePageEditor key={editorKey} data={initial} onChange={onChange} />
+                  </React.Suspense>
+                </div>
+              </div>
+            ) : (
+              <React.Suspense fallback={<EditorSkeleton />}>
+                <PuckEditor key={editorKey} data={initial} onChange={onChange} headerTitle={lang === 'bn' && page.titleBn ? page.titleBn : page.title} actions={actions} />
+              </React.Suspense>
+            )}
           </SiteRuntimeProvider>
           <SeoDrawer page={page} isOpen={seoOpen} onClose={() => setSeoOpen(false)} />
           <VersionHistoryDrawer

@@ -38,6 +38,22 @@ export interface SiteSocialLinks {
   [key: string]: string | undefined;
 }
 
+/** `Site.settings.shop` — WEBSITE_V2_BRIEF.md §2. */
+export interface ShopSettings {
+  enabled: boolean;
+  currency: 'BDT';
+  shippingFee: number;
+  freeShippingOver?: number | null;
+  codEnabled: boolean;
+  notifyEmails: string[];
+  termsUrl?: string | null;
+}
+
+/** `Site.settings.courses` — WEBSITE_V2_BRIEF.md §2. */
+export interface CoursesSettings {
+  enabled: boolean;
+}
+
 export interface SiteSettings {
   siteName: string;
   logoUrl?: string | null;
@@ -49,6 +65,12 @@ export interface SiteSettings {
   liteMode: boolean;
   publicResults?: boolean;
   showToppers?: boolean;
+  /** Site-wide custom code (max sizes per brief: CSS 100 KB, HTML 50 KB each). Host-mode only for head/body. */
+  customCss?: string;
+  headHtml?: string;
+  bodyEndHtml?: string;
+  shop?: ShopSettings;
+  courses?: CoursesSettings;
   [key: string]: unknown;
 }
 
@@ -244,3 +266,176 @@ export interface GenerateSiteResponse {
 }
 
 export type ApplyMode = 'replace' | 'merge';
+
+// =============================================================================
+// Shop, Courses (LMS) and orders — docs/redesign/WEBSITE_V2_BRIEF.md §2 & §3.
+// Money fields are plain numbers (the API converts Decimal on the way out).
+// =============================================================================
+
+export type SiteProductKind = 'PHYSICAL' | 'DIGITAL';
+
+export interface SiteProduct {
+  id: string;
+  siteId: string;
+  slug: string;
+  name: string;
+  nameBn?: string | null;
+  /** Sanitised HTML; may be `''`. */
+  description: string;
+  images: string[];
+  price: number;
+  compareAtPrice?: number | null;
+  sku?: string | null;
+  /** `null` = unlimited stock. */
+  stock?: number | null;
+  category?: string | null;
+  kind: SiteProductKind;
+  /** Never returned by the public API; only visible here (admin) and revealed to a buyer after PAID. */
+  digitalUrl?: string | null;
+  status: SiteStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SiteLessonKind = 'VIDEO' | 'TEXT' | 'FILE' | 'EMBED';
+
+export interface SiteCourseLesson {
+  id: string;
+  courseId: string;
+  /** Module/section title; lessons sharing one are grouped in the curriculum. */
+  module?: string | null;
+  title: string;
+  kind: SiteLessonKind;
+  videoUrl?: string | null;
+  body?: string | null;
+  fileUrl?: string | null;
+  durationMin?: number | null;
+  isFreePreview: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteCourse {
+  id: string;
+  siteId: string;
+  slug: string;
+  title: string;
+  titleBn?: string | null;
+  summary?: string | null;
+  description: string;
+  coverUrl?: string | null;
+  /** 0 = free. */
+  price: number;
+  compareAtPrice?: number | null;
+  level?: string | null;
+  language?: string | null;
+  category?: string | null;
+  instructorName?: string | null;
+  instructorBio?: string | null;
+  instructorPhoto?: string | null;
+  durationText?: string | null;
+  status: SiteStatus;
+  sortOrder: number;
+  /** Present on `GET /courses/:id`; ordered. */
+  lessons?: SiteCourseLesson[];
+  enrollmentCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteCustomer {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  lastLoginAt?: string | null;
+  orderCount?: number;
+  enrollmentCount?: number;
+  createdAt: string;
+}
+
+export type SiteOrderStatus = 'PENDING' | 'PAID' | 'FULFILLED' | 'CANCELLED' | 'REFUNDED';
+export type SiteOrderPaymentMethod = 'COD' | 'BKASH' | 'NAGAD' | 'SSLCOMMERZ' | 'FREE';
+
+export interface SiteOrderItem {
+  kind: 'PRODUCT' | 'COURSE';
+  refId: string;
+  name: string;
+  unitPrice: number;
+  qty: number;
+}
+
+export interface SiteOrderAddress {
+  line1: string;
+  city: string;
+  area?: string;
+  postcode?: string;
+}
+
+export interface SiteOrder {
+  id: string;
+  siteId: string;
+  orderNo: string;
+  customerId?: string | null;
+  customerName: string;
+  email: string;
+  phone: string;
+  address?: SiteOrderAddress | null;
+  /** Snapshot at order time; priced by the server. */
+  items: SiteOrderItem[];
+  subtotal: number;
+  shipping: number;
+  total: number;
+  currency: string;
+  status: SiteOrderStatus;
+  paymentMethod: SiteOrderPaymentMethod;
+  gatewayTranId?: string | null;
+  gatewayRef?: string | null;
+  isDemo: boolean;
+  returnUrl?: string | null;
+  paidAt?: string | null;
+  note?: string | null;
+  adminNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SiteEnrollmentStatus = 'ACTIVE' | 'REVOKED';
+
+export interface SiteEnrollmentCustomer {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface SiteEnrollment {
+  id: string;
+  status: SiteEnrollmentStatus;
+  customer: SiteEnrollmentCustomer;
+  /** 0–100, computed from lesson completions. Present on the list endpoint; omitted from grant/revoke responses. */
+  progress?: number;
+  createdAt?: string;
+}
+
+export interface CommerceGateway {
+  gateway: string;
+  label: string;
+  live: boolean;
+  demo: boolean;
+  available: boolean;
+}
+
+export interface CommerceSummary {
+  products: number;
+  publishedProducts: number;
+  courses: number;
+  publishedCourses: number;
+  ordersPending: number;
+  ordersPaid30d: number;
+  revenue30d: number;
+  customers: number;
+  enrollments: number;
+  gateways: CommerceGateway[];
+}

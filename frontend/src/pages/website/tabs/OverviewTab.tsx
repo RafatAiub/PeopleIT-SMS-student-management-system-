@@ -1,10 +1,10 @@
 import React from 'react';
-import { ExternalLink, FileText, Globe, Newspaper, Inbox, Send, Sparkles, Eye, EyeOff, Copy } from 'lucide-react';
+import { ExternalLink, FileText, Globe, Newspaper, Inbox, Send, Sparkles, Eye, EyeOff, Copy, ShoppingBag, GraduationCap, ReceiptText, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardHeader, Button, Badge, StatCard, Alert, DescriptionList } from '@/components/ui';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
-import { useT, formatDate, formatNumber } from '@/i18n';
-import { usePublishSite, useUnpublishSite, usePosts, useForms } from '../sites.queries';
+import { useT, formatDate, formatNumber, formatCurrency } from '@/i18n';
+import { usePublishSite, useUnpublishSite, usePosts, useForms, useCommerceSummary } from '../sites.queries';
 import { copyText, pageState } from '../siteUtils';
 import type { SiteMeResponse } from '../sites.types';
 import { GenerateAiModal } from '../GenerateAiModal';
@@ -29,6 +29,7 @@ export const OverviewTab: React.FC<{ me: SiteMeResponse; onNavigate: (tab: strin
   const publish = usePublishSite();
   const posts = usePosts();
   const forms = useForms();
+  const commerce = useCommerceSummary();
   const [confirm, setConfirm] = React.useState(false);
   const [aiOpen, setAiOpen] = React.useState(false);
   const [confirmOff, setConfirmOff] = React.useState(false);
@@ -103,6 +104,40 @@ export const OverviewTab: React.FC<{ me: SiteMeResponse; onNavigate: (tab: strin
           icon={<Inbox />}
           tone={unread > 0 ? 'warning' : 'neutral'}
           onClick={() => onNavigate('forms')}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard
+          label={t('Products')}
+          value={commerce.isLoading ? '…' : commerce.isError ? '—' : formatNumber(commerce.data?.products ?? 0)}
+          hint={commerce.data ? t('{n} published', { n: formatNumber(commerce.data.publishedProducts) }) : undefined}
+          icon={<ShoppingBag />}
+          tone="primary"
+          onClick={() => onNavigate('shop')}
+        />
+        <StatCard
+          label={t('Courses')}
+          value={commerce.isLoading ? '…' : commerce.isError ? '—' : formatNumber(commerce.data?.courses ?? 0)}
+          hint={commerce.data ? t('{n} published · {e} enrolled', { n: formatNumber(commerce.data.publishedCourses), e: formatNumber(commerce.data.enrollments) }) : undefined}
+          icon={<GraduationCap />}
+          tone="accent"
+          onClick={() => onNavigate('courses')}
+        />
+        <StatCard
+          label={t('Orders awaiting action')}
+          value={commerce.isLoading ? '…' : commerce.isError ? '—' : formatNumber(commerce.data?.ordersPending ?? 0)}
+          icon={<ReceiptText />}
+          tone={(commerce.data?.ordersPending ?? 0) > 0 ? 'warning' : 'neutral'}
+          onClick={() => onNavigate('shop')}
+        />
+        <StatCard
+          label={t('Revenue (30 days)')}
+          value={commerce.isLoading ? '…' : commerce.isError ? '—' : formatCurrency(commerce.data?.revenue30d ?? 0)}
+          hint={commerce.data ? t('{n} paid orders', { n: formatNumber(commerce.data.ordersPaid30d) }) : undefined}
+          icon={<TrendingUp />}
+          tone="success"
+          onClick={() => onNavigate('shop')}
         />
       </div>
 

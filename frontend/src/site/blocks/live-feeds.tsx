@@ -9,6 +9,7 @@ import { SiteApiError } from '../api';
 import { useSiteData, useSiteText } from '../runtime';
 import { formatSiteDate, formatSiteNumber } from '../strings';
 import type { PublicEvent } from '../types';
+import { CourseCard } from './commerce';
 import { StatGrid } from './content';
 import {
   BlockSection, EmptyBlock, ErrorBlock, i18nField, introFields, NotConnected, numberField, optimiseImage, radioField,
@@ -363,21 +364,29 @@ function LatestNewsView(p: Record<string, any>) {
   );
 }
 
-/* ── Courses (placeholder until the LMS wave) ───────────────────────────── */
+/* ── Courses (now backed by the real course catalogue — LMS wave) ──────── */
 
 export const Courses: SiteBlock = {
-  label: 'Courses (coming soon)',
-  fields: { ...introFields, ...sectionFields },
-  defaultProps: { ...introDefaults, heading: 'Courses', headingBn: 'কোর্সসমূহ', ...sectionDefaults },
+  label: 'Courses (live)',
+  fields: { ...introFields, limit: numberField('How many', 1, 12), ...sectionFields },
+  defaultProps: { ...introDefaults, heading: 'Courses', headingBn: 'কোর্সসমূহ', limit: 6, ...sectionDefaults },
   render: (p) => <CoursesView {...p} />,
 };
 
 function CoursesView(p: Record<string, any>) {
   const { s } = useSiteText();
+  const limit = Math.max(1, Math.min(12, Number(p.limit) || 6));
+  // `/data/courses` returns real published courses now (was always `[]` before the LMS wave).
+  const q = useSiteData(['courses-data', limit], (id, api) => api.courses(id, limit));
+  const st = feedState(q, (d) => d.length === 0);
   return (
     <BlockSection {...(p as SectionProps)}>
       <SectionIntro {...p} />
-      <EmptyBlock icon={<BookOpenCheck size={28} />} title={s('Coming soon')} hint={s('Online courses will be available here soon.')} />
+      {st.node ?? (st.empty ? <EmptyBlock icon={<BookOpenCheck size={28} />} title={s('No courses yet')} hint={s('Courses will appear here once they’re published.')} /> : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {st.data!.slice(0, limit).map((course) => <CourseCard key={course.id} course={course} />)}
+        </div>
+      ))}
     </BlockSection>
   );
 }

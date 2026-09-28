@@ -14,10 +14,14 @@
 import { buildSiteTokens, fillTokens, fillTokensDeep, hasTokens, tidyFilled } from '../tokens';
 import { isAllowedIframeSrc, osmEmbedUrl, safeHref, toVideoEmbed } from '../embed';
 import { isAppHost, isSiteHost, resolveTarget } from '../host';
-import { checkThemeContrast, contrastRatio, ensureContrast, meetsAA, normaliseTheme, readableTextOn } from '../theme';
+import { checkThemeContrast, contrastRatio, DEFAULT_THEME, ensureContrast, meetsAA, normaliseTheme, readableTextOn } from '../theme';
 import { isValidPageData } from '../render';
 import { SITE_TEMPLATES } from '../templates';
 import { SITE_COMPONENTS, BLOCK_CATEGORIES } from '../config';
+import { addLine, cartCount, cartSubtotal, cartTotals, hasCourseItem, hasPhysicalItem, removeLine, setLineQty, type CartLine } from '../cart';
+import { buildSrcDoc, SANDBOX_ATTR } from '../code/SandboxFrame';
+import { emptyCodePageData, isCodePage, readCodePageProps } from '../code/codePage';
+import { isReservedSlug, parseSitePath } from '../routes';
 
 let passed = 0;
 const failures: string[] = [];
@@ -205,13 +209,14 @@ test('isValidPageData', () => {
   ok(!isValidPageData({ root: {}, content: [{ type: 'Columns', props: { id: 'c', col1: [{ type: 'Bad', props: {} }] } }] }));
 });
 
-test('ten templates, each with valid pages and the six standard slugs', () => {
-  eq(SITE_TEMPLATES.length, 10);
-  eq(new Set(SITE_TEMPLATES.map((t) => t.key)).size, 10);
+test('fifteen templates, each with valid pages and the six standard slugs', () => {
+  eq(SITE_TEMPLATES.length, 15);
+  eq(new Set(SITE_TEMPLATES.map((t) => t.key)).size, 15);
   for (const t of SITE_TEMPLATES) {
     const slugs = t.pages.map((p) => p.slug);
     for (const s of ['', 'about', 'admissions', 'academics', 'notices', 'contact']) ok(slugs.includes(s), `${t.key} missing page "${s}"`);
     eq(new Set(slugs).size, slugs.length, `${t.key} duplicate slugs`);
+    for (const s of slugs) ok(!isReservedSlug(s), `${t.key} uses reserved slug "${s}"`);
     for (const p of t.pages) {
       ok(isValidPageData(p.data), `${t.key}/${p.slug} invalid page data`);
       const ids = new Set<string>();
@@ -236,6 +241,162 @@ test('every block is in exactly one category', () => {
   const all = BLOCK_CATEGORIES.flatMap((c) => c.components);
   eq(new Set(all).size, all.length);
   eq([...all].sort(), Object.keys(SITE_COMPONENTS).sort());
+});
+
+/* ── Cart maths (Website Builder v2) ────────────────────────────────────── */
+
+const product = (over: Partial<CartLine> = {}): CartLine => ({ kind: 'PRODUCT', refId: 'p1', slug: 'uniform', name: 'Uniform', price: 500, qty: 1, productKind: 'PHYSICAL', ...over });
+const digital = (over: Partial<CartLine> = {}): CartLine => ({ kind: 'PRODUCT', refId: 'p2', slug: 'ebook', name: 'E-book', price: 200, qty: 1, productKind: 'DIGITAL', ...over });
+const course = (over: Partial<CartLine> = {}): CartLine => ({ kind: 'COURSE', refId: 'c1', slug: 'algebra', name: 'Algebra', price: 1000, qty: 1, ...over });
+
+test('addLine merges the same product and clamps quantity', () => {
+  let items = addLine([], product({ qty: 2 }));
+  items = addLine(items, product({ qty: 3 }));
+  eq(items.length, 1);
+  eq(items[0].qty, 5);
+  items = addLine(items, product({ qty: 999 }));
+  ok(items[0].qty <= 99, 'qty is clamped to 99');
+});
+
+test('a course line is always qty 1 and never duplicates', () => {
+  let items = addLine([], course({ qty: 5 }));
+  eq(items[0].qty, 1);
+  items = addLine(items, course({ qty: 3 }));
+  eq(items.length, 1, 'enrolling twice does not duplicate the line');
+  eq(items[0].qty, 1);
+});
+
+test('setLineQty removes the line at 0 and clamps otherwise', () => {
+  let items = addLine([], product());
+  items = setLineQty(items, 'p1', 3);
+  eq(items[0].qty, 3);
+  items = setLineQty(items, 'p1', 0);
+  eq(items.length, 0);
+});
+
+test('removeLine drops only the matching line', () => {
+  const items = addLine(addLine([], product()), course());
+  eq(removeLine(items, 'p1').length, 1);
+  eq(removeLine(items, 'p1')[0].kind, 'COURSE');
+});
+
+test('cartCount and cartSubtotal', () => {
+  const items = [product({ qty: 2, price: 500 }), course({ price: 1000 })];
+  eq(cartCount(items), 3);
+  eq(cartSubtotal(items), 2000);
+});
+
+test('hasPhysicalItem / hasCourseItem', () => {
+  ok(hasPhysicalItem([product()]));
+  ok(!hasPhysicalItem([digital()]));
+  ok(!hasPhysicalItem([course()]));
+  ok(hasCourseItem([course()]));
+  ok(!hasCourseItem([product()]));
+});
+
+test('cartTotals: shipping only with a physical item, free over the threshold', () => {
+  const shop = { shippingFee: 60, freeShippingOver: 2000 };
+  eq(cartTotals([digital()], shop).shipping, 0, 'digital-only order has no shipping');
+  eq(cartTotals([course()], shop).shipping, 0, 'course-only order has no shipping');
+  const withPhysical = cartTotals([product({ price: 500, qty: 1 })], shop);
+  eq(withPhysical.shipping, 60);
+  eq(withPhysical.total, 560);
+  const overThreshold = cartTotals([product({ price: 2500, qty: 1 })], shop);
+  eq(overThreshold.shipping, 0, 'free shipping over the threshold');
+  eq(overThreshold.total, 2500);
+});
+
+/* ── Sandbox srcdoc builder (never allow-same-origin; bridge present) ──── */
+
+test('SANDBOX_ATTR never includes allow-same-origin', () => {
+  ok(SANDBOX_ATTR.includes('allow-scripts'));
+  ok(!SANDBOX_ATTR.includes('allow-same-origin'));
+});
+
+test('buildSrcDoc includes the postMessage bridge and theme variables', () => {
+  const doc = buildSrcDoc({ html: '<p>hi</p>', css: 'p{color:red}', js: 'console.log(1)', theme: DEFAULT_THEME, siteId: 'site1', apiBase: '/api/v1', lang: 'en', basePath: '/s/demo', institutionName: 'Demo School' });
+  ok(doc.includes('window.SITE'), 'exposes window.SITE');
+  ok(doc.includes('postMessage'), 'uses postMessage');
+  ok(doc.includes('peoplenit-site-sandbox'), 'tags bridge messages');
+  ok(doc.includes('--site-primary'), 'includes theme CSS variables');
+  ok(doc.includes('"siteId":"site1"'));
+  ok(doc.includes('Demo School'));
+  ok(doc.includes('<p>hi</p>'));
+  ok(doc.includes('p{color:red}'));
+  ok(doc.includes('console.log(1)'));
+});
+
+test('buildSrcDoc escapes a closing </script> in user JS so it cannot break out early', () => {
+  const evil = "console.log('safe')</script><script>window.__pwned = true;</script>";
+  const doc = buildSrcDoc({ html: '', js: evil, theme: DEFAULT_THEME });
+  ok(!doc.includes(evil), 'the raw closing tag sequence must not appear verbatim');
+  ok(!doc.includes('</script><script>window.__pwned'), 'cannot prematurely close the script tag');
+  ok(doc.includes('__pwned'), 'the (now inert) text is still present, just not exploitable');
+});
+
+test('buildSrcDoc escapes a closing </style> in user CSS the same way', () => {
+  const evil = 'body{color:red}</style><script>alert(1)</script>';
+  const doc = buildSrcDoc({ html: '', css: evil, theme: DEFAULT_THEME });
+  ok(!doc.includes('</style><script>alert(1)'), 'cannot prematurely close the style tag');
+});
+
+/* ── Page code mode ──────────────────────────────────────────────────────── */
+
+test('isCodePage recognises the code-mode root props', () => {
+  ok(isCodePage({ root: { props: { mode: 'code', code: { html: '', css: '', js: '' }, chrome: 'full' } }, content: [] }));
+  ok(!isCodePage({ root: { props: {} }, content: [] }));
+  ok(!isCodePage({ root: { props: { mode: 'visual' } }, content: [] }));
+  ok(!isCodePage(null));
+  ok(!isCodePage({}));
+});
+
+test('readCodePageProps tolerates partial data', () => {
+  const props = readCodePageProps({ root: { props: { mode: 'code' } } });
+  eq(props.chrome, 'full');
+  eq(props.code, { html: '', css: '', js: '' });
+});
+
+test('emptyCodePageData is a valid code page with real starter content', () => {
+  const data = emptyCodePageData('My landing page');
+  ok(isCodePage(data));
+  eq(data.content.length, 0);
+  const props = readCodePageProps(data);
+  ok(props.code.html.includes('My landing page'));
+  ok(props.code.html.length > 100 && props.code.css.length > 100, 'starter content is a real page, not a stub');
+});
+
+/* ── Public-site route parsing ──────────────────────────────────────────── */
+
+test('parseSitePath: shop, cart, checkout, order, courses, learn, account', () => {
+  eq(parseSitePath(''), { kind: 'page', slug: '' });
+  eq(parseSitePath('about'), { kind: 'page', slug: 'about' });
+  eq(parseSitePath('shop'), { kind: 'shop-list' });
+  eq(parseSitePath('shop/uniform-set'), { kind: 'shop-product', slug: 'uniform-set' });
+  eq(parseSitePath('cart'), { kind: 'cart' });
+  eq(parseSitePath('checkout'), { kind: 'checkout' });
+  eq(parseSitePath('order'), { kind: 'order-lookup' });
+  eq(parseSitePath('order/SO-260929-7K3F'), { kind: 'order-status', orderNo: 'SO-260929-7K3F' });
+  eq(parseSitePath('courses'), { kind: 'courses-list' });
+  eq(parseSitePath('courses/algebra-101'), { kind: 'course-detail', slug: 'algebra-101' });
+  eq(parseSitePath('learn'), { kind: 'learn-index' });
+  eq(parseSitePath('learn/algebra-101'), { kind: 'learn-player', courseSlug: 'algebra-101', lessonId: undefined });
+  eq(parseSitePath('learn/algebra-101/lesson-3'), { kind: 'learn-player', courseSlug: 'algebra-101', lessonId: 'lesson-3' });
+  eq(parseSitePath('account'), { kind: 'account', sub: undefined });
+  eq(parseSitePath('account/login'), { kind: 'account', sub: 'login' });
+  eq(parseSitePath('account/register'), { kind: 'account', sub: 'register' });
+  eq(parseSitePath('account/orders'), { kind: 'account', sub: 'orders' });
+  eq(parseSitePath('/shop/'), { kind: 'shop-list' }, 'leading/trailing slashes are trimmed');
+});
+
+test('parseSitePath falls back to a plain page for deep or unknown sub-paths', () => {
+  eq(parseSitePath('blog/my-post/comments'), { kind: 'page', slug: 'blog/my-post/comments' }, 'blog only supports /blog and /blog/:slug');
+  eq(parseSitePath('shop/slug/extra'), { kind: 'page', slug: 'shop/slug/extra' });
+});
+
+test('isReservedSlug', () => {
+  for (const s of ['blog', 'shop', 'cart', 'checkout', 'order', 'courses', 'learn', 'account']) ok(isReservedSlug(s));
+  ok(!isReservedSlug('about'));
+  ok(!isReservedSlug(''));
 });
 
 /* ── Report ─────────────────────────────────────────────────────────────── */

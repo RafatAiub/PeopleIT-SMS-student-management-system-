@@ -1,24 +1,36 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import apiClient from '@/api/client';
 import type {
   ApplyMode,
+  CommerceSummary,
   DnsRecord,
   GenerateSiteResponse,
   GeneratedPage,
   PageSeo,
   PuckData,
+  SiteCourse,
+  SiteCourseLesson,
+  SiteCustomer,
   SiteDomain,
+  SiteEnrollment,
   SiteForm,
   SiteFormField,
   SiteFormSubmission,
+  SiteLessonKind,
   SiteMedia,
   SiteMeResponse,
   SiteNavigation,
+  SiteOrder,
+  SiteOrderPaymentMethod,
+  SiteOrderStatus,
   SitePage,
   SitePageVersion,
   SitePost,
+  SiteProduct,
+  SiteProductKind,
   SiteSettings,
+  SiteStatus,
   SiteTheme,
   FormTarget,
   MediaKind,
@@ -44,6 +56,18 @@ function list<T>(res: { data: { data?: unknown } }): T[] {
   return d?.items ?? [];
 }
 
+export interface Paged<T> {
+  items: T[];
+  total: number;
+}
+
+/** Paginated list endpoints (products, courses, orders, customers): `data` is the page's rows, `meta.total` the full count. */
+function paged<T>(res: { data: { data?: unknown; meta?: { total?: number } } }): Paged<T> {
+  const d = res.data?.data as { items?: T[] } | T[] | undefined;
+  const items = Array.isArray(d) ? d : (d?.items ?? []);
+  return { items, total: res.data?.meta?.total ?? items.length };
+}
+
 export const SITE_KEY = ['sites', 'me'] as const;
 export const SITE_PAGE_KEY = 'site-page';
 export const SITE_VERSIONS_KEY = 'site-page-versions';
@@ -52,6 +76,11 @@ export const SITE_POSTS_KEY = 'site-posts';
 export const SITE_FORMS_KEY = ['sites', 'forms'] as const;
 export const SITE_SUBMISSIONS_KEY = 'site-form-submissions';
 export const SITE_DOMAINS_KEY = ['sites', 'domains'] as const;
+export const SITE_PRODUCTS_KEY = ['sites', 'products'] as const;
+export const SITE_COURSES_KEY = ['sites', 'courses'] as const;
+export const SITE_ORDERS_KEY = ['sites', 'orders'] as const;
+export const SITE_CUSTOMERS_KEY = ['sites', 'customers'] as const;
+export const SITE_COMMERCE_SUMMARY_KEY = ['sites', 'commerce-summary'] as const;
 
 // ── Site ─────────────────────────────────────────────────────────────────────
 
@@ -520,5 +549,337 @@ export function useDeleteDomain() {
       toast.success('Domain removed.');
     },
     onError: (e) => toast.error(apiError(e, 'Could not remove the domain.')),
+  });
+}
+
+// =============================================================================
+// Shop, Courses (LMS), orders and customers — /api/v1/sites (Engineer A;
+// WEBSITE_V2_BRIEF.md §3 "Admin"). Same `{ success, data, meta }` envelope as
+// the rest of this file; paginated lists use `meta.total`.
+// =============================================================================
+
+// ── Products ─────────────────────────────────────────────────────────────────
+
+export interface ProductListParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+  status?: SiteStatus | '';
+  category?: string;
+}
+
+export function useProducts(params: ProductListParams) {
+  return useQuery({
+    queryKey: [...SITE_PRODUCTS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteProduct>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.q) query.q = params.q;
+      if (params.status) query.status = params.status;
+      if (params.category) query.category = params.category;
+      return paged<SiteProduct>(await apiClient.get('/sites/products', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useProduct(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SITE_PRODUCTS_KEY, id],
+    queryFn: async (): Promise<SiteProduct> => unwrap<SiteProduct>(await apiClient.get(`/sites/products/${id}`)),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export interface ProductPayload {
+  name: string;
+  nameBn?: string;
+  slug?: string;
+  description: string;
+  images: string[];
+  price: number;
+  compareAtPrice?: number | null;
+  sku?: string;
+  stock?: number | null;
+  category?: string;
+  kind: SiteProductKind;
+  digitalUrl?: string;
+  status: SiteStatus;
+}
+
+export function useSaveProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: ProductPayload }): Promise<SiteProduct> =>
+      unwrap<SiteProduct>(id ? await apiClient.put(`/sites/products/${id}`, data) : await apiClient.post('/sites/products', data)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_PRODUCTS_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not save the product.')),
+  });
+}
+
+export function useDeleteProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/products/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_PRODUCTS_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      toast.success('Product deleted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not delete the product.')),
+  });
+}
+
+// ── Courses ──────────────────────────────────────────────────────────────────
+
+export interface CourseListParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+  status?: SiteStatus | '';
+}
+
+export function useCourses(params: CourseListParams) {
+  return useQuery({
+    queryKey: [...SITE_COURSES_KEY, params],
+    queryFn: async (): Promise<Paged<SiteCourse>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.q) query.q = params.q;
+      if (params.status) query.status = params.status;
+      return paged<SiteCourse>(await apiClient.get('/sites/courses', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Includes `lessons[]` (ordered) and `enrollmentCount`. */
+export function useCourse(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SITE_COURSES_KEY, id],
+    queryFn: async (): Promise<SiteCourse> => unwrap<SiteCourse>(await apiClient.get(`/sites/courses/${id}`)),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export interface CoursePayload {
+  title: string;
+  titleBn?: string;
+  slug?: string;
+  summary?: string;
+  description: string;
+  coverUrl?: string;
+  price: number;
+  compareAtPrice?: number | null;
+  level?: string;
+  language?: string;
+  category?: string;
+  instructorName?: string;
+  instructorBio?: string;
+  instructorPhoto?: string;
+  durationText?: string;
+  status: SiteStatus;
+}
+
+export function useSaveCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: CoursePayload }): Promise<SiteCourse> =>
+      unwrap<SiteCourse>(id ? await apiClient.put(`/sites/courses/${id}`, data) : await apiClient.post('/sites/courses', data)),
+    onSuccess: (course) => {
+      qc.invalidateQueries({ queryKey: SITE_COURSES_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      if (course?.id) qc.setQueryData([...SITE_COURSES_KEY, course.id], course);
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not save the course.')),
+  });
+}
+
+export function useDeleteCourse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/courses/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_COURSES_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      toast.success('Course deleted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not delete the course.')),
+  });
+}
+
+// ── Lessons ──────────────────────────────────────────────────────────────────
+
+export interface LessonPayload {
+  module?: string;
+  title: string;
+  kind: SiteLessonKind;
+  videoUrl?: string;
+  body?: string;
+  fileUrl?: string;
+  durationMin?: number | null;
+  isFreePreview: boolean;
+}
+
+export function useSaveLesson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ courseId, lessonId, data }: { courseId: string; lessonId?: string; data: LessonPayload }): Promise<SiteCourseLesson> =>
+      unwrap<SiteCourseLesson>(
+        lessonId ? await apiClient.put(`/sites/courses/${courseId}/lessons/${lessonId}`, data) : await apiClient.post(`/sites/courses/${courseId}/lessons`, data)
+      ),
+    onSuccess: (_, { courseId }) => qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the lesson.')),
+  });
+}
+
+export function useDeleteLesson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ courseId, lessonId }: { courseId: string; lessonId: string }) => apiClient.delete(`/sites/courses/${courseId}/lessons/${lessonId}`),
+    onSuccess: (_, { courseId }) => qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not delete the lesson.')),
+  });
+}
+
+export function useReorderLessons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ courseId, ids }: { courseId: string; ids: string[] }) => apiClient.put(`/sites/courses/${courseId}/lessons/order`, { ids }),
+    onSettled: (_r, _e, { courseId }) => qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the lesson order.')),
+  });
+}
+
+// ── Enrollments ──────────────────────────────────────────────────────────────
+
+export function useEnrollments(courseId: string | undefined, page: number) {
+  return useQuery({
+    queryKey: [...SITE_COURSES_KEY, courseId, 'enrollments', page],
+    queryFn: async (): Promise<Paged<SiteEnrollment>> =>
+      paged<SiteEnrollment>(await apiClient.get(`/sites/courses/${courseId}/enrollments`, { params: { page, pageSize: 20 } })),
+    enabled: !!courseId,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useGrantEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ courseId, email, name }: { courseId: string; email: string; name?: string }): Promise<SiteEnrollment> =>
+      unwrap<SiteEnrollment>(await apiClient.post(`/sites/courses/${courseId}/enrollments`, { email, name })),
+    onSuccess: (_, { courseId }) => {
+      qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId, 'enrollments'] });
+      qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId] });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      toast.success('Access granted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not grant access.')),
+  });
+}
+
+export function useRevokeEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; courseId: string }) => apiClient.delete(`/sites/enrollments/${id}`),
+    onSuccess: (_, { courseId }) => {
+      qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId, 'enrollments'] });
+      qc.invalidateQueries({ queryKey: [...SITE_COURSES_KEY, courseId] });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      toast.success('Access revoked.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not revoke access.')),
+  });
+}
+
+// ── Orders ───────────────────────────────────────────────────────────────────
+
+export interface OrderListParams {
+  page: number;
+  pageSize: number;
+  status?: SiteOrderStatus | '';
+  q?: string;
+}
+
+export function useOrders(params: OrderListParams) {
+  return useQuery({
+    queryKey: [...SITE_ORDERS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteOrder>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.status) query.status = params.status;
+      if (params.q) query.q = params.q;
+      return paged<SiteOrder>(await apiClient.get('/sites/orders', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useOrder(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SITE_ORDERS_KEY, id],
+    queryFn: async (): Promise<SiteOrder> => unwrap<SiteOrder>(await apiClient.get(`/sites/orders/${id}`)),
+    enabled: !!id,
+  });
+}
+
+export interface UpdateOrderPayload {
+  status?: SiteOrderStatus;
+  adminNote?: string;
+}
+
+export function useUpdateOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateOrderPayload }): Promise<SiteOrder> =>
+      unwrap<SiteOrder>(await apiClient.put(`/sites/orders/${id}`, data)),
+    onSuccess: (order) => {
+      qc.invalidateQueries({ queryKey: SITE_ORDERS_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMMERCE_SUMMARY_KEY });
+      if (order?.id) qc.setQueryData([...SITE_ORDERS_KEY, order.id], order);
+      toast.success('Order updated.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not update the order.')),
+  });
+}
+
+/** Payment method labels shared by the Orders table and detail drawer. */
+export const PAYMENT_METHOD_LABEL: Record<SiteOrderPaymentMethod, string> = {
+  COD: 'Cash on delivery',
+  BKASH: 'bKash',
+  NAGAD: 'Nagad',
+  SSLCOMMERZ: 'Card / SSLCommerz',
+  FREE: 'Free',
+};
+
+// ── Customers ────────────────────────────────────────────────────────────────
+
+export interface CustomerListParams {
+  page: number;
+  pageSize: number;
+  q?: string;
+}
+
+export function useCustomers(params: CustomerListParams) {
+  return useQuery({
+    queryKey: [...SITE_CUSTOMERS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteCustomer>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.q) query.q = params.q;
+      return paged<SiteCustomer>(await apiClient.get('/sites/customers', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+// ── Commerce summary (Overview tab) ────────────────────────────────────────
+
+export function useCommerceSummary(enabled = true) {
+  return useQuery({
+    queryKey: SITE_COMMERCE_SUMMARY_KEY,
+    queryFn: async (): Promise<CommerceSummary> => unwrap<CommerceSummary>(await apiClient.get('/sites/commerce/summary')),
+    enabled,
   });
 }

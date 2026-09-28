@@ -13,21 +13,33 @@
  */
 import axios, { AxiosError, type AxiosInstance } from 'axios';
 import type {
+  CheckoutOptions,
+  CreateOrderInput,
+  CreateOrderResult,
+  EnrolledCourse,
+  LearnCourse,
   Paged,
+  PublicCourse,
+  PublicCourseDetail,
   PublicEvent,
   PublicFeesLink,
   PublicFormField,
   PublicInstitution,
   PublicMarksheet,
   PublicNotice,
+  PublicOrder,
+  PublicOrderItem,
   PublicPage,
   PublicPost,
+  PublicProduct,
   PublicRoutineSlot,
   PublicSiteInfo,
   PublicStats,
   PublicTeacher,
   PublicTopper,
   ResolvedSite,
+  SiteCustomer,
+  SiteLessonKind,
   SitePageData,
 } from './types';
 import { normaliseNavigation, normaliseSettings, normaliseTheme } from './theme';
@@ -57,10 +69,16 @@ function toError(e: unknown): SiteApiError {
   return new SiteApiError(msg, status, fieldErrors);
 }
 
-/** Unwraps the `{ success, message, data }` envelope (or passes raw data through). */
+/**
+ * Unwraps the `{ success, message, data }` envelope (or passes raw data through).
+ * Paginated responses carry `meta` beside `data`; those become
+ * `{ items, total, page, pageSize, … }` so the paged normalisers keep the totals.
+ */
 function unwrap<T = unknown>(body: unknown): T {
   if (body && typeof body === 'object' && 'data' in (body as Record<string, unknown>) && 'success' in (body as Record<string, unknown>)) {
-    return (body as { data: T }).data;
+    const { data, meta } = body as { data: unknown; meta?: unknown };
+    if (Array.isArray(data) && meta && typeof meta === 'object') return { ...(meta as Record<string, unknown>), items: data } as T;
+    return data as T;
   }
   return body as T;
 }
@@ -133,6 +151,145 @@ function normalisePost(o: Obj): PublicPost {
   };
 }
 
+function normaliseProduct(o: Obj): PublicProduct {
+  return {
+    id: String(o.id ?? o.slug ?? ''),
+    slug: String(o.slug ?? ''),
+    name: String(o.name ?? ''),
+    nameBn: str(o.nameBn),
+    description: str(o.description) ?? '',
+    images: Array.isArray(o.images) ? o.images.filter((x: unknown) => typeof x === 'string') : [],
+    price: num(o.price) ?? 0,
+    compareAtPrice: num(o.compareAtPrice),
+    currency: str(o.currency) ?? 'BDT',
+    kind: o.kind === 'DIGITAL' ? 'DIGITAL' : 'PHYSICAL',
+    inStock: o.inStock !== false && o.stock !== 0,
+    stock: o.stock == null ? null : num(o.stock) ?? null,
+    category: str(o.category),
+  };
+}
+
+function normaliseCourse(o: Obj): PublicCourse {
+  return {
+    id: String(o.id ?? o.slug ?? ''),
+    slug: String(o.slug ?? ''),
+    title: String(o.title ?? ''),
+    titleBn: str(o.titleBn),
+    summary: str(o.summary),
+    description: str(o.description) ?? '',
+    coverUrl: str(o.coverUrl),
+    price: num(o.price) ?? 0,
+    compareAtPrice: num(o.compareAtPrice),
+    currency: str(o.currency) ?? 'BDT',
+    level: str(o.level),
+    language: str(o.language),
+    category: str(o.category),
+    instructorName: str(o.instructorName),
+    instructorBio: str(o.instructorBio),
+    instructorPhoto: str(o.instructorPhoto),
+    durationText: str(o.durationText),
+    lessonCount: num(o.lessonCount) ?? 0,
+    totalMinutes: num(o.totalMinutes) ?? 0,
+  };
+}
+
+const LESSON_KINDS = ['VIDEO', 'TEXT', 'FILE', 'EMBED'] as const;
+const lessonKind = (v: unknown): SiteLessonKind => ((LESSON_KINDS as readonly string[]).includes(v as string) ? (v as SiteLessonKind) : 'TEXT');
+
+function normaliseCourseDetail(o: Obj): PublicCourseDetail {
+  return {
+    ...normaliseCourse(o),
+    curriculum: arr(o.curriculum).map((l) => ({
+      id: String(l.id ?? ''),
+      module: str(l.module),
+      title: String(l.title ?? ''),
+      kind: lessonKind(l.kind),
+      durationMin: num(l.durationMin),
+      isFreePreview: l.isFreePreview === true,
+      preview: l.preview && typeof l.preview === 'object' ? { videoUrl: str(obj(l.preview).videoUrl), body: str(obj(l.preview).body), fileUrl: str(obj(l.preview).fileUrl) } : undefined,
+    })),
+  };
+}
+
+function normaliseLearnCourse(o: Obj): LearnCourse {
+  return {
+    ...normaliseCourse(o),
+    curriculum: arr(o.curriculum).map((l) => ({
+      id: String(l.id ?? ''),
+      module: str(l.module),
+      title: String(l.title ?? ''),
+      kind: lessonKind(l.kind),
+      durationMin: num(l.durationMin),
+      isFreePreview: l.isFreePreview === true,
+      videoUrl: str(l.videoUrl),
+      body: str(l.body),
+      fileUrl: str(l.fileUrl),
+    })),
+    completedLessonIds: Array.isArray(o.completedLessonIds) ? o.completedLessonIds.map(String) : [],
+    progress: num(o.progress) ?? 0,
+  };
+}
+
+function normaliseOrderItem(o: Obj): PublicOrderItem {
+  return {
+    kind: o.kind === 'COURSE' ? 'COURSE' : 'PRODUCT',
+    refId: String(o.refId ?? ''),
+    name: String(o.name ?? ''),
+    unitPrice: num(o.unitPrice) ?? 0,
+    qty: num(o.qty) ?? 1,
+    downloadUrl: str(o.downloadUrl),
+    courseSlug: str(o.courseSlug),
+  };
+}
+
+const ORDER_STATUSES = ['PENDING', 'PAID', 'FULFILLED', 'CANCELLED', 'REFUNDED'] as const;
+const PAYMENT_METHODS = ['COD', 'BKASH', 'NAGAD', 'SSLCOMMERZ', 'FREE'] as const;
+
+function normaliseOrder(o: Obj): PublicOrder {
+  return {
+    orderNo: String(o.orderNo ?? ''),
+    status: (ORDER_STATUSES as readonly string[]).includes(o.status) ? o.status : 'PENDING',
+    paymentMethod: (PAYMENT_METHODS as readonly string[]).includes(o.paymentMethod) ? o.paymentMethod : 'COD',
+    isDemo: o.isDemo === true,
+    currency: str(o.currency) ?? 'BDT',
+    subtotal: num(o.subtotal) ?? 0,
+    shipping: num(o.shipping) ?? 0,
+    total: num(o.total) ?? 0,
+    createdAt: str(o.createdAt) ?? '',
+    paidAt: str(o.paidAt),
+    customerName: str(o.customerName) ?? '',
+    email: str(o.email) ?? '',
+    items: arr(o.items).map(normaliseOrderItem),
+  };
+}
+
+function normaliseCustomer(o: Obj): SiteCustomer {
+  return { id: String(o.id ?? ''), name: String(o.name ?? ''), email: String(o.email ?? ''), phone: str(o.phone) };
+}
+
+function normaliseCheckoutOptions(o: Obj): CheckoutOptions {
+  return {
+    shopEnabled: o.shopEnabled === true,
+    coursesEnabled: o.coursesEnabled === true,
+    currency: str(o.currency) ?? 'BDT',
+    shippingFee: num(o.shippingFee) ?? 0,
+    freeShippingOver: o.freeShippingOver == null ? null : num(o.freeShippingOver) ?? null,
+    codEnabled: o.codEnabled === true,
+    gateways: arr(o.gateways).map((g) => ({ gateway: String(g.gateway ?? ''), label: String(g.label ?? g.gateway ?? ''), live: g.live === true, demo: g.demo === true })),
+  };
+}
+
+function normaliseEnrolledCourse(o: Obj): EnrolledCourse {
+  return {
+    courseSlug: String(o.courseSlug ?? o.slug ?? ''),
+    title: String(o.title ?? ''),
+    titleBn: str(o.titleBn),
+    coverUrl: str(o.coverUrl),
+    progress: num(o.progress) ?? 0,
+    nextLessonId: str(o.nextLessonId),
+  };
+}
+
 const FIELD_TYPES = ['text', 'textarea', 'email', 'phone', 'number', 'date', 'select', 'radio', 'checkbox'] as const;
 
 function normaliseField(f: Obj): PublicFormField {
@@ -145,6 +302,42 @@ function normaliseField(f: Obj): PublicFormField {
     required: Boolean(f.required),
     options: Array.isArray(f.options) ? f.options.map(String) : undefined,
   };
+}
+
+/* ── Customer-token storage (per site, tried/caught: private mode, storage full) ── */
+
+export interface StoredSiteCustomer {
+  token: string;
+  customer: SiteCustomer;
+}
+
+const customerKey = (siteId: string) => `site-customer:${siteId}`;
+
+export function loadSiteCustomer(siteId: string): StoredSiteCustomer | null {
+  try {
+    const raw = localStorage.getItem(customerKey(siteId));
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<StoredSiteCustomer>;
+    return v && typeof v.token === 'string' && v.customer ? (v as StoredSiteCustomer) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSiteCustomer(siteId: string, data: StoredSiteCustomer): void {
+  try {
+    localStorage.setItem(customerKey(siteId), JSON.stringify(data));
+  } catch {
+    /* private mode or storage full */
+  }
+}
+
+export function clearSiteCustomer(siteId: string): void {
+  try {
+    localStorage.removeItem(customerKey(siteId));
+  } catch {
+    /* private mode */
+  }
 }
 
 /* ── Client ─────────────────────────────────────────────────────────────── */
@@ -163,9 +356,26 @@ export function createSiteApi(previewToken?: string | null) {
       throw toError(e);
     }
   }
-  async function post<T = unknown>(url: string, body: unknown): Promise<T> {
+  async function post<T = unknown>(url: string, body: unknown, opts: { token?: string | null } = {}): Promise<T> {
     try {
-      return unwrap<T>((await http.post(url, body)).data);
+      const headers = opts.token ? { Authorization: `Bearer ${opts.token}` } : undefined;
+      return unwrap<T>((await http.post(url, body, { headers })).data);
+    } catch (e) {
+      throw toError(e);
+    }
+  }
+  async function getAuth<T = unknown>(url: string, token: string | null | undefined, params?: Record<string, unknown>): Promise<T> {
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      return unwrap<T>((await http.get(url, { params, headers })).data);
+    } catch (e) {
+      throw toError(e);
+    }
+  }
+  async function delAuth<T = unknown>(url: string, token: string | null | undefined): Promise<T> {
+    try {
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      return unwrap<T>((await http.delete(url, { headers })).data);
     } catch (e) {
       throw toError(e);
     }
@@ -342,8 +552,104 @@ export function createSiteApi(previewToken?: string | null) {
       return { enabled: Boolean(o.enabled), url: str(o.payUrl) ?? str(o.portalUrl), demo: o.demo === true };
     },
 
-    async courses(siteId: string): Promise<unknown[]> {
-      return arr(await get(`${sid(siteId)}/data/courses`));
+    /** `GET /data/courses?limit` — real published courses (was always `[]` before the LMS wave). */
+    async courses(siteId: string, limit = 6): Promise<PublicCourse[]> {
+      return arr(await get(`${sid(siteId)}/data/courses`, { limit })).map(normaliseCourse);
+    },
+
+    /* ── Shop ─────────────────────────────────────────────────────────── */
+
+    async products(siteId: string, params: { category?: string; q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<PublicProduct>> {
+      const raw = await get<unknown>(`${sid(siteId)}/products`, params);
+      const o = obj(raw);
+      const items = arr(raw).map(normaliseProduct);
+      return { items, total: num(o.total) ?? items.length, page: num(o.page) ?? params.page ?? 1, pageSize: num(o.pageSize) ?? params.pageSize ?? Math.max(items.length, 1) };
+    },
+
+    async product(siteId: string, slug: string): Promise<PublicProduct> {
+      const raw = await get<Obj>(`${sid(siteId)}/products/${encodeURIComponent(slug)}`);
+      return normaliseProduct(obj(raw.product ?? raw));
+    },
+
+    /* ── Courses (catalogue) ─────────────────────────────────────────────── */
+
+    async coursesCatalogue(siteId: string, params: { category?: string; q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<PublicCourse>> {
+      const raw = await get<unknown>(`${sid(siteId)}/courses`, params);
+      const o = obj(raw);
+      const items = arr(raw).map(normaliseCourse);
+      return { items, total: num(o.total) ?? items.length, page: num(o.page) ?? params.page ?? 1, pageSize: num(o.pageSize) ?? params.pageSize ?? Math.max(items.length, 1) };
+    },
+
+    async courseDetail(siteId: string, slug: string): Promise<PublicCourseDetail> {
+      const raw = await get<Obj>(`${sid(siteId)}/courses/${encodeURIComponent(slug)}`);
+      return normaliseCourseDetail(obj(raw.course ?? raw));
+    },
+
+    async checkoutOptions(siteId: string): Promise<CheckoutOptions> {
+      return normaliseCheckoutOptions(obj(await get(`${sid(siteId)}/checkout/options`)));
+    },
+
+    /* ── Customer account ─────────────────────────────────────────────────── */
+
+    async accountRegister(siteId: string, body: { name: string; email: string; password: string; phone?: string }): Promise<StoredSiteCustomer> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/account/register`, body));
+      return { token: String(raw.token ?? ''), customer: normaliseCustomer(obj(raw.customer)) };
+    },
+
+    async accountLogin(siteId: string, body: { email: string; password: string }): Promise<StoredSiteCustomer> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/account/login`, body));
+      return { token: String(raw.token ?? ''), customer: normaliseCustomer(obj(raw.customer)) };
+    },
+
+    async accountMe(siteId: string, token: string): Promise<SiteCustomer> {
+      return normaliseCustomer(obj(await getAuth(`${sid(siteId)}/account/me`, token)));
+    },
+
+    async accountOrders(siteId: string, token: string): Promise<PublicOrder[]> {
+      return arr(await getAuth(`${sid(siteId)}/account/orders`, token)).map(normaliseOrder);
+    },
+
+    async accountCourses(siteId: string, token: string): Promise<EnrolledCourse[]> {
+      return arr(await getAuth(`${sid(siteId)}/account/courses`, token)).map(normaliseEnrolledCourse);
+    },
+
+    /* ── Orders and payment ───────────────────────────────────────────────── */
+
+    async createOrder(siteId: string, body: CreateOrderInput, token?: string | null): Promise<CreateOrderResult> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/orders`, body, { token }));
+      return { order: normaliseOrder(obj(raw.order)), paymentUrl: str(raw.paymentUrl), demo: raw.demo === true };
+    },
+
+    async getOrder(siteId: string, orderNo: string, params: { email?: string; token?: string | null } = {}): Promise<PublicOrder> {
+      const { token, ...query } = params;
+      const raw = await getAuth<Obj>(`${sid(siteId)}/orders/${encodeURIComponent(orderNo)}`, token, query);
+      return normaliseOrder(obj(raw.order ?? raw));
+    },
+
+    async demoPay(siteId: string, orderNo: string, body: { email: string; outcome: 'success' | 'fail' }): Promise<PublicOrder> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/orders/${encodeURIComponent(orderNo)}/demo-pay`, body));
+      return normaliseOrder(obj(raw.order ?? raw));
+    },
+
+    /* ── Learning (Bearer required, enrolment ACTIVE) ───────────────────────── */
+
+    async enrollFree(siteId: string, courseSlug: string, token: string): Promise<unknown> {
+      return post(`${sid(siteId)}/courses/${encodeURIComponent(courseSlug)}/enroll`, {}, { token });
+    },
+
+    async learn(siteId: string, courseSlug: string, token: string): Promise<LearnCourse> {
+      const raw = await getAuth<Obj>(`${sid(siteId)}/learn/${encodeURIComponent(courseSlug)}`, token);
+      return normaliseLearnCourse(obj(raw.course ?? raw));
+    },
+
+    async completeLesson(siteId: string, courseSlug: string, lessonId: string, token: string): Promise<{ progress: number }> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/learn/${encodeURIComponent(courseSlug)}/lessons/${encodeURIComponent(lessonId)}/complete`, {}, { token }));
+      return { progress: num(raw.progress) ?? 0 };
+    },
+
+    async uncompleteLesson(siteId: string, courseSlug: string, lessonId: string, token: string): Promise<{ progress: number }> {
+      const raw = obj(await delAuth<Obj>(`${sid(siteId)}/learn/${encodeURIComponent(courseSlug)}/lessons/${encodeURIComponent(lessonId)}/complete`, token));
+      return { progress: num(raw.progress) ?? 0 };
     },
 
     /** Reuses the public admission assistant (`POST /ai/admission-assistant`, needs the institution slug). */

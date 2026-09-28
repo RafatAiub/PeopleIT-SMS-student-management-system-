@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Palette, Menu as MenuIcon, Image as ImageIcon, Newspaper, ClipboardList, Globe, Settings as SettingsIcon,
+  ShoppingBag, GraduationCap, Code2,
 } from 'lucide-react';
 import { PageHeader, Tabs, TabPanel, Skeleton, SkeletonStatGrid, ErrorState, Badge } from '@/components/ui';
 import type { TabItem } from '@/components/ui';
@@ -11,13 +12,16 @@ import { OverviewTab } from './tabs/OverviewTab';
 import { PagesTab } from './tabs/PagesTab';
 import { DesignTab } from './tabs/DesignTab';
 import { NavigationTab } from './tabs/NavigationTab';
+import { ShopTab } from './tabs/ShopTab';
+import { CoursesTab } from './tabs/CoursesTab';
 import { MediaTab } from './tabs/MediaTab';
 import { BlogTab } from './tabs/BlogTab';
 import { FormsTab } from './tabs/FormsTab';
+import { CodeTab } from './tabs/CodeTab';
 import { DomainsTab } from './tabs/DomainsTab';
 import { SettingsTab } from './tabs/SettingsTab';
 
-const ADMIN_TABS = ['overview', 'pages', 'design', 'navigation', 'media', 'blog', 'forms', 'domains', 'settings'] as const;
+const ADMIN_TABS = ['overview', 'pages', 'design', 'navigation', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'domains', 'settings'] as const;
 type TabId = (typeof ADMIN_TABS)[number];
 
 /**
@@ -56,9 +60,12 @@ export default function WebsiteBuilder() {
     { id: 'pages', label: t('Pages'), icon: <FileText />, count: siteQuery.data?.pages.length },
     { id: 'design', label: t('Design'), icon: <Palette /> },
     { id: 'navigation', label: t('Navigation'), icon: <MenuIcon /> },
+    { id: 'shop', label: t('Shop'), icon: <ShoppingBag /> },
+    { id: 'courses', label: t('Courses'), icon: <GraduationCap /> },
     { id: 'media', label: t('Media'), icon: <ImageIcon /> },
     { id: 'blog', label: t('Blog'), icon: <Newspaper /> },
     { id: 'forms', label: t('Forms'), icon: <ClipboardList /> },
+    { id: 'code', label: t('Code'), icon: <Code2 /> },
     { id: 'domains', label: t('Domains'), icon: <Globe />, count: siteQuery.data?.domains.length },
     { id: 'settings', label: t('Settings'), icon: <SettingsIcon /> },
   ];
@@ -98,9 +105,12 @@ export default function WebsiteBuilder() {
           <TabPanel id="pages" value={tab} idPrefix="site-tab"><PagesTab me={site} /></TabPanel>
           <TabPanel id="design" value={tab} idPrefix="site-tab"><DesignTab me={site} /></TabPanel>
           <TabPanel id="navigation" value={tab} idPrefix="site-tab"><NavigationTab me={site} /></TabPanel>
+          <TabPanel id="shop" value={tab} idPrefix="site-tab"><ShopTab me={site} /></TabPanel>
+          <TabPanel id="courses" value={tab} idPrefix="site-tab"><CoursesTab me={site} /></TabPanel>
           <TabPanel id="media" value={tab} idPrefix="site-tab"><MediaTab /></TabPanel>
           <TabPanel id="blog" value={tab} idPrefix="site-tab"><BlogTab /></TabPanel>
           <TabPanel id="forms" value={tab} idPrefix="site-tab"><FormsTab /></TabPanel>
+          <TabPanel id="code" value={tab} idPrefix="site-tab"><CodeTab me={site} /></TabPanel>
           <TabPanel id="domains" value={tab} idPrefix="site-tab"><DomainsTab me={site} /></TabPanel>
           <TabPanel id="settings" value={tab} idPrefix="site-tab"><SettingsTab me={site} /></TabPanel>
         </>

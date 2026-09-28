@@ -183,8 +183,14 @@
 
 /* Entrance animation (off in lite mode, reduced motion and the editor). */
 @keyframes site-fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes site-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes site-zoom-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 @keyframes site-pulse { 50% { opacity: .55; } }
+@keyframes site-marquee { from { transform: translateX(0); } to { transform: translateX(-100%); } }
 .site-root:not([data-lite='true']):not([data-editing='true']) .site-anim { animation: site-fade-up .6s cubic-bezier(.2,.7,.2,1) both; }
+.site-root:not([data-lite='true']):not([data-editing='true']) .site-anim[data-anim='fade'] { animation-name: site-fade; }
+.site-root:not([data-lite='true']):not([data-editing='true']) .site-anim[data-anim='zoom'] { animation-name: site-zoom-in; animation-duration: .5s; }
+.site-root:not([data-lite='true']):not([data-editing='true']) .site-anim[data-anim='none'] { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .site-root .site-anim, .site-root .site-skeleton { animation: none !important; }
   .site-root * { scroll-behavior: auto !important; transition: none !important; }

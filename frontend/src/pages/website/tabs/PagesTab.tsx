@@ -1,15 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, ExternalLink, FilePlus2, FileText, GripVertical, Home, Pencil, Send, Settings2, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Blocks, Code2, ExternalLink, FilePlus2, FileText, GripVertical, Home, Pencil, Rocket, Send, Settings2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/ui';
 import { EmptyState } from '@/components/common/EmptyState';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useT, formatDate } from '@/i18n';
 import { cn } from '@/lib/cn';
+import { emptyCodePageData } from '@/site/code/codePage';
 import { useCreatePage, useDeletePage, usePublishPage, useReorderPages, useUpdatePage } from '../sites.queries';
 import { EMPTY_PAGE, SLUG_RE, joinUrl, pagePath, pageState, slugify } from '../siteUtils';
-import type { SiteMeResponse, SitePageSummary } from '../sites.types';
+import type { PuckData, SiteMeResponse, SitePageSummary } from '../sites.types';
+
+/** A truly blank code page (as opposed to the pre-filled "Blank landing page" starter). */
+const EMPTY_CODE_PAGE: PuckData = { root: { props: { mode: 'code', chrome: 'full', code: { html: '', css: '', js: '' } } }, content: [] };
+
+type NewPageKind = 'visual' | 'code' | 'landing';
 
 export const PageStateBadge: React.FC<{ page: SitePageSummary }> = ({ page }) => {
   const t = useT();
@@ -34,6 +40,7 @@ const PageDetailsModal: React.FC<{
   const [titleBn, setTitleBn] = React.useState('');
   const [slug, setSlug] = React.useState('');
   const [slugTouched, setSlugTouched] = React.useState(false);
+  const [kind, setKind] = React.useState<NewPageKind>('visual');
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const isHome = !!page && page.slug === '';
 
@@ -43,8 +50,15 @@ const PageDetailsModal: React.FC<{
     setTitleBn(page?.titleBn ?? '');
     setSlug(page?.slug ?? '');
     setSlugTouched(!!page);
+    setKind('visual');
     setErrors({});
   }, [isOpen, page]);
+
+  // Mirrors backend/src/modules/sites/sites.logic.ts RESERVED_PAGE_SLUGS (WEBSITE_V2_BRIEF.md §2: shop/course/learner routes the public renderer owns).
+  const RESERVED_SLUGS = [
+    'api', 'preview', 'sitemap.xml', 'robots.txt', 'admin', 'login', 'news',
+    'blog', 'shop', 'cart', 'checkout', 'order', 'courses', 'learn', 'account',
+  ];
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +68,7 @@ const PageDetailsModal: React.FC<{
       if (!slug) errs.slug = t('Enter the page address.');
       else if (!SLUG_RE.test(slug)) errs.slug = t('Use lowercase letters, numbers and hyphens only.');
       else if (existingSlugs.includes(slug) && slug !== page?.slug) errs.slug = t('Another page already uses this address.');
-      else if (['blog', 'news', 'api', 'admin', 'preview', 'login'].includes(slug)) errs.slug = t('This address is reserved. Choose another.');
+      else if (RESERVED_SLUGS.includes(slug)) errs.slug = t('This address is reserved. Choose another.');
     }
     setErrors(errs);
     if (Object.keys(errs).length) return;
@@ -65,8 +79,10 @@ const PageDetailsModal: React.FC<{
         { onSuccess: () => { toast.success(t('Page details saved.')); onClose(); } }
       );
     } else {
+      const trimmedTitle = title.trim();
+      const data: PuckData = kind === 'visual' ? EMPTY_PAGE : kind === 'landing' ? (emptyCodePageData(trimmedTitle) as unknown as PuckData) : EMPTY_CODE_PAGE;
       create.mutate(
-        { title: title.trim(), titleBn: titleBn.trim() || undefined, slug, data: EMPTY_PAGE },
+        { title: trimmedTitle, titleBn: titleBn.trim() || undefined, slug, data },
         {
           onSuccess: (p) => {
             toast.success(t('Page created.'));
@@ -92,6 +108,34 @@ const PageDetailsModal: React.FC<{
       }
     >
       <form id="site-page-details" className="space-y-4" onSubmit={submit} noValidate>
+        {!page && (
+          <fieldset className="space-y-2">
+            <legend className="field-label">{t('Page type')}</legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(
+                [
+                  { id: 'visual' as const, icon: <Blocks className="w-4 h-4" />, label: t('Visual (blocks)'), desc: t('Build with the drag-and-drop block editor.') },
+                  { id: 'code' as const, icon: <Code2 className="w-4 h-4" />, label: t('Code (HTML/CSS/JS)'), desc: t('Write your own HTML, CSS and JavaScript.') },
+                  { id: 'landing' as const, icon: <Rocket className="w-4 h-4" />, label: t('Blank landing page'), desc: t('A code page pre-filled with a starter hero and features section.') },
+                ]
+              ).map((opt) => (
+                <label
+                  key={opt.id}
+                  className={cn(
+                    'flex flex-col gap-1 rounded-lg border p-3 cursor-pointer text-sm',
+                    kind === opt.id ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-500/10' : 'border-slate-200 dark:border-white/10'
+                  )}
+                >
+                  <span className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
+                    <input type="radio" name="site-page-kind" className="accent-primary-600" checked={kind === opt.id} onChange={() => setKind(opt.id)} />
+                    {opt.icon} {opt.label}
+                  </span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">{opt.desc}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <Input
           id="site-page-title"
           label={t('Title')}

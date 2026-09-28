@@ -22,14 +22,6 @@ const home = page('', 'Home', 'হোম', [
   b('CallToAction', { title: 'Ready to start?', titleBn: 'শুরু করতে প্রস্তুত?', buttons: [btn('Enrol now', 'এখনই ভর্তি হোন', '/admissions')] }),
 ]);
 
-const c = pageBuilder('courses');
-const courses = page('courses', 'Courses', 'কোর্সসমূহ', [
-  c('Heading', { text: 'All courses', textBn: 'সব কোর্স', level: 'h1', tone: 'soft', pad: 'md' }),
-  c('Cards', { heading: '', headingBn: '', columns: '3' }),
-  c('Courses', { heading: '', headingBn: '' }),
-  c('FeePayment', { tone: 'surface' }),
-]);
-
 export const academy: SiteTemplate = {
   key: 'academy',
   name: 'Academy',
@@ -39,6 +31,9 @@ export const academy: SiteTemplate = {
   suits: ['coaching', 'any'],
   preview: { background: 'linear-gradient(135deg,#7c3aed 0%,#06b6d4 100%)', layout: 'courses' },
   theme: { primary: '#6d28d9', accent: '#06b6d4', font: 'poppins', radius: 'lg', mode: 'light' },
+  // `/courses` is now the real course catalogue (LMS wave) — no separate Puck page needed;
+  // `courses` is a reserved page slug (see backend §2 and `frontend/src/site/routes.ts`).
+  settings: { courses: { enabled: true } },
   navigation: { header: [STANDARD_HEADER[0], nav('Courses', 'কোর্স', '/courses'), STANDARD_HEADER[1], STANDARD_HEADER[2], STANDARD_HEADER[5]], footer: STANDARD_FOOTER },
-  pages: [...standardPages(home), courses],
+  pages: standardPages(home),
 };

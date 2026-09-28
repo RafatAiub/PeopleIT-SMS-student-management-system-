@@ -19,9 +19,19 @@ import { createSiteApi, siteApi, SiteApiError } from './api';
 import { resolveTarget, isSiteHost as isSiteHostImpl } from './host';
 import { SiteRuntimeProvider, useSiteText } from './runtime';
 import { SiteRoot } from './SiteRoot';
+import { isCodePage, readCodePageProps } from './code/codePage';
+import { SandboxFrame } from './code/SandboxFrame';
+import { SiteCustomCode } from './code/SiteCustomCode';
 import { PreviewBar, SiteFooter, SiteHeader } from './public/Chrome';
 import { BlogListView, BlogPostView, SitePageView } from './public/Pages';
-import { useAnalytics } from './public/seo';
+import { AccountView } from './public/Account';
+import { CartView } from './public/Cart';
+import { CheckoutView, OrderLookupView, OrderStatusView } from './public/Checkout';
+import { CourseDetailView, CoursesListView } from './public/Courses';
+import { LearnIndexView, LearnPlayerView } from './public/Learn';
+import { ShopListView, ShopProductView } from './public/Shop';
+import { useAnalytics, useSiteSeo } from './public/seo';
+import { parseSitePath } from './routes';
 import { siteString } from './strings';
 import type { SiteLang } from './types';
 
@@ -104,6 +114,36 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
   useAnalytics(settings?.analyticsId, Boolean(q.data) && !previewToken);
   useHashScroll(Boolean(q.data));
 
+  const clean = path.replace(/^\/+|\/+$/g, '');
+  const route = parseSitePath(clean);
+  const isPlainPage = route.kind === 'page';
+
+  // A code-mode page (`root.props.mode === 'code'`) renders full-width and may hide the
+  // header/footer (`chrome: 'none'`); pre-fetch it here so that decision can be made before
+  // the header/footer wrapper is chosen. `SitePageView` re-reads the same query (deduped).
+  const pageQ = useQuery({
+    queryKey: ['site-page', siteId, clean, previewToken ? 'preview' : 'live'],
+    queryFn: () => api.page(siteId, clean),
+    enabled: Boolean(siteId) && isPlainPage,
+    staleTime: 60_000,
+    retry: (n, e) => n < 1 && !(e instanceof SiteApiError && e.status === 404),
+  });
+  const codeProps = isPlainPage && pageQ.data && isCodePage(pageQ.data.data) ? readCodePageProps(pageQ.data.data) : null;
+  const siteName = (lang === 'bn' && settings?.siteNameBn) || settings?.siteName || q.data?.institution.name || '';
+  useSiteSeo(
+    codeProps && pageQ.data
+      ? {
+          title: pageQ.data.seo?.title || (clean ? `${(lang === 'bn' && pageQ.data.titleBn) || pageQ.data.title} | ${siteName}` : siteName),
+          description: pageQ.data.seo?.description,
+          ogImage: pageQ.data.seo?.ogImage,
+          noindex: pageQ.data.seo?.noindex || Boolean(previewToken),
+          lang,
+          favicon: settings?.faviconUrl,
+          siteName,
+        }
+      : null,
+  );
+
   if (q.isLoading) {
     return <div className="flex min-h-screen items-center justify-center" style={{ background: '#fff' }} aria-busy="true"><span className="sr-only">Loading…</span><div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-500" /></div>;
   }
@@ -115,12 +155,41 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
   }
 
   const { site, institution, pages } = q.data;
-  const clean = path.replace(/^\/+|\/+$/g, '');
-  const [first, second, ...rest] = clean.split('/');
+  const suppressChrome = Boolean(codeProps) && codeProps!.chrome === 'none';
   let content;
-  if (first === 'blog' && !second) content = <BlogListView />;
-  else if (first === 'blog' && second && !rest.length) content = <BlogPostView slug={second} />;
-  else content = <SitePageView slug={clean} pages={pages} />;
+  if (codeProps) {
+    const frame = (
+      <SandboxFrame
+        html={codeProps.code.html}
+        css={codeProps.code.css}
+        js={codeProps.code.js}
+        height="auto"
+        minHeight={suppressChrome && typeof window !== 'undefined' ? window.innerHeight : 300}
+        title={pageQ.data?.title || 'Page'}
+      />
+    );
+    content = suppressChrome ? frame : <div className="site-container site-pad-md">{frame}</div>;
+  } else {
+    switch (route.kind) {
+      case 'blog-list': content = <BlogListView />; break;
+      case 'blog-post': content = <BlogPostView slug={route.slug} />; break;
+      case 'shop-list': content = <ShopListView />; break;
+      case 'shop-product': content = <ShopProductView slug={route.slug} />; break;
+      case 'cart': content = <CartView />; break;
+      case 'checkout': content = <CheckoutView />; break;
+      case 'order-lookup': content = <OrderLookupView />; break;
+      case 'order-status': content = <OrderStatusView orderNo={route.orderNo} />; break;
+      case 'courses-list': content = <CoursesListView />; break;
+      case 'course-detail': content = <CourseDetailView slug={route.slug} />; break;
+      case 'learn-index': content = <LearnIndexView />; break;
+      case 'learn-player': content = <LearnPlayerView courseSlug={route.courseSlug} lessonId={route.lessonId} />; break;
+      case 'account': content = <AccountView sub={route.sub} />; break;
+      default: content = <SitePageView slug={clean} pages={pages} />;
+    }
+  }
+
+  // Only in host mode (real custom domain / platform subdomain): path-mode preview and the editor skip headHtml/bodyEndHtml.
+  const hostMode = basePath === '';
 
   return (
     <SiteRuntimeProvider
@@ -138,13 +207,18 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       basePath={basePath}
       previewToken={previewToken}
     >
-      <SiteRoot className="flex min-h-screen flex-col">
-        <SkipLink />
-        {isPreview && <PreviewBar />}
-        <SiteHeader />
-        <main id="site-main" className="flex-1" tabIndex={-1}>{content}</main>
-        <SiteFooter />
-      </SiteRoot>
+      <SiteCustomCode hostMode={hostMode} />
+      {suppressChrome ? (
+        <SiteRoot className="min-h-screen">{content}</SiteRoot>
+      ) : (
+        <SiteRoot className="flex min-h-screen flex-col">
+          <SkipLink />
+          {isPreview && <PreviewBar />}
+          <SiteHeader />
+          <main id="site-main" className="flex-1" tabIndex={-1}>{content}</main>
+          <SiteFooter />
+        </SiteRoot>
+      )}
     </SiteRuntimeProvider>
   );
 }

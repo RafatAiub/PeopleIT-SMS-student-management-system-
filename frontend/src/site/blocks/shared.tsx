@@ -124,15 +124,15 @@ export function SectionIntro(p: IntroProps & { level?: 1 | 2; className?: string
 
 /* ── Links ──────────────────────────────────────────────────────────────── */
 
-export function SiteLink({ href, className, children, ariaLabel }: { href?: string; className?: string; children: ReactNode; ariaLabel?: string }) {
+export function SiteLink({ href, className, style, children, ariaLabel }: { href?: string; className?: string; style?: CSSProperties; children: ReactNode; ariaLabel?: string }) {
   const editing = useIsEditing();
   const toHref = useSiteHref();
   const inRouter = useInRouterContext();
   const safe = safeHref(href);
-  if (!safe) return <span className={className}>{children}</span>;
+  if (!safe) return <span className={className} style={style}>{children}</span>;
   if (editing) {
     return (
-      <a href={safe} className={className} aria-label={ariaLabel} onClick={(e) => e.preventDefault()}>
+      <a href={safe} className={className} style={style} aria-label={ariaLabel} onClick={(e) => e.preventDefault()}>
         {children}
       </a>
     );
@@ -140,14 +140,14 @@ export function SiteLink({ href, className, children, ariaLabel }: { href?: stri
   if (isExternalHref(safe)) {
     const web = /^https?:/i.test(safe);
     return (
-      <a href={safe} className={className} aria-label={ariaLabel} {...(web ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+      <a href={safe} className={className} style={style} aria-label={ariaLabel} {...(web ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
         {children}
       </a>
     );
   }
   const resolved = toHref(safe) ?? safe;
-  if (safe.startsWith('#') || !inRouter) return <a href={resolved} className={className} aria-label={ariaLabel}>{children}</a>;
-  return <Link to={resolved} className={className} aria-label={ariaLabel}>{children}</Link>;
+  if (safe.startsWith('#') || !inRouter) return <a href={resolved} className={className} style={style} aria-label={ariaLabel}>{children}</a>;
+  return <Link to={resolved} className={className} style={style} aria-label={ariaLabel}>{children}</Link>;
 }
 
 /* ── Images ─────────────────────────────────────────────────────────────── */

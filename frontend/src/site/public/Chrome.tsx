@@ -1,9 +1,10 @@
 /** Public-site chrome: header (menu, language toggle, mobile menu), footer, preview bar, 404. */
 import { useEffect, useId, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChevronDown, Eye, Menu, X } from 'lucide-react';
+import { ChevronDown, Eye, Menu, ShoppingCart, UserRound, X } from 'lucide-react';
 import { SiteLink, SiteImage } from '../blocks/shared';
 import { SocialLinks } from '../blocks/content';
+import { useSiteCart } from '../cart';
 import { useSiteHref, useSiteRuntime, useSiteText } from '../runtime';
 import type { NavItem, SiteLang } from '../types';
 
@@ -79,6 +80,29 @@ function DesktopItem({ item }: { item: NavItem }) {
   );
 }
 
+/** Cart icon (shop enabled) and account link (courses enabled) — §4 header requirement. */
+function ShopAccountLinks({ className = '' }: { className?: string }) {
+  const { settings, siteId } = useSiteRuntime();
+  const { s } = useSiteText();
+  const cart = useSiteCart(siteId);
+  if (!settings.shop?.enabled && !settings.courses?.enabled) return null;
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      {settings.shop?.enabled && (
+        <SiteLink href="/cart" ariaLabel={s('Cart')} className="site-btn site-btn-ghost site-btn-sm relative !px-2">
+          <ShoppingCart size={18} aria-hidden />
+          {cart.count > 0 && <span className="site-badge site-badge-accent absolute -right-1 -top-1 !min-w-0 !px-1 text-[10px]">{cart.count}</span>}
+        </SiteLink>
+      )}
+      {settings.courses?.enabled && (
+        <SiteLink href="/account" ariaLabel={s('Account')} className="site-btn site-btn-ghost site-btn-sm !px-2">
+          <UserRound size={18} aria-hidden />
+        </SiteLink>
+      )}
+    </div>
+  );
+}
+
 export function SiteHeader() {
   const { navigation, settings, institution } = useSiteRuntime();
   const { s, navLabel } = useSiteText();
@@ -101,6 +125,7 @@ export function SiteHeader() {
           <ul className="m-0 flex list-none items-center gap-1 p-0">{items.map((it, i) => <DesktopItem key={i} item={it} />)}</ul>
         </nav>
         <LanguageToggle className="hidden sm:inline-flex" />
+        <ShopAccountLinks />
         {items.length > 0 && (
           <button type="button" className="site-btn site-btn-ghost site-btn-sm !px-2 site-menu-toggle" aria-expanded={open} aria-controls={panelId} aria-label={open ? s('Close menu') : s('Open menu')} onClick={() => setOpen((o) => !o)}>
             {open ? <X aria-hidden /> : <Menu aria-hidden />}

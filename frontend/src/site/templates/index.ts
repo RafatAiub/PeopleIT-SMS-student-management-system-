@@ -14,12 +14,17 @@ import { academy } from './academy';
 import { classicHeritage } from './classic-heritage';
 import { coaching } from './coaching';
 import { college } from './college';
+import { courseLaunch } from './course-launch';
 import { englishMedium } from './english-medium';
+import { eventLanding } from './event-landing';
 import { kindergarten } from './kindergarten';
+import { lmsAcademy } from './lms-academy';
 import { madrasa } from './madrasa';
 import { minimal } from './minimal';
 import { modernCampus } from './modern-campus';
+import { onlineStore } from './online-store';
 import { polytechnic } from './polytechnic';
+import { saasLanding } from './saas-landing';
 import type { SiteTemplate, TemplateKey, TemplatePage } from './types';
 
 export type { SiteTemplate, TemplateKey, TemplatePage, TemplatePreview, ThumbLayout } from './types';
@@ -36,6 +41,11 @@ export const SITE_TEMPLATES: readonly SiteTemplate[] = [
   polytechnic,
   minimal,
   academy,
+  onlineStore,
+  lmsAcademy,
+  saasLanding,
+  eventLanding,
+  courseLaunch,
 ];
 
 export const TEMPLATE_KEYS = SITE_TEMPLATES.map((t) => t.key) as TemplateKey[];

@@ -133,6 +133,98 @@ const BN: Record<string, string> = {
   'View all': 'সব দেখুন',
   'Today': 'আজ',
   'Sun': 'রবি', 'Mon': 'সোম', 'Tue': 'মঙ্গল', 'Wed': 'বুধ', 'Thu': 'বৃহঃ', 'Fri': 'শুক্র', 'Sat': 'শনি',
+
+  /* Shop, courses (LMS), cart, checkout, account (Website Builder v2) */
+  'Days': 'দিন', 'Hours': 'ঘণ্টা', 'Minutes': 'মিনিট', 'Seconds': 'সেকেন্ড',
+  'Add to cart': 'কার্টে যোগ করুন',
+  'Added to cart': 'কার্টে যোগ হয়েছে',
+  'Out of stock': 'স্টকে নেই',
+  'In stock': 'স্টকে আছে',
+  'View cart': 'কার্ট দেখুন',
+  'Cart': 'কার্ট',
+  'Your cart is empty': 'আপনার কার্ট খালি',
+  'Add some products or courses to get started.': 'শুরু করতে কিছু পণ্য বা কোর্স যোগ করুন।',
+  'Continue shopping': 'কেনাকাটা চালিয়ে যান',
+  'Browse courses': 'কোর্স দেখুন',
+  'Checkout': 'চেকআউট',
+  'Remove': 'সরান',
+  'Quantity': 'পরিমাণ',
+  'Subtotal': 'উপমোট',
+  'Shipping': 'শিপিং',
+  'Free': 'বিনামূল্যে',
+  'Order summary': 'অর্ডার সারাংশ',
+  'Full name': 'পুরো নাম',
+  'Delivery address': 'ডেলিভারি ঠিকানা',
+  'Address line': 'ঠিকানা',
+  'City': 'শহর',
+  'Area': 'এলাকা',
+  'Postcode': 'পোস্ট কোড',
+  'Payment method': 'পেমেন্ট পদ্ধতি',
+  'Cash on delivery': 'ক্যাশ অন ডেলিভারি',
+  'Place order': 'অর্ডার করুন',
+  'Placing order…': 'অর্ডার করা হচ্ছে…',
+  'Order placed': 'অর্ডার সম্পন্ন হয়েছে',
+  'Thank you — your order has been placed.': 'ধন্যবাদ — আপনার অর্ডার সম্পন্ন হয়েছে।',
+  'Order number': 'অর্ডার নম্বর',
+  'Order status': 'অর্ডার অবস্থা',
+  'Pending': 'অপেক্ষমাণ',
+  'Paid': 'পরিশোধিত',
+  'Fulfilled': 'সম্পন্ন',
+  'Cancelled': 'বাতিল',
+  'Refunded': 'ফেরত দেওয়া হয়েছে',
+  'Demo payment — no money moves': 'ডেমো পেমেন্ট — কোনো টাকা লেনদেন হয় না',
+  'This is a simulated checkout for testing.': 'এটি পরীক্ষার জন্য একটি অনুকরণীয় চেকআউট।',
+  'Simulate a successful payment': 'সফল পেমেন্ট অনুকরণ করুন',
+  'Simulate a failed payment': 'ব্যর্থ পেমেন্ট অনুকরণ করুন',
+  'Pay now': 'এখনই পরিশোধ করুন',
+  'Download': 'ডাউনলোড',
+  'Go to your course': 'আপনার কোর্সে যান',
+  'Track your order': 'আপনার অর্ডার ট্র্যাক করুন',
+  'Look up an order': 'অর্ডার খুঁজুন',
+  'Order not found': 'অর্ডার পাওয়া যায়নি',
+  'Check the order number and email address.': 'অর্ডার নম্বর ও ইমেইল ঠিকানা যাচাই করুন।',
+  'Shop': 'দোকান',
+  'All categories': 'সব বিভাগ',
+  'Search products': 'পণ্য খুঁজুন',
+  'Search courses': 'কোর্স খুঁজুন',
+  'No products yet': 'এখনো কোনো পণ্য নেই',
+  'Products will appear here once they’re published.': 'প্রকাশিত হলে পণ্য এখানে দেখা যাবে।',
+  'No courses yet': 'এখনো কোনো কোর্স নেই',
+  'Courses will appear here once they’re published.': 'প্রকাশিত হলে কোর্স এখানে দেখা যাবে।',
+  'Enrol': 'ভর্তি হোন',
+  'Enrolling…': 'ভর্তি করা হচ্ছে…',
+  'Buy now': 'এখনই কিনুন',
+  'View course': 'কোর্স দেখুন',
+  'Instructor': 'প্রশিক্ষক',
+  'Curriculum': 'পাঠ্যক্রম',
+  'lessons': 'পাঠ',
+  'Level': 'স্তর',
+  'Duration': 'সময়কাল',
+  'Sign in': 'সাইন ইন',
+  'Sign up': 'নিবন্ধন করুন',
+  'Log out': 'লগ আউট',
+  'Account': 'অ্যাকাউন্ট',
+  'My orders': 'আমার অর্ডার',
+  'My courses': 'আমার কোর্স',
+  'Password': 'পাসওয়ার্ড',
+  'Create account': 'অ্যাকাউন্ট তৈরি করুন',
+  'Already have an account? Sign in': 'ইতিমধ্যে অ্যাকাউন্ট আছে? সাইন ইন করুন',
+  'New here? Create an account': 'নতুন? অ্যাকাউন্ট তৈরি করুন',
+  'Invalid email or password': 'ইমেইল বা পাসওয়ার্ড সঠিক নয়',
+  'You need an account to enrol in this course.': 'এই কোর্সে ভর্তি হতে অ্যাকাউন্ট প্রয়োজন।',
+  'Continue': 'চালিয়ে যান',
+  'Mark complete': 'সম্পন্ন হিসেবে চিহ্নিত করুন',
+  'Completed': 'সম্পন্ন হয়েছে',
+  'Next lesson': 'পরবর্তী পাঠ',
+  'Previous lesson': 'আগের পাঠ',
+  'Your progress': 'আপনার অগ্রগতি',
+  'This lesson is a free preview.': 'এই পাঠটি একটি বিনামূল্যের প্রিভিউ।',
+  'Enrol to unlock the full course.': 'পুরো কোর্স আনলক করতে ভর্তি হোন।',
+  'You already own this course.': 'আপনি ইতিমধ্যে এই কোর্সটির মালিক।',
+  'No lessons yet': 'এখনো কোনো পাঠ নেই',
+  'Please sign in to view your account.': 'আপনার অ্যাকাউন্ট দেখতে সাইন ইন করুন।',
+  'You haven’t placed any orders yet.': 'আপনি এখনো কোনো অর্ডার করেননি।',
+  'You’re not enrolled in any course yet.': 'আপনি এখনো কোনো কোর্সে ভর্তি হননি।',
 };
 
 export function siteString(lang: SiteLang, key: string, vars?: Record<string, string | number>): string {
@@ -159,5 +251,18 @@ export function formatSiteNumber(n: number, lang: SiteLang): string {
     return new Intl.NumberFormat(SITE_LOCALE[lang]).format(n);
   } catch {
     return String(n);
+  }
+}
+
+const CURRENCY_SYMBOL: Record<string, string> = { BDT: '৳', USD: '$', EUR: '€', GBP: '£', INR: '₹' };
+
+/** `৳1,234` — a currency symbol plus a locale-formatted amount (2 decimals only when not a whole number). */
+export function formatSiteMoney(amount: number, currency: string, lang: SiteLang): string {
+  const symbol = CURRENCY_SYMBOL[currency] ?? `${currency} `;
+  const whole = Number.isInteger(amount);
+  try {
+    return `${symbol}${new Intl.NumberFormat(SITE_LOCALE[lang], { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }).format(amount)}`;
+  } catch {
+    return `${symbol}${amount.toFixed(whole ? 0 : 2)}`;
   }
 }

@@ -244,6 +244,25 @@ export function normaliseNavigation(v: unknown): SiteNavigation {
   return { header: normaliseNavItems(o.header), footer: normaliseNavItems(o.footer) };
 }
 
+function normaliseShop(v: unknown): SiteSettings['shop'] {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, any>;
+  return {
+    enabled: o.enabled === true,
+    currency: 'BDT',
+    shippingFee: Number.isFinite(Number(o.shippingFee)) ? Number(o.shippingFee) : 0,
+    freeShippingOver: o.freeShippingOver == null ? null : Number(o.freeShippingOver) || null,
+    codEnabled: o.codEnabled !== false,
+    notifyEmails: Array.isArray(o.notifyEmails) ? o.notifyEmails.filter((e: unknown) => typeof e === 'string') : [],
+    termsUrl: typeof o.termsUrl === 'string' && o.termsUrl ? o.termsUrl : undefined,
+  };
+}
+
+function normaliseCourses(v: unknown): SiteSettings['courses'] {
+  if (!v || typeof v !== 'object') return undefined;
+  return { enabled: (v as Record<string, any>).enabled === true };
+}
+
 export function normaliseSettings(v: unknown): SiteSettings {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, any>;
   const langs = Array.isArray(o.languages) ? (o.languages.filter((l: unknown) => l === 'en' || l === 'bn') as SiteLang[]) : [];
@@ -266,5 +285,10 @@ export function normaliseSettings(v: unknown): SiteSettings {
     defaultEnquiryFormId: typeof o.defaultEnquiryFormId === 'string' && o.defaultEnquiryFormId ? o.defaultEnquiryFormId : undefined,
     footerText: typeof o.footerText === 'string' && o.footerText ? o.footerText : undefined,
     footerTextBn: typeof o.footerTextBn === 'string' && o.footerTextBn ? o.footerTextBn : undefined,
+    customCss: typeof o.customCss === 'string' && o.customCss ? o.customCss.slice(0, 100_000) : undefined,
+    headHtml: typeof o.headHtml === 'string' && o.headHtml ? o.headHtml.slice(0, 50_000) : undefined,
+    bodyEndHtml: typeof o.bodyEndHtml === 'string' && o.bodyEndHtml ? o.bodyEndHtml.slice(0, 50_000) : undefined,
+    shop: normaliseShop(o.shop),
+    courses: normaliseCourses(o.courses),
   };
 }
