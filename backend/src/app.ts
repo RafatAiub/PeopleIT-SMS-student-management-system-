@@ -62,6 +62,15 @@ import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
 
+// Opt-in: behind a reverse proxy / tunnel every request arrives from the proxy's
+// IP, so all users would share one rate-limit bucket. TRUST_PROXY (e.g.
+// "loopback", "1", or a CIDR list) makes req.ip the real client address.
+// Unset = unchanged behaviour.
+if (process.env.TRUST_PROXY) {
+  const tp = process.env.TRUST_PROXY;
+  app.set('trust proxy', /^\d+$/.test(tp) ? Number(tp) : tp === 'true' ? true : tp);
+}
+
 // Apply security headers with relaxed cross-origin policies for frontend integration
 app.use(
   helmet({
