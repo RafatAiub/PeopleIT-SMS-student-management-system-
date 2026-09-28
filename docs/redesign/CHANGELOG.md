@@ -22,6 +22,11 @@ The owner approved building the missing features, including additive schema chan
 | `cd2739f` | i18n | 1,821 Bangla strings for the new pages |
 | `3d2925e` | SaaS | Scoped API keys and read-only public API, signed webhooks with delivery log, support tickets with a platform console, tenant data export, usage and estimated cost reports, help centre and What's new, installable PWA with offline attendance queue, optional Sentry. See `OPERATIONS.md` |
 
+| `8dde358` | Fixes | Found by a role-by-role test of every sidebar page (219 pages, 9 roles) against a local Docker database with the migration applied: teacher attendance no longer queries before a section is chosen; non-teaching staff settings no longer call the forbidden exam list |
+| `6b4ee18` | i18n | 501 more Bangla strings (settings, setup wizard, developer, support, help, usage, data export). Only sample dates, test data and technical names remain English |
+
+**Verified locally (2026-09-28):** the full migration history, including the Wave C migration, applies cleanly to an empty PostgreSQL 16 database; every sidebar page loads for all 9 roles with no server errors.
+
 ### Behaviour changes to existing features
 
 - Teachers can only mark attendance for sections they are class teacher of or teach in the timetable.
