@@ -478,6 +478,7 @@ export function readGates(settings: unknown): { publicResults: boolean; showTopp
 const PUBLIC_SETTING_KEYS = [
   'siteName', 'siteNameBn', 'tagline', 'taglineBn', 'logoUrl', 'faviconUrl', 'social', 'analyticsId', 'defaultLanguage',
   'languages', 'liteMode', 'publicResults', 'showToppers', 'establishedYear', 'footerText', 'footerTextBn',
+  'defaultEnquiryFormId',
 ];
 
 export function publicSettings(settings: unknown): Record<string, unknown> {

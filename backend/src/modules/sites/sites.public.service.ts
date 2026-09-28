@@ -68,7 +68,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
   const [institution, pages, primaryHost] = await Promise.all([
     prisma.institution.findUniqueOrThrow({
       where: { id: site.institutionId },
-      select: { name: true, logoUrl: true, address: true, contactEmail: true, contactPhone: true, email: true, phone: true },
+      select: { name: true, slug: true, logoUrl: true, address: true, contactEmail: true, contactPhone: true, email: true, phone: true },
     }),
     prisma.sitePage.findMany({
       where: { siteId: site.id, ...(preview ? {} : { published: { not: Prisma.DbNull } }) },
@@ -93,6 +93,8 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
     },
     institution: {
       name: institution.name,
+      // Public institution code, used by the AI admission-assistant widget.
+      slug: institution.slug,
       logoUrl: institution.logoUrl,
       // School contact details (the institution's, never an individual's).
       contact: {

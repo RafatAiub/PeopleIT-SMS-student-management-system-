@@ -74,6 +74,8 @@ const KnowledgeBase = lazyWithRetry(() => import('./pages/ai/KnowledgeBase'));
 const GuardianChat = lazyWithRetry(() => import('./pages/ai/GuardianChat'));
 const AdmissionAssistant = lazyWithRetry(() => import('./pages/ai/AdmissionAssistant'));
 const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
+const SitePageEditor = lazyWithRetry(() => import('./pages/website/editor/PageEditor'));
+const PublicSiteRoutes = lazyWithRetry(() => import('./site/PublicSite').then((m) => ({ default: m.PublicSiteRoutes })));
 const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
 const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
 const Users = lazyWithRetry(() => import('./pages/users/Users'));
@@ -454,6 +456,8 @@ const App = () => {
         <Route path="/admission-enquiry" element={<PublicEnquiryPage />} />
         <Route path="/admission-status" element={<ApplicationStatusPage />} />
         <Route path="/admission-assistant/:slug" element={<AdmissionAssistant />} />
+        {/* Public school website, path-based (works before a domain is connected) */}
+        <Route path="/s/:subdomain/*" element={<PublicSiteRoutes />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         {/* Self-service signup and the landing pages for the links sent by
             the confirmation / password-reset emails. All unauthenticated. */}
@@ -1067,11 +1071,19 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        {/* Teachers get a blog-only view (drafts; admins publish) */}
         <Route path="/website-builder" element={
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
             <DashboardLayout>
               <WebsiteBuilder />
             </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Full-screen drag-and-drop page editor (no dashboard chrome) */}
+        <Route path="/website-builder/pages/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <SitePageEditor />
           </ProtectedRoute>
         } />
         

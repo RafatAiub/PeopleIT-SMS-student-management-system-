@@ -76,10 +76,47 @@ async function availableSubdomain(base: string): Promise<string> {
   return uniqueSlug(base, taken);
 }
 
-/** The tenant's site, created on first use with a home page. */
+/** Fields of the admission enquiry form every site starts with (maps onto AdmissionEnquiry). */
+const DEFAULT_ENQUIRY_FIELDS = [
+  { key: 'studentName', label: "Student's name", type: 'text', required: true },
+  { key: 'guardianName', label: "Guardian's name", type: 'text', required: false },
+  { key: 'phone', label: 'Phone', type: 'phone', required: true },
+  { key: 'email', label: 'Email', type: 'email', required: false },
+  { key: 'classInterested', label: 'Class interested in', type: 'text', required: false },
+  { key: 'message', label: 'Message', type: 'textarea', required: false },
+];
+
+/**
+ * Templates and the AI generator place EnquiryForm blocks without a form id;
+ * they fall back to settings.defaultEnquiryFormId. Create that form once per
+ * site (also backfills sites created before this existed).
+ */
+async function ensureDefaultEnquiryForm<T extends { id: string; institutionId: string; settings: Prisma.JsonValue }>(site: T): Promise<T> {
+  const settings = (site.settings && typeof site.settings === 'object' ? site.settings : {}) as Record<string, unknown>;
+  if (typeof settings.defaultEnquiryFormId === 'string' && settings.defaultEnquiryFormId) return site;
+  const form = await prisma.siteForm.create({
+    data: {
+      siteId: site.id,
+      institutionId: site.institutionId,
+      name: 'Admission enquiry',
+      fields: json(DEFAULT_ENQUIRY_FIELDS),
+      target: 'ENQUIRY',
+      notifyEmails: [],
+    },
+  });
+  const nextSettings = { ...settings, defaultEnquiryFormId: form.id };
+  await prisma.site.update({ where: { id: site.id }, data: { settings: json(nextSettings) } });
+  return { ...site, settings: nextSettings as Prisma.JsonValue };
+}
+
+/** The tenant's site, created on first use with a home page and a default enquiry form. */
 export async function getOrCreateSite(institutionId: string) {
   const existing = await repo.findSiteByInstitution(institutionId);
-  if (existing) return existing;
+  if (existing) return ensureDefaultEnquiryForm(existing);
+  return ensureDefaultEnquiryForm(await createSite(institutionId));
+}
+
+async function createSite(institutionId: string) {
 
   const institution = await prisma.institution.findUnique({
     where: { id: institutionId },

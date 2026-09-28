@@ -163,7 +163,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/ai', label: 'AI Assistant', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       { to: '/ai/review', label: 'AI Review Queue', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/ai/knowledge', label: 'Knowledge Base', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/website-builder', label: 'Website Builder', roles: ['ADMIN'] },
+      // Admins: full builder. Teachers: school news (blog drafts only).
+      { to: '/website-builder', label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/developer', label: 'API & Webhooks', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/data-export', label: 'Data Export', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
