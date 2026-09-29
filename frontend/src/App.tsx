@@ -116,6 +116,7 @@ const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/App
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
+const EmailDeliveryPortal = lazyWithRetry(() => import('./pages/superadmin/EmailDeliveryPortal'));
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
@@ -188,6 +189,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
       '/super-admin/support-access',
       '/super-admin/audit-logs',
       '/super-admin/system-health',
+      '/super-admin/email',
       '/super-admin/applications',
       '/super-admin/authorized-emails',
       '/super-admin/leads',
@@ -1175,6 +1177,14 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
             <DashboardLayout>
               <SystemHealthPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/email" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <EmailDeliveryPortal />
             </DashboardLayout>
           </ProtectedRoute>
         } />

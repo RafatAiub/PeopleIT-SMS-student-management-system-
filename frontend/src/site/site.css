@@ -217,3 +217,74 @@
 @media (min-width: 1024px) {
   .site-root .site-menu-toggle { display: none; }
 }
+
+/* ── Boxed layout + page-background patterns (theme.layout / theme.pageBackground) ── */
+.site-page-outer { display: flex; flex-direction: column; flex: 1 1 auto; width: 100%; background: var(--site-surface-2); }
+.site-page-boxed {
+  display: flex; flex-direction: column; flex: 1 1 auto; width: 100%; max-width: 1040px; margin-inline: auto;
+  background: var(--site-bg); box-shadow: 0 0 0 1px var(--site-border), 0 30px 70px -45px rgb(0 0 0 / .45);
+}
+.site-bg-dots { background-image: radial-gradient(color-mix(in srgb, var(--site-primary) 20%, transparent) 1.5px, transparent 1.5px); background-size: 22px 22px; }
+.site-bg-grid {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--site-primary) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--site-primary) 10%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+.site-bg-diagonal { background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--site-primary) 9%, transparent) 0 10px, transparent 10px 20px); }
+.site-bg-waves {
+  background-image:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--site-accent) 16%, transparent), transparent 60%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--site-primary) 16%, transparent), transparent 60%);
+}
+
+/* ── Header/footer chrome variants (theme.headerStyle / theme.footerStyle) ─────── */
+.site-topbar { font-size: 0.85rem; }
+.site-topbar a:hover { text-decoration: underline; }
+.site-header-portal-banner {
+  position: relative; isolation: isolate; overflow: hidden; color: #fff;
+  background: linear-gradient(135deg, var(--site-primary), var(--site-primary-strong));
+}
+.site-header-portal-banner::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; opacity: .18;
+  background-image: radial-gradient(#fff 1.5px, transparent 1.5px); background-size: 18px 18px;
+}
+.site-nav-portal { background: var(--site-bg); border-bottom: 1px solid var(--site-border); }
+.site-nav-portal li + li { border-left: 1px solid var(--site-border); }
+.site-nav-corporate { background: #0b1a3a; color: #fff; }
+.site-nav-corporate .site-nav-link { color: #fff; }
+.site-nav-corporate .site-nav-link:hover, .site-nav-corporate .site-nav-link[aria-current='page'] { background: rgb(255 255 255 / .12); color: #fff; }
+.site-home-tile { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; background: var(--site-accent); color: var(--site-on-accent); }
+.site-skyline { display: block; width: 100%; height: 28px; color: var(--site-surface-2); }
+.site-footer-dark { background: #0b1a3a; color: #e2e8f0; }
+.site-footer-dark a { color: #e2e8f0; }
+.site-footer-dark a:hover { color: #fff; }
+.site-footer-dark .site-muted { color: #94a3b8; }
+
+/* ── Top bar (portal / corporate header — theme.settings.topBar) ───────── */
+.site-topbar-portal { background: var(--site-primary-strong); color: #fff; }
+.site-topbar-portal a { color: #fff; opacity: .9; }
+.site-topbar-corporate { background: #071230; color: #cbd5e1; }
+.site-topbar-corporate a { color: #cbd5e1; }
+
+/* ── Portal / DSHE data blocks (C2) ──────────────────────────────────────── */
+.site-ticker-track { animation: site-marquee 26s linear infinite; }
+.site-root:not([data-lite='true']):not([data-editing='true']) .site-ticker-track { animation-play-state: running; }
+.site-root[data-lite='true'] .site-ticker-track, .site-root[data-editing='true'] .site-ticker-track { animation: none; }
+
+.site-info-box { display: flex; gap: 14px; align-items: flex-start; }
+.site-info-box-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: var(--site-radius); background: var(--site-primary-soft); color: var(--site-primary-text); }
+
+.site-sidebar-title { background: var(--site-primary); color: var(--site-on-primary); font-weight: 700; padding: 10px 16px; border-radius: var(--site-radius) var(--site-radius) 0 0; }
+.site-sidebar-card { border: 1px solid var(--site-border); border-top: 0; border-radius: 0 0 var(--site-radius) var(--site-radius); overflow: hidden; }
+
+.site-hotline-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+.site-hotline-chip { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 12px 8px; border-radius: var(--site-radius); background: var(--site-tone-dark, #0f172a); text-align: center; }
+
+.site-table-striped tbody tr:nth-child(even) { background: var(--site-surface); }
+
+/* Boxed layout wrapper's inner max-width applies theme.layout consistently at every breakpoint. */
+.site-page-outer > .site-header, .site-page-outer > .site-preview-bar { position: static; }
+@media (min-width: 1024px) {
+  .site-page-boxed .site-header { position: sticky; top: 0; }
+}

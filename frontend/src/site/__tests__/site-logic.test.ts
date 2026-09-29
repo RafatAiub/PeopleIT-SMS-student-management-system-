@@ -14,14 +14,20 @@
 import { buildSiteTokens, fillTokens, fillTokensDeep, hasTokens, tidyFilled } from '../tokens';
 import { isAllowedIframeSrc, osmEmbedUrl, safeHref, toVideoEmbed } from '../embed';
 import { isAppHost, isSiteHost, resolveTarget } from '../host';
-import { checkThemeContrast, contrastRatio, DEFAULT_THEME, ensureContrast, meetsAA, normaliseTheme, readableTextOn } from '../theme';
+import {
+  checkThemeContrast, contrastRatio, DEFAULT_THEME, ensureContrast, FOOTER_STYLES, HEADER_STYLES, LAYOUT_MODES, meetsAA,
+  normaliseSettings, normaliseTheme, readableTextOn,
+} from '../theme';
 import { isValidPageData } from '../render';
 import { SITE_TEMPLATES } from '../templates';
 import { SITE_COMPONENTS, BLOCK_CATEGORIES } from '../config';
 import { addLine, cartCount, cartSubtotal, cartTotals, hasCourseItem, hasPhysicalItem, removeLine, setLineQty, type CartLine } from '../cart';
 import { buildSrcDoc, SANDBOX_ATTR } from '../code/SandboxFrame';
-import { emptyCodePageData, isCodePage, readCodePageProps } from '../code/codePage';
+import { emptyCodePageData, isCodePage, mapImportedHref, readCodePageProps } from '../code/codePage';
 import { isReservedSlug, parseSitePath } from '../routes';
+import { fetchSiteData, isSiteDataSource, SITE_DATA_SOURCES } from '../dataSources';
+import { fetchListSource, toItems } from '../blocks/portal-data';
+import type { SiteApi } from '../api';
 
 let passed = 0;
 const failures: string[] = [];
@@ -88,6 +94,24 @@ test('hasTokens', () => {
   ok(hasTokens('a {{b.c}}'));
   ok(!hasTokens('plain'));
   ok(hasTokens('x {{ y }}'), 'second call must not be affected by regex state');
+});
+
+test('profile tokens (C4): eiin, nameBn, mpo, recognition, head name/designation', () => {
+  const withProfile = buildSiteTokens({
+    institution: { name: 'Green Valley School', contact: {} },
+    profile: { nameBn: 'গ্রিন ভ্যালি স্কুল', eiin: '123456', mpoInfo: 'MPO-9988', recognitionInfo: 'Recognised 1998', headOfInstitution: { name: 'A. Karim', designation: 'Head teacher' } },
+  });
+  eq(fillTokens('{{institution.eiin}}', withProfile), '123456');
+  eq(fillTokens('{{institution.mpo}}', withProfile), 'MPO-9988');
+  eq(fillTokens('{{institution.recognition}}', withProfile), 'Recognised 1998');
+  eq(fillTokens('{{head.name}} — {{head.designation}}', withProfile), 'A. Karim — Head teacher');
+  eq(fillTokens('{{institution.nameBn}}', withProfile), 'গ্রিন ভ্যালি স্কুল');
+});
+
+test('profile tokens render empty (not literal braces) before the profile has loaded', () => {
+  const noProfile = buildSiteTokens({ institution: { name: 'X', contact: {} } });
+  eq(fillTokens('{{institution.eiin}}', noProfile), '');
+  eq(fillTokens('{{head.name}}', noProfile), '');
 });
 
 /* ── Embed allow-list ───────────────────────────────────────────────────── */
@@ -190,6 +214,49 @@ test('theme contrast report + normalise', () => {
   eq(normaliseTheme({ primary: 'ABCDEF' }).primary, '#abcdef');
 });
 
+/* ── Header/footer/layout + settings normalisation (C1) ─────────────────── */
+
+test('every header/footer style and layout mode is a distinct, valid key', () => {
+  eq(HEADER_STYLES.map(([k]) => k).sort(), ['banner', 'centered', 'corporate', 'minimal', 'modern', 'portal'].sort());
+  eq(FOOTER_STYLES.map(([k]) => k).sort(), ['columns', 'corporate', 'minimal', 'modern', 'portal'].sort());
+  eq(LAYOUT_MODES.map(([k]) => k).sort(), ['boxed', 'full'].sort());
+});
+
+test('normaliseTheme: headerStyle/footerStyle/layout/pageBackground tolerate partial or bad input', () => {
+  const t = normaliseTheme({ headerStyle: 'portal', footerStyle: 'corporate', layout: 'boxed', pageBackground: 'dots' });
+  eq(t.headerStyle, 'portal');
+  eq(t.footerStyle, 'corporate');
+  eq(t.layout, 'boxed');
+  eq(t.pageBackground, 'dots');
+  const bad = normaliseTheme({ headerStyle: 'not-a-style', footerStyle: 123, layout: 'nope', pageBackground: 'javascript:alert(1)' });
+  eq(bad.headerStyle, 'modern');
+  eq(bad.footerStyle, 'modern');
+  eq(bad.layout, 'full');
+  eq(bad.pageBackground, 'none', 'an unrecognised, non-https pattern value is dropped, never executed');
+  eq(normaliseTheme({ pageBackground: 'https://example.org/bg.jpg' }).pageBackground, 'https://example.org/bg.jpg');
+  eq(normaliseTheme({ pageBackground: 'ftp://example.org/bg.jpg' }).pageBackground, 'none', 'only https image URLs pass through');
+});
+
+test('normaliseSettings: topBar, hotlines, importantLinks, eServices (§7.6 whitelist)', () => {
+  const s = normaliseSettings({
+    topBar: { showDate: true, loginLinks: [{ label: 'Login', href: '/account/login' }] },
+    hotlines: [{ number: '999', label: 'Emergency' }, { number: '' }],
+    importantLinks: [{ label: 'Result', href: '/results' }],
+    eServices: [{ label: 'Birth cert', href: '/e/birth', icon: 'star' }],
+  });
+  eq(s.topBar?.showDate, true);
+  eq(s.topBar?.loginLinks?.[0]?.label, 'Login');
+  eq(s.hotlines?.length, 1, 'an entry with no number is dropped');
+  eq(s.hotlines?.[0]?.number, '999');
+  eq(s.importantLinks?.[0]?.href, '/results');
+  eq(s.eServices?.[0]?.icon, 'star');
+  const empty = normaliseSettings({});
+  eq(empty.topBar, undefined);
+  eq(empty.hotlines, undefined);
+  eq(empty.importantLinks, undefined);
+  eq(empty.eServices, undefined);
+});
+
 test('every template primary colour yields AA button text', () => {
   for (const t of SITE_TEMPLATES) {
     const r = checkThemeContrast(t.theme);
@@ -209,9 +276,9 @@ test('isValidPageData', () => {
   ok(!isValidPageData({ root: {}, content: [{ type: 'Columns', props: { id: 'c', col1: [{ type: 'Bad', props: {} }] } }] }));
 });
 
-test('fifteen templates, each with valid pages and the six standard slugs', () => {
-  eq(SITE_TEMPLATES.length, 15);
-  eq(new Set(SITE_TEMPLATES.map((t) => t.key)).size, 15);
+test('twenty-three templates, each with valid pages and the six standard slugs', () => {
+  eq(SITE_TEMPLATES.length, 23);
+  eq(new Set(SITE_TEMPLATES.map((t) => t.key)).size, 23);
   for (const t of SITE_TEMPLATES) {
     const slugs = t.pages.map((p) => p.slug);
     for (const s of ['', 'about', 'admissions', 'academics', 'notices', 'contact']) ok(slugs.includes(s), `${t.key} missing page "${s}"`);
@@ -228,6 +295,41 @@ test('fifteen templates, each with valid pages and the six standard slugs', () =
       });
       walk(p.data.content as never);
     }
+  }
+});
+
+/** Every block type used anywhere in a template (recurses into slot content, e.g. `SidebarLayout`/`SidebarCard`/`Columns`). */
+function collectBlockTypes(pages: Array<{ data: { content: unknown } }>): Set<string> {
+  const types = new Set<string>();
+  const walk = (items: unknown): void => {
+    if (!Array.isArray(items)) return;
+    for (const it of items) {
+      if (!it || typeof it !== 'object' || typeof (it as { type?: unknown }).type !== 'string') continue;
+      types.add((it as { type: string }).type);
+      for (const v of Object.values((it as { props?: Record<string, unknown> }).props ?? {})) {
+        if (Array.isArray(v) && v[0] && typeof v[0] === 'object' && typeof (v[0] as { type?: unknown }).type === 'string') walk(v);
+      }
+    }
+  };
+  for (const p of pages) walk(p.data.content);
+  return types;
+}
+
+/** The eight "portal" templates built on `templates/portal-builders.ts` — the ones DSHE-completeness applies to. */
+const PORTAL_TEMPLATE_KEYS = [
+  'bangla-portal', 'english-medium-corporate', 'portal-green', 'madrasa-portal', 'college-classic', 'kindergarten-bright',
+  'modern-bangla', 'newspaper-style',
+];
+
+test('every portal template covers the 11 DSHE items via data-bound blocks', () => {
+  const required = ['ProfileFacts', 'ClassStats', 'ClassRoutine', 'DownloadsList', 'ContactInfo', 'HeadMessage', 'StaffDirectory', 'CommitteeList'];
+  const portalTemplates = SITE_TEMPLATES.filter((t) => PORTAL_TEMPLATE_KEYS.includes(t.key));
+  eq(portalTemplates.length, 8, 'all eight portal templates are registered');
+  for (const t of portalTemplates) {
+    const types = collectBlockTypes(t.pages);
+    for (const type of required) ok(types.has(type), `${t.key} is missing a "${type}" block (DSHE coverage)`);
+    ok(types.has('Notices') || types.has('NoticeBoard'), `${t.key} is missing a notices block (DSHE item 5)`);
+    for (const s of ['administration', 'results', 'gallery', 'downloads']) ok(t.pages.some((p) => p.slug === s), `${t.key} missing page "${s}"`);
   }
 });
 
@@ -340,6 +442,95 @@ test('buildSrcDoc escapes a closing </style> in user CSS the same way', () => {
   ok(!doc.includes('</style><script>alert(1)'), 'cannot prematurely close the style tag');
 });
 
+/* ── SITE.data() bridge allow-list (C4) ──────────────────────────────────── */
+
+test('isSiteDataSource: only the shared allow-list is accepted', () => {
+  for (const s of SITE_DATA_SOURCES) ok(isSiteDataSource(s), `${s} should be allowed`);
+  ok(!isSiteDataSource('admin-only'));
+  ok(!isSiteDataSource('__proto__'));
+  ok(!isSiteDataSource(123));
+  ok(!isSiteDataSource(null));
+  ok(!isSiteDataSource(undefined));
+});
+
+test('buildSrcDoc exposes SITE.data() and the same allow-list the parent enforces', () => {
+  const doc = buildSrcDoc({ html: '', theme: DEFAULT_THEME });
+  ok(doc.includes('window.SITE'), 'exposes window.SITE');
+  ok(doc.includes('pendingData'), 'SITE.data() tracks pending requests by id');
+  ok(doc.includes('dataSources'), 'lists the allowed sources for callers to introspect');
+  ok(doc.includes('data-result'), 'listens for the parent’s typed reply');
+  for (const s of ['notices', 'committee', 'albums', 'admissions', 'profile']) ok(doc.includes(`"${s}"`), `allow-list mentions "${s}"`);
+});
+
+test('fetchSiteData dispatches to the matching SiteApi method for every source (never an unrelated one)', () => {
+  const calls: string[] = [];
+  const method = (name: string) => (...args: unknown[]) => { calls.push(`${name}(${JSON.stringify(args)})`); return Promise.resolve(null); };
+  const api = {
+    notices: method('notices'), events: method('events'), teachers: method('teachers'), staff: method('staff'),
+    posts: method('posts'), courses: method('courses'), products: method('products'), profile: method('profile'),
+    stats: method('stats'), toppers: method('toppers'), routine: method('routine'), feesLink: method('feesLink'),
+    classStats: method('classStats'), subjects: method('subjects'), examRoutine: method('examRoutine'),
+    resultSummary: method('resultSummary'), resultsArchive: method('resultsArchive'), feeChart: method('feeChart'),
+    holidaysCalendar: method('holidaysCalendar'), library: method('library'), transport: method('transport'),
+    branches: method('branches'), committee: method('committee'), albums: method('albums'), downloads: method('downloads'),
+    admissions: method('admissions'),
+  } as unknown as SiteApi;
+  for (const source of SITE_DATA_SOURCES) void fetchSiteData('site1', api, source, {});
+  eq(calls.length, SITE_DATA_SOURCES.length, 'every source resolves to exactly one API call');
+  // Spot-check a few non-obvious ones (name differs from the source key, or the source key is shared by two sub-categories).
+  ok(calls.some((c) => c.startsWith('staff(')), '"teachers" and "staff" sources both call api.staff with a category');
+  ok(calls.some((c) => c.startsWith('holidaysCalendar(')), '"holidays" source calls api.holidaysCalendar');
+  ok(calls.some((c) => c.startsWith('resultsArchive(')), '"results-archive" source calls api.resultsArchive');
+});
+
+/* ── Generic DataList: source/param mapping + item normalisation (C2) ──── */
+
+test('DataList: fetchListSource maps each preset source to the right call and params', () => {
+  const calls: Array<{ name: string; args: unknown[] }> = [];
+  const method = (name: string) => (...args: unknown[]) => { calls.push({ name, args }); return Promise.resolve(null); };
+  const api = {
+    notices: method('notices'), staff: method('staff'), committee: method('committee'), downloads: method('downloads'),
+    albums: method('albums'), admissions: method('admissions'), holidaysCalendar: method('holidaysCalendar'),
+    branches: method('branches'), resultsArchive: method('resultsArchive'),
+  } as unknown as SiteApi;
+
+  void fetchListSource('teachers', 'site1', api, {});
+  void fetchListSource('staff', 'site1', api, {});
+  eq(calls.filter((c) => c.name === 'staff').map((c) => c.args[1]), [{ category: 'teachers' }, { category: 'staff' }], '"teachers"/"staff" both call api.staff, distinguished only by category');
+
+  void fetchListSource('downloads', 'site1', api, { category: 'syllabus' });
+  eq(calls.find((c) => c.name === 'downloads')?.args[1], { category: 'syllabus' }, 'the category prop passes through to the API call');
+
+  void fetchListSource('holidays', 'site1', api, { year: 2027 });
+  eq(calls.find((c) => c.name === 'holidaysCalendar')?.args[1], { year: 2027 });
+
+  void fetchListSource('notices', 'site1', api, { limit: 3 });
+  eq(calls.find((c) => c.name === 'notices')?.args[1], 3, 'limit is clamped/passed as a plain number for notices');
+
+  void fetchListSource('results-archive', 'site1', api, {});
+  ok(calls.some((c) => c.name === 'resultsArchive'));
+});
+
+test('DataList: toItems maps every source to the common { id, title, href, date, badge } shape', () => {
+  const notices = toItems('notices', [{ id: 'n1', title: 'Exam routine published', body: 'Details inside', date: '2026-01-05', priority: 'high' }], 'en');
+  eq(notices[0], { id: 'n1', title: 'Exam routine published', description: 'Details inside', date: '2026-01-05', href: '/notices/n1', badge: '!' });
+
+  const albums = toItems('albums', { items: [{ id: 'a1', title: 'Sports day', titleBn: 'ক্রীড়া দিবস', coverUrl: 'https://x/y.jpg', photoCount: 12, eventDate: '2026-02-01' }] }, 'bn');
+  eq(albums[0].title, 'ক্রীড়া দিবস', 'Bangla title picked when lang=bn');
+  eq(albums[0].href, '/gallery/a1', 'album detail href matches the sitemap path');
+  eq(albums[0].subtitle, '12 photos');
+
+  const admissions = toItems('admissions', { items: [{ id: 'ad1', title: 'Class 6 admission', classNames: ['Six'], session: '2026-27', closed: true }] }, 'en');
+  eq(admissions[0].href, '/admissions/ad1');
+  eq(admissions[0].badge, 'Closed');
+
+  const committee = toItems('committee', [{ name: 'Md. Karim', role: 'Chairman', phone: null }], 'en');
+  eq(committee[0].description, undefined, 'a committee member with no visible phone shows no description line');
+
+  const holidays = toItems('holidays', { items: [{ date: '2026-04-14', title: 'Bengali New Year', isTentative: true }] }, 'en');
+  eq(holidays[0].badge, 'Tentative');
+});
+
 /* ── Page code mode ──────────────────────────────────────────────────────── */
 
 test('isCodePage recognises the code-mode root props', () => {
@@ -365,6 +556,48 @@ test('emptyCodePageData is a valid code page with real starter content', () => {
   ok(props.code.html.length > 100 && props.code.css.length > 100, 'starter content is a real page, not a stub');
 });
 
+/* ── Imported-link mapping (Track D — ZIP/HTML import) ──────────────────── */
+
+test('mapImportedHref: common static-export link shapes', () => {
+  eq(mapImportedHref('index.html'), '/');
+  eq(mapImportedHref('about.html'), '/about');
+  eq(mapImportedHref('about/'), '/about');
+  eq(mapImportedHref('about'), '/about');
+  eq(mapImportedHref('./about.html'), '/about');
+  eq(mapImportedHref('about/index.html'), '/about');
+});
+
+test('mapImportedHref: nested paths join with -, and a reserved slug gets the -page suffix Track D actually saved it under', () => {
+  eq(mapImportedHref('blog/index.html'), '/blog-page');
+  eq(mapImportedHref('blog/index.html', ['blog-page', 'about']), '/blog-page');
+  eq(mapImportedHref('academics/admission/index.html'), '/academics-admission');
+});
+
+test('mapImportedHref: keeps #hash and ?query', () => {
+  eq(mapImportedHref('about.html#team'), '/about#team');
+  eq(mapImportedHref('about.html?ref=1'), '/about?ref=1');
+});
+
+test('mapImportedHref: external, mailto/tel/javascript and hash-only links return null', () => {
+  eq(mapImportedHref('https://example.com'), null);
+  eq(mapImportedHref('//example.com/x'), null);
+  eq(mapImportedHref('mailto:a@b.com'), null);
+  eq(mapImportedHref('tel:+8801700000000'), null);
+  eq(mapImportedHref('javascript:void(0)'), null);
+  eq(mapImportedHref('#top'), null);
+  eq(mapImportedHref(''), null);
+});
+
+test('bridge srcdoc intercepts imported-style links and maps them through window.SITE.navigate', () => {
+  const doc = buildSrcDoc({ html: '<a href="about.html">About</a>', js: '', theme: DEFAULT_THEME });
+  ok(doc.includes("addEventListener('click'"), 'listens for clicks');
+  ok(doc.includes('mapHref'), 'maps hrefs before navigating');
+  ok(doc.includes('window.SITE.navigate(mapped)'), 'calls the existing SITE.navigate bridge');
+  ok(doc.includes("a.target === '_blank'"), 'skips target=_blank');
+  ok(doc.includes('e.metaKey'), 'skips modifier-key clicks (open in new tab)');
+  ok(doc.includes("/^#/.test(href)"), 'leaves hash-only anchors to native in-frame scrolling');
+});
+
 /* ── Public-site route parsing ──────────────────────────────────────────── */
 
 test('parseSitePath: shop, cart, checkout, order, courses, learn, account', () => {
@@ -386,6 +619,23 @@ test('parseSitePath: shop, cart, checkout, order, courses, learn, account', () =
   eq(parseSitePath('account/register'), { kind: 'account', sub: 'register' });
   eq(parseSitePath('account/orders'), { kind: 'account', sub: 'orders' });
   eq(parseSitePath('/shop/'), { kind: 'shop-list' }, 'leading/trailing slashes are trimmed');
+});
+
+test('parseSitePath: notice/album/admission detail routes (C3 — must match the sitemap exactly)', () => {
+  eq(parseSitePath('notices/abc123'), { kind: 'notice-detail', id: 'abc123' });
+  eq(parseSitePath('gallery/abc123'), { kind: 'album-detail', id: 'abc123' });
+  eq(parseSitePath('admissions/abc123'), { kind: 'admission-detail', id: 'abc123' });
+  // The single-segment form stays a normal content page (several templates ship a page with exactly this slug).
+  eq(parseSitePath('notices'), { kind: 'page', slug: 'notices' });
+  eq(parseSitePath('gallery'), { kind: 'page', slug: 'gallery' });
+  eq(parseSitePath('admissions'), { kind: 'page', slug: 'admissions' });
+  // A third segment falls back to a plain page (no such detail route).
+  eq(parseSitePath('notices/abc/extra'), { kind: 'page', slug: 'notices/abc/extra' });
+});
+
+test('parseSitePath: account/forgot and account/reset-password (C3 site-customer recovery)', () => {
+  eq(parseSitePath('account/forgot'), { kind: 'account', sub: 'forgot' });
+  eq(parseSitePath('account/reset-password'), { kind: 'account', sub: 'reset-password' });
 });
 
 test('parseSitePath falls back to a plain page for deep or unknown sub-paths', () => {

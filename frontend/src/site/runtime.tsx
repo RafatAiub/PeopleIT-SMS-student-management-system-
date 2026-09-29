@@ -10,7 +10,7 @@
  */
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import type { NavItem, PublicInstitution, PublicPageRef, SiteLang, SiteNavigation, SiteSettings, SiteTheme } from './types';
+import type { NavItem, PublicInstitution, PublicPageRef, PublicProfile, SiteLang, SiteNavigation, SiteSettings, SiteTheme } from './types';
 import { DEFAULT_SETTINGS, DEFAULT_THEME } from './theme';
 import { buildSiteTokens, fillTokens, tidyFilled, type TokenMap } from './tokens';
 import { siteString } from './strings';
@@ -44,6 +44,14 @@ export interface SiteRuntime {
   api: SiteApi;
   tokens: TokenMap;
   liteMode: boolean;
+  /**
+   * Server-computed "Powered by PeopleNIT" gate (`resolve`'s `site.poweredBy`
+   * — see docs/redesign/WEBSITE_V3_PLAN.md §7.6). Never derive this from
+   * `settings` on the client; defaults to `true` (show the credit).
+   */
+  poweredBy: boolean;
+  /** `GET /data/profile` (Track B §7.3), fetched lazily so tokens like `{{institution.eiin}}` can fill in once it loads; `null` until fetched or on a design preview with no siteId. */
+  profile?: PublicProfile | null;
 }
 
 const DEFAULT_RUNTIME: SiteRuntime = {
@@ -56,6 +64,8 @@ const DEFAULT_RUNTIME: SiteRuntime = {
   basePath: '',
   tokens: buildSiteTokens({}),
   liteMode: false,
+  poweredBy: true,
+  profile: null,
   api: siteApi,
 };
 
@@ -75,24 +85,39 @@ export interface SiteRuntimeProviderProps {
   canonicalUrl?: string;
   basePath?: string;
   previewToken?: string | null;
+  /** Server-computed footer-credit gate (`resolve`'s `site.poweredBy`); defaults to `true`. */
+  poweredBy?: boolean;
   children: ReactNode;
 }
 
 export function SiteRuntimeProvider(props: SiteRuntimeProviderProps) {
   const {
     siteId, lang = 'en', setLang, mode = 'public', institution = null, settings = DEFAULT_SETTINGS,
-    theme = DEFAULT_THEME, navigation, pages, subdomain, canonicalUrl, basePath = '', previewToken, children,
+    theme = DEFAULT_THEME, navigation, pages, subdomain, canonicalUrl, basePath = '', previewToken, poweredBy = true, children,
   } = props;
+  const api = useMemo(() => (previewToken ? createSiteApi(previewToken) : siteApi), [previewToken]);
+  // Fetched lazily (not part of `resolve`) so the profile-only tokens
+  // ({{institution.eiin}}, {{head.name}}…) fill in once it loads; every other
+  // token still renders immediately from `institution`/`settings`.
+  const profileQ = useQuery({
+    queryKey: ['site-public', siteId, previewToken ? 'preview' : 'live', 'profile'],
+    queryFn: () => api.profile(siteId as string),
+    enabled: Boolean(siteId),
+    staleTime: 10 * 60_000,
+    retry: false,
+  });
   const value = useMemo<SiteRuntime>(
     () => ({
       siteId, lang, setLang, mode, institution, settings, theme, navigation, pages, subdomain, canonicalUrl,
       basePath: basePath.replace(/\/$/, ''),
       previewToken,
-      api: previewToken ? createSiteApi(previewToken) : siteApi,
-      tokens: buildSiteTokens({ institution, settings, lang }),
+      api,
+      tokens: buildSiteTokens({ institution, settings, lang, profile: profileQ.data }),
       liteMode: settings.liteMode === true,
+      poweredBy,
+      profile: profileQ.data ?? null,
     }),
-    [siteId, lang, setLang, mode, institution, settings, theme, navigation, pages, subdomain, canonicalUrl, basePath, previewToken],
+    [siteId, lang, setLang, mode, institution, settings, theme, navigation, pages, subdomain, canonicalUrl, basePath, previewToken, api, poweredBy, profileQ.data],
   );
   return <SiteRuntimeContext.Provider value={value}>{children}</SiteRuntimeContext.Provider>;
 }

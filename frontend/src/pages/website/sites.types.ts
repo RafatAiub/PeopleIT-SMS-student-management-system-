@@ -54,6 +54,35 @@ export interface CoursesSettings {
   enabled: boolean;
 }
 
+/** A top-bar login link (`settings.topBar.loginLinks`, ≤4) — matches `site/types.ts` `SiteTopBarLink`. */
+export interface SiteTopBarLink {
+  label: string;
+  labelBn?: string;
+  href: string;
+}
+
+/** `Site.settings.topBar` — portal/corporate header top bar. Matches `site/types.ts` `SiteTopBarSettings`. */
+export interface SiteTopBarSettings {
+  showDate?: boolean;
+  showContact?: boolean;
+  showSocial?: boolean;
+  loginLinks?: SiteTopBarLink[];
+}
+
+/** `Site.settings.hotlines[]` — WEBSITE_V3_PLAN.md §7 owner decision list. */
+export interface SiteHotline {
+  label: string;
+  labelBn?: string;
+  phone: string;
+}
+
+/** A single important link or e-service link (`settings.importantLinks[]` / `settings.eServices[]`). */
+export interface SiteLinkItem {
+  label: string;
+  labelBn?: string;
+  url: string;
+}
+
 export interface SiteSettings {
   siteName: string;
   logoUrl?: string | null;
@@ -71,6 +100,18 @@ export interface SiteSettings {
   bodyEndHtml?: string;
   shop?: ShopSettings;
   courses?: CoursesSettings;
+  /** Portal settings (WEBSITE_V3_PLAN.md §7.6 `PUBLIC_SETTING_KEYS`). */
+  topBar?: SiteTopBarSettings;
+  hotlines?: SiteHotline[];
+  importantLinks?: SiteLinkItem[];
+  eServices?: SiteLinkItem[];
+  /** Public "results by class" summary block (distinct from the existing `publicResults` lookup toggle). */
+  publicResultSummary?: boolean;
+  publicFeeChart?: boolean;
+  publicLibrary?: boolean;
+  publicTransport?: boolean;
+  /** Honoured server-side only when the plan has `website_remove_branding` — see `resolve().poweredBy`. */
+  hidePoweredBy?: boolean;
   [key: string]: unknown;
 }
 
@@ -438,4 +479,229 @@ export interface CommerceSummary {
   customers: number;
   enrollments: number;
   gateways: CommerceGateway[];
+}
+
+// =============================================================================
+// Website v3 (Track B/C) — institution profile, staff visibility, committee,
+// albums, downloads, admission circulars, DSHE compliance.
+// See docs/redesign/WEBSITE_V3_PLAN.md §7 for the backend contract these mirror.
+// =============================================================================
+
+/** Either an existing staff `User` (`userId` set, name/photo kept in sync server-side) or a typed name. */
+export interface HeadOfInstitution {
+  userId: string | null;
+  name: string | null;
+  photoUrl: string | null;
+  designation: string | null;
+}
+
+/** Information officer / complaints officer (DSHE items 8/9) — deliberately public once filled. */
+export interface SiteOfficer {
+  name: string | null;
+  designation: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export interface SiteProfile {
+  name: string;
+  nameBn: string | null;
+  slug: string;
+  eiin: string | null;
+  establishedYear: number | null;
+  mpoInfo: string | null;
+  recognitionInfo: string | null;
+  headOfInstitution: HeadOfInstitution | null;
+  informationOfficer: SiteOfficer | null;
+  complaintsOfficer: SiteOfficer | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  contactPhone: string | null;
+  contactEmail: string | null;
+  logoUrl: string | null;
+  aboutText: string | null;
+}
+
+export interface HeadOfInstitutionInput {
+  userId?: string;
+  name?: string;
+  photoUrl?: string;
+  designation?: string;
+}
+
+export interface SiteOfficerInput {
+  name?: string;
+  designation?: string;
+  phone?: string;
+  email?: string;
+}
+
+export interface UpdateProfilePayload {
+  nameBn?: string | null;
+  eiin?: string | null;
+  establishedYear?: number | null;
+  mpoInfo?: string | null;
+  recognitionInfo?: string | null;
+  headOfInstitution?: HeadOfInstitutionInput | null;
+  informationOfficer?: SiteOfficerInput | null;
+  complaintsOfficer?: SiteOfficerInput | null;
+}
+
+export type ComplianceStatus = 'filled' | 'partial' | 'missing';
+
+/** One DSHE 11-item checklist row — `sites.portal.logic.ts` `complianceChecklist()`. */
+export interface ComplianceItem {
+  key: string;
+  label: string;
+  labelBn: string;
+  status: ComplianceStatus;
+  /** Human description of which admin screen fixes this item (not a route). */
+  fixAt: string;
+}
+
+export interface ComplianceResponse {
+  items: ComplianceItem[];
+  filled: number;
+  total: number;
+}
+
+export type StaffVisibilityRole = 'TEACHER' | 'STAFF';
+
+export interface StaffVisibilityMember {
+  id: string;
+  name: string;
+  role: string;
+  designation: string | null;
+  department: string | null;
+  photoUrl: string | null;
+  showOnWebsite: boolean;
+}
+
+export interface SiteCommitteeMember {
+  id: string;
+  siteId: string;
+  institutionId: string;
+  name: string;
+  nameBn: string | null;
+  role: string;
+  roleBn: string | null;
+  photoUrl: string | null;
+  phone: string | null;
+  showPhone: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommitteeMemberPayload {
+  name: string;
+  nameBn?: string;
+  role: string;
+  roleBn?: string;
+  photoUrl?: string;
+  phone?: string;
+  showPhone: boolean;
+  sortOrder?: number;
+}
+
+export interface SiteAlbumPhoto {
+  id: string;
+  url: string;
+  caption: string | null;
+  sortOrder: number;
+}
+
+export interface SiteAlbum {
+  id: string;
+  siteId: string;
+  institutionId: string;
+  title: string;
+  titleBn: string | null;
+  coverUrl: string | null;
+  description: string | null;
+  eventDate: string | null;
+  status: SiteStatus;
+  sortOrder: number;
+  /** Present on the list endpoint only. */
+  photoCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteAlbumDetail extends SiteAlbum {
+  /** Present on the detail endpoint only (ordered). */
+  photos: SiteAlbumPhoto[];
+}
+
+export interface AlbumPayload {
+  title: string;
+  titleBn?: string;
+  coverUrl?: string;
+  description?: string;
+  eventDate?: string | null;
+  status: SiteStatus;
+  sortOrder?: number;
+}
+
+export interface SiteDownload {
+  id: string;
+  siteId: string;
+  institutionId: string;
+  title: string;
+  titleBn: string | null;
+  category: string;
+  fileUrl: string;
+  publishedAt: string | null;
+  status: SiteStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DownloadPayload {
+  title: string;
+  titleBn?: string;
+  category: string;
+  fileUrl: string;
+  publishedAt?: string | null;
+  status: SiteStatus;
+  sortOrder?: number;
+}
+
+export interface SiteAdmissionCircular {
+  id: string;
+  siteId: string;
+  institutionId: string;
+  session: string;
+  classNames: string[];
+  title: string;
+  titleBn: string | null;
+  body: string;
+  startDate: string | null;
+  endDate: string | null;
+  fee: number | null;
+  pdfUrl: string | null;
+  applyUrl: string | null;
+  formId: string | null;
+  status: SiteStatus;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdmissionPayload {
+  session: string;
+  classNames: string[];
+  title: string;
+  titleBn?: string;
+  body: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  fee?: number | null;
+  pdfUrl?: string;
+  applyUrl?: string;
+  formId?: string;
+  status: SiteStatus;
+  sortOrder?: number;
 }

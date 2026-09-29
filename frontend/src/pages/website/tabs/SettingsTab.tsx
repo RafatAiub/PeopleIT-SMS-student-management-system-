@@ -1,11 +1,13 @@
 import React from 'react';
-import { Save, Settings as SettingsIcon, Share2, Languages, BarChart3, ShieldCheck } from 'lucide-react';
+import { Save, Settings as SettingsIcon, Share2, Languages, BarChart3, ShieldCheck, Clock, Phone, Link2, Wrench, Award } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardHeader, Button, Input, Textarea, Checkbox, Select, Alert } from '@/components/ui';
 import { useT } from '@/i18n';
+import { useEntitlements } from '@/components/saas';
 import { useUpdateSite } from '../sites.queries';
-import type { SiteMeResponse, SiteSettings, SiteSocialLinks } from '../sites.types';
+import type { SiteMeResponse, SiteSettings, SiteSocialLinks, SiteTopBarSettings } from '../sites.types';
 import { MediaField } from '../media/MediaPicker';
+import { HotlinesEditor, LinkListEditor } from './PortalSettingsFields';
 
 const SOCIAL: { key: keyof SiteSocialLinks & string; label: string; placeholder: string }[] = [
   { key: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourschool' },
@@ -31,15 +33,32 @@ function initial(s: SiteMeResponse['site']['settings']): SiteSettings {
     liteMode: Boolean(s?.liteMode),
     publicResults: Boolean(s?.publicResults),
     showToppers: Boolean(s?.showToppers),
+    topBar: {
+      showDate: Boolean(s?.topBar?.showDate),
+      showContact: s?.topBar?.showContact !== false,
+      showSocial: s?.topBar?.showSocial !== false,
+      loginLinks: s?.topBar?.loginLinks ?? [],
+    },
+    hotlines: s?.hotlines ?? [],
+    importantLinks: s?.importantLinks ?? [],
+    eServices: s?.eServices ?? [],
+    publicResultSummary: Boolean(s?.publicResultSummary),
+    publicFeeChart: Boolean(s?.publicFeeChart),
+    publicLibrary: Boolean(s?.publicLibrary),
+    publicTransport: Boolean(s?.publicTransport),
+    hidePoweredBy: Boolean(s?.hidePoweredBy),
   };
 }
 
 export const SettingsTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
   const t = useT();
   const update = useUpdateSite();
+  const { isEnabled } = useEntitlements();
   const [form, setForm] = React.useState<SiteSettings>(() => initial(me.site.settings));
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const set = <K extends keyof SiteSettings>(k: K, v: SiteSettings[K]) => setForm((f) => ({ ...f, [k]: v }));
+  const setTopBar = (patch: Partial<SiteTopBarSettings>) => setForm((f) => ({ ...f, topBar: { ...f.topBar, ...patch } }));
+  const canRemoveBranding = isEnabled('website_remove_branding');
 
   React.useEffect(() => setForm(initial(me.site.settings)), [me.site.settings]);
 
@@ -79,6 +98,10 @@ export const SettingsTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
           footerTextBn: str(form.footerTextBn).trim(),
           establishedYear: year ? Number(year) : null,
           social,
+          topBar: { ...form.topBar, loginLinks: (form.topBar?.loginLinks ?? []).filter((l) => l.label.trim() && l.href.trim()) },
+          hotlines: (form.hotlines ?? []).filter((h) => h.label.trim() && h.phone.trim()),
+          importantLinks: (form.importantLinks ?? []).filter((l) => l.label.trim() && l.url.trim()),
+          eServices: (form.eServices ?? []).filter((l) => l.label.trim() && l.url.trim()),
         },
       },
       { onSuccess: () => toast.success(t('Website settings saved. Publish the site to make them public.')) }
@@ -171,6 +194,86 @@ export const SettingsTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
               <Alert tone="info">{t('Only published results are ever shown. Turn these off at any time to hide them immediately after publishing.')}</Alert>
             )}
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Wrench className="w-4 h-4" />} title={t('Public website data')} description={t('Turn on the data-bound blocks visitors can see. Everything else stays off by default.')} />
+          <div className="space-y-4">
+            <Checkbox
+              label={t('Results summary by class')}
+              description={t('Pass rate and GPA-5 count per class — counts only, never student names or marks.')}
+              checked={Boolean(form.publicResultSummary)}
+              onChange={(e) => set('publicResultSummary', e.target.checked)}
+            />
+            <Checkbox
+              label={t('Fee chart')}
+              description={t('The published fee categories and amounts per class.')}
+              checked={Boolean(form.publicFeeChart)}
+              onChange={(e) => set('publicFeeChart', e.target.checked)}
+            />
+            <Checkbox
+              label={t('Library catalogue')}
+              description={t('Book title, author and availability — searchable.')}
+              checked={Boolean(form.publicLibrary)}
+              onChange={(e) => set('publicLibrary', e.target.checked)}
+            />
+            <Checkbox
+              label={t('Transport routes')}
+              description={t('Route names, fares and stop times only — never vehicle or driver information.')}
+              checked={Boolean(form.publicTransport)}
+              onChange={(e) => set('publicTransport', e.target.checked)}
+            />
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Clock className="w-4 h-4" />} title={t('Top bar')} description={t('The thin strip above the header on portal and corporate styles.')} />
+          <div className="space-y-4">
+            <Checkbox label={t('Show today’s date')} checked={Boolean(form.topBar?.showDate)} onChange={(e) => setTopBar({ showDate: e.target.checked })} />
+            <Checkbox label={t('Show contact details')} checked={form.topBar?.showContact !== false} onChange={(e) => setTopBar({ showContact: e.target.checked })} />
+            <Checkbox label={t('Show social icons')} checked={form.topBar?.showSocial !== false} onChange={(e) => setTopBar({ showSocial: e.target.checked })} />
+            <div>
+              <span className="field-label">{t('Login links')}</span>
+              <LinkListEditor
+                idPrefix="topbar-login"
+                items={form.topBar?.loginLinks ?? []}
+                max={4}
+                urlLabel={t('Link')}
+                addLabel={t('Add login link')}
+                onChange={(items) => setTopBar({ loginLinks: items.map((i) => ({ label: i.label, labelBn: i.labelBn, href: i.url })) })}
+              />
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Phone className="w-4 h-4" />} title={t('Hotlines')} description={t('Phone numbers shown in a quick-dial grid on the website.')} />
+          <HotlinesEditor items={form.hotlines ?? []} onChange={(items) => set('hotlines', items)} />
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Link2 className="w-4 h-4" />} title={t('Important links')} description={t('Shortcuts shown on the homepage — DSHE, board results, education office, etc.')} />
+          <LinkListEditor idPrefix="important-links" items={form.importantLinks ?? []} onChange={(items) => set('importantLinks', items)} />
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Link2 className="w-4 h-4" />} title={t('E-services')} description={t('Links to online services — admission, result, fee payment portals, etc.')} />
+          <LinkListEditor idPrefix="eservices" items={form.eServices ?? []} onChange={(items) => set('eServices', items)} />
+        </Card>
+
+        <Card>
+          <CardHeader icon={<Award className="w-4 h-4" />} title={t('Branding')} />
+          <Checkbox
+            label={t('Remove “Powered by PeopleNIT” footer credit')}
+            description={
+              canRemoveBranding
+                ? t('Hides the footer credit on your public website.')
+                : t('Available on paid plans. Ask your institution administrator to upgrade to remove this.')
+            }
+            checked={Boolean(form.hidePoweredBy)}
+            disabled={!canRemoveBranding}
+            onChange={(e) => set('hidePoweredBy', e.target.checked)}
+          />
         </Card>
 
         <Card>

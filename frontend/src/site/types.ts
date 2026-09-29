@@ -20,6 +20,12 @@ export type SiteFontKey =
 export type SiteRadius = 'none' | 'sm' | 'md' | 'lg' | 'xl';
 export type SiteMode = 'light' | 'dark';
 
+/** Header chrome variants rendered by `public/Chrome.tsx` (see WEBSITE_BRIEF templates addendum). */
+export type SiteHeaderStyle = 'modern' | 'portal' | 'corporate' | 'banner' | 'centered' | 'minimal';
+export type SiteFooterStyle = 'modern' | 'portal' | 'corporate' | 'columns' | 'minimal';
+/** `full` = edge-to-edge page; `boxed` = a centred ~1000px column over a page background. */
+export type SiteLayoutMode = 'full' | 'boxed';
+
 export interface SiteTheme {
   /** Hex colour, e.g. `#1d4ed8`. */
   primary: string;
@@ -29,6 +35,12 @@ export interface SiteTheme {
   headingFont?: SiteFontKey;
   radius: SiteRadius;
   mode: SiteMode;
+  /** Header/footer chrome variant; defaults to `modern` (the original single design). */
+  headerStyle?: SiteHeaderStyle;
+  footerStyle?: SiteFooterStyle;
+  layout?: SiteLayoutMode;
+  /** `'none'` (default), a built-in pattern key (`dots`/`grid`/`diagonal`/`waves`), or an `https://` image URL — shown behind a `boxed` layout. */
+  pageBackground?: string;
 }
 
 export interface NavItem {
@@ -67,6 +79,20 @@ export interface SiteCoursesSettings {
   enabled: boolean;
 }
 
+export interface SiteTopBarLink {
+  label: string;
+  labelBn?: string;
+  href: string;
+}
+
+/** Options for the `portal` / `corporate` header top bar (see WEBSITE_BRIEF templates addendum). */
+export interface SiteTopBarSettings {
+  showDate?: boolean;
+  showContact?: boolean;
+  showSocial?: boolean;
+  loginLinks?: SiteTopBarLink[];
+}
+
 export interface SiteSettings {
   siteName: string;
   siteNameBn?: string;
@@ -93,6 +119,13 @@ export interface SiteSettings {
   bodyEndHtml?: string;
   shop?: SiteShopSettings;
   courses?: SiteCoursesSettings;
+  topBar?: SiteTopBarSettings;
+  /** School-wide emergency numbers (whitelisted setting — §7.6); shown by `HotlineList` on every page when set. */
+  hotlines?: Array<{ number: string; label?: string; labelBn?: string }>;
+  /** Shown by `ImportantLinks` when set. */
+  importantLinks?: Array<{ label: string; labelBn?: string; href: string }>;
+  /** Shown by `EServices` when set. */
+  eServices?: Array<{ label: string; labelBn?: string; href: string; icon?: string }>;
 }
 
 export interface SiteSeo {
@@ -139,6 +172,12 @@ export interface PublicSiteInfo {
   status?: 'DRAFT' | 'PUBLISHED';
   /** Live base URL (primary domain or subdomain), for canonical/hreflang tags. */
   canonicalUrl?: string;
+  /**
+   * Server-computed (`resolve` never trusts `settings.hidePoweredBy` alone —
+   * see docs/redesign/WEBSITE_V3_PLAN.md §7.6). Defaults to `true` when the
+   * field is missing (older/undecided backend responses).
+   */
+  poweredBy?: boolean;
 }
 
 export interface PublicPageRef {
@@ -426,3 +465,116 @@ export interface CreateOrderResult {
   paymentUrl?: string;
   demo?: boolean;
 }
+
+/* ── Portal data sources (Track B §7.3 — DSHE compliance, committee, albums,
+   downloads, admissions, staff visibility, profile facts) ────────────────── */
+
+export interface PublicOfficer {
+  name?: string;
+  designation?: string;
+  phone?: string;
+  email?: string;
+}
+
+/** `GET /data/staff?category=head|teachers|staff` and the `headOfInstitution` on `data/profile`. Never phone/email/DOB/salary/userId. */
+export interface PublicStaffMember {
+  name: string;
+  designation?: string;
+  department?: string;
+  subject?: string;
+  qualification?: string;
+  photoUrl?: string;
+  classTeacherOf: string[];
+}
+
+export interface PublicProfile {
+  name: string;
+  nameBn?: string;
+  slug?: string;
+  eiin?: string;
+  establishedYear?: number | string;
+  mpoInfo?: string;
+  recognitionInfo?: string;
+  aboutText?: string;
+  logoUrl?: string;
+  contact: { address?: string; phone?: string; email?: string };
+  informationOfficer?: PublicOfficer | null;
+  complaintsOfficer?: PublicOfficer | null;
+  headOfInstitution?: PublicStaffMember | null;
+}
+
+export interface PublicClassStat {
+  className: string;
+  sections: string[];
+  genderCounts: { male: number; female: number; other: number; total: number };
+}
+
+export interface PublicSubjectOffering {
+  className: string;
+  group?: string;
+  subject: string;
+  paper?: string;
+  isGraded?: boolean;
+}
+
+export interface PublicExamRoutineExam { id: string; name: string; startDate?: string; endDate?: string }
+
+export interface PublicExamRoutineSlot {
+  className: string;
+  sectionName?: string;
+  subjectName: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  room?: string;
+}
+
+export interface PublicResultSummaryItem { className: string; appeared: number; passed: number; passRate: number; gpa5Count: number }
+
+export interface PublicResultsArchiveItem { id: string; name: string; startDate?: string; endDate?: string }
+
+export interface PublicFeeChartItem { className: string; items: Array<{ category: string; amount: number; frequency?: string }> }
+
+export interface PublicHoliday { date: string; title: string; type?: string; isTentative?: boolean }
+
+export interface PublicLibraryBook { title: string; author?: string; category?: string; publisher?: string; availableCopies?: number; available?: boolean }
+
+export interface PublicTransportStop { name: string; sequence?: number; pickupTime?: string; dropTime?: string }
+
+/** No vehicle or driver info at all (owner decision — see §7.3). */
+export interface PublicTransportRoute { id: string; name: string; fare?: number; stops: PublicTransportStop[] }
+
+export interface PublicBranch { id: string; name: string; address?: string; phone?: string; email?: string }
+
+/** `phone` is `null` unless the admin set `showPhone`. */
+export interface PublicCommitteeMember { id: string; name: string; nameBn?: string; role: string; roleBn?: string; photoUrl?: string; phone?: string | null }
+
+export interface PublicAlbum { id: string; title: string; titleBn?: string; coverUrl?: string; eventDate?: string; photoCount: number }
+
+export interface PublicAlbumPhoto { url: string; caption?: string }
+
+export interface PublicAlbumDetail { id: string; title: string; titleBn?: string; coverUrl?: string; description?: string; eventDate?: string; photos: PublicAlbumPhoto[] }
+
+export interface PublicDownload { id: string; title: string; titleBn?: string; category?: string; fileUrl: string; publishedAt?: string }
+
+export interface PublicAdmissionCircular {
+  id: string;
+  session?: string;
+  classNames: string[];
+  title: string;
+  titleBn?: string;
+  startDate?: string;
+  endDate?: string;
+  fee?: number;
+  pdfUrl?: string;
+  applyUrl?: string;
+  formId?: string;
+  closed?: boolean;
+}
+
+export interface PublicAdmissionDetail extends PublicAdmissionCircular { body?: string }
+
+export interface PublicNoticeDetail { id: string; title: string; content?: string; publishedAt?: string }
+
+/** Derived, not stored — `{ title: <record title>, description: plainTextExcerpt(...), image: <cover/pdf/null> }`. */
+export interface DetailSeo { title?: string; description?: string; image?: string | null }

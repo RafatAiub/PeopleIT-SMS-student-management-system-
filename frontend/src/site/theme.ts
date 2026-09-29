@@ -6,7 +6,10 @@
  * All variables are applied to `.site-root` (see SiteRoot.tsx), never to
  * `:root`, so a site theme can't leak into the dashboard.
  */
-import type { NavItem, SiteFontKey, SiteLang, SiteNavigation, SiteRadius, SiteSettings, SiteTheme } from './types';
+import type {
+  NavItem, SiteFontKey, SiteFooterStyle, SiteHeaderStyle, SiteLang, SiteLayoutMode, SiteNavigation, SiteRadius,
+  SiteSettings, SiteTheme, SiteTopBarLink, SiteTopBarSettings,
+} from './types';
 
 export const DEFAULT_THEME: SiteTheme = {
   primary: '#1d4ed8',
@@ -14,7 +17,41 @@ export const DEFAULT_THEME: SiteTheme = {
   font: 'inter',
   radius: 'md',
   mode: 'light',
+  headerStyle: 'modern',
+  footerStyle: 'modern',
+  layout: 'full',
+  pageBackground: 'none',
 };
+
+export const HEADER_STYLES: Array<[SiteHeaderStyle, string]> = [
+  ['modern', 'Modern (sticky, blurred)'],
+  ['portal', 'Classic portal (top bar + banner)'],
+  ['corporate', 'Corporate (navy bars + dropdowns)'],
+  ['banner', 'Banner (wide image header)'],
+  ['centered', 'Centred (logo + nav stacked)'],
+  ['minimal', 'Minimal (logo + text nav)'],
+];
+
+export const FOOTER_STYLES: Array<[SiteFooterStyle, string]> = [
+  ['modern', 'Modern (three columns)'],
+  ['portal', 'Classic portal (skyline divider)'],
+  ['corporate', 'Corporate (four columns, dark)'],
+  ['columns', 'Columns (four columns, light)'],
+  ['minimal', 'Minimal (one line)'],
+];
+
+export const LAYOUT_MODES: Array<[SiteLayoutMode, string]> = [
+  ['full', 'Full width'],
+  ['boxed', 'Boxed (~1000px, patterned background)'],
+];
+
+export const PAGE_BACKGROUNDS: Array<[string, string]> = [
+  ['none', 'None'],
+  ['dots', 'Dot grid'],
+  ['grid', 'Grid lines'],
+  ['diagonal', 'Diagonal stripes'],
+  ['waves', 'Soft waves'],
+];
 
 export const DEFAULT_SETTINGS: SiteSettings = {
   siteName: '',
@@ -209,6 +246,10 @@ export function normaliseTheme(v: unknown): SiteTheme {
   if (typeof o.radius === 'string' && (RADIUS_KEYS as string[]).includes(o.radius)) radius = o.radius as SiteRadius;
   else if (typeof o.radius === 'number') radius = o.radius <= 0 ? 'none' : o.radius <= 5 ? 'sm' : o.radius <= 12 ? 'md' : o.radius <= 18 ? 'lg' : 'xl';
   const fontKeys = SITE_FONTS.map((f) => f.key) as string[];
+  const headerStyles = HEADER_STYLES.map(([k]) => k) as string[];
+  const footerStyles = FOOTER_STYLES.map(([k]) => k) as string[];
+  const patternKeys = PAGE_BACKGROUNDS.map(([k]) => k) as string[];
+  const pageBackground = typeof o.pageBackground === 'string' ? o.pageBackground.trim() : '';
   return {
     primary: isHexColor(o.primary) ? normaliseHex(o.primary) : DEFAULT_THEME.primary,
     accent: isHexColor(o.accent) ? normaliseHex(o.accent) : DEFAULT_THEME.accent,
@@ -216,6 +257,29 @@ export function normaliseTheme(v: unknown): SiteTheme {
     headingFont: typeof o.headingFont === 'string' && fontKeys.includes(o.headingFont) ? (o.headingFont as SiteFontKey) : undefined,
     radius,
     mode: o.mode === 'dark' ? 'dark' : 'light',
+    headerStyle: typeof o.headerStyle === 'string' && headerStyles.includes(o.headerStyle) ? (o.headerStyle as SiteHeaderStyle) : 'modern',
+    footerStyle: typeof o.footerStyle === 'string' && footerStyles.includes(o.footerStyle) ? (o.footerStyle as SiteFooterStyle) : 'modern',
+    layout: o.layout === 'boxed' ? 'boxed' : 'full',
+    pageBackground: patternKeys.includes(pageBackground) ? pageBackground : /^https:\/\//i.test(pageBackground) ? pageBackground : 'none',
+  };
+}
+
+function normaliseTopBarLinks(v: unknown): SiteTopBarLink[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).label === 'string' && typeof (i as Record<string, unknown>).href === 'string')
+    .slice(0, 4)
+    .map((i) => ({ label: i.label as string, labelBn: typeof i.labelBn === 'string' && i.labelBn ? (i.labelBn as string) : undefined, href: i.href as string }));
+}
+
+function normaliseTopBar(v: unknown): SiteTopBarSettings | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  return {
+    showDate: o.showDate === true,
+    showContact: o.showContact !== false,
+    showSocial: o.showSocial !== false,
+    loginLinks: normaliseTopBarLinks(o.loginLinks),
   };
 }
 
@@ -263,6 +327,42 @@ function normaliseCourses(v: unknown): SiteSettings['courses'] {
   return { enabled: (v as Record<string, any>).enabled === true };
 }
 
+/** `settings.hotlines` (whitelisted — §7.6): school-wide emergency numbers, editable once and shown by the `HotlineList` block on every page. */
+function normaliseHotlines(v: unknown): SiteSettings['hotlines'] {
+  if (!Array.isArray(v)) return undefined;
+  const out = v
+    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).number === 'string')
+    .slice(0, 12)
+    .map((i) => ({ number: String(i.number).trim(), label: typeof i.label === 'string' ? i.label : undefined, labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined }))
+    .filter((i) => i.number);
+  return out.length ? out : undefined;
+}
+
+/** `settings.importantLinks` (whitelisted — §7.6): shown by `ImportantLinks` when set. */
+function normaliseLinkList(v: unknown): Array<{ label: string; labelBn?: string; href: string }> | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v
+    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).label === 'string' && typeof (i as Record<string, unknown>).href === 'string')
+    .slice(0, 20)
+    .map((i) => ({ label: i.label as string, labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined, href: i.href as string }));
+  return out.length ? out : undefined;
+}
+
+/** `settings.eServices` (whitelisted — §7.6): shown by `EServices` when set; same shape as `importantLinks` plus an optional icon key. */
+function normaliseEServices(v: unknown): SiteSettings['eServices'] {
+  if (!Array.isArray(v)) return undefined;
+  const out = v
+    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).label === 'string' && typeof (i as Record<string, unknown>).href === 'string')
+    .slice(0, 20)
+    .map((i) => ({
+      label: i.label as string,
+      labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined,
+      href: i.href as string,
+      icon: typeof i.icon === 'string' ? i.icon : undefined,
+    }));
+  return out.length ? out : undefined;
+}
+
 export function normaliseSettings(v: unknown): SiteSettings {
   const o = (v && typeof v === 'object' ? v : {}) as Record<string, any>;
   const langs = Array.isArray(o.languages) ? (o.languages.filter((l: unknown) => l === 'en' || l === 'bn') as SiteLang[]) : [];
@@ -290,5 +390,9 @@ export function normaliseSettings(v: unknown): SiteSettings {
     bodyEndHtml: typeof o.bodyEndHtml === 'string' && o.bodyEndHtml ? o.bodyEndHtml.slice(0, 50_000) : undefined,
     shop: normaliseShop(o.shop),
     courses: normaliseCourses(o.courses),
+    topBar: normaliseTopBar(o.topBar),
+    hotlines: normaliseHotlines(o.hotlines),
+    importantLinks: normaliseLinkList(o.importantLinks),
+    eServices: normaliseEServices(o.eServices),
   };
 }

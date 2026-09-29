@@ -17,11 +17,27 @@ export type SiteRoute =
   | { kind: 'course-detail'; slug: string }
   | { kind: 'learn-index' }
   | { kind: 'learn-player'; courseSlug: string; lessonId?: string }
-  | { kind: 'account'; sub?: 'login' | 'register' | 'orders' }
+  | { kind: 'account'; sub?: 'login' | 'register' | 'orders' | 'forgot' | 'reset-password' }
+  | { kind: 'notice-detail'; id: string }
+  | { kind: 'album-detail'; id: string }
+  | { kind: 'admission-detail'; id: string }
   | { kind: 'page'; slug: string };
 
 /** First path segments reserved for built-in routes — pages cannot use these slugs (see backend §2). */
 export const RESERVED_SLUGS = ['blog', 'shop', 'cart', 'checkout', 'order', 'courses', 'learn', 'account'] as const;
+
+/**
+ * `notices/:id`, `gallery/:id` and `admissions/:id` are detail routes (Track B
+ * §7.3/§7.4 — the sitemap links exactly these paths), but their single-segment
+ * form (`/notices`, `/gallery`, `/admissions`) stays a normal content page —
+ * several templates already ship a page with that exact slug (e.g.
+ * `templates/modern-campus.ts`'s `gallery` page). Unlike `blog`, these are
+ * **not** in `RESERVED_SLUGS`: the backend doesn't reserve them either (only
+ * the words above are blocked from page creation), so schools may still title
+ * a page "Notices"/"Gallery"/"Admissions" — the two-segment form simply never
+ * collides with a real (flat) page slug.
+ */
+const DETAIL_LIST_SLUGS = { notices: 'notice-detail', gallery: 'album-detail', admissions: 'admission-detail' } as const;
 
 export function isReservedSlug(first: string): boolean {
   return (RESERVED_SLUGS as readonly string[]).includes(first);
@@ -44,6 +60,12 @@ export function parseSitePath(path: string): SiteRoute {
   if (first === 'courses' && second && !third) return { kind: 'course-detail', slug: second };
   if (first === 'learn' && !second) return { kind: 'learn-index' };
   if (first === 'learn' && second) return { kind: 'learn-player', courseSlug: second, lessonId: third || undefined };
-  if (first === 'account') return { kind: 'account', sub: second === 'login' || second === 'register' || second === 'orders' ? second : undefined };
+  if (first === 'account') {
+    const sub = second === 'login' || second === 'register' || second === 'orders' || second === 'forgot' || second === 'reset-password' ? second : undefined;
+    return { kind: 'account', sub };
+  }
+  if (first && second && !third && first in DETAIL_LIST_SLUGS) {
+    return { kind: DETAIL_LIST_SLUGS[first as keyof typeof DETAIL_LIST_SLUGS], id: second };
+  }
   return { kind: 'page', slug: clean };
 }

@@ -16,27 +16,48 @@ import type {
   CheckoutOptions,
   CreateOrderInput,
   CreateOrderResult,
+  DetailSeo,
   EnrolledCourse,
   LearnCourse,
   Paged,
+  PublicAdmissionCircular,
+  PublicAdmissionDetail,
+  PublicAlbum,
+  PublicAlbumDetail,
+  PublicBranch,
+  PublicClassStat,
+  PublicCommitteeMember,
   PublicCourse,
   PublicCourseDetail,
+  PublicDownload,
   PublicEvent,
+  PublicExamRoutineExam,
+  PublicExamRoutineSlot,
+  PublicFeeChartItem,
   PublicFeesLink,
   PublicFormField,
+  PublicHoliday,
   PublicInstitution,
+  PublicLibraryBook,
   PublicMarksheet,
   PublicNotice,
+  PublicNoticeDetail,
   PublicOrder,
   PublicOrderItem,
   PublicPage,
   PublicPost,
   PublicProduct,
+  PublicProfile,
+  PublicResultSummaryItem,
+  PublicResultsArchiveItem,
   PublicRoutineSlot,
   PublicSiteInfo,
+  PublicStaffMember,
   PublicStats,
+  PublicSubjectOffering,
   PublicTeacher,
   PublicTopper,
+  PublicTransportRoute,
   ResolvedSite,
   SiteCustomer,
   SiteLessonKind,
@@ -135,7 +156,190 @@ function normaliseSite(v: unknown): PublicSiteInfo {
     settings: normaliseSettings(o.settings),
     status: o.status === 'PUBLISHED' || o.status === 'DRAFT' ? o.status : undefined,
     canonicalUrl: str(o.canonicalUrl),
+    // Never default this from `settings` client-side — the backend already enforces the
+    // plan-feature gate (§7.6) and always sends the field; `undefined`/anything but
+    // `false` reads as "show the credit", which is the safe default before the field exists.
+    poweredBy: o.poweredBy !== false,
   };
+}
+
+/* ── Portal data normalisers (Track B §7.3) ─────────────────────────────── */
+
+function normaliseOfficer(v: unknown): { name?: string; designation?: string; phone?: string; email?: string } | null {
+  const o = obj(v);
+  if (!o.name && !o.designation && !o.phone && !o.email) return null;
+  return { name: str(o.name), designation: str(o.designation), phone: str(o.phone), email: str(o.email) };
+}
+
+function normaliseStaffMember(o: Obj): PublicStaffMember {
+  return {
+    name: String(o.name ?? ''),
+    designation: str(o.designation),
+    department: str(o.department),
+    subject: str(o.subject),
+    qualification: str(o.qualification),
+    photoUrl: str(o.photoUrl) ?? str(o.photo),
+    classTeacherOf: Array.isArray(o.classTeacherOf) ? o.classTeacherOf.map(String) : [],
+  };
+}
+
+function normaliseProfile(o: Obj): PublicProfile {
+  const c = obj(o.contact);
+  const head = o.headOfInstitution;
+  return {
+    name: String(o.name ?? ''),
+    nameBn: str(o.nameBn),
+    slug: str(o.slug),
+    eiin: str(o.eiin),
+    establishedYear: o.establishedYear ?? undefined,
+    mpoInfo: str(o.mpoInfo),
+    recognitionInfo: str(o.recognitionInfo),
+    aboutText: str(o.aboutText),
+    logoUrl: str(o.logoUrl),
+    contact: { address: str(c.address), phone: str(c.phone), email: str(c.email) },
+    informationOfficer: normaliseOfficer(o.informationOfficer),
+    complaintsOfficer: normaliseOfficer(o.complaintsOfficer),
+    headOfInstitution: head && typeof head === 'object' && (obj(head).name || obj(head).userId) ? normaliseStaffMember(obj(head)) : null,
+  };
+}
+
+function normaliseClassStat(o: Obj): PublicClassStat {
+  const g = obj(o.genderCounts);
+  return {
+    className: String(o.className ?? ''),
+    sections: Array.isArray(o.sections) ? o.sections.map(String) : [],
+    genderCounts: { male: num(g.male) ?? 0, female: num(g.female) ?? 0, other: num(g.other) ?? 0, total: num(g.total) ?? 0 },
+  };
+}
+
+function normaliseSubject(o: Obj): PublicSubjectOffering {
+  return { className: String(o.className ?? ''), group: str(o.group), subject: String(o.subject ?? ''), paper: str(o.paper), isGraded: o.isGraded !== false };
+}
+
+function normaliseExamRoutineExam(o: Obj): PublicExamRoutineExam {
+  return { id: String(o.id ?? ''), name: String(o.name ?? ''), startDate: str(o.startDate), endDate: str(o.endDate) };
+}
+
+function normaliseExamRoutineSlot(o: Obj): PublicExamRoutineSlot {
+  return {
+    className: String(o.className ?? ''),
+    sectionName: str(o.sectionName),
+    subjectName: String(o.subjectName ?? ''),
+    date: str(o.date),
+    startTime: str(o.startTime),
+    endTime: str(o.endTime),
+    room: str(o.room),
+  };
+}
+
+function normaliseResultSummaryItem(o: Obj): PublicResultSummaryItem {
+  return { className: String(o.className ?? ''), appeared: num(o.appeared) ?? 0, passed: num(o.passed) ?? 0, passRate: num(o.passRate) ?? 0, gpa5Count: num(o.gpa5Count) ?? 0 };
+}
+
+function normaliseResultsArchiveItem(o: Obj): PublicResultsArchiveItem {
+  return { id: String(o.id ?? ''), name: String(o.name ?? ''), startDate: str(o.startDate), endDate: str(o.endDate) };
+}
+
+function normaliseFeeChartItem(o: Obj): PublicFeeChartItem {
+  return {
+    className: String(o.className ?? ''),
+    items: arr(o.items).map((i) => ({ category: String(i.category ?? ''), amount: num(i.amount) ?? 0, frequency: str(i.frequency) })),
+  };
+}
+
+function normaliseHoliday(o: Obj): PublicHoliday {
+  return { date: String(o.date ?? ''), title: String(o.title ?? ''), type: str(o.type), isTentative: o.isTentative === true };
+}
+
+function normaliseLibraryBook(o: Obj): PublicLibraryBook {
+  return {
+    title: String(o.title ?? ''),
+    author: str(o.author),
+    category: str(o.category),
+    publisher: str(o.publisher),
+    availableCopies: num(o.availableCopies),
+    available: o.available === true,
+  };
+}
+
+function normaliseTransportRoute(o: Obj): PublicTransportRoute {
+  return {
+    id: String(o.id ?? ''),
+    name: String(o.name ?? ''),
+    fare: num(o.fare),
+    stops: arr(o.stops).map((s) => ({ name: String(s.name ?? ''), sequence: num(s.sequence), pickupTime: str(s.pickupTime), dropTime: str(s.dropTime) })),
+  };
+}
+
+function normaliseBranch(o: Obj): PublicBranch {
+  return { id: String(o.id ?? ''), name: String(o.name ?? ''), address: str(o.address), phone: str(o.phone), email: str(o.email) };
+}
+
+/**
+ * The backend's `PublicCommitteeMember` (`sites.portal.logic.ts`) deliberately
+ * carries no `id` (committee rows have no public identifier); `i` (array
+ * index) gives React a stable key. Falls back to the real `id` if a future
+ * backend revision adds one.
+ */
+function normaliseCommitteeMember(o: Obj, i = 0): PublicCommitteeMember {
+  return {
+    id: str(o.id) ?? `committee-${i}`,
+    name: String(o.name ?? ''),
+    nameBn: str(o.nameBn),
+    role: String(o.role ?? ''),
+    roleBn: str(o.roleBn),
+    photoUrl: str(o.photoUrl),
+    phone: o.phone == null ? null : str(o.phone) ?? null,
+  };
+}
+
+function normaliseAlbum(o: Obj): PublicAlbum {
+  return { id: String(o.id ?? ''), title: String(o.title ?? ''), titleBn: str(o.titleBn), coverUrl: str(o.coverUrl), eventDate: str(o.eventDate), photoCount: num(o.photoCount) ?? 0 };
+}
+
+function normaliseAlbumDetail(o: Obj): PublicAlbumDetail {
+  return {
+    id: String(o.id ?? ''),
+    title: String(o.title ?? ''),
+    titleBn: str(o.titleBn),
+    coverUrl: str(o.coverUrl),
+    description: str(o.description),
+    eventDate: str(o.eventDate),
+    photos: arr(o.photos).map((p) => ({ url: String(p.url ?? ''), caption: str(p.caption) })),
+  };
+}
+
+function normaliseDownload(o: Obj): PublicDownload {
+  return { id: String(o.id ?? ''), title: String(o.title ?? ''), titleBn: str(o.titleBn), category: str(o.category), fileUrl: String(o.fileUrl ?? ''), publishedAt: str(o.publishedAt) };
+}
+
+function normaliseAdmission(o: Obj): PublicAdmissionCircular {
+  return {
+    id: String(o.id ?? ''),
+    session: str(o.session),
+    classNames: Array.isArray(o.classNames) ? o.classNames.map(String) : [],
+    title: String(o.title ?? ''),
+    titleBn: str(o.titleBn),
+    startDate: str(o.startDate),
+    endDate: str(o.endDate),
+    fee: num(o.fee),
+    pdfUrl: str(o.pdfUrl),
+    applyUrl: str(o.applyUrl),
+    formId: str(o.formId),
+    closed: o.closed === true,
+  };
+}
+
+function normaliseAdmissionDetail(o: Obj): PublicAdmissionDetail {
+  return { ...normaliseAdmission(o), body: str(o.body) };
+}
+
+function normaliseNoticeDetail(o: Obj): PublicNoticeDetail {
+  return { id: String(o.id ?? ''), title: String(o.title ?? ''), content: str(o.content), publishedAt: str(o.publishedAt) };
+}
+
+function normaliseSeo(o: Obj): DetailSeo {
+  return { title: str(o.title), description: str(o.description), image: o.image === null ? null : str(o.image) };
 }
 
 function normalisePost(o: Obj): PublicPost {
@@ -555,6 +759,125 @@ export function createSiteApi(previewToken?: string | null) {
     /** `GET /data/courses?limit` — real published courses (was always `[]` before the LMS wave). */
     async courses(siteId: string, limit = 6): Promise<PublicCourse[]> {
       return arr(await get(`${sid(siteId)}/data/courses`, { limit })).map(normaliseCourse);
+    },
+
+    /* ── Portal data (Track B §7.3 — DSHE compliance) ────────────────────── */
+
+    /** `GET /data/profile` — institution facts; `headOfInstitution` resolved server-side against the live `User` row. */
+    async profile(siteId: string): Promise<PublicProfile> {
+      return normaliseProfile(obj(await get(`${sid(siteId)}/data/profile`)));
+    },
+
+    /** `GET /data/staff?category=head|teachers|staff` (default `teachers`). `teachers`/`staff` require `showOnWebsite=true`. */
+    async staff(siteId: string, params: { category?: 'head' | 'teachers' | 'staff' } = {}): Promise<PublicStaffMember[]> {
+      return arr(await get(`${sid(siteId)}/data/staff`, params)).map(normaliseStaffMember);
+    },
+
+    /** `GET /data/class-stats` — DSHE items 3/4 (class & gender counts, sections). Counts only, no student names/ids. */
+    async classStats(siteId: string): Promise<PublicClassStat[]> {
+      return arr(await get(`${sid(siteId)}/data/class-stats`)).map(normaliseClassStat);
+    },
+
+    async subjects(siteId: string, params: { class?: string } = {}): Promise<PublicSubjectOffering[]> {
+      return arr(await get(`${sid(siteId)}/data/subjects`, params)).map(normaliseSubject);
+    },
+
+    /** No `examId`: the exam picker. With it: that exam's routine slots. */
+    async examRoutine(siteId: string, params: { examId?: string; class?: string } = {}): Promise<{ exams: PublicExamRoutineExam[]; slots: PublicExamRoutineSlot[] }> {
+      const raw = obj(await get(`${sid(siteId)}/data/exam-routine`, params));
+      return { exams: arr(raw.exams).map(normaliseExamRoutineExam), slots: arr(raw.slots).map(normaliseExamRoutineSlot) };
+    },
+
+    /** 403 unless `settings.publicResults || settings.publicResultSummary`. No student names/ids/marks — pass rate and GPA-5 count per class only. */
+    async resultSummary(siteId: string, params: { examId?: string } = {}): Promise<{ exam: { id: string; name: string } | null; items: PublicResultSummaryItem[] }> {
+      const raw = obj(await get(`${sid(siteId)}/data/result-summary`, params));
+      const exam = obj(raw.exam);
+      return { exam: exam.id ? { id: String(exam.id), name: String(exam.name ?? '') } : null, items: arr(raw.items).map(normaliseResultSummaryItem) };
+    },
+
+    /** 403 unless `settings.publicResults`. Published exams only. */
+    async resultsArchive(siteId: string): Promise<PublicResultsArchiveItem[]> {
+      return arr(await get(`${sid(siteId)}/data/results-archive`)).map(normaliseResultsArchiveItem);
+    },
+
+    /** 403 unless `settings.publicFeeChart`. */
+    async feeChart(siteId: string): Promise<PublicFeeChartItem[]> {
+      return arr(await get(`${sid(siteId)}/data/fee-chart`)).map(normaliseFeeChartItem);
+    },
+
+    async holidaysCalendar(siteId: string, params: { year?: number } = {}): Promise<{ year: number; items: PublicHoliday[] }> {
+      const raw = obj(await get(`${sid(siteId)}/data/holidays`, params));
+      return { year: num(raw.year) ?? new Date().getFullYear(), items: arr(raw.items).map(normaliseHoliday) };
+    },
+
+    /** 403 unless `settings.publicLibrary`. Paginated. */
+    async library(siteId: string, params: { q?: string; page?: number; pageSize?: number } = {}): Promise<Paged<PublicLibraryBook>> {
+      const raw = await get<unknown>(`${sid(siteId)}/data/library`, params);
+      const o = obj(raw);
+      const items = arr(raw).map(normaliseLibraryBook);
+      return { items, total: num(o.total) ?? items.length, page: num(o.page) ?? params.page ?? 1, pageSize: num(o.pageSize) ?? params.pageSize ?? Math.max(items.length, 1) };
+    },
+
+    /** 403 unless `settings.publicTransport`. No vehicle or driver info at all. */
+    async transport(siteId: string): Promise<PublicTransportRoute[]> {
+      return arr(await get(`${sid(siteId)}/data/transport`)).map(normaliseTransportRoute);
+    },
+
+    async branches(siteId: string): Promise<PublicBranch[]> {
+      return arr(await get(`${sid(siteId)}/data/branches`)).map(normaliseBranch);
+    },
+
+    /** `phone` is `null` unless the admin turned on "show phone" for that member. */
+    async committee(siteId: string): Promise<PublicCommitteeMember[]> {
+      return arr(await get(`${sid(siteId)}/data/committee`)).map((o, i) => normaliseCommitteeMember(o, i));
+    },
+
+    async albums(siteId: string, params: { page?: number; pageSize?: number } = {}): Promise<Paged<PublicAlbum>> {
+      const raw = await get<unknown>(`${sid(siteId)}/data/albums`, params);
+      const o = obj(raw);
+      const items = arr(raw).map(normaliseAlbum);
+      return { items, total: num(o.total) ?? items.length, page: num(o.page) ?? params.page ?? 1, pageSize: num(o.pageSize) ?? params.pageSize ?? Math.max(items.length, 1) };
+    },
+
+    /** Detail route: `/gallery/:id` (matches the sitemap — see routes.ts). */
+    async album(siteId: string, id: string): Promise<{ album: PublicAlbumDetail; seo: DetailSeo }> {
+      const raw = obj(await get(`${sid(siteId)}/data/albums/${encodeURIComponent(id)}`));
+      return { album: normaliseAlbumDetail(obj(raw.album)), seo: normaliseSeo(obj(raw.seo)) };
+    },
+
+    async downloads(siteId: string, params: { category?: string } = {}): Promise<PublicDownload[]> {
+      return arr(await get(`${sid(siteId)}/data/downloads`, params)).map(normaliseDownload);
+    },
+
+    async admissions(siteId: string, params: { page?: number; pageSize?: number } = {}): Promise<Paged<PublicAdmissionCircular>> {
+      const raw = await get<unknown>(`${sid(siteId)}/data/admissions`, params);
+      const o = obj(raw);
+      const items = arr(raw).map(normaliseAdmission);
+      return { items, total: num(o.total) ?? items.length, page: num(o.page) ?? params.page ?? 1, pageSize: num(o.pageSize) ?? params.pageSize ?? Math.max(items.length, 1) };
+    },
+
+    /** Detail route: `/admissions/:id` (matches the sitemap — see routes.ts). */
+    async admission(siteId: string, id: string): Promise<{ admission: PublicAdmissionDetail; seo: DetailSeo }> {
+      const raw = obj(await get(`${sid(siteId)}/data/admissions/${encodeURIComponent(id)}`));
+      return { admission: normaliseAdmissionDetail(obj(raw.admission)), seo: normaliseSeo(obj(raw.seo)) };
+    },
+
+    /** Detail route: `/notices/:id` (matches the sitemap — see routes.ts). Same audience rule as the notices list. */
+    async noticeDetail(siteId: string, id: string): Promise<{ notice: PublicNoticeDetail; seo: DetailSeo }> {
+      const raw = obj(await get(`${sid(siteId)}/data/notices/${encodeURIComponent(id)}`));
+      return { notice: normaliseNoticeDetail(obj(raw.notice)), seo: normaliseSeo(obj(raw.seo)) };
+    },
+
+    /* ── Customer account recovery ─────────────────────────────────────────── */
+
+    async accountForgot(siteId: string, email: string): Promise<{ requested: true }> {
+      await post(`${sid(siteId)}/account/forgot`, { email });
+      return { requested: true };
+    },
+
+    async accountReset(siteId: string, token: string, password: string): Promise<{ reset: true }> {
+      await post(`${sid(siteId)}/account/reset`, { token, password });
+      return { reset: true };
     },
 
     /* ── Shop ─────────────────────────────────────────────────────────── */

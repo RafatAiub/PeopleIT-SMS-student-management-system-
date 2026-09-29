@@ -22,8 +22,9 @@ import { SiteRoot } from './SiteRoot';
 import { isCodePage, readCodePageProps } from './code/codePage';
 import { SandboxFrame } from './code/SandboxFrame';
 import { SiteCustomCode } from './code/SiteCustomCode';
-import { PreviewBar, SiteFooter, SiteHeader } from './public/Chrome';
+import { PreviewBar, SiteFooter, SiteHeader, SitePageFrame } from './public/Chrome';
 import { BlogListView, BlogPostView, SitePageView } from './public/Pages';
+import { AdmissionDetailView, AlbumDetailView, NoticeDetailView } from './public/PortalDetail';
 import { AccountView } from './public/Account';
 import { CartView } from './public/Cart';
 import { CheckoutView, OrderLookupView, OrderStatusView } from './public/Checkout';
@@ -184,6 +185,9 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       case 'learn-index': content = <LearnIndexView />; break;
       case 'learn-player': content = <LearnPlayerView courseSlug={route.courseSlug} lessonId={route.lessonId} />; break;
       case 'account': content = <AccountView sub={route.sub} />; break;
+      case 'notice-detail': content = <NoticeDetailView id={route.id} />; break;
+      case 'album-detail': content = <AlbumDetailView id={route.id} />; break;
+      case 'admission-detail': content = <AdmissionDetailView id={route.id} />; break;
       default: content = <SitePageView slug={clean} pages={pages} />;
     }
   }
@@ -206,17 +210,20 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       canonicalUrl={site.canonicalUrl}
       basePath={basePath}
       previewToken={previewToken}
+      poweredBy={site.poweredBy !== false}
     >
       <SiteCustomCode hostMode={hostMode} />
       {suppressChrome ? (
         <SiteRoot className="min-h-screen">{content}</SiteRoot>
       ) : (
         <SiteRoot className="flex min-h-screen flex-col">
-          <SkipLink />
-          {isPreview && <PreviewBar />}
-          <SiteHeader />
-          <main id="site-main" className="flex-1" tabIndex={-1}>{content}</main>
-          <SiteFooter />
+          <SitePageFrame>
+            <SkipLink />
+            {isPreview && <PreviewBar />}
+            <SiteHeader />
+            <main id="site-main" className="flex-1" tabIndex={-1}>{content}</main>
+            <SiteFooter />
+          </SitePageFrame>
         </SiteRoot>
       )}
     </SiteRuntimeProvider>

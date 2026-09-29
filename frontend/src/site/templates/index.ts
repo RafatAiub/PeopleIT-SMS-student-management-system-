@@ -1,5 +1,7 @@
 /**
- * The ten site templates, plus helpers for the Design tab (Engineer C):
+ * The site templates (the original ten, plus eight Bangladeshi DSHE-complete
+ * portal templates — see `portal-builders.ts`), plus helpers for the Design
+ * tab (Engineer C):
  *
  *   const t = getTemplate('modern-campus');
  *   await apiClient.post('/sites/me/apply-template', templateApplyPayload(t, 'replace'));
@@ -11,19 +13,27 @@
  */
 import { fillTokensDeep, type TokenMap } from '../tokens';
 import { academy } from './academy';
+import { banglaPortal } from './bangla-portal';
 import { classicHeritage } from './classic-heritage';
 import { coaching } from './coaching';
 import { college } from './college';
+import { collegeClassic } from './college-classic';
 import { courseLaunch } from './course-launch';
 import { englishMedium } from './english-medium';
+import { englishMediumCorporate } from './english-medium-corporate';
 import { eventLanding } from './event-landing';
 import { kindergarten } from './kindergarten';
+import { kindergartenBright } from './kindergarten-bright';
 import { lmsAcademy } from './lms-academy';
 import { madrasa } from './madrasa';
+import { madrasaPortal } from './madrasa-portal';
 import { minimal } from './minimal';
+import { modernBangla } from './modern-bangla';
 import { modernCampus } from './modern-campus';
+import { newspaperStyle } from './newspaper-style';
 import { onlineStore } from './online-store';
 import { polytechnic } from './polytechnic';
+import { portalGreen } from './portal-green';
 import { saasLanding } from './saas-landing';
 import type { SiteTemplate, TemplateKey, TemplatePage } from './types';
 
@@ -46,6 +56,14 @@ export const SITE_TEMPLATES: readonly SiteTemplate[] = [
   saasLanding,
   eventLanding,
   courseLaunch,
+  banglaPortal,
+  englishMediumCorporate,
+  portalGreen,
+  madrasaPortal,
+  collegeClassic,
+  kindergartenBright,
+  modernBangla,
+  newspaperStyle,
 ];
 
 export const TEMPLATE_KEYS = SITE_TEMPLATES.map((t) => t.key) as TemplateKey[];

@@ -75,6 +75,7 @@ const SUPER_ADMIN_NAV_ENTRIES: NavEntry[] = [
       { to: '/super-admin/support-access', label: 'Support Access' },
       { to: '/super-admin/audit-logs', label: 'Audit Logs' },
       { to: '/super-admin/system-health', label: 'System Health' },
+      { to: '/super-admin/email', label: 'Email Delivery' },
       { to: '/super-admin/support', label: 'Support Tickets' },
       { to: '/super-admin/usage', label: 'Usage & Costs' },
     ],

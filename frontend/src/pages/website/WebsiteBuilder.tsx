@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Palette, Menu as MenuIcon, Image as ImageIcon, Newspaper, ClipboardList, Globe, Settings as SettingsIcon,
-  ShoppingBag, GraduationCap, Code2,
+  ShoppingBag, GraduationCap, Code2, Contact, FolderKanban,
 } from 'lucide-react';
 import { PageHeader, Tabs, TabPanel, Skeleton, SkeletonStatGrid, ErrorState, Badge } from '@/components/ui';
 import type { TabItem } from '@/components/ui';
@@ -9,9 +9,11 @@ import { useT } from '@/i18n';
 import { useSite, apiError } from './sites.queries';
 import { useSiteRole } from './siteUtils';
 import { OverviewTab } from './tabs/OverviewTab';
+import { ProfileTab } from './tabs/ProfileTab';
 import { PagesTab } from './tabs/PagesTab';
 import { DesignTab } from './tabs/DesignTab';
 import { NavigationTab } from './tabs/NavigationTab';
+import { ContentTab } from './tabs/ContentTab';
 import { ShopTab } from './tabs/ShopTab';
 import { CoursesTab } from './tabs/CoursesTab';
 import { MediaTab } from './tabs/MediaTab';
@@ -21,7 +23,9 @@ import { CodeTab } from './tabs/CodeTab';
 import { DomainsTab } from './tabs/DomainsTab';
 import { SettingsTab } from './tabs/SettingsTab';
 
-const ADMIN_TABS = ['overview', 'pages', 'design', 'navigation', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'domains', 'settings'] as const;
+const ADMIN_TABS = [
+  'overview', 'profile', 'pages', 'design', 'navigation', 'content', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'domains', 'settings',
+] as const;
 type TabId = (typeof ADMIN_TABS)[number];
 
 /**
@@ -35,9 +39,10 @@ export default function WebsiteBuilder() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab') as TabId | null;
   const tab: TabId = canManage ? (requested && ADMIN_TABS.includes(requested) ? requested : 'overview') : 'blog';
-  const setTab = (id: string) => {
+  const setTab = (id: string, extra?: Record<string, string>) => {
     const next = new URLSearchParams(params);
     next.set('tab', id);
+    if (extra) for (const [k, v] of Object.entries(extra)) next.set(k, v);
     setParams(next, { replace: true });
   };
 
@@ -57,9 +62,11 @@ export default function WebsiteBuilder() {
 
   const tabs: TabItem[] = [
     { id: 'overview', label: t('Overview'), icon: <LayoutDashboard /> },
+    { id: 'profile', label: t('Profile'), icon: <Contact /> },
     { id: 'pages', label: t('Pages'), icon: <FileText />, count: siteQuery.data?.pages.length },
     { id: 'design', label: t('Design'), icon: <Palette /> },
     { id: 'navigation', label: t('Navigation'), icon: <MenuIcon /> },
+    { id: 'content', label: t('Content'), icon: <FolderKanban /> },
     { id: 'shop', label: t('Shop'), icon: <ShoppingBag /> },
     { id: 'courses', label: t('Courses'), icon: <GraduationCap /> },
     { id: 'media', label: t('Media'), icon: <ImageIcon /> },
@@ -102,9 +109,11 @@ export default function WebsiteBuilder() {
       ) : (
         <>
           <TabPanel id="overview" value={tab} idPrefix="site-tab"><OverviewTab me={site} onNavigate={setTab} /></TabPanel>
+          <TabPanel id="profile" value={tab} idPrefix="site-tab"><ProfileTab /></TabPanel>
           <TabPanel id="pages" value={tab} idPrefix="site-tab"><PagesTab me={site} /></TabPanel>
           <TabPanel id="design" value={tab} idPrefix="site-tab"><DesignTab me={site} /></TabPanel>
           <TabPanel id="navigation" value={tab} idPrefix="site-tab"><NavigationTab me={site} /></TabPanel>
+          <TabPanel id="content" value={tab} idPrefix="site-tab"><ContentTab /></TabPanel>
           <TabPanel id="shop" value={tab} idPrefix="site-tab"><ShopTab me={site} /></TabPanel>
           <TabPanel id="courses" value={tab} idPrefix="site-tab"><CoursesTab me={site} /></TabPanel>
           <TabPanel id="media" value={tab} idPrefix="site-tab"><MediaTab /></TabPanel>

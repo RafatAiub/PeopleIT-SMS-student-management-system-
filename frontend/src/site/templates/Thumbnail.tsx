@@ -33,6 +33,53 @@ export function TemplateThumbnail({ template, className = '' }: { template: Site
 
   let body: JSX.Element;
   switch (template.preview.layout) {
+    case 'portal-banner':
+      body = (
+        <g>
+          <rect x="0" y="18" width="240" height="10" fill={primary} opacity=".9" />
+          <rect x="0" y="28" width="240" height="34" fill={primary} opacity=".75" />
+          <circle cx="120" cy="45" r="11" fill={light} opacity=".9" />
+          <rect x="0" y="62" width="240" height="12" fill={light} opacity=".95" />
+          <circle cx="12" cy="68" r="5" fill={accent} />
+          {[40, 66, 92, 118].map((x) => <rect key={x} x={x} y="65" width="20" height="4" rx="2" fill="#475569" />)}
+          {cards(84, 2)}
+          <rect x="160" y="84" width="66" height="56" rx={r} fill={light} opacity=".9" />
+          <rect x="168" y="92" width="50" height="5" rx="2.5" fill={accent} />
+          {[102, 112, 122].map((y) => <rect key={y} x="168" y={y} width="50" height="4" rx="2" fill="#cbd5e1" />)}
+        </g>
+      );
+      break;
+    case 'corporate-bars':
+      body = (
+        <g>
+          <rect x="0" y="18" width="240" height="7" fill="#071230" />
+          <rect x="0" y="25" width="240" height="24" fill={light} opacity=".95" />
+          <circle cx="20" cy="37" r="9" fill={primary} />
+          <rect x="36" y="32" width="70" height="5" rx="2.5" fill="#0f172a" />
+          <rect x="36" y="40" width="50" height="4" rx="2" fill="#64748b" />
+          <rect x="0" y="49" width="240" height="12" fill={primary} />
+          <rect x="4" y="51" width="20" height="8" fill={accent} />
+          {cards(74, 3)}
+          {cards(112, 3)}
+        </g>
+      );
+      break;
+    case 'newspaper':
+      body = (
+        <g>
+          <rect x="0" y="18" width="240" height="20" fill={light} opacity=".95" />
+          <rect x="60" y="23" width="120" height="10" rx="2" fill={primary} />
+          <rect x="0" y="40" width="240" height="6" fill={accent} opacity=".85" />
+          {[14, 84, 154].map((x) => (
+            <g key={x}>
+              <rect x={x} y="52" width="64" height="4" rx="2" fill="#0f172a" />
+              {[60, 68, 76, 84, 92].map((y) => <rect key={y} x={x} y={y} width="64" height="3" rx="1.5" fill="#94a3b8" />)}
+            </g>
+          ))}
+          {cards(108, 3)}
+        </g>
+      );
+      break;
     case 'split':
     case 'courses':
       body = (

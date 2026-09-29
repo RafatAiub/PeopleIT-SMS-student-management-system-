@@ -18,23 +18,32 @@ export const MediaThumb: React.FC<{ media: Pick<SiteMedia, 'url' | 'kind' | 'alt
     </div>
   );
 
-/** Library chooser. `kind` limits the grid (e.g. images only for a logo). */
+/**
+ * Library chooser. `kind` limits the grid (e.g. images only for a logo).
+ * `multiple` switches to a checkbox grid that calls `onSelectMultiple` with
+ * every chosen file at once (used by the album photos picker); the default
+ * single-select mode is unchanged for every other caller.
+ */
 export const MediaPickerModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (media: SiteMedia) => void;
+  onSelect?: (media: SiteMedia) => void;
+  onSelectMultiple?: (media: SiteMedia[]) => void;
+  multiple?: boolean;
   kind?: MediaKind;
   title?: string;
-}> = ({ isOpen, onClose, onSelect, kind, title }) => {
+}> = ({ isOpen, onClose, onSelect, onSelectMultiple, multiple = false, kind, title }) => {
   const t = useT();
   const q = useMedia(isOpen);
   const [uploadOpen, setUploadOpen] = React.useState(false);
   const [selected, setSelected] = React.useState<SiteMedia | null>(null);
+  const [selectedMulti, setSelectedMulti] = React.useState<SiteMedia[]>([]);
   const [search, setSearch] = React.useState('');
 
   React.useEffect(() => {
     if (!isOpen) {
       setSelected(null);
+      setSelectedMulti([]);
       setSearch('');
     }
   }, [isOpen]);
@@ -42,6 +51,15 @@ export const MediaPickerModal: React.FC<{
   const items = (q.data ?? []).filter(
     (m) => (!kind || m.kind === kind) && (!search || `${m.name} ${m.alt ?? ''}`.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const toggleMulti = (m: SiteMedia) =>
+    setSelectedMulti((prev) => (prev.some((s) => s.id === m.id) ? prev.filter((s) => s.id !== m.id) : [...prev, m]));
+
+  const confirm = () => {
+    if (multiple) onSelectMultiple?.(selectedMulti);
+    else if (selected) onSelect?.(selected);
+    onClose();
+  };
 
   return (
     <>
@@ -53,15 +71,8 @@ export const MediaPickerModal: React.FC<{
         footer={
           <>
             <Button type="button" variant="secondary" onClick={onClose}>{t('Cancel')}</Button>
-            <Button
-              type="button"
-              disabled={!selected}
-              onClick={() => {
-                if (selected) onSelect(selected);
-                onClose();
-              }}
-            >
-              {t('Use selected')}
+            <Button type="button" disabled={multiple ? selectedMulti.length === 0 : !selected} onClick={confirm}>
+              {multiple ? t('Add {n} photo(s)', { n: selectedMulti.length }) : t('Use selected')}
             </Button>
           </>
         }
@@ -92,16 +103,17 @@ export const MediaPickerModal: React.FC<{
             description={t('Upload a file to use it here.')}
           />
         ) : (
-          <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3" role="listbox" aria-label={t('Media files')}>
+          <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3" role="listbox" aria-label={t('Media files')} aria-multiselectable={multiple}>
             {items.map((m) => {
-              const on = selected?.id === m.id;
+              const on = multiple ? selectedMulti.some((s) => s.id === m.id) : selected?.id === m.id;
               return (
                 <li key={m.id} role="option" aria-selected={on}>
                   <button
                     type="button"
-                    onClick={() => setSelected(m)}
+                    onClick={() => (multiple ? toggleMulti(m) : setSelected(m))}
                     onDoubleClick={() => {
-                      onSelect(m);
+                      if (multiple) return;
+                      onSelect?.(m);
                       onClose();
                     }}
                     className={cn(
@@ -128,7 +140,7 @@ export const MediaPickerModal: React.FC<{
         isOpen={uploadOpen}
         onClose={() => setUploadOpen(false)}
         accept={kind === 'IMAGE' ? 'image/*' : undefined}
-        onUploaded={(m) => setSelected(m)}
+        onUploaded={(m) => (multiple ? setSelectedMulti((prev) => [...prev, m]) : setSelected(m))}
       />
     </>
   );

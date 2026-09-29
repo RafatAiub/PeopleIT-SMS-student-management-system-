@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { useT, formatDate } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { emptyCodePageData } from '@/site/code/codePage';
+import { ImportWebsiteButton } from '../import/ImportWizard';
 import { useCreatePage, useDeletePage, usePublishPage, useReorderPages, useUpdatePage } from '../sites.queries';
 import { EMPTY_PAGE, SLUG_RE, joinUrl, pagePath, pageState, slugify } from '../siteUtils';
 import type { PuckData, SiteMeResponse, SitePageSummary } from '../sites.types';
@@ -207,7 +208,12 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
         icon={<FileText className="w-4 h-4" />}
         title={t('Pages')}
         description={t('Drag to reorder. Open a page to edit it with the drag-and-drop editor.')}
-        actions={<Button leftIcon={<FilePlus2 className="w-4 h-4" />} onClick={() => setDetails({ open: true, page: null })}>{t('Add page')}</Button>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <ImportWebsiteButton me={me} variant="secondary" />
+            <Button leftIcon={<FilePlus2 className="w-4 h-4" />} onClick={() => setDetails({ open: true, page: null })}>{t('Add page')}</Button>
+          </div>
+        }
       />
 
       {order.length === 0 ? (

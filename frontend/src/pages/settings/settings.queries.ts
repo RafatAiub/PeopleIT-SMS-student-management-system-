@@ -182,6 +182,22 @@ export const NOTIFICATION_TYPE_GROUPS: NotificationTypeGroup[] = [
     label: 'Platform',
     types: [{ type: 'LEAD_SUBMITTED', label: 'New lead submitted' }],
   },
+  {
+    label: 'Support tickets',
+    types: [
+      { type: 'SUPPORT_TICKET_CREATED', label: 'Ticket created' },
+      { type: 'SUPPORT_TICKET_REPLIED', label: 'Ticket replied' },
+      { type: 'SUPPORT_TICKET_STATUS_CHANGED', label: 'Ticket status changed' },
+    ],
+  },
+  {
+    label: 'Results & HR',
+    types: [
+      { type: 'RESULTS_PUBLISHED', label: 'Results published' },
+      { type: 'PAYSLIP_ISSUED', label: 'Payslip issued' },
+      { type: 'DATA_EXPORT_READY', label: 'Data export ready' },
+    ],
+  },
 ];
 
 export interface NotificationPreferenceRow {
@@ -210,5 +226,46 @@ export function useUpdateNotificationPreferences() {
       return (data?.data ?? []) as NotificationPreferenceRow[];
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATION_PREFERENCES_KEY }),
+  });
+}
+
+// ── Notification templates (admin) — per-school EMAIL/SMS/IN_APP copy
+// overrides. Track A's "per-school template override editor" reuses this
+// existing endpoint (backend/src/modules/notifications/notifications.routes.ts),
+// which had no UI before.
+
+export interface NotificationTemplateRow {
+  key: string;
+  channel: NotificationChannel;
+  subject: string | null;
+  body: string;
+  isActive: boolean;
+  source: 'tenant' | 'default';
+}
+
+export const NOTIFICATION_TEMPLATES_KEY = ['notification-templates'] as const;
+
+export function useNotificationTemplates() {
+  return useQuery({
+    queryKey: NOTIFICATION_TEMPLATES_KEY,
+    queryFn: async (): Promise<NotificationTemplateRow[]> => {
+      const { data } = await apiClient.get('/notifications/templates');
+      return data?.data ?? [];
+    },
+  });
+}
+
+export function useUpsertNotificationTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { key: string; channel: NotificationChannel; subject?: string | null; body: string; isActive?: boolean }) => {
+      const { data } = await apiClient.put(`/notifications/templates/${input.key}/${input.channel}`, {
+        subject: input.subject ?? null,
+        body: input.body,
+        isActive: input.isActive ?? true,
+      });
+      return data?.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: NOTIFICATION_TEMPLATES_KEY }),
   });
 }

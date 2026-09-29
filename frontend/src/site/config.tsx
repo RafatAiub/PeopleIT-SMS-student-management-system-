@@ -21,6 +21,14 @@ import {
 } from './blocks/design';
 import { AccountButton, CartButton, FeaturedCourse, FeaturedProduct, CourseGrid, ProductGrid } from './blocks/commerce';
 import { CustomCode } from './blocks/code';
+import {
+  AdmissionCirculars, AlbumGrid, Branches, ClassStats, CommitteeList, DataList, DownloadsList, ExamRoutine, FeeChart,
+  HolidayList, LibraryCatalogue, NewsTicker, NoticeBoard, ProfileFacts, ResultSummary, StaffDirectory, TransportRoutes,
+} from './blocks/portal-data';
+import {
+  AudioPlayer, DataTable, EServices, FacebookPage, HeadMessage, HotlineList, ImageSlider, ImportantLinks, InfoBoxGrid,
+  SidebarCard, SidebarLayout, VideoGallery,
+} from './blocks/portal-static';
 import type { SiteBlock } from './blocks/shared';
 
 export const SITE_COMPONENTS = {
@@ -40,12 +48,17 @@ export const SITE_COMPONENTS = {
   ProductGrid, FeaturedProduct, CartButton, CourseGrid, FeaturedCourse, AccountButton,
   // Custom code
   CustomCode,
+  // Portal / DSHE data (Bangladeshi school-portal templates)
+  DataList, NoticeBoard, NewsTicker, StaffDirectory, CommitteeList, DownloadsList, AlbumGrid, AdmissionCirculars,
+  ResultSummary, ExamRoutine, ClassStats, FeeChart, HolidayList, LibraryCatalogue, TransportRoutes, Branches, ProfileFacts,
+  InfoBoxGrid, SidebarLayout, SidebarCard, HeadMessage, HotlineList, FacebookPage, VideoGallery, AudioPlayer, ImageSlider,
+  ImportantLinks, EServices, DataTable,
 } satisfies Record<string, SiteBlock>;
 
 export type SiteBlockType = keyof typeof SITE_COMPONENTS;
 
 export interface BlockCategory {
-  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code';
+  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code' | 'portal';
   title: string;
   titleBn: string;
   components: SiteBlockType[];
@@ -72,6 +85,15 @@ export const BLOCK_CATEGORIES: BlockCategory[] = [
     components: ['ProductGrid', 'FeaturedProduct', 'CartButton', 'CourseGrid', 'FeaturedCourse', 'AccountButton'],
   },
   { key: 'code', title: 'Custom code', titleBn: 'কাস্টম কোড', components: ['CustomCode'] },
+  {
+    key: 'portal', title: 'Portal & DSHE data', titleBn: 'পোর্টাল ও তথ্য',
+    components: [
+      'DataList', 'NoticeBoard', 'NewsTicker', 'StaffDirectory', 'CommitteeList', 'DownloadsList', 'AlbumGrid',
+      'AdmissionCirculars', 'ResultSummary', 'ExamRoutine', 'ClassStats', 'FeeChart', 'HolidayList', 'LibraryCatalogue',
+      'TransportRoutes', 'Branches', 'ProfileFacts', 'InfoBoxGrid', 'SidebarLayout', 'SidebarCard', 'HeadMessage',
+      'HotlineList', 'FacebookPage', 'VideoGallery', 'AudioPlayer', 'ImageSlider', 'ImportantLinks', 'EServices', 'DataTable',
+    ],
+  },
 ];
 
 /** Blocks that fetch live data (the editor may badge them). */

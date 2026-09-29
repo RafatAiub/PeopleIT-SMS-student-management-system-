@@ -8,6 +8,7 @@ import { usePublishSite, useUnpublishSite, usePosts, useForms, useCommerceSummar
 import { copyText, pageState } from '../siteUtils';
 import type { SiteMeResponse } from '../sites.types';
 import { GenerateAiModal } from '../GenerateAiModal';
+import { ComplianceChecklist } from './ComplianceChecklist';
 
 const LinkRow: React.FC<{ label: string; url: string | null; hint?: string }> = ({ label, url, hint }) => {
   const t = useT();
@@ -24,7 +25,7 @@ const LinkRow: React.FC<{ label: string; url: string | null; hint?: string }> = 
   );
 };
 
-export const OverviewTab: React.FC<{ me: SiteMeResponse; onNavigate: (tab: string) => void }> = ({ me, onNavigate }) => {
+export const OverviewTab: React.FC<{ me: SiteMeResponse; onNavigate: (tab: string, params?: Record<string, string>) => void }> = ({ me, onNavigate }) => {
   const t = useT();
   const publish = usePublishSite();
   const posts = usePosts();
@@ -86,6 +87,8 @@ export const OverviewTab: React.FC<{ me: SiteMeResponse; onNavigate: (tab: strin
           )}
         </div>
       </Card>
+
+      <ComplianceChecklist onNavigate={onNavigate} />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label={t('Pages')} value={formatNumber(pages.length)} hint={t('{n} published', { n: formatNumber(livePages) })} icon={<FileText />} onClick={() => onNavigate('pages')} />

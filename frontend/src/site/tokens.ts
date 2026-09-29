@@ -4,7 +4,7 @@
  * the institution's real data at render time, so a template never states a
  * fact about a school that the school didn't provide.
  */
-import type { PublicInstitution, SiteLang, SiteSettings } from './types';
+import type { PublicInstitution, PublicProfile, SiteLang, SiteSettings } from './types';
 
 export const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_.]*)\s*\}\}/g;
 
@@ -15,6 +15,12 @@ export const SITE_TOKENS: Array<{ token: string; label: string }> = [
   { token: '{{institution.email}}', label: 'Email' },
   { token: '{{institution.address}}', label: 'Address' },
   { token: '{{institution.established}}', label: 'Year established' },
+  { token: '{{institution.nameBn}}', label: 'Institution name (Bangla, always)' },
+  { token: '{{institution.eiin}}', label: 'EIIN' },
+  { token: '{{institution.mpo}}', label: 'MPO / nationalisation info' },
+  { token: '{{institution.recognition}}', label: 'Recognition / teaching permission' },
+  { token: '{{head.name}}', label: 'Head of institution — name' },
+  { token: '{{head.designation}}', label: 'Head of institution — designation' },
   { token: '{{site.name}}', label: 'Site name' },
   { token: '{{site.tagline}}', label: 'Tagline' },
   { token: '{{year}}', label: 'Current year' },
@@ -22,24 +28,36 @@ export const SITE_TOKENS: Array<{ token: string; label: string }> = [
 
 export type TokenMap = Record<string, string | undefined>;
 
+/** Profile facts (`GET /data/profile`, Track B §7.3) — optional; blank tokens when not yet fetched. */
+export type TokenProfileInput = Partial<Pick<PublicProfile, 'nameBn' | 'eiin' | 'mpoInfo' | 'recognitionInfo'>> & {
+  headOfInstitution?: { name?: string; designation?: string } | null;
+} | null;
+
 export function buildSiteTokens(input: {
   institution?: Partial<PublicInstitution> | null;
   settings?: Partial<SiteSettings> | null;
   lang?: SiteLang;
   now?: Date;
+  profile?: TokenProfileInput;
 }): TokenMap {
-  const { institution: inst, settings: s, lang = 'en' } = input;
+  const { institution: inst, settings: s, lang = 'en', profile } = input;
   const bn = lang === 'bn';
-  const instName = (bn && inst?.nameBn) || inst?.name || undefined;
+  const instName = (bn && (profile?.nameBn || inst?.nameBn)) || inst?.name || undefined;
   const siteName = (bn && s?.siteNameBn) || s?.siteName || instName;
   return {
     'institution.name': instName,
+    'institution.nameBn': profile?.nameBn || inst?.nameBn,
     'institution.phone': inst?.contact?.phone,
     'institution.email': inst?.contact?.email,
     'institution.address': inst?.contact?.address,
     'institution.website': inst?.contact?.website,
     'institution.established':
       inst?.establishedYear != null && inst.establishedYear !== '' ? String(inst.establishedYear) : s?.establishedYear ? String(s.establishedYear) : undefined,
+    'institution.eiin': profile?.eiin,
+    'institution.mpo': profile?.mpoInfo,
+    'institution.recognition': profile?.recognitionInfo,
+    'head.name': profile?.headOfInstitution?.name,
+    'head.designation': profile?.headOfInstitution?.designation,
     'site.name': siteName,
     'site.tagline': (bn && s?.taglineBn) || s?.tagline || undefined,
     year: String((input.now ?? new Date()).getFullYear()),

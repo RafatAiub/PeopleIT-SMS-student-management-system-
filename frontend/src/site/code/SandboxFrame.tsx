@@ -14,6 +14,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { API_ROOT } from '../api';
 import { addProductBySlug } from '../cart';
+import { fetchSiteData, isSiteDataSource, SITE_DATA_SOURCES } from '../dataSources';
+import { RESERVED_SLUGS } from '../routes';
 import { useSiteApi, useSiteRuntime } from '../runtime';
 import { DEFAULT_THEME, themeFontUrl, themeToCssVars } from '../theme';
 import type { SiteLang, SiteTheme } from '../types';
@@ -92,6 +94,7 @@ export function buildSrcDoc(input: BuildSrcDocInput): string {
   };
   const userCss = escapeClosingTag(input.css ?? '', 'style');
   const userJs = escapeClosingTag(input.js ?? '', 'script');
+  const dataSources = JSON.stringify(SITE_DATA_SOURCES);
 
   return `<!doctype html>
 <html lang="${site.lang}">
@@ -117,10 +120,36 @@ ${input.html ?? ''}
   function send(msg) {
     try { parent.postMessage(Object.assign({ source: '${BRIDGE_SOURCE}' }, msg), '*'); } catch (e) {}
   }
+  var pendingData = {};
+  var dataSeq = 0;
   window.SITE = Object.assign({}, SITE_DATA, {
     navigate: function (path) { send({ type: 'navigate', path: String(path == null ? '/' : path) }); },
     addToCart: function (slug, qty) { send({ type: 'addToCart', slug: String(slug == null ? '' : slug), qty: Number(qty) || 1 }); },
     openCart: function () { send({ type: 'openCart' }); },
+    /**
+     * Fetches a public data source (same allow-list as the visual DataList
+     * block — see src/site/dataSources.ts) through the parent, which does the
+     * actual request with siteId/preview token the sandbox never has direct
+     * access to. Returns a Promise. Unknown sources reject.
+     */
+    dataSources: ${dataSources},
+    data: function (source, params) {
+      return new Promise(function (resolve, reject) {
+        dataSeq += 1;
+        var id = 'd' + Date.now() + '-' + dataSeq;
+        pendingData[id] = { resolve: resolve, reject: reject };
+        send({ type: 'data', id: id, source: String(source == null ? '' : source), params: params && typeof params === 'object' ? params : {} });
+      });
+    },
+  });
+  window.addEventListener('message', function (e) {
+    var msg = e.data;
+    if (!msg || msg.source !== '${BRIDGE_SOURCE}' || msg.type !== 'data-result') return;
+    var id = msg.id;
+    var pending = pendingData[id];
+    if (!pending) return;
+    delete pendingData[id];
+    if (msg.ok) pending.resolve(msg.data); else pending.reject(new Error(msg.error || 'Request failed'));
   });
   function postHeight() {
     try {
@@ -134,6 +163,46 @@ ${input.html ?? ''}
   window.addEventListener('load', postHeight);
   setTimeout(postHeight, 60);
   setTimeout(postHeight, 350);
+
+  // Link mapping (mirrors the pure \`mapImportedHref\` in site/code/codePage.ts —
+  // keep both in sync): a relative link written for a static export
+  // ("about.html", "./about.html", "about/", "blog/index.html") is translated
+  // to the site-relative path our router understands ("/about", "/blog-page")
+  // so imported and hand-written pages can link to each other. External
+  // links, mailto:/tel:/javascript: and hash-only anchors are left alone —
+  // the browser (or the iframe's own in-page scrolling) handles those natively.
+  var RESERVED_SLUGS_ = ${JSON.stringify([...RESERVED_SLUGS])};
+  function mapHref(href) {
+    var trimmed = href.trim();
+    var hashIdx = trimmed.search(/[?#]/);
+    var pathPart = hashIdx === -1 ? trimmed : trimmed.slice(0, hashIdx);
+    var suffix = hashIdx === -1 ? '' : trimmed.slice(hashIdx);
+    pathPart = pathPart.replace(/^\\.\\//, '');
+    if (pathPart.charAt(0) === '/') pathPart = pathPart.slice(1);
+    pathPart = pathPart.replace(/\\/$/, '');
+    pathPart = pathPart.replace(/\\.html?$/i, '');
+    if (pathPart === 'index' || pathPart === '') return '/' + suffix;
+    var segs = pathPart.split('/').filter(function (s) { return s.length > 0; });
+    if (segs.length && segs[segs.length - 1].toLowerCase() === 'index') segs.pop();
+    if (!segs.length) return '/' + suffix;
+    var slug = segs.join('-').toLowerCase();
+    if (RESERVED_SLUGS_.indexOf(slug) !== -1) slug = slug + '-page';
+    return '/' + slug + suffix;
+  }
+  document.addEventListener('click', function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    var href = a.getAttribute('href') || '';
+    if (!href || /^(mailto:|tel:|javascript:)/i.test(href)) return;
+    if (/^#/.test(href)) return; // in-page anchor: native scroll within the frame
+    if (/^([a-z][a-z0-9+.-]*:)?\\/\\//i.test(href)) return; // external / protocol-relative
+    var mapped = mapHref(href);
+    if (mapped) {
+      e.preventDefault();
+      window.SITE.navigate(mapped);
+    }
+  }, true);
 })();
 </script>
 <script>${userJs}</script>
@@ -188,6 +257,28 @@ export function SandboxFrame(props: SandboxFrameProps) {
     function defaultOpenCart() {
       defaultNavigate('/cart');
     }
+    /**
+     * `SITE.data(source, params)`: the sandbox never fetches directly (it has
+     * no siteId/preview token and must stay same-origin-free) — it asks the
+     * parent, which validates `source` against the shared allow-list
+     * (`dataSources.ts`) before making the same request a visual `DataList`
+     * block would make, then posts the JSON result back.
+     */
+    async function handleDataRequest(id: string, source: unknown, params: unknown) {
+      const win = iframeRef.current?.contentWindow;
+      if (!win) return;
+      const reply = (msg: Record<string, unknown>) => {
+        try { win.postMessage({ source: BRIDGE_SOURCE, type: 'data-result', id, ...msg }, '*'); } catch { /* frame gone */ }
+      };
+      if (!isSiteDataSource(source)) { reply({ ok: false, error: `Unknown data source: ${String(source)}` }); return; }
+      if (!siteId) { reply({ ok: false, error: 'Not connected' }); return; }
+      try {
+        const result = await fetchSiteData(siteId, api, source, params && typeof params === 'object' ? (params as Record<string, unknown>) : {});
+        reply({ ok: true, data: result });
+      } catch (e) {
+        reply({ ok: false, error: e instanceof Error ? e.message : 'Request failed' });
+      }
+    }
     function handler(e: MessageEvent) {
       if (e.source !== iframeRef.current?.contentWindow) return;
       if (!isBridgeMessage(e.data)) return;
@@ -201,6 +292,8 @@ export function SandboxFrame(props: SandboxFrameProps) {
         (props.onAddToCart ?? defaultAddToCart)(String(data.slug ?? ''), Number(data.qty) || 1);
       } else if (data.type === 'openCart') {
         (props.onOpenCart ?? defaultOpenCart)();
+      } else if (data.type === 'data') {
+        void handleDataRequest(String(data.id ?? ''), data.source, data.params);
       }
     }
     window.addEventListener('message', handler);

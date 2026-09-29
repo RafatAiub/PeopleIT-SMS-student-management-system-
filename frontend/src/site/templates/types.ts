@@ -15,9 +15,19 @@ export type TemplateKey =
   | 'lms-academy'
   | 'saas-landing'
   | 'event-landing'
-  | 'course-launch';
+  | 'course-launch'
+  | 'bangla-portal'
+  | 'english-medium-corporate'
+  | 'portal-green'
+  | 'madrasa-portal'
+  | 'college-classic'
+  | 'kindergarten-bright'
+  | 'modern-bangla'
+  | 'newspaper-style';
 
-export type ThumbLayout = 'hero-center' | 'split' | 'playful' | 'classic' | 'arch' | 'cards' | 'bold' | 'grid' | 'minimal' | 'courses';
+export type ThumbLayout =
+  | 'hero-center' | 'split' | 'playful' | 'classic' | 'arch' | 'cards' | 'bold' | 'grid' | 'minimal' | 'courses'
+  | 'portal-banner' | 'corporate-bars' | 'newspaper';
 
 export interface TemplatePreview {
   /** CSS background for the gallery card (gradient; no external images). */
@@ -46,6 +56,6 @@ export interface SiteTemplate {
   preview: TemplatePreview;
   theme: SiteTheme;
   navigation: SiteNavigation;
-  settings?: Partial<Pick<SiteSettings, 'liteMode' | 'languages' | 'defaultLanguage' | 'shop' | 'courses'>>;
+  settings?: Partial<Pick<SiteSettings, 'liteMode' | 'languages' | 'defaultLanguage' | 'shop' | 'courses' | 'topBar' | 'hotlines' | 'importantLinks' | 'eServices'>>;
   pages: TemplatePage[];
 }

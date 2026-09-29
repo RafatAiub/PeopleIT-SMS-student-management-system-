@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2 } from 'lucide-react';
+import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2, Mail } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { SettingsTabNav, type SettingsNavItem } from './tabs/SettingsTabNav';
@@ -9,13 +9,14 @@ import InstitutionProfileTab from './tabs/InstitutionProfileTab';
 import BrandingTab from './tabs/BrandingTab';
 import ManageExamsTab from './tabs/ManageExamsTab';
 import NotificationsTab from './tabs/NotificationsTab';
+import EmailTemplatesTab from './tabs/EmailTemplatesTab';
 import LanguageRegionTab from './tabs/LanguageRegionTab';
 import SecuritySettings from './SecuritySettings';
 import GradingTab from './tabs/GradingTab';
 import PlanUsageTab from './tabs/PlanUsageTab';
 import BranchesTab from './tabs/BranchesTab';
 
-type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'locale' | 'plan' | 'branches';
+type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'email-templates' | 'locale' | 'plan' | 'branches';
 
 const Settings = () => {
   const { user } = useAuthStore();
@@ -31,6 +32,7 @@ const Settings = () => {
         { id: 'grading', label: 'Grading', icon: <Scale className="w-5 h-5" /> },
         { id: 'security', label: 'Security', icon: <ShieldCheck className="w-5 h-5" /> },
         { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" /> },
+        { id: 'email-templates', label: 'Email templates', icon: <Mail className="w-5 h-5" /> },
         { id: 'locale', label: 'Language & Region', icon: <Globe2 className="w-5 h-5" /> },
         ...(hasTenant
           ? [
@@ -77,6 +79,7 @@ const Settings = () => {
             {activeTab === 'grading' && isAdmin && <GradingTab />}
             {activeTab === 'security' && <SecuritySettings />}
             {activeTab === 'notifications' && <NotificationsTab />}
+            {activeTab === 'email-templates' && isAdmin && <EmailTemplatesTab />}
             {activeTab === 'locale' && <LanguageRegionTab />}
             {activeTab === 'branches' && hasTenant && <BranchesTab />}
             {activeTab === 'plan' && hasTenant && <PlanUsageTab />}

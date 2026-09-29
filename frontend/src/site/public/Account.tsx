@@ -1,6 +1,7 @@
-/** `/account` (login / register / orders / overview). */
+/** `/account` (login / register / orders / overview / forgot / reset-password). */
 import { useId, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { LogOut, PackageCheck } from 'lucide-react';
 import { useSiteAccount } from '../account';
 import { SiteApiError } from '../api';
@@ -9,7 +10,7 @@ import { useSiteRuntime, useSiteText } from '../runtime';
 import { formatSiteDate, formatSiteMoney } from '../strings';
 import { useSiteSeo } from './seo';
 
-type AccountSub = 'login' | 'register' | 'orders' | undefined;
+type AccountSub = 'login' | 'register' | 'orders' | 'forgot' | 'reset-password' | undefined;
 
 function LoginForm() {
   const { s } = useSiteText();
@@ -38,7 +39,103 @@ function LoginForm() {
       <div><label className="site-label" htmlFor={`${uid}-pass`}>{s('Password')}</label><input id={`${uid}-pass`} type="password" required className="site-input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></div>
       {error && <p className="site-error" role="alert">{error}</p>}
       <button type="submit" className="site-btn site-btn-primary" disabled={busy}>{s('Sign in')}</button>
+      <SiteLink href="/account/forgot" className="text-center text-sm">{s('Forgot password?')}</SiteLink>
       <SiteLink href="/account/register" className="text-center text-sm">{s('New here? Create an account')}</SiteLink>
+    </form>
+  );
+}
+
+function ForgotPasswordForm() {
+  const { siteId, api } = useSiteRuntime();
+  const { s } = useSiteText();
+  const uid = useId();
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!siteId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.accountForgot(siteId, email.trim());
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof SiteApiError ? err.message : s('Something went wrong'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sent) {
+    return (
+      <div className="site-card site-card-pad mx-auto flex w-full max-w-sm flex-col gap-3 text-center">
+        <h1 className="site-h2">{s('Forgot password?')}</h1>
+        <p className="site-alert site-alert-success">{s('If that account exists, we’ve sent a reset link to it.')}</p>
+        <SiteLink href="/account/login" className="text-center text-sm">{s('Already have an account? Sign in')}</SiteLink>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={submit} noValidate className="site-card site-card-pad mx-auto flex w-full max-w-sm flex-col gap-3">
+      <h1 className="site-h2 text-center">{s('Forgot password?')}</h1>
+      <p className="site-muted text-sm">{s('Enter your account email and we’ll send you a link to reset your password.')}</p>
+      <div><label className="site-label" htmlFor={`${uid}-email`}>{s('Email')}</label><input id={`${uid}-email`} type="email" required className="site-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></div>
+      {error && <p className="site-error" role="alert">{error}</p>}
+      <button type="submit" className="site-btn site-btn-primary" disabled={busy || !email.trim()}>{s('Send reset link')}</button>
+      <SiteLink href="/account/login" className="text-center text-sm">{s('Already have an account? Sign in')}</SiteLink>
+    </form>
+  );
+}
+
+function ResetPasswordForm() {
+  const { siteId, api } = useSiteRuntime();
+  const { s } = useSiteText();
+  const [params] = useSearchParams();
+  const token = params.get('token') ?? '';
+  const uid = useId();
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!siteId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.accountReset(siteId, token, password);
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof SiteApiError ? err.message : s('Something went wrong'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (!token) {
+    return (
+      <div className="site-card site-card-pad mx-auto flex w-full max-w-sm flex-col gap-3 text-center">
+        <h1 className="site-h2">{s('Reset password')}</h1>
+        <p className="site-error" role="alert">{s('This reset link is invalid or has expired.')}</p>
+        <SiteLink href="/account/forgot" className="text-center text-sm">{s('Forgot password?')}</SiteLink>
+      </div>
+    );
+  }
+  if (done) {
+    return (
+      <div className="site-card site-card-pad mx-auto flex w-full max-w-sm flex-col gap-3 text-center">
+        <h1 className="site-h2">{s('Reset password')}</h1>
+        <p className="site-alert site-alert-success">{s('Your password has been reset. You can now sign in.')}</p>
+        <SiteLink href="/account/login" className="site-btn site-btn-primary">{s('Sign in')}</SiteLink>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={submit} noValidate className="site-card site-card-pad mx-auto flex w-full max-w-sm flex-col gap-3">
+      <h1 className="site-h2 text-center">{s('Reset password')}</h1>
+      <div><label className="site-label" htmlFor={`${uid}-pass`}>{s('New password')}</label><input id={`${uid}-pass`} type="password" minLength={8} required className="site-input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></div>
+      {error && <p className="site-error" role="alert">{error}</p>}
+      <button type="submit" className="site-btn site-btn-primary" disabled={busy || password.length < 8}>{s('Reset password')}</button>
     </form>
   );
 }
@@ -135,6 +232,9 @@ export function AccountView({ sub }: { sub: AccountSub }) {
   const { s } = useSiteText();
   const account = useSiteAccount();
   useSiteSeo({ title: `${s('Account')} | ${settings.siteName}`, lang, siteName: settings.siteName, noindex: true });
+
+  if (sub === 'forgot') return <section className="site-pad-lg"><div className="site-container"><ForgotPasswordForm /></div></section>;
+  if (sub === 'reset-password') return <section className="site-pad-lg"><div className="site-container"><ResetPasswordForm /></div></section>;
 
   if (!account.token) {
     return <section className="site-pad-lg"><div className="site-container">{sub === 'register' ? <RegisterForm /> : <LoginForm />}</div></section>;

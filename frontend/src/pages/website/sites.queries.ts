@@ -2,17 +2,27 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import toast from 'react-hot-toast';
 import apiClient from '@/api/client';
 import type {
+  AdmissionPayload,
   ApplyMode,
   CommerceSummary,
+  CommitteeMemberPayload,
+  ComplianceResponse,
+  AlbumPayload,
   DnsRecord,
+  DownloadPayload,
   GenerateSiteResponse,
   GeneratedPage,
   PageSeo,
   PuckData,
+  SiteAdmissionCircular,
+  SiteAlbum,
+  SiteAlbumDetail,
+  SiteCommitteeMember,
   SiteCourse,
   SiteCourseLesson,
   SiteCustomer,
   SiteDomain,
+  SiteDownload,
   SiteEnrollment,
   SiteForm,
   SiteFormField,
@@ -29,9 +39,13 @@ import type {
   SitePost,
   SiteProduct,
   SiteProductKind,
+  SiteProfile,
   SiteSettings,
   SiteStatus,
   SiteTheme,
+  StaffVisibilityMember,
+  StaffVisibilityRole,
+  UpdateProfilePayload,
   FormTarget,
   MediaKind,
   PostStatus,
@@ -81,6 +95,13 @@ export const SITE_COURSES_KEY = ['sites', 'courses'] as const;
 export const SITE_ORDERS_KEY = ['sites', 'orders'] as const;
 export const SITE_CUSTOMERS_KEY = ['sites', 'customers'] as const;
 export const SITE_COMMERCE_SUMMARY_KEY = ['sites', 'commerce-summary'] as const;
+export const SITE_PROFILE_KEY = ['sites', 'profile'] as const;
+export const SITE_COMPLIANCE_KEY = ['sites', 'compliance'] as const;
+export const SITE_STAFF_VISIBILITY_KEY = ['sites', 'staff-visibility'] as const;
+export const SITE_COMMITTEE_KEY = ['sites', 'committee'] as const;
+export const SITE_ALBUMS_KEY = ['sites', 'albums'] as const;
+export const SITE_DOWNLOADS_KEY = ['sites', 'downloads'] as const;
+export const SITE_ADMISSIONS_KEY = ['sites', 'admissions'] as const;
 
 // ── Site ─────────────────────────────────────────────────────────────────────
 
@@ -549,6 +570,305 @@ export function useDeleteDomain() {
       toast.success('Domain removed.');
     },
     onError: (e) => toast.error(apiError(e, 'Could not remove the domain.')),
+  });
+}
+
+// =============================================================================
+// Website v3 (Track B/C) — institution profile, staff visibility, committee,
+// albums, downloads, admission circulars, DSHE compliance.
+// See docs/redesign/WEBSITE_V3_PLAN.md §7 for the contract.
+// =============================================================================
+
+export interface PortalPageParams {
+  page: number;
+  pageSize: number;
+}
+
+// ── Profile (B1) ─────────────────────────────────────────────────────────────
+
+export function useProfile(enabled = true) {
+  return useQuery({
+    queryKey: SITE_PROFILE_KEY,
+    queryFn: async (): Promise<SiteProfile> => unwrap<SiteProfile>(await apiClient.get('/sites/profile')),
+    enabled,
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: UpdateProfilePayload): Promise<SiteProfile> => unwrap<SiteProfile>(await apiClient.put('/sites/profile', payload)),
+    onSuccess: (profile) => {
+      qc.setQueryData(SITE_PROFILE_KEY, profile);
+      qc.invalidateQueries({ queryKey: SITE_COMPLIANCE_KEY });
+      toast.success('Profile saved.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not save the institution profile.')),
+  });
+}
+
+// ── DSHE compliance checklist ────────────────────────────────────────────────
+
+export function useCompliance(enabled = true) {
+  return useQuery({
+    queryKey: SITE_COMPLIANCE_KEY,
+    queryFn: async (): Promise<ComplianceResponse> => unwrap<ComplianceResponse>(await apiClient.get('/sites/me/compliance')),
+    enabled,
+  });
+}
+
+// ── Staff visibility (B2, owner decision 3) ─────────────────────────────────
+
+export interface StaffVisibilityParams extends PortalPageParams {
+  role?: StaffVisibilityRole | '';
+  q?: string;
+}
+
+export function useStaffVisibility(params: StaffVisibilityParams) {
+  return useQuery({
+    queryKey: [...SITE_STAFF_VISIBILITY_KEY, params],
+    queryFn: async (): Promise<Paged<StaffVisibilityMember>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.role) query.role = params.role;
+      if (params.q) query.q = params.q;
+      return paged<StaffVisibilityMember>(await apiClient.get('/sites/staff-visibility', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSetStaffVisibility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { userIds: string[]; showOnWebsite: boolean }) =>
+      unwrap(await apiClient.put('/sites/staff-visibility', payload)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_STAFF_VISIBILITY_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMPLIANCE_KEY });
+      toast.success('Visibility updated.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not update visibility.')),
+  });
+}
+
+// ── Committee (B2) ───────────────────────────────────────────────────────────
+
+export function useCommittee(params: PortalPageParams) {
+  return useQuery({
+    queryKey: [...SITE_COMMITTEE_KEY, params],
+    queryFn: async (): Promise<Paged<SiteCommitteeMember>> =>
+      paged<SiteCommitteeMember>(
+        await apiClient.get('/sites/committee', { params: { page: String(params.page), pageSize: String(params.pageSize) } })
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSaveCommitteeMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: CommitteeMemberPayload | Partial<CommitteeMemberPayload> }): Promise<SiteCommitteeMember> =>
+      unwrap<SiteCommitteeMember>(id ? await apiClient.put(`/sites/committee/${id}`, data) : await apiClient.post('/sites/committee', data)),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_COMMITTEE_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMPLIANCE_KEY });
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not save the committee member.')),
+  });
+}
+
+export function useDeleteCommitteeMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/committee/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_COMMITTEE_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMPLIANCE_KEY });
+      toast.success('Committee member removed.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not remove the committee member.')),
+  });
+}
+
+// ── Albums (B2) ──────────────────────────────────────────────────────────────
+
+export interface AlbumListParams extends PortalPageParams {
+  status?: SiteStatus | '';
+}
+
+export function useAlbums(params: AlbumListParams) {
+  return useQuery({
+    queryKey: [...SITE_ALBUMS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteAlbum>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.status) query.status = params.status;
+      return paged<SiteAlbum>(await apiClient.get('/sites/albums', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAlbum(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SITE_ALBUMS_KEY, id],
+    queryFn: async (): Promise<SiteAlbumDetail> => unwrap<SiteAlbumDetail>(await apiClient.get(`/sites/albums/${id}`)),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useSaveAlbum() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: AlbumPayload | Partial<AlbumPayload> }): Promise<SiteAlbum> =>
+      unwrap<SiteAlbum>(id ? await apiClient.put(`/sites/albums/${id}`, data) : await apiClient.post('/sites/albums', data)),
+    onSuccess: (album) => {
+      qc.invalidateQueries({ queryKey: SITE_ALBUMS_KEY });
+      qc.invalidateQueries({ queryKey: SITE_COMPLIANCE_KEY });
+      if (album?.id) qc.invalidateQueries({ queryKey: [...SITE_ALBUMS_KEY, album.id] });
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not save the album.')),
+  });
+}
+
+export function useDeleteAlbum() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/albums/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_ALBUMS_KEY });
+      toast.success('Album deleted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not delete the album.')),
+  });
+}
+
+export function useAddAlbumPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ albumId, url, caption }: { albumId: string; url: string; caption?: string }) =>
+      unwrap(await apiClient.post(`/sites/albums/${albumId}/photos`, { url, caption })),
+    onSuccess: (_, { albumId }) => qc.invalidateQueries({ queryKey: [...SITE_ALBUMS_KEY, albumId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not add the photo.')),
+  });
+}
+
+export function useUpdateAlbumPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ albumId, photoId, data }: { albumId: string; photoId: string; data: { caption?: string; sortOrder?: number } }) =>
+      unwrap(await apiClient.put(`/sites/albums/${albumId}/photos/${photoId}`, data)),
+    onSuccess: (_, { albumId }) => qc.invalidateQueries({ queryKey: [...SITE_ALBUMS_KEY, albumId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the photo.')),
+  });
+}
+
+export function useDeleteAlbumPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ albumId, photoId }: { albumId: string; photoId: string }) => apiClient.delete(`/sites/albums/${albumId}/photos/${photoId}`),
+    onSuccess: (_, { albumId }) => qc.invalidateQueries({ queryKey: [...SITE_ALBUMS_KEY, albumId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not remove the photo.')),
+  });
+}
+
+export function useReorderAlbumPhotos() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ albumId, ids }: { albumId: string; ids: string[] }) => apiClient.put(`/sites/albums/${albumId}/photos/order`, { ids }),
+    onSettled: (_r, _e, { albumId }) => qc.invalidateQueries({ queryKey: [...SITE_ALBUMS_KEY, albumId] }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the photo order.')),
+  });
+}
+
+// ── Downloads (B2) ───────────────────────────────────────────────────────────
+
+export interface DownloadListParams extends PortalPageParams {
+  status?: SiteStatus | '';
+  category?: string;
+}
+
+export function useDownloads(params: DownloadListParams) {
+  return useQuery({
+    queryKey: [...SITE_DOWNLOADS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteDownload>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.status) query.status = params.status;
+      if (params.category) query.category = params.category;
+      return paged<SiteDownload>(await apiClient.get('/sites/downloads', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useSaveDownload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: DownloadPayload }): Promise<SiteDownload> =>
+      unwrap<SiteDownload>(id ? await apiClient.put(`/sites/downloads/${id}`, data) : await apiClient.post('/sites/downloads', data)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SITE_DOWNLOADS_KEY }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the download.')),
+  });
+}
+
+export function useDeleteDownload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/downloads/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_DOWNLOADS_KEY });
+      toast.success('Download deleted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not delete the download.')),
+  });
+}
+
+// ── Admission circulars (B2) ─────────────────────────────────────────────────
+
+export interface AdmissionListParams extends PortalPageParams {
+  status?: SiteStatus | '';
+}
+
+export function useAdmissions(params: AdmissionListParams) {
+  return useQuery({
+    queryKey: [...SITE_ADMISSIONS_KEY, params],
+    queryFn: async (): Promise<Paged<SiteAdmissionCircular>> => {
+      const query: Record<string, string> = { page: String(params.page), pageSize: String(params.pageSize) };
+      if (params.status) query.status = params.status;
+      return paged<SiteAdmissionCircular>(await apiClient.get('/sites/admissions', { params: query }));
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdmission(id: string | undefined) {
+  return useQuery({
+    queryKey: [...SITE_ADMISSIONS_KEY, id],
+    queryFn: async (): Promise<SiteAdmissionCircular> => unwrap<SiteAdmissionCircular>(await apiClient.get(`/sites/admissions/${id}`)),
+    enabled: !!id,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useSaveAdmission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: AdmissionPayload }): Promise<SiteAdmissionCircular> =>
+      unwrap<SiteAdmissionCircular>(id ? await apiClient.put(`/sites/admissions/${id}`, data) : await apiClient.post('/sites/admissions', data)),
+    onSuccess: () => qc.invalidateQueries({ queryKey: SITE_ADMISSIONS_KEY }),
+    onError: (e) => toast.error(apiError(e, 'Could not save the admission circular.')),
+  });
+}
+
+export function useDeleteAdmission() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/sites/admissions/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: SITE_ADMISSIONS_KEY });
+      toast.success('Admission circular deleted.');
+    },
+    onError: (e) => toast.error(apiError(e, 'Could not delete the admission circular.')),
   });
 }
 

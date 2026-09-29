@@ -4,6 +4,7 @@
  * this lives entirely inside the existing Puck `Data` JSON.
  */
 import type { SitePageData } from '../types';
+import { isReservedSlug } from '../routes';
 
 export interface CodePageCode {
   html: string;
@@ -40,6 +41,56 @@ export function readCodePageProps(data: SitePageData | { root?: { props?: Record
     },
     chrome: props.chrome === 'none' ? 'none' : 'full',
   };
+}
+
+/**
+ * Maps a link found inside imported HTML (e.g. `about.html`, `./about.html`,
+ * `about/`, `blog/index.html#team`) to the site-relative path our router
+ * understands (`/about`, `/blog-page#team`). Used both to rewrite links at
+ * import time (Track D) and — as a small hand-ported copy inside the sandbox
+ * bridge script, see `SandboxFrame.tsx` — at click time, so a page someone
+ * hand-writes with relative `.html` links still navigates correctly.
+ *
+ * Rules: `index.html` → `/`; a trailing `/index` segment is dropped; nested
+ * segments join with `-` (matching the slug Track D gives that page); a
+ * result that collides with a reserved top-level slug (`blog`, `shop`, …,
+ * see `../routes`'s `RESERVED_SLUGS`) gets a `-page` suffix, matching the
+ * renamed slug Track D actually saved the page under. `#hash`/`?query` are
+ * kept. External links, `mailto:`/`tel:`/`javascript:` and hash-only anchors
+ * (an in-page scroll, handled natively inside the sandbox) return `null`.
+ */
+export function mapImportedHref(href: string, knownSlugs?: string[]): string | null {
+  if (!href) return null;
+  const trimmed = href.trim();
+  if (!trimmed) return null;
+  if (/^(mailto:|tel:|javascript:)/i.test(trimmed)) return null;
+  if (/^#/.test(trimmed)) return null;
+  if (/^([a-z][a-z0-9+.-]*:)?\/\//i.test(trimmed)) return null; // scheme:// or protocol-relative //
+
+  const hashIdx = trimmed.search(/[?#]/);
+  let pathPart = hashIdx === -1 ? trimmed : trimmed.slice(0, hashIdx);
+  const suffix = hashIdx === -1 ? '' : trimmed.slice(hashIdx);
+
+  pathPart = pathPart.replace(/^\.\//, '');
+  if (pathPart.startsWith('/')) pathPart = pathPart.slice(1);
+  pathPart = pathPart.replace(/\/$/, '');
+  pathPart = pathPart.replace(/\.html?$/i, '');
+
+  if (pathPart === 'index' || pathPart === '') return `/${suffix}`;
+
+  const segs = pathPart.split('/').filter(Boolean);
+  if (segs.length && segs[segs.length - 1].toLowerCase() === 'index') segs.pop();
+  if (!segs.length) return `/${suffix}`;
+
+  let slug = segs.join('-').toLowerCase();
+  if (isReservedSlug(slug)) slug = `${slug}-page`;
+  // `knownSlugs`, when given, is informational only (callers may prefer an exact
+  // known match); the computed slug is still the best-effort mapping either way.
+  if (knownSlugs && knownSlugs.length && !knownSlugs.includes(slug)) {
+    const unsuffixed = slug.replace(/-page$/, '');
+    if (knownSlugs.includes(unsuffixed)) slug = unsuffixed;
+  }
+  return `/${slug}${suffix}`;
 }
 
 /** A nice-looking starter landing page for "Blank landing page" (Engineer C's "New page" flow). */

@@ -1,12 +1,16 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle2, LayoutTemplate, Palette, Save } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Image as ImageIcon, LayoutPanelTop, LayoutTemplate, Palette, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Card, CardHeader, Button, Badge, Modal, Select, Alert } from '@/components/ui';
+import { Card, CardHeader, Button, Badge, Modal, Select, Input, Alert } from '@/components/ui';
 import { useT, useLocale } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { SITE_TEMPLATES, TemplateThumbnail, templateApplyPayload, type SiteTemplate as Template } from '@/site/templates';
-import { SITE_FONTS, SITE_RADII, checkThemeContrast, normaliseTheme, readableTextOn } from '@/site/theme';
-import type { SiteTheme as BlockTheme } from '@/site/types';
+import {
+  FOOTER_STYLES, HEADER_STYLES, LAYOUT_MODES, PAGE_BACKGROUNDS,
+  SITE_FONTS, SITE_RADII, checkThemeContrast, normaliseTheme, readableTextOn,
+} from '@/site/theme';
+import type { SiteFooterStyle, SiteHeaderStyle, SiteTheme as BlockTheme } from '@/site/types';
+import { ImportWebsiteButton } from '../import/ImportWizard';
 import { useApplyTemplate, useUpdateSite } from '../sites.queries';
 import { isHexColor } from '../siteUtils';
 import type { ApplyMode, SiteMeResponse } from '../sites.types';
@@ -108,6 +112,90 @@ const ColorInput: React.FC<{ id: string; label: string; value: string; onChange:
   );
 };
 
+/** Tiny abstract mockup of a header chrome variant — helps pick a style without leaving the page. */
+const HeaderStylePreview: React.FC<{ style: SiteHeaderStyle; primary: string }> = ({ style, primary }) => {
+  const dot = <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-white/25" />;
+  const bar = (h: string, className = '') => <div className={cn('rounded-sm', className)} style={{ height: h }} />;
+  const body = (() => {
+    switch (style) {
+      case 'portal':
+        return (
+          <div className="flex flex-col gap-1 w-full">
+            {bar('4px', 'w-full bg-slate-300 dark:bg-white/20')}
+            <div className="flex items-center justify-between px-1">
+              <span className="w-6 h-3 rounded-sm" style={{ background: primary }} />
+              <div className="flex gap-1">{dot}{dot}{dot}</div>
+            </div>
+          </div>
+        );
+      case 'corporate':
+        return (
+          <div className="w-full rounded-sm px-1.5 py-1.5 flex items-center justify-between" style={{ background: '#0b1a3a' }}>
+            <span className="w-5 h-2.5 rounded-sm bg-white/80" />
+            <div className="flex gap-1.5">{[0, 1, 2].map((i) => <span key={i} className="w-2 h-2 rounded-full bg-white/40" />)}</div>
+          </div>
+        );
+      case 'banner':
+        return (
+          <div className="w-full h-9 rounded-sm flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${primary}, #00000022)` }}>
+            <span className="w-8 h-2.5 rounded-sm bg-white/85" />
+          </div>
+        );
+      case 'centered':
+        return (
+          <div className="flex flex-col items-center gap-1 w-full">
+            <span className="w-6 h-3 rounded-sm" style={{ background: primary }} />
+            <div className="flex gap-1.5">{dot}{dot}{dot}</div>
+          </div>
+        );
+      case 'minimal':
+        return (
+          <div className="flex items-center justify-between w-full px-0.5">
+            <span className="w-5 h-2.5 rounded-sm" style={{ background: primary }} />
+            <div className="flex gap-1">{dot}{dot}</div>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex items-center justify-between w-full px-1 py-1 rounded-md bg-white/70 dark:bg-white/10 backdrop-blur">
+            <span className="w-6 h-3 rounded-sm" style={{ background: primary }} />
+            <div className="flex gap-1">{dot}{dot}{dot}</div>
+          </div>
+        );
+    }
+  })();
+  return <div className="h-11 flex items-center justify-center rounded-md border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-2 py-1.5">{body}</div>;
+};
+
+/** Tiny abstract mockup of a footer chrome variant. */
+const FooterStylePreview: React.FC<{ style: SiteFooterStyle }> = ({ style }) => {
+  const col = <div className="flex-1 space-y-1"><span className="block w-full h-1 rounded-full bg-slate-300 dark:bg-white/20" /><span className="block w-2/3 h-1 rounded-full bg-slate-200 dark:bg-white/10" /></div>;
+  const dark = style === 'corporate';
+  const cols = style === 'corporate' || style === 'columns' ? 4 : style === 'portal' ? 3 : style === 'minimal' ? 1 : 3;
+  return (
+    <div className={cn('h-11 flex items-center gap-2 rounded-md border px-2', dark ? 'border-slate-700' : 'border-slate-200 dark:border-white/10')} style={{ background: dark ? '#0b1a3a' : undefined }}>
+      {Array.from({ length: cols }).map((_, i) => (
+        <div key={i} className="flex-1 space-y-1">
+          <span className={cn('block w-full h-1 rounded-full', dark ? 'bg-white/25' : 'bg-slate-300 dark:bg-white/20')} />
+          {cols > 1 && <span className={cn('block w-2/3 h-1 rounded-full', dark ? 'bg-white/15' : 'bg-slate-200 dark:bg-white/10')} />}
+        </div>
+      ))}
+      {cols === 1 && col}
+    </div>
+  );
+};
+
+/** Small pattern swatch reusing the public site's own CSS classes (`.site-bg-*`), so the preview matches the real background exactly. */
+const BackgroundPreview: React.FC<{ value: string; primary: string; accent: string }> = ({ value, primary, accent }) => {
+  const isImage = /^https:\/\//i.test(value);
+  return (
+    <div
+      className={cn('h-11 rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 overflow-hidden bg-cover bg-center', !isImage && value !== 'none' && `site-bg-${value}`)}
+      style={{ '--site-primary': primary, '--site-accent': accent, backgroundImage: isImage ? `url(${value})` : undefined } as React.CSSProperties}
+    />
+  );
+};
+
 export const DesignTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
   const t = useT();
   const { lang } = useLocale();
@@ -131,7 +219,12 @@ export const DesignTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader icon={<LayoutTemplate className="w-4 h-4" />} title={t('Templates')} description={t('Start from a ready-made design. You can change every block afterwards.')} />
+        <CardHeader
+          icon={<LayoutTemplate className="w-4 h-4" />}
+          title={t('Templates')}
+          description={t('Start from a ready-made design, or bring in a site built elsewhere. You can change every block afterwards.')}
+          actions={<ImportWebsiteButton me={me} />}
+        />
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {SITE_TEMPLATES.map((tpl) => {
             const current = me.site.templateKey === tpl.key;
@@ -224,6 +317,74 @@ export const DesignTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
                 <ul className="list-disc ml-4 space-y-0.5">{report.warnings.map((w) => <li key={w}>{t(w)}</li>)}</ul>
               </Alert>
             )}
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <CardHeader
+          icon={<LayoutPanelTop className="w-4 h-4" />}
+          title={t('Header, footer & layout')}
+          description={t('Portal-style chrome for Bangladeshi school sites, or keep the modern default.')}
+          actions={
+            <Button
+              leftIcon={<Save className="w-4 h-4" />}
+              disabled={!dirty}
+              isLoading={save.isPending}
+              onClick={() => save.mutate({ theme: theme as never }, { onSuccess: () => { setDirty(false); toast.success(t('Theme saved. Publish the site to make it public.')); } })}
+            >
+              {t('Save theme')}
+            </Button>
+          }
+        />
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Select
+              id="site-theme-headerStyle"
+              label={t('Header style')}
+              value={theme.headerStyle ?? 'modern'}
+              onChange={(e) => set('headerStyle', e.target.value as BlockTheme['headerStyle'])}
+              options={HEADER_STYLES.map(([k, label]) => ({ value: k, label: t(label) }))}
+            />
+            <HeaderStylePreview style={(theme.headerStyle ?? 'modern') as SiteHeaderStyle} primary={theme.primary} />
+          </div>
+          <div className="space-y-1.5">
+            <Select
+              id="site-theme-footerStyle"
+              label={t('Footer style')}
+              value={theme.footerStyle ?? 'modern'}
+              onChange={(e) => set('footerStyle', e.target.value as BlockTheme['footerStyle'])}
+              options={FOOTER_STYLES.map(([k, label]) => ({ value: k, label: t(label) }))}
+            />
+            <FooterStylePreview style={(theme.footerStyle ?? 'modern') as SiteFooterStyle} />
+          </div>
+          <Select
+            id="site-theme-layout"
+            label={t('Page layout')}
+            value={theme.layout ?? 'full'}
+            onChange={(e) => set('layout', e.target.value as BlockTheme['layout'])}
+            options={LAYOUT_MODES.map(([k, label]) => ({ value: k, label: t(label) }))}
+            helperText={t('Boxed pairs well with a page background pattern below.')}
+          />
+          <div className="space-y-1.5">
+            <Select
+              id="site-theme-pageBackground"
+              label={t('Page background')}
+              value={/^https:\/\//i.test(theme.pageBackground ?? '') ? '__image' : (theme.pageBackground ?? 'none')}
+              onChange={(e) => set('pageBackground', e.target.value === '__image' ? 'https://' : e.target.value)}
+              options={[...PAGE_BACKGROUNDS.map(([k, label]) => ({ value: k, label: t(label) })), { value: '__image', label: t('Custom image URL') }]}
+            />
+            {/^https:\/\//i.test(theme.pageBackground ?? '') && (
+              <Input
+                id="site-theme-pageBackground-url"
+                aria-label={t('Background image URL')}
+                leftIcon={<ImageIcon className="w-4 h-4" />}
+                placeholder="https://"
+                value={theme.pageBackground ?? ''}
+                onChange={(e) => set('pageBackground', e.target.value)}
+              />
+            )}
+            <BackgroundPreview value={theme.pageBackground ?? 'none'} primary={theme.primary} accent={theme.accent} />
           </div>
         </div>
       </Card>
