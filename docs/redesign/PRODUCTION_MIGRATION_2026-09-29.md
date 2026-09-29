@@ -14,7 +14,7 @@ Production (Neon) was migrated from branch `Habib` **without** merging `origin/m
 1. **`20260927000000_wave_c_feature_foundation`**, run with its 7 `StaffAttendance` statements removed (the table, 3 indexes, 3 foreign keys), as a single transaction via `prisma db execute`. It was then marked applied with `prisma migrate resolve --applied`.
 2. **`20260928000000_sites_builder`**, **`20260929000000_sites_commerce_lms`**, **`20260929100000_email_delivery`** and **`20260929200000_sites_portal_data`**, applied normally with `prisma migrate deploy`.
 
-The same procedure was rehearsed first on a local database built with production's exact history (`sms_prodsim`). A full `pg_dump` backup was taken before the run and saved at `D:PeopleITbackupsprod-before-v3-migration-2026-09-29.dump` (80 tables, outside the repo).
+The same procedure was rehearsed first on a local database built with production's exact history (`sms_prodsim`). A full `pg_dump` backup was taken before the run and saved at `D:/PeopleIT/backups/prod-before-v3-migration-2026-09-29.dump` (80 tables, outside the repo).
 
 ## Open conflict: `StaffAttendance`
 
