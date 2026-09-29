@@ -141,7 +141,7 @@ export const Header: React.FC = () => {
             <LogoMark className="w-7 h-7 flex-shrink-0 hidden sm:block" />
           )}
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-accent-600 dark:from-primary-400 dark:to-accent-400">
-            PeopleIT SMS
+            PeopleNIT SMS
           </h1>
         </div>
 

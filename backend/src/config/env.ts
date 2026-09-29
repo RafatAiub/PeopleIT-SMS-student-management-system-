@@ -17,7 +17,7 @@ const envSchema = z.object({
   // Application
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
-  APP_NAME: z.string().default('PeopleIT SMS'),
+  APP_NAME: z.string().default('PeopleNIT SMS'),
   APP_URL: z.string().url().default('http://localhost:3001'),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
   // Comma-separated list of additional allowed CORS origins (e.g. Vercel preview URLs).
@@ -36,6 +36,16 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
+
+  // Encrypts TOTP secrets at rest (AES-256-GCM). Optional: when unset the key
+  // is derived from JWT_ACCESS_SECRET so local dev works out of the box.
+  // Set it explicitly in production — sharing one secret across two purposes
+  // means rotating the JWT secret would silently lock out every 2FA user.
+  ENCRYPTION_KEY: z.string().min(32, 'ENCRYPTION_KEY must be at least 32 chars').optional(),
+
+  // Signs the short-lived token that carries a half-finished login between
+  // the password step and the 2FA step.
+  MFA_CHALLENGE_EXPIRES_IN: z.string().default('5m'),
 
   // Payment Gateways
   BKASH_ENABLED: z
@@ -95,7 +105,7 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('false'),
-  EMAIL_FROM: z.string().default('PeopleIT SMS <noreply@peopleit.com>'),
+  EMAIL_FROM: z.string().default('PeopleNIT SMS <noreply@peopleit.com>'),
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),

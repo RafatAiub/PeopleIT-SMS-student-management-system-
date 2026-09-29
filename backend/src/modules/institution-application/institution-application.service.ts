@@ -4,9 +4,15 @@ import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppEr
 import { logger } from '../../utils/logger';
 import * as applicationRepository from './institution-application.repository';
 import { provisionInstitutionAndAdmin } from '../institution/institution.service';
+import { checkEmailAuthorized } from '../authorized-email/authorized-email.service';
 import type { SubmitApplicationDtoType } from './institution-application.dto';
 
 export async function submitApplication(data: SubmitApplicationDtoType) {
+  // Authorization gate: throws 401 for an email a Super Admin hasn't
+  // pre-approved. Must run before any write so an unauthorized attempt
+  // never leaves a PENDING application (or any other record) behind.
+  await checkEmailAuthorized(data.applicantEmail);
+
   const existingInstitution = await prisma.institution.findUnique({ where: { slug: data.slug } });
   if (existingInstitution) {
     throw new ConflictError(`Institution Code / EIIN '${data.slug}' is already registered`);

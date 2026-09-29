@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
 
@@ -40,6 +41,13 @@ const DEFAULT_CONFIG: CustomizerConfig = {
 export default function WebsiteBuilder() {
   const [config, setConfig] = useState<CustomizerConfig>(DEFAULT_CONFIG);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+
+  // Sidebar "Contact Us" links here as /website-builder#contact.
+  useEffect(() => {
+    if (loading || location.hash !== '#contact') return;
+    document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, location.hash]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -121,7 +129,7 @@ export default function WebsiteBuilder() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Left Side: Inputs visual configuration */}
         <div className="xl:col-span-5 space-y-6">
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
+          <div className="glass-card p-6 rounded-2xl space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Palette className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Theme &amp; Brand Styling
@@ -148,7 +156,7 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
+          <div className="glass-card p-6 rounded-2xl space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Type className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Hero Section Text
@@ -179,7 +187,7 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
+          <div className="glass-card p-6 rounded-2xl space-y-4">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Info className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               About Institution Section
@@ -197,7 +205,7 @@ export default function WebsiteBuilder() {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs space-y-4">
+          <div id="contact" className="glass-card p-6 rounded-2xl space-y-4 scroll-mt-6">
             <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <Phone className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
               Contact Information
@@ -243,7 +251,7 @@ export default function WebsiteBuilder() {
         <div className="xl:col-span-7 space-y-2">
           <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase px-1">Live Web Preview (Desktop Mock)</span>
 
-          <div className="bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[680px]">
+          <div className="bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col h-[680px]">
             {/* Desktop window controls bar */}
             <div className="bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-2">
               <div className="flex gap-1.5">

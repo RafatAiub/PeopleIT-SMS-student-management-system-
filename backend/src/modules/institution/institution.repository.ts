@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prisma';
+import { PLATFORM_INSTITUTION_SLUG } from '../../config/platformInstitution';
 import type { UpdateWebsiteConfigDtoType } from './institution.dto';
 
 export async function findById(id: string) {
@@ -56,6 +57,8 @@ export async function updateWebsiteConfig(id: string, data: UpdateWebsiteConfigD
 
 export async function listAll() {
   return prisma.institution.findMany({
+    // Never surface the internal notification-anchor institution as a tenant.
+    where: { slug: { not: PLATFORM_INSTITUTION_SLUG } },
     select: {
       id: true,
       name: true,
@@ -102,7 +105,8 @@ export async function listPaginated(params: {
   const sortBy = params.sortBy || 'createdAt';
   const sortOrder = params.sortOrder === 'asc' ? 'asc' : 'desc';
 
-  const whereConditions: any[] = [];
+  // Never surface the internal notification-anchor institution as a tenant.
+  const whereConditions: any[] = [{ slug: { not: PLATFORM_INSTITUTION_SLUG } }];
 
   if (status === 'ACTIVE') {
     whereConditions.push({ isActive: true });
@@ -205,12 +209,14 @@ export async function getGlobalMetrics() {
     recentRegistrations,
     recentAuditLogs,
   ] = await Promise.all([
-    prisma.institution.count(),
-    prisma.institution.count({ where: { isActive: true } }),
-    prisma.institution.count({ where: { isActive: false } }),
+    prisma.institution.count({ where: { slug: { not: PLATFORM_INSTITUTION_SLUG } } }),
+    prisma.institution.count({ where: { isActive: true, slug: { not: PLATFORM_INSTITUTION_SLUG } } }),
+    prisma.institution.count({ where: { isActive: false, slug: { not: PLATFORM_INSTITUTION_SLUG } } }),
     prisma.user.count(),
     prisma.student.count(),
-    prisma.institution.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+    prisma.institution.count({
+      where: { createdAt: { gte: thirtyDaysAgo }, slug: { not: PLATFORM_INSTITUTION_SLUG } },
+    }),
     prisma.auditLog.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },

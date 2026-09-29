@@ -33,6 +33,11 @@ const userSelect = {
       qualification: true,
       subjectExpertise: true,
       joiningDate: true,
+      gender: true,
+      dateOfBirth: true,
+      address: true,
+      permanentAddress: true,
+      canManageStudents: true,
     }
   },
   guardianProfile: {

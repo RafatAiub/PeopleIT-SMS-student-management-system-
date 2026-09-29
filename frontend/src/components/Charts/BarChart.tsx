@@ -44,7 +44,7 @@ export const BarChart: React.FC<BarChartProps> = ({
   xKey,
   yKey,
   title,
-  color = '#4F46E5',
+  color = '#2B5C74',
   formatValue,
 }) => {
   return (

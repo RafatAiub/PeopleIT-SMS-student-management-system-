@@ -421,7 +421,7 @@ export default function IdCardGenerate() {
       {activeTab === 'generate' && (
         <>
           {noTemplates ? (
-            <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30">
+            <div className="glass-card">
               <EmptyState
                 icon={<IdCardIcon className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
                 title="No active templates yet"
@@ -439,7 +439,7 @@ export default function IdCardGenerate() {
           ) : (
             <>
               {/* Step 1 — template + live preview */}
-              <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6">
+              <div className="glass-card p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold flex-shrink-0">1</span>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Choose a Template</h3>
@@ -483,7 +483,7 @@ export default function IdCardGenerate() {
               </div>
 
               {selectedTemplate && (
-                <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
+                <div className="glass-card p-6 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-500 text-white text-xs font-bold flex-shrink-0">2</span>
@@ -696,7 +696,7 @@ export default function IdCardGenerate() {
                       View in Issued Cards <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <div className="overflow-x-auto rounded-xl border border-emerald-200/60 dark:border-emerald-500/10 bg-white dark:bg-slate-900/40">
+                  <div className="overflow-x-auto rounded-xl border border-emerald-200/60 dark:border-emerald-500/10 bg-white dark:bg-slate-900">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-emerald-100 dark:border-emerald-500/10 bg-emerald-50/60 dark:bg-emerald-500/5">
@@ -736,7 +736,7 @@ export default function IdCardGenerate() {
       )}
 
       {activeTab === 'issued' && (
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
+        <div className="glass-card p-6 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Issued ID Cards</h3>
             <div className="flex flex-wrap gap-2">

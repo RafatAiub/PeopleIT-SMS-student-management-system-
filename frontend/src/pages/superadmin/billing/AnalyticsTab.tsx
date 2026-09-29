@@ -136,7 +136,7 @@ const AnalyticsTab: React.FC = () => {
                   formatter={(value: number) => [formatCurrency(value), 'Revenue']}
                   contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid rgba(148,163,184,0.3)' }}
                 />
-                <Bar dataKey="revenue" fill="#4F46E5" radius={[6, 6, 0, 0]} name="Revenue" />
+                <Bar dataKey="revenue" fill="#2B5C74" radius={[6, 6, 0, 0]} name="Revenue" />
               </BarChart>
             </ResponsiveContainer>
           </div>

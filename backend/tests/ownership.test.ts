@@ -378,10 +378,10 @@ describe('Exam results ownership scoping (GUARDIAN/STUDENT)', () => {
     instA = await createTestInstitution('resultsA');
 
     exam1 = await prisma.exam.create({
-      data: { institutionId: instA.institutionId, name: 'Term 1', startDate: new Date(), endDate: new Date() },
+      data: { institutionId: instA.institutionId, name: 'Term 1', startDate: new Date(), endDate: new Date(), isPublished: true },
     });
     exam2 = await prisma.exam.create({
-      data: { institutionId: instA.institutionId, name: 'Term 2', startDate: new Date(), endDate: new Date() },
+      data: { institutionId: instA.institutionId, name: 'Term 2', startDate: new Date(), endDate: new Date(), isPublished: true },
     });
 
     resultForA = await prisma.examResult.create({
@@ -554,6 +554,20 @@ describe('Exam results ownership scoping (GUARDIAN/STUDENT)', () => {
     const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
     expect(ids).toContain(resultForA.id);
     expect(ids).not.toContain(resultForA_exam2.id);
+  });
+
+  it('hides results of an unpublished exam until it is published', async () => {
+    const { token } = instA.usersByRole[UserRole.STUDENT];
+    await prisma.exam.update({ where: { id: exam2.id }, data: { isPublished: false } });
+    try {
+      const res = await request(app).get('/api/v1/results/me').set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      const ids = (res.body.data as Array<{ id: string }>).map((r) => r.id);
+      expect(ids).toContain(resultForA.id);
+      expect(ids).not.toContain(resultForA_exam2.id);
+    } finally {
+      await prisma.exam.update({ where: { id: exam2.id }, data: { isPublished: true } });
+    }
   });
 
   it('unauthenticated request is rejected (401)', async () => {

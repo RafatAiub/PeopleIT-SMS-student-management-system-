@@ -18,8 +18,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   secondary: 'btn-secondary',
   danger: 'btn-danger',
   ghost: 'bg-transparent hover:bg-slate-100 dark:hover:bg-white/5 text-slate-700 dark:text-slate-300 font-medium rounded-lg transition-all duration-200 inline-flex items-center gap-2 px-4 py-2',
-  // Established app-wide "primary CTA" look (Add Student, Generate Invoice, etc.) — distinct from the flatter .btn-primary.
-  gradient: 'bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white shadow-lg shadow-blue-500/20 rounded-xl font-semibold inline-flex items-center gap-2 transition-all px-5 py-2.5',
+  // Established app-wide "primary CTA" look (Add Student, Generate Invoice, etc.) — a bolder, larger sibling of .btn-primary for standout actions.
+  gradient: 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm rounded-xl font-semibold inline-flex items-center gap-2 transition-all px-5 py-2.5',
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

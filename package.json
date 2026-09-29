@@ -2,7 +2,7 @@
   "name": "peopleit-sms",
   "version": "1.0.0",
   "private": true,
-  "description": "PeopleIT SMS — AI-Powered Multi-Tenant Student Management System",
+  "description": "PeopleNIT SMS — AI-Powered Multi-Tenant Student Management System",
   "workspaces": [
     "backend",
     "frontend"

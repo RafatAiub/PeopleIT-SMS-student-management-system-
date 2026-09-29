@@ -323,7 +323,7 @@ const GuardianDashboard = () => {
               onClick={() => setSelectedChildId(child.id)}
               className={`flex items-center gap-2.5 pl-2 pr-5 py-2 rounded-2xl text-base font-bold transition-all ${
                 selectedChildId === child.id
-                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
+                  ? 'bg-primary-600 text-white shadow-sm'
                   : 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
               }`}
             >

@@ -36,6 +36,9 @@ export interface Plan {
   createdAt: string;
   updatedAt: string;
   prices: PlanPrice[];
+  // Only returned by the super-admin listAllPlans endpoint — how many
+  // institutions sit on this plan (a plan with any is archive-only).
+  _count?: { subscriptions: number };
 }
 
 export interface Subscription {
@@ -273,6 +276,18 @@ export const billingApi = {
 
   archivePlan: async (id: string): Promise<Plan> => {
     const { data } = await apiClient.post(`/billing/super-admin/plans/${id}/archive`);
+    return data.data;
+  },
+
+  restorePlan: async (id: string): Promise<Plan> => {
+    const { data } = await apiClient.post(`/billing/super-admin/plans/${id}/restore`);
+    return data.data;
+  },
+
+  // Permanent — the backend rejects this with 409 for any plan that has
+  // subscriptions or payments behind it.
+  deletePlan: async (id: string): Promise<{ id: string; name: string }> => {
+    const { data } = await apiClient.delete(`/billing/super-admin/plans/${id}`);
     return data.data;
   },
 

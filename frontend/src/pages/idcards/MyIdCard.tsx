@@ -104,7 +104,7 @@ export default function MyIdCard() {
           <CreditCard className="w-6 h-6 text-primary-500" />
           My ID Card
         </h2>
-        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30">
+        <div className="glass-card">
           <EmptyState
             icon={<Inbox className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
             title="No ID card has been issued to you yet"
@@ -160,7 +160,7 @@ export default function MyIdCard() {
         </Button>
       </div>
 
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-8 flex flex-col items-center gap-5">
+      <div className="glass-card p-8 flex flex-col items-center gap-5">
         <IdCardPreview template={card.template} data={previewData} />
         <div
           className={`px-4 py-1.5 rounded-full text-xs font-bold ${

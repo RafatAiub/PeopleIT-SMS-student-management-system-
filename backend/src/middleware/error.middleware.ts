@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
-import { AppError, ValidationError, LockedError } from '../utils/AppError';
+import { AppError, ValidationError, LockedError, AuthRequirementError } from '../utils/AppError';
 import { errorResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
@@ -51,6 +51,15 @@ export function globalErrorHandler(
     // LockedError carries a retry countdown for the client to render
     if (err instanceof LockedError) {
       return errorResponse(res, err.message, err.statusCode, { retryAfterSeconds: err.retryAfterSeconds });
+    }
+
+    // AuthRequirementError carries a machine-readable reason so the sign-in
+    // page can offer the right next step (resend verification, contact admin…).
+    if (err instanceof AuthRequirementError) {
+      return errorResponse(res, err.message, err.statusCode, {
+        code: err.code,
+        ...(err.details ?? {}),
+      });
     }
 
     return errorResponse(res, err.message, err.statusCode);

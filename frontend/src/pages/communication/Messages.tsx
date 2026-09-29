@@ -149,7 +149,7 @@ const Messages = () => {
 
       <div className="flex-1 flex gap-6 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-80 lg:w-96 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 shadow-xs">
+        <div className="w-80 lg:w-96 glass-card rounded-2xl flex flex-col overflow-hidden">
           <div className="p-5 border-b border-slate-200/50 dark:border-white/5">
             <Button variant="gradient" onClick={() => setIsSearchOpen(true)} className="w-full justify-center py-3 rounded-2xl text-sm">
               <Plus className="w-5 h-5" /> Start New Chat
@@ -167,7 +167,7 @@ const Messages = () => {
                   onClick={() => setActiveChatId(conv.user.id)}
                   className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all ${
                     activeChatId === conv.user.id 
-                      ? 'bg-blue-50 dark:bg-blue-500/20 border border-blue-200 dark:border-blue-500/30' 
+                      ? 'bg-primary-50 dark:bg-primary-500/20 border border-primary-200 dark:border-primary-500/30'
                       : 'hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent'
                   }`}
                 >
@@ -203,7 +203,7 @@ const Messages = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col overflow-hidden bg-white dark:bg-slate-900/40 relative shadow-xs">
+        <div className="flex-1 glass-card rounded-2xl flex flex-col overflow-hidden relative">
           {activeUser ? (
             <>
               <div className="p-5 border-b border-slate-200/50 dark:border-white/5 flex items-center gap-4 bg-slate-50/50 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-10">
@@ -216,14 +216,14 @@ const Messages = () => {
                 )}
                 <div>
                   <h3 className="font-bold text-slate-900 dark:text-white text-lg">{activeUser.firstName} {activeUser.lastName}</h3>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium tracking-wider uppercase">{activeUser.role}</p>
+                  <p className="text-xs text-primary-600 dark:text-primary-400 font-medium tracking-wider uppercase">{activeUser.role}</p>
                 </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {loadingHistory ? (
                   <div className="flex h-full items-center justify-center text-slate-500">
-                    <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500">
@@ -238,7 +238,7 @@ const Messages = () => {
                       <div key={msg.id || i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[70%] rounded-3xl px-5 py-3 ${
                           isMine 
-                            ? 'bg-blue-600 text-white rounded-br-sm shadow-lg shadow-blue-500/20' 
+                            ? 'bg-primary-600 text-white rounded-br-sm shadow-lg shadow-primary-500/20'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-sm border border-slate-200 dark:border-white/5 shadow-xs'
                         }`}>
                           <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -266,7 +266,7 @@ const Messages = () => {
                   <button
                     type="submit"
                     disabled={!newMessage.trim()}
-                    className="p-4 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 disabled:opacity-50 disabled:hover:from-blue-600 disabled:hover:to-primary-600 text-white rounded-2xl transition-all shadow-xl shadow-blue-500/20 flex-shrink-0"
+                    className="p-4 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-2xl transition-all shadow-sm flex-shrink-0"
                   >
                     <Send className="w-6 h-6" />
                   </button>

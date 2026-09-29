@@ -66,6 +66,11 @@ export class UserService {
           qualification: data.qualification,
           subjectExpertise: data.subjectExpertise,
           joiningDate: data.joiningDate ? new Date(data.joiningDate) : new Date(),
+          gender: data.gender,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
+          address: data.address,
+          permanentAddress: data.permanentAddress,
+          canManageStudents: data.canManageStudents ?? false,
         }
       });
     }
@@ -178,6 +183,11 @@ export class UserService {
         qualification: data.qualification,
         subjectExpertise: data.subjectExpertise,
         joiningDate: data.joiningDate ? new Date(data.joiningDate) : undefined,
+        gender: data.gender,
+        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+        address: data.address,
+        permanentAddress: data.permanentAddress,
+        canManageStudents: data.canManageStudents,
       };
 
       await prisma.teacher.upsert({

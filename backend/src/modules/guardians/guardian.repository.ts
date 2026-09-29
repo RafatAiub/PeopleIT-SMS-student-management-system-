@@ -14,6 +14,9 @@ const guardianSelect = {
   email: true,
   occupation: true,
   nidNumber: true,
+  dateOfBirth: true,
+  gender: true,
+  avatarUrl: true,
   createdAt: true,
 } as const;
 

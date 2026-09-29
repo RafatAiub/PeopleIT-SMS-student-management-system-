@@ -45,6 +45,11 @@ model Institution {
   contactEmail            String?
   contactPhone            String?
   staffProfiles           StaffProfile[]
+  staffRoles              StaffRole[]
+  staffAttendances        StaffAttendance[]
+  classFees               ClassFee[]
+  notificationBroadcasts  NotificationBroadcast[]
+  websiteItems            WebsiteItem[]
   payrollRecords          PayrollRecord[]
   messages                Message[]
   subjects                Subject[]
@@ -61,6 +66,15 @@ model Institution {
   notificationDeliveries  NotificationDelivery[]
   notificationPrefs       NotificationPreference[]
   notificationTemplates   NotificationTemplate[]
+  mediums                 Medium[]
+  streams                 Stream[]
+  shifts                  Shift[]
+  semesters               Semester[]
+  studentCategories       StudentCategory[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
+  examTimetables          ExamTimetable[]
+  examGrades              ExamGrade[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -92,6 +106,55 @@ model InstitutionApplication {
 
   @@index([status])
   @@index([applicantEmail])
+}
+
+// ── Authorized Email Allowlist ──────────────────────────────────────────
+// Gates the public institution-application form: only an email a Super Admin
+// has pre-approved here may submit an application. Stored lowercased/trimmed
+// to match the normalization already applied to applicantEmail in the DTO.
+model AuthorizedEmail {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  note          String?
+  addedByUserId String?
+  addedBy       User?    @relation(fields: [addedByUserId], references: [id])
+  createdAt     DateTime @default(now())
+  leads         Lead[]
+
+  @@index([email])
+}
+
+// ── Public Lead Capture (ad-driven traffic, pre-tenant) ─────────────────
+// Ungated counterpart to InstitutionApplication: a lightweight contact-info
+// drop for cold traffic with no pre-approved email, captured before any
+// institution/tenant exists. Deliberately NOT tenant-scoped — no
+// institutionId. Sales qualifies and manually authorizes via
+// authorizedEmailId once ready to let the contact submit the real,
+// AuthorizedEmail-gated institution application.
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  DISMISSED
+}
+
+model Lead {
+  id                String           @id @default(cuid())
+  name              String
+  phone             String
+  email             String?
+  institutionName   String?
+  institutionType   String?
+  message           String?          @db.Text
+  source            String?
+  status            LeadStatus       @default(NEW)
+  authorizedEmailId String?
+  authorizedEmail   AuthorizedEmail? @relation(fields: [authorizedEmailId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([status])
+  @@index([phone])
 }
 
 // ── Platform Subscription Billing (SSLCommerz) ─────────────────────────
@@ -237,20 +300,36 @@ model AcademicYear {
   endDate       DateTime
   isCurrent     Boolean   @default(false)
   students      Student[]
+  exams         Exam[]
 
   @@index([institutionId])
 }
 
 model Class {
-  id       String    @id @default(cuid())
-  branchId String
-  branch   Branch    @relation(fields: [branchId], references: [id])
-  name     String // e.g. "Grade 5"
-  level    Int       @default(1)
-  sections Section[]
-  students Student[]
+  id         String    @id @default(cuid())
+  branchId   String
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  name       String // e.g. "Grade 5"
+  level      Int       @default(1)
+  sections   Section[]
+  classFees  ClassFee[]
+  students   Student[]
+  mediumId   String?
+  medium     Medium?   @relation(fields: [mediumId], references: [id])
+  streamId   String?
+  stream     Stream?   @relation(fields: [streamId], references: [id])
+  shiftId    String?
+  shift      Shift?    @relation(fields: [shiftId], references: [id])
+  semesterId String?
+  semester   Semester? @relation(fields: [semesterId], references: [id])
+  examClasses    ExamClass[]
+  examTimetables ExamTimetable[]
 
   @@index([branchId])
+  @@index([mediumId])
+  @@index([streamId])
+  @@index([shiftId])
+  @@index([semesterId])
 }
 
 model Section {
@@ -264,6 +343,74 @@ model Section {
 
   @@index([classId])
   @@index([classTeacherId])
+}
+
+// ── Academics lookups (Medium/Stream/Shift/Semester) ──────────────────
+// Optional classification axes a Class can be tagged with. Admin-manageable
+// via the `academics` module; institution-scoped, name-unique per tenant.
+model Medium {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Stream {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Shift {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model Semester {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  classes       Class[]
+  exams         Exam[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+// Admin-manageable, institution-scoped, name-unique lookup a Student can be
+// tagged with (e.g. "General", "Freedom Fighter Quota", "Physically
+// Challenged") — same shape/CRUD pattern as Medium/Stream/Shift/Semester
+// above, just attached to Student instead of Class.
+model StudentCategory {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  students      Student[]
+  createdAt     DateTime    @default(now())
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
 }
 
 // ── Curriculum (NCTB-aligned subject offerings) ────────────────────────
@@ -294,6 +441,7 @@ model Subject {
   institution   Institution       @relation(fields: [institutionId], references: [id])
   name          String // e.g. "Bangla", "Physics"
   offerings     SubjectOffering[]
+  examTimetables ExamTimetable[]
   createdAt     DateTime          @default(now())
 
   @@unique([institutionId, name])
@@ -338,22 +486,48 @@ enum UserRole {
 }
 
 model User {
-  id                       String                   @id @default(cuid())
-  institutionId            String?
-  institution              Institution?             @relation(fields: [institutionId], references: [id])
-  email                    String                   @unique
-  passwordHash             String
-  role                     UserRole
-  firstName                String
-  lastName                 String
-  phone                    String?
-  avatarUrl                String?
-  isActive                 Boolean                  @default(true)
-  lastLoginAt              DateTime?
-  failedLoginAttempts      Int                      @default(0)
-  lockedUntil              DateTime?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+  id            String       @id @default(cuid())
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id])
+  email         String       @unique
+  passwordHash  String
+  role          UserRole
+  firstName     String
+  lastName      String
+  // Stored canonically as 8801XXXXXXXXX (see utils/phone.ts). Unique because
+  // it is a login identifier — two accounts sharing a number would make
+  // phone-based sign-in ambiguous. Still nullable: admin-created accounts and
+  // legacy rows may have none.
+  phone         String?      @unique
+  avatarUrl     String?
+
+  // ── Verification ──────────────────────────────────────────────────────
+  // Timestamps rather than booleans: "when did they confirm this" is useful
+  // for support and audit, and null reads the same as false.
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+
+  // ── Two-step verification ─────────────────────────────────────────────
+  // twoFactorSecret holds the base32 TOTP seed, encrypted at rest; it stays
+  // populated only while TOTP is the active method.
+  twoFactorEnabled    Boolean           @default(false)
+  twoFactorMethod     TwoFactorMethod?
+  twoFactorSecret     String?
+  twoFactorVerifiedAt DateTime?
+  backupCodes         BackupCode[]
+
+  // Self-registered users wait here until an admin approves them; accounts
+  // created by an admin or by application approval start out ACTIVE.
+  status              UserStatus @default(ACTIVE)
+
+  isActive            Boolean                  @default(true)
+  lastLoginAt         DateTime?
+  failedLoginAttempts Int                      @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  verificationTokens  VerificationToken[]
+  otpCodes            OtpCode[]
   studentProfile           Student?                 @relation("StudentUser")
   teacherProfile           Teacher?
   guardianProfile          Guardian?
@@ -363,14 +537,90 @@ model User {
   sentMessages             Message[]                @relation("SentMessages")
   receivedMessages         Message[]                @relation("ReceivedMessages")
   reviewedApplications     InstitutionApplication[]
+  addedAuthorizedEmails    AuthorizedEmail[]
   uploadedLectureMaterials LectureMaterial[]
   lectureMaterialComments  LectureMaterialComment[]
   createdAssignments       Assignment[]
   notifications            Notification[]
   notificationPrefs        NotificationPreference[]
+  leaveRequests            LeaveRequest[]            @relation("LeaveApplicant")
+  leaveReviews             LeaveRequest[]            @relation("LeaveReviewer")
 
   @@index([institutionId])
   @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING_APPROVAL // self-registered, awaiting an institution admin
+  REJECTED
+  SUSPENDED
+}
+
+enum TwoFactorMethod {
+  EMAIL // 6-digit code sent to the verified email address
+  TOTP // Google Authenticator / any RFC-6238 app
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+/// Single-use, expiring links emailed to a user (verify address, reset
+/// password). `token` stores a SHA-256 hash — the raw value only ever exists
+/// in the email itself, so a database leak cannot be replayed.
+model VerificationToken {
+  id         String              @id @default(cuid())
+  token      String              @unique
+  purpose    VerificationPurpose
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Denormalised so a pending address change can be verified before it is
+  // written onto the User row.
+  email      String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+enum OtpPurpose {
+  LOGIN_2FA
+  PHONE_VERIFICATION // reserved — phone OTP is not switched on yet
+}
+
+/// Short-lived numeric codes. Hashed like verification tokens, and
+/// attempt-capped so a 6-digit code cannot be brute-forced within its window.
+model OtpCode {
+  id         String     @id @default(cuid())
+  codeHash   String
+  purpose    OtpPurpose
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts   Int        @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime   @default(now())
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+}
+
+/// One-time recovery codes issued when 2FA is enabled — the escape hatch for
+/// a lost authenticator device. Hashed; deleted as they are spent.
+model BackupCode {
+  id       String    @id @default(cuid())
+  codeHash String
+  userId   String
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  usedAt   DateTime?
+
+  @@index([userId])
 }
 
 model Permission {
@@ -408,11 +658,18 @@ model Student {
   gender               String?
   email                String?
   phone                String?
-  address              String?
+  address              String? // Current Address
+  permanentAddress     String?
   bloodGroup           String?
   religion             String?
   nationality          String                @default("Bangladeshi")
   department           String? // required (enforced in DTO) for Class 9/10 students, e.g. Science/Commerce/Arts
+  categoryId           String?
+  category             StudentCategory?      @relation(fields: [categoryId], references: [id])
+  caste                String?
+  height               String? // deliberately free-text, not numeric
+  weight               String? // deliberately free-text, not numeric
+  hobbies              String? // comma-separated free text, e.g. "Reading,Singing"
   avatarUrl            String?
   admissionDate        DateTime              @default(now())
   status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
@@ -431,6 +688,7 @@ model Student {
   @@index([branchId])
   @@index([studentId])
   @@index([status])
+  @@index([categoryId])
 }
 
 model StudentDocument {
@@ -460,6 +718,9 @@ model Guardian {
   occupation     String?
   nidNumber      String?
   emergencyPhone String?
+  dateOfBirth    DateTime?
+  gender         String?
+  avatarUrl      String?
   createdAt      DateTime          @default(now())
   students       GuardianStudent[]
 
@@ -493,6 +754,11 @@ model Teacher {
   subjectExpertise String?
   joiningDate      DateTime?
   employeeId       String?
+  gender           String?
+  dateOfBirth      DateTime?
+  address          String? // Current Address
+  permanentAddress String?
+  canManageStudents Boolean        @default(false)
   createdAt        DateTime        @default(now())
   timetableSlots   TimetableSlot[]
   sections         Section[]       @relation(name: "ClassTeacher")
@@ -512,6 +778,7 @@ model FeeCategory {
   isActive      Boolean       @default(true)
   createdAt     DateTime      @default(now())
   invoiceItems  InvoiceItem[]
+  classFees     ClassFee[]
 
   @@index([institutionId])
 }
@@ -628,10 +895,76 @@ model Exam {
   institutionId String
   institution   Institution  @relation(fields: [institutionId], references: [id])
   name          String // e.g. "Term 1", "Final Exam"
-  startDate     DateTime
-  endDate       DateTime
-  isActive      Boolean      @default(true)
-  results       ExamResult[]
+  // Defaulted so the Exam module's create form (name/session/semester/
+  // classes only) needn't ask for dates — they're re-derived from the
+  // exam's timetable (min/max date) whenever timetable rows are saved.
+  startDate      DateTime        @default(now())
+  endDate        DateTime        @default(now())
+  isActive       Boolean         @default(true)
+  description    String?
+  academicYearId String?
+  academicYear   AcademicYear?   @relation(fields: [academicYearId], references: [id])
+  semesterId     String?
+  semester       Semester?       @relation(fields: [semesterId], references: [id])
+  // Controls student/guardian visibility of this exam's results.
+  isPublished    Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  results        ExamResult[]
+  classes        ExamClass[]
+  timetable      ExamTimetable[]
+
+  @@index([institutionId])
+  @@index([academicYearId])
+}
+
+// Which classes an exam is held for. An exam with no ExamClass rows (e.g.
+// the auto-seeded Mid Term / Half Yearly / Final Term) applies to every class.
+model ExamClass {
+  id      String @id @default(cuid())
+  examId  String
+  exam    Exam   @relation(fields: [examId], references: [id], onDelete: Cascade)
+  classId String
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, classId])
+  @@index([classId])
+}
+
+// One subject paper of an exam for one class — date, time window, total and
+// passing marks.
+model ExamTimetable {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  examId        String
+  exam          Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  classId       String
+  class         Class       @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subjectId     String
+  subject       Subject     @relation(fields: [subjectId], references: [id])
+  totalMarks    Decimal     @db.Decimal(6, 2)
+  passingMarks  Decimal     @db.Decimal(6, 2)
+  date          DateTime    @db.Date
+  startTime     String // "HH:mm"
+  endTime       String // "HH:mm"
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([examId, classId, subjectId])
+  @@index([institutionId])
+  @@index([classId])
+}
+
+// Institution-configured percentage -> letter grade bands (Exam > Exam
+// Grade). When none are configured, utils/grading.ts's built-in bands apply.
+model ExamGrade {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  minPercent    Decimal     @db.Decimal(5, 2)
+  maxPercent    Decimal     @db.Decimal(5, 2)
+  grade         String
+  createdAt     DateTime    @default(now())
 
   @@index([institutionId])
 }
@@ -977,13 +1310,53 @@ model StaffProfile {
   joiningDate   DateTime?
   baseSalary    Decimal         @db.Decimal(12, 2)
   status        String          @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  staffRoleId   String?
+  staffRole     StaffRole?      @relation(fields: [staffRoleId], references: [id])
+  gender        String?
+  dateOfBirth   DateTime?
+  address       String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
   payrolls      PayrollRecord[]
   idCards       IdCard[]
+  attendances   StaffAttendance[]
 
   @@index([institutionId])
   @@index([userId])
+  @@index([staffRoleId])
+}
+
+model StaffAttendance {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  staffId       String
+  staff         StaffProfile @relation(fields: [staffId], references: [id])
+  date          DateTime
+  status        String // PRESENT, ABSENT, HALF_DAY, HOLIDAY
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([institutionId, staffId, date])
+  @@index([institutionId])
+  @@index([staffId])
+  @@index([date])
+}
+
+// Custom staff roles (Staff Management > Roles & Permissions). permissions
+// holds "<module>.<action>" keys, e.g. "student.list".
+model StaffRole {
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  name          String
+  permissions   String[]       @default([])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  staff         StaffProfile[]
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
 }
 
 model PayrollRecord {
@@ -1005,6 +1378,62 @@ model PayrollRecord {
   @@index([institutionId])
   @@index([staffId])
   @@index([status])
+}
+
+// ── Staff/Teacher Leave Management ───────────────────────────────────
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveType {
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  name          String
+  description   String?
+  isPaid        Boolean        @default(true)
+  color         String?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  leaveRequests LeaveRequest[]
+
+  @@unique([institutionId, name])
+  @@index([institutionId])
+}
+
+model LeaveRequest {
+  id               String      @id @default(cuid())
+  institutionId    String
+  institution      Institution @relation(fields: [institutionId], references: [id])
+  applicantUserId  String
+  applicant        User        @relation("LeaveApplicant", fields: [applicantUserId], references: [id])
+  // Nullable: STUDENT applicants have no leave-type concept at all (Student
+  // Leave skips the Leave Settings catalogue entirely) — only STAFF requests
+  // carry a leaveTypeId, enforced in leave.service.ts, not at the DB level.
+  leaveTypeId      String?
+  leaveType        LeaveType?  @relation(fields: [leaveTypeId], references: [id])
+  startDate        DateTime    @db.Date
+  endDate          DateTime    @db.Date
+  totalDays        Int
+  reason           String      @db.Text
+  status           LeaveStatus @default(PENDING)
+  reviewedByUserId String?
+  reviewedBy       User?       @relation("LeaveReviewer", fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime?
+  reviewerComment  String?
+  cancelledAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([institutionId])
+  @@index([applicantUserId])
+  @@index([institutionId, status])
+  @@index([institutionId, applicantUserId, status])
+  @@index([leaveTypeId])
 }
 
 // 💬 Phase Final: Messaging
@@ -1081,4 +1510,65 @@ model IdCard {
   @@index([studentId])
   @@index([staffId])
   @@index([verifyToken])
+}
+
+// Fee types assigned to a class (Fees > Assign Fees Classes). amount is the
+// per-class charge; FeeCategory.amount remains the default suggested value.
+model ClassFee {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  classId       String
+  class         Class       @relation(fields: [classId], references: [id])
+  feeCategoryId String
+  feeCategory   FeeCategory @relation(fields: [feeCategoryId], references: [id])
+  amount        Decimal     @db.Decimal(12, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([classId, feeCategoryId])
+  @@index([institutionId])
+}
+
+// One row per admin-sent custom notification; the per-recipient in-app rows
+// live in Notification (type CUSTOM, data.broadcastId = this id).
+model NotificationBroadcast {
+  id             String      @id @default(cuid())
+  institutionId  String
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  title          String
+  body           String      @db.Text
+  target         String // ALL, STUDENT, GUARDIAN, TEACHER, STAFF
+  sentByUserId   String
+  recipientCount Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  @@index([institutionId])
+}
+
+enum WebsiteItemType {
+  SLIDER
+  PHOTO
+  VIDEO
+  PROGRAM
+  FAQ
+}
+
+// Public-website content lists (Sliders, Gallery Photos/Videos, Educational
+// Program, FAQs) share one table keyed by type.
+model WebsiteItem {
+  id            String          @id @default(cuid())
+  institutionId String
+  institution   Institution     @relation(fields: [institutionId], references: [id])
+  type          WebsiteItemType
+  title         String
+  description   String?         @db.Text
+  mediaUrl      String?         @db.Text
+  linkUrl       String?
+  sortOrder     Int             @default(0)
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([institutionId, type])
 }

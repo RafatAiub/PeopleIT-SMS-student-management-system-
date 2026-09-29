@@ -7,5 +7,6 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/dashboard', reportsController.getDashboard);
+router.get('/admin-overview', reportsController.getAdminOverview);
 
 export default router;

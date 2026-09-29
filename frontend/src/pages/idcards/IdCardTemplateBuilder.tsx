@@ -356,7 +356,7 @@ export default function IdCardTemplateBuilder() {
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Form */}
-        <form onSubmit={handleSubmit} className="xl:col-span-3 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="xl:col-span-3 glass-card p-6 space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               {editingId ? 'Edit Template' : 'New Template'}
@@ -629,7 +629,7 @@ export default function IdCardTemplateBuilder() {
         </form>
 
         {/* Live Preview */}
-        <div className="xl:col-span-2 glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 p-6 flex flex-col items-center justify-center gap-4">
+        <div className="xl:col-span-2 glass-card bg-slate-50 dark:bg-slate-950 p-6 flex flex-col items-center justify-center gap-4">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider self-start">Live Preview</p>
           <IdCardPreview template={previewTemplate} data={sampleData} />
           <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
@@ -639,7 +639,7 @@ export default function IdCardTemplateBuilder() {
       </div>
 
       {/* Existing templates */}
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/30 p-6 space-y-4">
+      <div className="glass-card p-6 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Existing Templates</h3>
         <DataTable
           data={templates}

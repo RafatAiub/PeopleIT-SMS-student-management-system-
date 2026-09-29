@@ -95,7 +95,7 @@ export default function AttachmentField({ resourceType, value, onChange, require
           <div className="flex-1 min-w-0">
             <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{fileName}</p>
             <div className="w-full h-1.5 bg-slate-200 dark:bg-white/10 rounded-full mt-1.5 overflow-hidden">
-              <div className="h-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-full bg-primary-500 transition-all" style={{ width: `${progress}%` }} />
             </div>
           </div>
           <span className="text-xs font-semibold text-slate-500 flex-shrink-0">{progress}%</span>

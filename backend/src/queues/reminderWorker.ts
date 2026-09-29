@@ -1,8 +1,8 @@
 import { Worker, Job } from 'bullmq';
 import { logger } from '../utils/logger';
-import { sendSms } from '../utils/sms.service';
 import { prisma } from '../config/prisma';
 import { createBullWorkerConnection } from '../config/redis';
+import { notifySafe } from '../modules/notifications/notifications.service';
 
 interface FeeDueJobData {
   type: 'fee-due';
@@ -22,53 +22,95 @@ interface AbsenceJobData {
 
 type ReminderJobData = FeeDueJobData | AbsenceJobData;
 
-/** Resolves the best contact phone for a student: primary guardian first, then the student's own phone. */
-async function resolveContactPhone(institutionId: string, studentId: string): Promise<{ phone: string | null; recipientName: string }> {
+/** Resolves the best contact phone and user ID for a student: primary guardian first, then the student's own phone. */
+async function resolveContactAndUser(institutionId: string, studentId: string): Promise<{
+  phone: string | null;
+  recipientName: string;
+  studentName: string;
+  studentUserId: string | null;
+}> {
   const student = await prisma.student.findFirst({
     where: { id: studentId, institutionId },
     select: {
       firstName: true,
       lastName: true,
       phone: true,
+      userId: true,
       guardians: {
         select: { guardian: { select: { phone: true, firstName: true, lastName: true } }, isPrimary: true },
         orderBy: { isPrimary: 'desc' },
       },
     },
   });
-  if (!student) return { phone: null, recipientName: '' };
+  if (!student) return { phone: null, recipientName: '', studentName: '', studentUserId: null };
 
+  const studentName = `${student.firstName} ${student.lastName}`;
   const primaryGuardian = student.guardians[0]?.guardian;
   if (primaryGuardian?.phone) {
-    return { phone: primaryGuardian.phone, recipientName: `${primaryGuardian.firstName} ${primaryGuardian.lastName}` };
+    return {
+      phone: primaryGuardian.phone,
+      recipientName: `${primaryGuardian.firstName} ${primaryGuardian.lastName}`,
+      studentName,
+      studentUserId: student.userId,
+    };
   }
-  return { phone: student.phone, recipientName: `${student.firstName} ${student.lastName}` };
+  return {
+    phone: student.phone,
+    recipientName: `${student.firstName} ${student.lastName}`,
+    studentName,
+    studentUserId: student.userId,
+  };
 }
 
-// Worker processing fee-due and absence reminder SMS jobs.
+// Worker processing fee-due and absence reminder notifications.
+// Sends reminders via the notification service, which handles SMS + any other
+// enabled channels (IN_APP, EMAIL). The SMS will be queued and delivered by
+// the notificationWorker.
 export const feeReminderWorker = new Worker(
   'feeReminders',
   async (job: Job<ReminderJobData>) => {
     logger.info(`Processing reminder job ${job.id}`, { data: job.data });
     const { institutionId, studentId } = job.data;
 
-    const { phone, recipientName } = await resolveContactPhone(institutionId, studentId);
-    if (!phone) {
-      logger.warn('Reminder job skipped: no contact phone on file', { studentId });
-      return;
-    }
+    const { studentUserId, studentName } = await resolveContactAndUser(institutionId, studentId);
 
-    let message: string;
     if (job.data.type === 'fee-due') {
       const { invoiceNo, dueAmount, dueDate } = job.data;
-      message = `Dear ${recipientName}, invoice ${invoiceNo} (Tk ${dueAmount}) is due on ${new Date(dueDate).toDateString()}. Please pay at your earliest convenience. - PeopleIT SMS`;
+      if (!studentUserId) {
+        logger.warn('Fee reminder skipped: student has no user account', { studentId });
+        return;
+      }
+      notifySafe({
+        institutionId,
+        type: 'FEE_REMINDER',
+        recipientUserIds: [studentUserId],
+        contextId: invoiceNo,
+        channels: ['SMS'],
+        data: { link: '/fees' },
+        vars: {
+          invoiceNo,
+          studentName,
+          amount: String(dueAmount),
+          dueDate: new Date(dueDate).toDateString(),
+        },
+      });
     } else {
-      message = `Dear ${recipientName}, your child was marked ABSENT on ${new Date(job.data.date).toDateString()}. Please contact the school if this is unexpected. - PeopleIT SMS`;
-    }
-
-    const result = await sendSms(phone, message);
-    if (!result.success) {
-      throw new Error(`SMS send failed: ${result.message}`);
+      if (!studentUserId) {
+        logger.warn('Absence alert skipped: student has no user account', { studentId });
+        return;
+      }
+      notifySafe({
+        institutionId,
+        type: 'ABSENCE_ALERT',
+        recipientUserIds: [studentUserId],
+        contextId: `${studentId}:${job.data.date}`,
+        channels: ['SMS'],
+        data: { link: '/attendance' },
+        vars: {
+          studentName,
+          date: new Date(job.data.date).toDateString(),
+        },
+      });
     }
   },
   { connection: createBullWorkerConnection('feeReminders') },

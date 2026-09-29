@@ -1,140 +1,299 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  LayoutDashboard, Users, UserCheck, BookOpen, Calendar, FileText,
-  MessageSquare, Bell, Settings, ChevronLeft, ChevronRight,
-  LogOut, GraduationCap, Receipt, BarChart3, ClipboardList,
-  Megaphone, ShieldCheck, Library, Bus, Brain, Globe, X,
-  Building2, CreditCard, LifeBuoy, ListOrdered, Activity, ShieldAlert
+  LayoutDashboard, BookOpen,
+  MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
+  LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature, UsersRound, UserCog, ClipboardCheck,
+  FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe, Settings, CloudDownload,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
-
-const SUPER_ADMIN_NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Platform Control',
-    items: [
-      { to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Overview' },
-      { to: '/super-admin/institutions', icon: <Building2 className="w-4.5 h-4.5" />, label: 'Institutions' },
-      { to: '/super-admin/applications', icon: <FileText className="w-4.5 h-4.5" />, label: 'Applications' },
-      { to: '/users', icon: <Users className="w-4.5 h-4.5" />, label: 'Users' },
-      { to: '/super-admin/billing', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Billing' },
-    ],
-  },
-  {
-    label: 'Support & Ops',
-    items: [
-      { to: '/super-admin/support-access', icon: <LifeBuoy className="w-4.5 h-4.5 text-amber-500 dark:text-amber-400" />, label: 'Support Access' },
-      { to: '/super-admin/audit-logs', icon: <ListOrdered className="w-4.5 h-4.5" />, label: 'Audit Logs' },
-      { to: '/super-admin/system-health', icon: <Activity className="w-4.5 h-4.5 text-emerald-500" />, label: 'System Health' },
-    ],
-  },
-];
-
 import { useAuthStore, User } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
 
 type Role = User['role'];
 
-interface NavItem {
+/** A directly-clickable route — either a top-level entry on its own
+ *  (Dashboard, Parents, …) or one row inside an expandable category
+ *  (Academics > Students, Finance > Reports, …). */
+interface NavLeaf {
   to: string;
-  icon: React.ReactNode;
   label: string;
   /** Roles allowed to see this item. Omit to allow every role. */
   roles?: Role[];
 }
 
-interface NavGroup {
-  label: string;
-  items: NavItem[];
+/** A top-level entry that is just a link — no children to expand. */
+interface NavLinkEntry extends NavLeaf {
+  kind: 'link';
+  icon: React.ReactNode;
 }
+
+/** A top-level entry that expands/collapses to reveal its children —
+ *  mirrors the eSchool-style accordion sidebar (icon + label + chevron,
+ *  dot-bulleted sub-items indented underneath). */
+interface NavCategoryEntry {
+  kind: 'category';
+  label: string;
+  icon: React.ReactNode;
+  children: NavLeaf[];
+}
+
+type NavEntry = NavLinkEntry | NavCategoryEntry;
 
 // Role Permission Access Matrix — mirrors the route guards in App.tsx /
 // backend *.routes.ts requireRole() calls, so the sidebar never advertises
 // a link a role would be redirected away from.
-// Role Permission Access Matrix (PROJECT_STATUS.md) — resource -> role visibility.
 // Super Admin is scoped to tenant/platform management (Institutions, Branches &
 // Classes, User Accounts, Audit Logs); it deliberately does NOT see day-to-day
 // school-operations resources (Students, Attendance, Exam Marks, Invoices,
 // Library, Transport, HR, Notices, Messages) — those are Admin's domain.
-const NAV_GROUPS: NavGroup[] = [
+const SUPER_ADMIN_NAV_ENTRIES: NavEntry[] = [
+  { kind: 'link', to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Overview' },
   {
-    label: 'Overview',
-    items: [
-      { to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Dashboard' },
+    kind: 'category',
+    label: 'Platform Control',
+    icon: <Building2 className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/super-admin/institutions', label: 'Institutions' },
+      { to: '/super-admin/applications', label: 'Applications' },
+      { to: '/super-admin/authorized-emails', label: 'Authorized Emails' },
+      { to: '/super-admin/leads', label: 'Leads' },
+      { to: '/users', label: 'Users' },
+      { to: '/super-admin/billing', label: 'Billing' },
     ],
   },
   {
+    kind: 'category',
+    label: 'Support & Ops',
+    icon: <LifeBuoy className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/super-admin/support-access', label: 'Support Access' },
+      { to: '/super-admin/audit-logs', label: 'Audit Logs' },
+      { to: '/super-admin/system-health', label: 'System Health' },
+    ],
+  },
+];
+
+const NAV_ENTRIES: NavEntry[] = [
+  { kind: 'link', to: '/', icon: <LayoutDashboard className="w-4.5 h-4.5" />, label: 'Dashboard' },
+  {
+    kind: 'category',
     label: 'Academics',
-    items: [
-      // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only
-      { to: '/students', icon: <Users className="w-4.5 h-4.5" />, label: 'Students', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+    icon: <BookOpen className="w-4.5 h-4.5" />,
+    children: [
+      // Academics setup lookups (Medium/Section/Stream/Shifts/Subject/Semester/Class) —
+      // Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
+      { to: '/academics/mediums', label: 'Medium', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/sections', label: 'Section', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/streams', label: 'Stream', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/shifts', label: 'Shifts', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/subjects', label: 'Subject', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/semesters', label: 'Semester', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/classes', label: 'Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/assign-class-teacher', label: 'Assign Class Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
-      { to: '/attendance', icon: <UserCheck className="w-4.5 h-4.5" />, label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
-      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
-      { to: '/results', icon: <BookOpen className="w-4.5 h-4.5" />, label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/timetables', icon: <Calendar className="w-4.5 h-4.5" />, label: 'Timetable' },
+      { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
-      { to: '/lectures', icon: <GraduationCap className="w-4.5 h-4.5" />, label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
+    kind: 'category',
+    label: 'Students',
+    icon: <GraduationCap className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
+      // Existing /students route/label — relabeled to "Student Details" here
+      // (STUDENT role still sees "My Profile" via getPageLabel's isStudentProfile special-case).
+      { to: '/students', label: 'Student Details', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/students/reset-password', label: 'Students Reset Password', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/students/bulk-data', label: 'Add Bulk Data', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Teacher',
+    icon: <Presentation className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/teacher/add', label: 'Add New Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/teacher/details', label: 'Teacher Details', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  { kind: 'link', to: '/parents', icon: <UsersRound className="w-4.5 h-4.5" />, label: 'Parents', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Staff Management',
+    icon: <UserCog className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/staff/roles', label: 'Roles & Permissions', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff', label: 'Staff', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
     label: 'Management',
-    items: [
+    icon: <Briefcase className="w-4.5 h-4.5" />,
+    children: [
       // HR & Payroll: Admin Full, Accountant Read
-      { to: '/hr', icon: <Users className="w-4.5 h-4.5" />, label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
-      { to: '/ai-insights', icon: <Brain className="w-4.5 h-4.5" />, label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
-      { to: '/website-builder', icon: <Globe className="w-4.5 h-4.5" />, label: 'Website Builder', roles: ['ADMIN'] },
+      { to: '/hr', label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
+      { to: '/ai-insights', label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
     ],
   },
   {
-    label: 'Finance',
-    items: [
+    kind: 'category',
+    label: 'Leave',
+    icon: <CalendarClock className="w-4.5 h-4.5" />,
+    children: [
+      // Leave Settings (leave types): Admin only
+      { to: '/leave/settings', label: 'Leave Settings', roles: ['ADMIN'] },
+      // Leave Report: monthly usage-vs-allowance view for one staff member, Admin only
+      { to: '/leave/report', label: 'Leave Report', roles: ['ADMIN'] },
+      // Leave Request: Admin reviews/acts on all staff requests, everyone else self-service (apply/track/cancel own)
+      { to: '/leave/requests', label: 'Leave Request', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      // Student Leave: Admin reviews/acts on student requests, Student self-service (apply/track/cancel own) — Guardian excluded
+      { to: '/leave/student', label: 'Student Leave', roles: ['ADMIN', 'STUDENT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Timetable',
+    icon: <CalendarClock className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/timetable/create', label: 'Create Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/timetable/class', label: 'Class Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/timetable/teacher', label: 'Teacher Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Attendance',
+    icon: <ClipboardCheck className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/attendance/staff', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/attendance/monthly', label: 'Monthly Wise', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/attendance/report', label: 'Attendance Report', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Exam',
+    icon: <FileSignature className="w-4.5 h-4.5" />,
+    children: [
+      // Exam setup (exams, timetable, grade bands): Super Admin/Admin only
+      { to: '/exams', label: 'Create Exam', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/exams/timetable', label: 'Create Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only (published exams)
+      { to: '/results', label: 'Exam Marks', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      // Class-wide result summary + report cards: Admin, Teacher
+      { to: '/exams/result', label: 'Exam Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/exams/grades', label: 'Exam Grade', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Fees',
+    icon: <Receipt className="w-4.5 h-4.5" />,
+    children: [
+      // Fees Type = the fee-category tab of the Fees & Billing page (same data, no duplicate screen)
+      { to: '/fees/types', label: 'Fees Type', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/fees/assign-classes', label: 'Assign Fees Classes', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
-      { to: '/fees', icon: <Receipt className="w-4.5 h-4.5" />, label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
-      { to: '/reports', icon: <BarChart3 className="w-4.5 h-4.5" />, label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
-      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
-      { to: '/billing', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Subscription', roles: ['ADMIN'] },
+      { to: '/fees', label: 'Fees Paid', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees/transactions', label: 'Fees Transactions Logs', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
     ],
   },
   {
+    kind: 'category',
+    label: 'Reports',
+    icon: <FileBarChart className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/reports', label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
+    ],
+  },
+  { kind: 'link', to: '/custom-notifications', icon: <BellRing className="w-4.5 h-4.5" />, label: 'Custom Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Announcement = Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
+  { kind: 'link', to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Announcement', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  { kind: 'link', to: '/web/sliders', icon: <GalleryHorizontal className="w-4.5 h-4.5" />, label: 'Sliders', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Gallery',
+    icon: <Images className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/web/gallery/photos', label: 'Photos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/web/gallery/videos', label: 'Videos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Web Settings',
+    icon: <Globe className="w-4.5 h-4.5" />,
+    children: [
+      // Hero/About text and public contact details are both edited in the existing Website Builder.
+      { to: '/website-builder', label: 'Content Settings', roles: ['ADMIN'] },
+      { to: '/web/programs', label: 'Educational Program', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/web/faqs', label: "FAQ's", roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder#contact', label: 'Contact Us', roles: ['ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
     label: 'Communication',
-    items: [
+    icon: <MessageSquare className="w-4.5 h-4.5" />,
+    children: [
       // Messages: Admin Full, everyone else Own conversations only (Super Admin excluded)
-      { to: '/messages', icon: <MessageSquare className="w-4.5 h-4.5" />, label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-      // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
-      { to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
-    label: 'Administration',
-    items: [
-      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
-      { to: '/users', icon: <ShieldCheck className="w-4.5 h-4.5" />, label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Branches & Classes: Super Admin/Admin Full, everyone else Read
-      { to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-    ],
-  },
-  {
+    kind: 'category',
     label: 'Facilities',
-    items: [
+    icon: <Library className="w-4.5 h-4.5" />,
+    children: [
       // Library: Admin Full, Librarian Full, Student/Guardian Own Issues
-      { to: '/library', icon: <Library className="w-4.5 h-4.5" />, label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
+      { to: '/library', label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
       // Transport: Admin Full, Transport Officer Full, Student/Guardian Own Only
-      { to: '/transport', icon: <Bus className="w-4.5 h-4.5" />, label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/transport', label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
     ],
   },
   {
+    kind: 'category',
     label: 'ID Cards',
-    items: [
+    icon: <CreditCard className="w-4.5 h-4.5" />,
+    children: [
       // Template design + card issuance: Admin Full (Super Admin only while impersonating via a support session, per ProtectedRoute's support-session bypass)
-      { to: '/id-cards/builder', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/id-cards/generate', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/builder', label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
-      { to: '/id-cards/mine', icon: <CreditCard className="w-4.5 h-4.5" />, label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
+      { to: '/id-cards/mine', label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
     ],
   },
+  {
+    kind: 'category',
+    label: 'Administration',
+    icon: <ShieldCheck className="w-4.5 h-4.5" />,
+    children: [
+      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
+      { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student fees.
+      { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
+    ],
+  },
+  // Branches & Classes, profile, security: Super Admin/Admin Full, everyone else Read
+  { kind: 'link', to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'System Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  { kind: 'link', to: '/system-update', icon: <CloudDownload className="w-4.5 h-4.5" />, label: 'System Update', roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 // Not a sidebar entry (reached via role-based redirect, not a direct nav
@@ -143,14 +302,21 @@ const EXTRA_ROUTE_LABELS: Record<string, string> = {
   '/teacher': 'Teacher Dashboard',
 };
 
+const roleCanSee = (roles: Role[] | undefined, role: Role | undefined): boolean =>
+  !roles || (!!role && roles.includes(role));
+
 /** Single source of truth for "what page is this" — reused by Header so the
  *  page title always matches the sidebar's own label for the same route,
  *  without duplicating the nav copy in two places. */
 export const getPageLabel = (pathname: string, role?: Role): string => {
-  const groups = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_GROUPS : NAV_GROUPS;
-  for (const group of groups) {
-    const match = group.items.find((item) => item.to === pathname);
-    if (match) return match.label;
+  const entries = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+  for (const entry of entries) {
+    if (entry.kind === 'link') {
+      if (entry.to === pathname) return entry.label;
+    } else {
+      const match = entry.children.find((item) => item.to === pathname);
+      if (match) return match.label;
+    }
   }
   return EXTRA_ROUTE_LABELS[pathname] || 'Dashboard';
 };
@@ -160,6 +326,22 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   const { user, supportSession } = useAuthStore();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [navFilter, setNavFilter] = React.useState('');
+  const [openCategory, setOpenCategory] = React.useState<string | null>(null);
+
+  const entries = user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+
+  // Keep the accordion in sync with the current route: whichever category
+  // owns the active page auto-expands, like eSchool's sidebar does when you
+  // land on/navigate to one of its sub-pages.
+  React.useEffect(() => {
+    const owner = entries.find(
+      (entry) => entry.kind === 'category' && entry.children.some((c) => c.to === location.pathname)
+    );
+    if (owner) setOpenCategory(owner.label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, user?.role]);
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -168,6 +350,15 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         navigate('/login');
       },
     });
+  };
+
+  const handleCategoryClick = (label: string) => {
+    if (sidebarCollapsed && !isMobile) {
+      toggleSidebar();
+      setOpenCategory(label);
+      return;
+    }
+    setOpenCategory((prev) => (prev === label ? null : label));
   };
 
   const initials = user
@@ -194,12 +385,14 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   // regardless of what's cached from a previous session/institution.
   const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
 
+  const navQuery = navFilter.trim().toLowerCase();
+  const showLabels = !sidebarCollapsed || isMobile;
+
   return (
     <aside
-      className={`flex flex-col h-full bg-white/95 dark:bg-surface-950/95 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
-        isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-60'
+      className={`flex flex-col h-full bg-white dark:bg-surface-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
+        isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-64'
       }`}
-      style={{ backdropFilter: 'blur(16px)' }}
     >
       {/* Logo */}
       <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
@@ -209,12 +402,14 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
               <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <LogoMark className="w-8 h-8 flex-shrink-0 glow-primary rounded-lg shadow-md" />
+            <LogoMark className="w-8 h-8 flex-shrink-0 rounded-lg shadow-sm" />
           )}
-          {(!sidebarCollapsed || isMobile) && (
+          {showLabels && (
             <div>
-              <span className="text-gradient font-bold text-sm leading-none block">PeopleIT SMS</span>
-              <span className="text-slate-600 dark:text-slate-500 text-xs">
+              <span className="font-extrabold text-base leading-none block text-slate-900 dark:text-white">
+                People<span className="text-accent-500">NIT</span>
+              </span>
+              <span className="text-slate-500 dark:text-slate-500 text-[11px] truncate block max-w-[10rem]">
                 {showInstitutionBranding ? (institutionName || user?.institutionName || 'School Management') : 'Platform Administration'}
               </span>
             </div>
@@ -231,54 +426,126 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         )}
       </div>
 
+      {/* Search / filter */}
+      {showLabels && (
+        <div className="px-3 pt-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={navFilter}
+              onChange={(e) => setNavFilter(e.target.value)}
+              placeholder="Search"
+              aria-label="Search navigation"
+              className="w-full bg-slate-100 dark:bg-white/5 border border-transparent focus:border-primary-300 dark:focus:border-primary-500/40 focus:bg-white dark:focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 transition-colors"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-fadeIn">
-        {(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_GROUPS : NAV_GROUPS).map((group) => {
-          const visibleItems = group.items.filter((item) => {
-            if (!item.roles) return true;
-            return !!user && item.roles.includes(user.role);
-          });
-          if (visibleItems.length === 0) return null;
-          return (
-            <div key={group.label} className="mb-2">
-              {(!sidebarCollapsed || isMobile) && (
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-2">
-                  {group.label}
-                </p>
-              )}
-              {visibleItems.map((item) => {
-                const isStudentProfile = item.to === '/students' && user?.role === 'STUDENT';
-                const label = isStudentProfile ? 'My Profile' : item.label;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
-                    className={({ isActive }) =>
-                      `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`
-                    }
-                    title={(sidebarCollapsed && !isMobile) ? label : undefined}
-                    onClick={() => isMobile && setMobileMenuOpen(false)}
-                  >
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <motion.span
-                            layoutId={isMobile ? 'sidebar-active-indicator-mobile' : 'sidebar-active-indicator'}
-                            className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-600 dark:bg-primary-500 rounded-r"
-                            transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                          />
-                        )}
-                        <span className="flex-shrink-0">{item.icon}</span>
-                        {(!sidebarCollapsed || isMobile) && <span className="truncate">{label}</span>}
-                      </>
+        {entries.map((entry) => {
+          if (entry.kind === 'link') {
+            if (!roleCanSee(entry.roles, user?.role)) return null;
+            if (navQuery && !entry.label.toLowerCase().includes(navQuery)) return null;
+            return (
+              <NavLink
+                key={entry.to}
+                to={entry.to}
+                id={`sidebar-nav-${entry.label.toLowerCase().replace(/\s+/g, '-')}`}
+                className={({ isActive }) =>
+                  `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`
+                }
+                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+                onClick={() => isMobile && setMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.span
+                        layoutId={isMobile ? 'sidebar-active-indicator-mobile' : 'sidebar-active-indicator'}
+                        className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-600 dark:bg-primary-500 rounded-r"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                      />
                     )}
-                  </NavLink>
-                );
-              })}
-              {sidebarCollapsed && !isMobile && group.label !== 'Administration' && (
-                <div className="my-2 border-t border-slate-200 dark:border-white/5" />
-              )}
+                    <span className="flex-shrink-0">{entry.icon}</span>
+                    {showLabels && <span className="truncate">{entry.label}</span>}
+                  </>
+                )}
+              </NavLink>
+            );
+          }
+
+          // Category: role-filter, then (if searching) label-filter its children.
+          const roleFiltered = entry.children.filter((c) => roleCanSee(c.roles, user?.role));
+          const visibleChildren = navQuery
+            ? roleFiltered.filter((c) => c.label.toLowerCase().includes(navQuery))
+            : roleFiltered;
+          if (visibleChildren.length === 0) return null;
+
+          const isOpen = navQuery ? true : openCategory === entry.label;
+          const hasActiveChild = visibleChildren.some((c) => location.pathname === c.to);
+
+          return (
+            <div key={entry.label} className="mb-0.5">
+              <button
+                type="button"
+                onClick={() => handleCategoryClick(entry.label)}
+                aria-expanded={isOpen}
+                className={`sidebar-link w-full ${showLabels ? 'justify-between' : 'justify-center'} ${
+                  hasActiveChild ? 'text-primary-600 dark:text-primary-400 font-semibold' : ''
+                }`}
+                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="flex-shrink-0">{entry.icon}</span>
+                  {showLabels && <span className="truncate">{entry.label}</span>}
+                </span>
+                {showLabels && (
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                  />
+                )}
+              </button>
+
+              <AnimatePresence initial={false}>
+                {isOpen && showLabels && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-[1.15rem] pl-4 border-l border-slate-200 dark:border-white/10 my-1 space-y-0.5">
+                      {visibleChildren.map((child) => {
+                        const isStudentProfile = child.to === '/students' && user?.role === 'STUDENT';
+                        const label = isStudentProfile ? 'My Profile' : child.label;
+                        return (
+                          <NavLink
+                            key={child.to}
+                            to={child.to}
+                            end
+                            id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
+                            onClick={() => isMobile && setMobileMenuOpen(false)}
+                            className={({ isActive }) =>
+                              `flex items-center gap-2.5 pl-3 pr-3 py-2 rounded-lg text-sm transition-colors ${
+                                isActive
+                                  ? 'text-primary-600 dark:text-primary-400 font-semibold bg-primary-50 dark:bg-primary-500/10'
+                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                              }`
+                            }
+                          >
+                            <span className="w-1 h-1 rounded-full bg-current opacity-60 flex-shrink-0" />
+                            <span className="truncate">{label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           );
         })}

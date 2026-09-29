@@ -61,9 +61,9 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
+            <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
               <Users className="w-6 h-6" />
             </div>
             <div>
@@ -73,7 +73,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
               <TrendingUp className="w-6 h-6" />
@@ -85,7 +85,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-violet-50 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-transparent">
               <DollarSign className="w-6 h-6" />
@@ -97,7 +97,7 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-transparent">
               <Activity className="w-6 h-6" />
@@ -111,16 +111,16 @@ const Reports = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <BarChart className="w-5 h-5 text-primary-600 dark:text-primary-400" />
             Fee Collections
           </h3>
           <div className="h-64 flex items-end justify-between gap-2">
             {feeTrendPercents.map((val, i) => (
-              <div key={i} className="w-full bg-blue-100 dark:bg-blue-500/20 rounded-t-sm relative group h-full" title={`৳${(data?.feeTrend?.[i] ?? 0).toLocaleString()}`}>
+              <div key={i} className="w-full bg-primary-100 dark:bg-primary-500/20 rounded-t-sm relative group h-full" title={`৳${(data?.feeTrend?.[i] ?? 0).toLocaleString()}`}>
                 <div
-                  className="absolute bottom-0 w-full bg-blue-500/50 dark:bg-blue-500/50 rounded-t-sm transition-all"
+                  className="absolute bottom-0 w-full bg-primary-500/50 dark:bg-primary-500/50 rounded-t-sm transition-all"
                   style={{ height: `${val}%` }}
                 ></div>
               </div>
@@ -128,7 +128,7 @@ const Reports = () => {
           </div>
         </div>
         
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-transparent shadow-xs">
+        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
           <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
             <BarChart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             Attendance Trends

@@ -952,7 +952,7 @@ const MarksEntry = () => {
         <>
           {/* Selectors Bar */}
           {!hasAssignments && isTeacher ? (
-            <div className="glass-card p-8 rounded-3xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
+            <div className="glass-card p-8 rounded-2xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
               <ShieldAlert className="w-12 h-12 text-rose-500" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Assigned Sections</h3>
               <p className="text-slate-600 dark:text-slate-400 text-sm max-w-md leading-relaxed">
@@ -1190,7 +1190,7 @@ const MarksEntry = () => {
                   {filteredStudents.map((student) => {
                     const summary = studentTotalMap[student.id] || { totalObtained: 0, totalMax: 0, filledCount: 0 };
                     return (
-                      <div key={student.id} className="glass-card rounded-2xl p-4 border border-slate-200/60 dark:border-white/10 shadow-xs space-y-3 bg-white dark:bg-slate-900/40">
+                      <div key={student.id} className="glass-card rounded-2xl p-4 border border-slate-200/60 dark:border-white/10 shadow-xs space-y-3">
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2.5">
                           <div>
                             <div className="flex items-center gap-2">
@@ -1278,7 +1278,7 @@ const MarksEntry = () => {
           {/* MODE 2: Single Subject Focus View */}
           {entryMode === 'subject' && (
             <div className="space-y-4">
-              <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40">
+              <div className="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-slate-200/50 dark:border-white/5">
                 <div className="flex items-center gap-3">
                   <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Selected Subject:</label>
                   <select
@@ -1348,7 +1348,7 @@ const MarksEntry = () => {
                     const isEdited = scoreVal !== '' && !isSaved;
 
                     return (
-                      <div key={student.id} className="glass-card p-3.5 rounded-2xl border border-slate-200/60 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-slate-900/40">
+                      <div key={student.id} className="glass-card p-3.5 rounded-2xl border border-slate-200/60 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
                             {student.rollNumber || '?'}
@@ -1577,7 +1577,7 @@ const MarksEntry = () => {
   ) : activeTab === 'sheet' ? (
         <>
           {/* COMPLETE RESULT SHEET TAB */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
+          <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center justify-between gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
             <div className="flex flex-wrap items-center gap-6">
               <div className="flex flex-col">
                 <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
@@ -1653,14 +1653,14 @@ const MarksEntry = () => {
             <button
               onClick={downloadCSV}
               disabled={studentRows.length === 0}
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-accent-600 hover:from-emerald-500 hover:to-accent-500 disabled:opacity-50 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 active:scale-[0.98] text-sm"
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold py-2.5 px-5 rounded-xl transition-all shadow-sm active:scale-[0.98] text-sm"
             >
               Download CSV Sheet
             </button>
           </div>
 
           {/* Info Card displaying Who Made the Result */}
-          <div className="glass-card p-5 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/20 flex flex-wrap items-center justify-between gap-4">
+          <div className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/20 flex flex-wrap items-center justify-between gap-4">
             <div>
               <span className="text-slate-500 dark:text-slate-400 text-xs font-bold block mb-1">Result Author (Class Teacher Assigned)</span>
               <span className="text-slate-900 dark:text-white font-semibold text-sm">
@@ -1674,7 +1674,7 @@ const MarksEntry = () => {
           </div>
 
           {/* Grid Table */}
-          <div className="glass-card rounded-3xl overflow-hidden border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-xs">
+          <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
                 <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
@@ -1745,7 +1745,7 @@ const MarksEntry = () => {
       ) : (
         <>
           {/* STUDENT MARKSHEET TAB */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
+          <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
             <div className="flex flex-col">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">Select Exam</label>
               <div className="relative">
@@ -1888,7 +1888,7 @@ const MarksEntry = () => {
               />
             </div>
           ) : (
-            <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/20 shadow-xs p-5">
+            <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs p-5">
               {selectedStudent && (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1940,7 +1940,7 @@ const MarksEntry = () => {
       {/* Floating Save Action Bar when there are unsaved changes */}
       {unsavedChanges && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-          <div className="glass-card px-6 py-4 rounded-full shadow-2xl shadow-blue-500/30 border border-blue-500/40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl flex items-center gap-6">
+          <div className="glass-card px-6 py-4 rounded-full shadow-sm border border-blue-500/40 flex items-center gap-6">
             <div className="flex items-center gap-3">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
               <span className="text-sm font-bold text-slate-900 dark:text-white tracking-wide">
@@ -1952,7 +1952,7 @@ const MarksEntry = () => {
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white font-bold py-2.5 px-6 rounded-full transition-all shadow-lg shadow-blue-500/25 active:scale-[0.98]"
+              className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-6 rounded-full transition-all shadow-sm active:scale-[0.98]"
             >
               <Save className="w-4 h-4" />
               {loading ? 'Saving...' : 'Confirm & Save All'}

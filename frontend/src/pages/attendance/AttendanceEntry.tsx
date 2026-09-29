@@ -328,8 +328,7 @@ const AttendanceEntry = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-primary-500"></div>
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5">
             <div className="flex justify-between items-start mb-4">
               <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Attendance Rate</span>
               <UserCheck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -338,8 +337,7 @@ const AttendanceEntry = () => {
             <div className="text-xs text-slate-500 mt-2">Recommended: 85% and above</div>
           </div>
 
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-accent-500"></div>
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5">
             <div className="flex justify-between items-start mb-4">
               <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Total Days Tracked</span>
               <Calendar className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
@@ -352,8 +350,7 @@ const AttendanceEntry = () => {
             </div>
           </div>
 
-          <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-rose-500"></div>
+          <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5">
             <div className="flex justify-between items-start mb-4">
               <span className="text-slate-500 dark:text-slate-400 text-sm font-semibold">Absentee Fines Due</span>
               <Coins className="w-5 h-5 text-amber-500 dark:text-amber-400" />
@@ -364,7 +361,7 @@ const AttendanceEntry = () => {
         </div>
 
         {/* History Table */}
-        <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-xs bg-white dark:bg-slate-900/20">
+        <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-xs">
           <div className="p-6 border-b border-slate-200/50 dark:border-white/5">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">Attendance Log</h3>
           </div>
@@ -458,7 +455,7 @@ const AttendanceEntry = () => {
         {isAdmin && (
           <button
             onClick={() => setIsAssignModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white px-5 py-2.5 rounded-2xl transition-all shadow-lg shadow-primary-500/20 text-xs font-bold active:scale-[0.98]"
+            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-2xl transition-all shadow-sm text-xs font-bold active:scale-[0.98]"
           >
             <Users className="w-4 h-4" />
             Assign Class Teacher
@@ -467,7 +464,7 @@ const AttendanceEntry = () => {
       </div>
 
       {!hasAssignments && isTeacher ? (
-        <div className="glass-card p-8 rounded-3xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
+        <div className="glass-card p-8 rounded-2xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3">
           <ShieldAlert className="w-12 h-12 text-rose-500" />
           <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Assigned Sections</h3>
           <p className="text-slate-600 dark:text-slate-400 text-sm max-w-md leading-relaxed">
@@ -477,7 +474,7 @@ const AttendanceEntry = () => {
       ) : (
         <>
           {/* Class Parameter Selector Bar */}
-          <div className="glass-card p-5 rounded-3xl flex flex-wrap items-center gap-6 border border-slate-200/60 dark:border-white/5 bg-slate-50/80 dark:bg-slate-900/40 shadow-xs no-print">
+          <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center gap-6 border border-slate-200/60 dark:border-white/5 shadow-xs no-print">
             {isTeacher ? (
               <div className="flex flex-col">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned Section</label>
@@ -630,7 +627,7 @@ const AttendanceEntry = () => {
                 <button
                   type="submit"
                   disabled={assigning}
-                  className="bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-lg shadow-primary-500/20 disabled:opacity-50 text-xs flex items-center gap-2"
+                  className="bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all shadow-sm disabled:opacity-50 text-xs flex items-center gap-2"
                 >
                   {assigning ? 'Assigning...' : 'Confirm Assignment'}
                 </button>

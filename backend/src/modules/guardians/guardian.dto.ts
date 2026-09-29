@@ -13,6 +13,9 @@ export const CreateGuardianDto = z.object({
   address: z.string().max(500).optional(),
   occupation: z.string().max(100).optional(),
   nidNumber: z.string().max(30).optional(),
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  gender: z.preprocess((val) => typeof val === 'string' ? val.toUpperCase() : val, z.enum(['MALE', 'FEMALE', 'OTHER'])).optional().nullable(),
+  avatarUrl: z.string().optional().nullable(),
 });
 
 export const UpdateGuardianDto = CreateGuardianDto.partial();

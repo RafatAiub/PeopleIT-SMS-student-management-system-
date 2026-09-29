@@ -97,6 +97,22 @@ superAdminBillingRouter.post(
   billingController.archivePlan,
 );
 
+superAdminBillingRouter.post(
+  '/plans/:id/restore',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  billingController.restorePlan,
+);
+
+// Hard delete — service-side guarded to plans nothing references; anything
+// with subscriptions or payments must be archived instead.
+superAdminBillingRouter.delete(
+  '/plans/:id',
+  authenticate,
+  requireRole(UserRole.SUPER_ADMIN),
+  billingController.deletePlan,
+);
+
 superAdminBillingRouter.put(
   '/plans/:id/price',
   authenticate,

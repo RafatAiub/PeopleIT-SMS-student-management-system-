@@ -1,4 +1,4 @@
-# PeopleIT SMS — Developer Technical Brief
+# PeopleNIT SMS — Developer Technical Brief
 
 **Product:** AI-Powered Student Management System (SaaS)
 **Target users:** Schools, colleges, universities, kindergartens, coaching centres (Bangladesh + select international markets)

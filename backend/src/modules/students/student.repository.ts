@@ -28,12 +28,23 @@ const studentListSelect = {
   religion: true,
   nationality: true,
   department: true,
+  categoryId: true,
+  category: { select: { id: true, name: true } },
+  caste: true,
   address: true,
   avatarUrl: true,
   user: { select: { avatarUrl: true } },
   class: { select: { id: true, name: true } },
   section: { select: { id: true, name: true } },
   branch: { select: { id: true, name: true } },
+  guardians: {
+    where: { isPrimary: true },
+    take: 1,
+    select: {
+      relationship: true,
+      guardian: { select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true } },
+    },
+  },
 } as const;
 
 // Full projection for single student view — exported so student.service.ts
@@ -53,6 +64,13 @@ export const studentDetailSelect = {
   religion: true,
   nationality: true,
   department: true,
+  categoryId: true,
+  category: { select: { id: true, name: true } },
+  caste: true,
+  height: true,
+  weight: true,
+  permanentAddress: true,
+  hobbies: true,
   avatarUrl: true,
   status: true,
   admissionDate: true,

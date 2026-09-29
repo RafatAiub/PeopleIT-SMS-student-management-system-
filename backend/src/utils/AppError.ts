@@ -51,6 +51,31 @@ export class LockedError extends AppError {
   }
 }
 
+/**
+ * A 403 that the client must *react* to rather than merely display — an
+ * unverified email needs a "resend" button, a pending account needs different
+ * copy from a suspended one. The `code` lets the frontend branch on the reason
+ * without string-matching the human-readable message.
+ */
+export class AuthRequirementError extends AppError {
+  public readonly code:
+    | 'EMAIL_NOT_VERIFIED'
+    | 'ACCOUNT_PENDING_APPROVAL'
+    | 'ACCOUNT_REJECTED'
+    | 'ACCOUNT_SUSPENDED';
+  public readonly details?: Record<string, unknown>;
+
+  constructor(
+    code: AuthRequirementError['code'],
+    message: string,
+    details?: Record<string, unknown>,
+  ) {
+    super(message, 403);
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(message = 'Resource already exists') {
     super(message, 409);

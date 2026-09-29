@@ -102,7 +102,7 @@ export default function AiInsights() {
         <button
           onClick={handleRefreshInsights}
           disabled={loading}
-          className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-violet-600 hover:from-primary-500 hover:to-violet-500 text-white px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-primary-500/20 text-sm font-semibold active:scale-[0.98] disabled:opacity-50"
+          className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98] disabled:opacity-50"
         >
           <Brain className={`w-4 h-4 ${loading ? 'animate-pulse' : ''}`} />
           {loading ? 'Running Analysis...' : 'Recalculate Insights'}
@@ -117,9 +117,7 @@ export default function AiInsights() {
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between relative overflow-hidden group bg-white dark:bg-transparent shadow-xs">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl -mr-20 -mt-20 transition-transform group-hover:scale-110" />
-              
+            <div className="lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col justify-between relative overflow-hidden group">
               <div className="relative z-10">
                 <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400 font-bold text-sm mb-4 uppercase tracking-widest">
                   <TrendingUp className="w-4.5 h-4.5" />
@@ -148,8 +146,7 @@ export default function AiInsights() {
               </div>
             </div>
 
-            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/5 space-y-5 relative overflow-hidden bg-white dark:bg-transparent shadow-xs">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+            <div className="glass-card p-6 rounded-2xl space-y-5 relative overflow-hidden">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2 relative z-10">
                 <Activity className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Metrics Overview
               </h3>
@@ -221,7 +218,7 @@ export default function AiInsights() {
                   : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20';
 
                 return (
-                  <div key={student.studentId} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 transition-colors bg-white dark:bg-slate-900/30 shadow-xs">
+                  <div key={student.studentId} className="glass-card p-5 rounded-2xl hover:border-slate-300 dark:hover:border-white/10 transition-colors">
                     <div className="flex flex-col lg:flex-row gap-6 justify-between">
                       <div className="flex items-start gap-4">
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${

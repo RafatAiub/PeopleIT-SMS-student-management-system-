@@ -125,8 +125,7 @@ export const SupportAccessPortal: React.FC = () => {
   return (
     <div className="space-y-8 max-w-4xl mx-auto animate-fadeIn">
       {/* Header */}
-      <div className="glass-card p-6 bg-white/50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-3xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+      <div className="glass-card p-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl">
             <LifeBuoy className="w-8 h-8" />
@@ -140,7 +139,7 @@ export const SupportAccessPortal: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleLaunchSupport} className="space-y-6 glass-card p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl shadow-xl">
+      <form onSubmit={handleLaunchSupport} className="space-y-6 glass-card p-8">
         {/* Step 1: Institution Selection */}
         <div>
           <label className="block text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
@@ -204,7 +203,7 @@ export const SupportAccessPortal: React.FC = () => {
                     key={u.id}
                     className={`flex items-center justify-between p-3 cursor-pointer transition-colors text-xs ${
                       selectedUserId === u.id
-                        ? 'bg-blue-50 dark:bg-blue-500/10 border-l-4 border-blue-600'
+                        ? 'bg-primary-50 dark:bg-primary-500/10 border-l-4 border-primary-600'
                         : 'hover:bg-slate-50 dark:hover:bg-white/5'
                     }`}
                   >
@@ -279,7 +278,7 @@ export const SupportAccessPortal: React.FC = () => {
               <button
                 type="submit"
                 disabled={launching}
-                className="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold px-8 py-3 rounded-2xl shadow-xl shadow-amber-500/20 transition-all text-sm min-h-[44px]"
+                className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 py-3 rounded-2xl shadow-sm transition-all text-sm min-h-[44px]"
               >
                 <span>{launching ? 'Launching Session...' : 'Start Support Access Session'}</span>
                 <ArrowRight className="w-4 h-4" />

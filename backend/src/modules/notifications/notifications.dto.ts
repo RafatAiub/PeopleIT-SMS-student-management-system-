@@ -21,6 +21,12 @@ export const NOTIFICATION_TYPES = [
   'SUBSCRIPTION_TRIAL_EXPIRED',
   'SUBSCRIPTION_GRACE',
   'SUBSCRIPTION_SUSPENDED',
+  // Platform lead capture (super admin recipients, no subject institution)
+  'LEAD_SUBMITTED',
+  // Staff/teacher leave workflow
+  'LEAVE_REQUESTED',
+  'LEAVE_APPROVED',
+  'LEAVE_REJECTED',
 ] as const;
 
 // Subset that concerns platform subscription billing — used by the frontend

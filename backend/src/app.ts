@@ -9,6 +9,7 @@ import { globalErrorHandler } from './middleware/error.middleware';
 // Routes
 import authRouter from './modules/auth/auth.routes';
 import studentRouter from './modules/students/student.routes';
+import studentPublicRouter from './modules/students/student.public.routes';
 import guardianRouter from './modules/guardians/guardian.routes';
 import feeRouter from './modules/fees/fee.routes';
 import userRouter from './modules/users/user.routes';
@@ -21,12 +22,22 @@ import lectureRouter from './modules/lectures/lecture.routes';
 import assignmentRouter from './modules/assignments/assignment.routes';
 import transportRouter from './modules/transport/transport.routes';
 import hrRouter from './modules/hr/hr.routes';
+import leaveRouter from './modules/leave/leave.routes';
 import aiRouter from './modules/ai/ai.routes';
 import institutionRouter from './modules/institution/institution.routes';
 import institutionApplicationRouter from './modules/institution-application/institution-application.routes';
+import authorizedEmailRouter from './modules/authorized-email/authorized-email.routes';
+import leadRouter from './modules/lead/lead.routes';
 import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
+import academicsRouter from './modules/academics/academics.routes';
+import staffManagementRouter from './modules/staff/staff.routes';
+import staffAttendanceRouter from './modules/staff/staffAttendance.routes';
+import feeSetupRouter from './modules/fee-setup/fee-setup.routes';
+import websiteItemsRouter from './modules/website-items/website-items.routes';
+import systemRouter from './modules/system/system.routes';
+import examsRouter from './modules/exams/exams.routes';
 import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
@@ -113,10 +124,46 @@ const authLimiter = rateLimit({
 app.use('/api/v1/auth/login', authLimiter);
 app.use('/api/v1/auth/refresh', authLimiter);
 
+// Two-step verification is a code-guessing surface of its own. The per-code
+// attempt cap (MAX_OTP_ATTEMPTS in auth.service.ts) stops a single code being
+// brute-forced; this stops an attacker cycling through fresh challenges to get
+// a new attempt budget each time. Slightly roomier than the login cap because
+// a legitimate user mistyping a 6-digit code is common.
+const twoFactorLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: env.NODE_ENV === 'development' ? 100 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many verification attempts from this IP, please try again after 15 minutes',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/auth/login/verify-2fa', twoFactorLimiter);
+
+// Email-bearing auth endpoints (verification resend, password reset) are both
+// a mail-sending amplifier and an account-enumeration oracle, so they get the
+// tightest public cap in the app.
+const authEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/auth/resend-verification', authEmailLimiter);
+app.use('/api/v1/auth/forgot-password', authEmailLimiter);
+app.use('/api/v1/auth/register', authEmailLimiter);
+
 // Strict rate limit for the public, unauthenticated institute application form
 const applicationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: env.NODE_ENV === 'development' ? 100 : 5,
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
@@ -124,12 +171,63 @@ const applicationLimiter = rateLimit({
 });
 app.use('/api/v1/institution-applications/apply', applicationLimiter);
 
+// Separate, stricter limiter counting ONLY 401 (unauthorized-email) responses
+// on the application endpoint — independent of applicationLimiter above.
+// Without this, 401-vs-201 is an email-enumeration oracle: an attacker can
+// probe arbitrary addresses against the AuthorizedEmail allowlist as fast as
+// applicationLimiter's general cap allows. skipSuccessfulRequests plus a
+// requestWasSuccessful override that only treats non-401 as "successful"
+// means only 401s increment this counter — a 201, 409, 422, etc. never count
+// against it, so legitimate/authorized traffic is unaffected.
+const unauthorizedApplicationEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: (_req, res) => res.statusCode !== 401,
+  message: {
+    success: false,
+    message: 'Too many unauthorized registration attempts from this IP, please try again later',
+  },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/institution-applications/apply', unauthorizedApplicationEmailLimiter);
+
+// Strict rate limit for the public, unauthenticated lead-capture form. The
+// same router path also serves Super Admin's authenticated GET/PATCH
+// management calls, so this only throttles unauthenticated traffic (no
+// Bearer token) rather than the whole path — an admin session is never
+// counted against a public-traffic cap.
+const leadCaptureLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 100 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests submitted from this IP, please try again later' },
+  skip: (req) => env.NODE_ENV === 'test' || Boolean(req.headers.authorization),
+});
+app.use('/api/v1/leads', leadCaptureLimiter);
+
+// Strict rate limit for the public, unauthenticated Online Registration
+// (Student Application) form — same tier as institution-applications/apply.
+const studentApplicationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: env.NODE_ENV === 'development' ? 1000 : 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many applications submitted from this IP, please try again later' },
+  skip: () => env.NODE_ENV === 'test',
+});
+app.use('/api/v1/student-applications/apply', studentApplicationLimiter);
+
 // Enforce read-only mode for active support access sessions
 app.use('/api/', enforceReadOnly);
 
 // Mount API routes
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
+app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
@@ -142,12 +240,22 @@ app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);
 app.use('/api/v1/transport', transportRouter);
 app.use('/api/v1/hr', hrRouter);
+app.use('/api/v1/leave', leaveRouter);
 app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
+app.use('/api/v1/authorized-emails', authorizedEmailRouter);
+app.use('/api/v1/leads', leadRouter);
 app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
+app.use('/api/v1/academics', academicsRouter);
+app.use('/api/v1/staff-management', staffManagementRouter);
+app.use('/api/v1/staff-attendance', staffAttendanceRouter);
+app.use('/api/v1/fee-setup', feeSetupRouter);
+app.use('/api/v1/website-items', websiteItemsRouter);
+app.use('/api/v1/system', systemRouter);
+app.use('/api/v1/exams', examsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Public verification route mounted BEFORE the authenticated id-cards router
 // so an unauthenticated QR-code scan of /verify/:token never hits the

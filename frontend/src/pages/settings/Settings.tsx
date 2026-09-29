@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award, Upload, Check } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Building, Palette, GraduationCap, Plus, Pencil, Trash2, X, Mail, Phone, MapPin, Calendar, Award, Upload, Check, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
@@ -9,6 +9,7 @@ import { compressImage } from '../../utils/imageCompressor';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import SecuritySettings from './SecuritySettings';
 
 const toDateInputValue = (dateStr: string) => (dateStr ? dateStr.slice(0, 10) : '');
 
@@ -18,7 +19,11 @@ const Settings = () => {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams'>('profile');
+  // Security is the only per-user tab; the rest are institution-level and
+  // admin-oriented, so a non-admin lands straight on the one that is theirs.
+  const [activeTab, setActiveTab] = useState<'profile' | 'branding' | 'exams' | 'security'>(
+    isAdmin ? 'profile' : 'security'
+  );
 
   const [exams, setExams] = useState<any[]>([]);
   const [examsLoading, setExamsLoading] = useState(false);
@@ -222,7 +227,7 @@ const Settings = () => {
 
         <div className="flex-1 space-y-2.5 w-full">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-primary-600 hover:from-blue-500 hover:to-primary-500 text-white font-bold text-xs shadow-md shadow-blue-500/20 active:scale-95 transition-all">
+            <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-sm active:scale-95 transition-all">
               <Upload className="w-4 h-4" />
               <span>Upload Image File</span>
               <input
@@ -280,9 +285,7 @@ const Settings = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Institution Identity Card */}
           <div className="md:col-span-1 space-y-4">
-            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-lg text-center flex flex-col items-center justify-center space-y-4 relative overflow-hidden group">
-              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 to-primary-600" />
-              
+            <div className="glass-card p-6 rounded-2xl text-center flex flex-col items-center justify-center space-y-4 relative overflow-hidden group">
               <div className="w-24 h-24 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60 shadow-inner flex items-center justify-center overflow-hidden transition-transform duration-300 group-hover:scale-105">
                 {settings.logoUrl ? (
                   <img 
@@ -308,7 +311,7 @@ const Settings = () => {
               </div>
             </div>
 
-            <div className="glass-card p-5 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-md space-y-4">
+            <div className="glass-card p-5 rounded-2xl space-y-4">
               <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Contact Information</h4>
               
               <div className="space-y-3.5">
@@ -347,7 +350,7 @@ const Settings = () => {
 
           {/* Academic Schedule & Active Exams List */}
           <div className="md:col-span-2 space-y-4">
-            <div className="glass-card p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 bg-white/50 dark:bg-slate-900/30 shadow-md space-y-5">
+            <div className="glass-card p-6 rounded-2xl space-y-5">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <GraduationCap className="w-5 h-5 text-blue-500 dark:text-blue-400" />
@@ -415,7 +418,7 @@ const Settings = () => {
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'profile' 
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20' 
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
@@ -426,7 +429,7 @@ const Settings = () => {
             onClick={() => setActiveTab('branding')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'branding' 
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20' 
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20' 
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
@@ -437,12 +440,23 @@ const Settings = () => {
             onClick={() => setActiveTab('exams')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'exams'
-                ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20'
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
             }`}
           >
             <GraduationCap className="w-5 h-5" />
             Manage Exams
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${
+              activeTab === 'security'
+                ? 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-500/20'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
+            }`}
+          >
+            <ShieldCheck className="w-5 h-5" />
+            Security
           </button>
         </div>
 
@@ -614,7 +628,12 @@ const Settings = () => {
               </>
             )}
 
-            {activeTab !== 'exams' && (
+            {activeTab === 'security' && <SecuritySettings />}
+
+            {/* Institution settings are saved as a whole; the exams and
+                security tabs each save their own changes as they are made, so
+                a shared Save button there would do nothing. */}
+            {activeTab !== 'exams' && activeTab !== 'security' && (
               <div className="pt-4 flex justify-end">
                 <Button variant="gradient" onClick={handleSave} isLoading={saving} className="py-2 px-5">
                   <Save className="w-4 h-4" />

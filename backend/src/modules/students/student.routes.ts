@@ -12,6 +12,10 @@ import {
   StudentQueryDto,
   StudentIdParamDto,
   CreateStudentDocumentDto,
+  UpdateRollNumbersDto,
+  ResetStudentPasswordDto,
+  BulkAssignClassDto,
+  ApproveStudentApplicationDto,
 } from './student.dto';
 import * as studentController from './student.controller';
 
@@ -60,6 +64,23 @@ router.post(
   studentController.bulkImportStudents,
 );
 
+// Assign Class Teacher / Bulk Assign Class screens' companion bulk writes —
+// declared before the '/:id' routes below only for readability; they don't
+// share a path shape with '/:id' so ordering doesn't affect matching.
+router.patch(
+  '/roll-numbers',
+  requireRole(...WRITE_ROLES),
+  validate({ body: UpdateRollNumbersDto }),
+  studentController.updateRollNumbers,
+);
+
+router.post(
+  '/bulk-assign-class',
+  requireRole(...WRITE_ROLES),
+  validate({ body: BulkAssignClassDto }),
+  studentController.bulkAssignClass,
+);
+
 // STUDENT/GUARDIAN are intentionally excluded here — they must use /me,
 // which is scoped server-side. This route accepts an arbitrary :id.
 router.get(
@@ -81,6 +102,22 @@ router.delete(
   requireRole(...WRITE_ROLES),
   validate({ params: StudentIdParamDto }),
   studentController.deleteStudent,
+);
+
+router.post(
+  '/:id/reset-password',
+  requireRole(...WRITE_ROLES),
+  validate({ params: StudentIdParamDto, body: ResetStudentPasswordDto }),
+  studentController.resetStudentPassword,
+);
+
+// Online Registrations review screen — approves a PENDING application
+// (provisions its login) or removes it via the existing DELETE /:id.
+router.post(
+  '/:id/approve',
+  requireRole(...WRITE_ROLES),
+  validate({ params: StudentIdParamDto, body: ApproveStudentApplicationDto }),
+  studentController.approveStudentApplication,
 );
 
 router.get(

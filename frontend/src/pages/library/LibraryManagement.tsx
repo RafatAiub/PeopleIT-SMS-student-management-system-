@@ -170,7 +170,7 @@ export default function LibraryManagement() {
       sortable: false,
       render: (issue) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent">
+          <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
             <Book className="w-4 h-4" />
           </div>
           <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.bookTitle || issue.book?.title}</span>
@@ -279,9 +279,9 @@ export default function LibraryManagement() {
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {books.map((book) => (
-            <div key={book.id} className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group">
+            <div key={book.id} className="glass-card p-5 rounded-2xl hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-all group">
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-transparent group-hover:scale-110 transition-transform">
+                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-500/20 rounded-xl flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent group-hover:scale-110 transition-transform">
                   <Book className="w-6 h-6" />
                 </div>
                 <div className="flex gap-2">
@@ -305,7 +305,7 @@ export default function LibraryManagement() {
               <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
                 <span>ISBN: {book.isbn}</span>
                 <div className="flex gap-2">
-                   <button onClick={() => openEditBook(book)} aria-label={`Edit ${book.title}`} title="Edit book" className="p-1 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
+                   <button onClick={() => openEditBook(book)} aria-label={`Edit ${book.title}`} title="Edit book" className="p-1 text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
                    <button onClick={() => setBookToDelete(book)} aria-label={`Delete ${book.title}`} title="Delete book" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
@@ -322,7 +322,7 @@ export default function LibraryManagement() {
           />
         </div>
       ) : (
-        <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-xs p-4">
+        <div className="glass-card rounded-2xl overflow-hidden p-4">
           <DataTable
             data={issues}
             columns={issueColumns}

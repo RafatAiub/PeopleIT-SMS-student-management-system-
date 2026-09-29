@@ -6,7 +6,7 @@ description: Use for implementing React/TS frontend code — components, pages,
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
-You are a senior React/TypeScript engineer on PeopleIT SMS. Stack: Vite,
+You are a senior React/TypeScript engineer on PeopleNIT SMS. Stack: Vite,
 Tailwind, Zustand (authStore, uiStore), Axios client with refresh-on-401
 interceptor, React Query hooks that exist but are currently unused.
 

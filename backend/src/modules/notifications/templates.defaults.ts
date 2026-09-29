@@ -137,7 +137,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'You can review payments and receipts from the Subscription & Billing page.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -158,7 +158,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'No charge was applied. You can retry from the Subscription & Billing page.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -179,7 +179,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'Open the Subscription & Billing page and choose "Pay Now" to complete it securely.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -200,7 +200,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'No action is needed from you. Contact support if this looks wrong.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -221,7 +221,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'The gateway typically settles refunds within a few business days. You will',
       'get another message once it is confirmed.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -240,7 +240,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'It may take a few more days to appear on the original payment method.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -258,7 +258,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'To avoid any interruption, open the Subscription & Billing page and choose a',
       'plan before then.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -276,7 +276,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'Open the Subscription & Billing page and choose a plan to continue using',
       'PeopleIT without interruption. Your data is safe in the meantime.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -296,7 +296,7 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '',
       'Renew from the Subscription & Billing page to keep your account active.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
     ].join('\n'),
   },
 
@@ -316,7 +316,106 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       'Subscription & Billing page (still reachable by the institute admin) to pay,',
       'or contact the PeopleIT team.',
       '',
-      'PeopleIT SMS',
+      'PeopleNIT SMS',
+    ].join('\n'),
+  },
+
+  // ── Platform lead capture ───────────────────────────────────────────────
+  // Recipient is every SUPER_ADMIN. institutionId is the internal platform
+  // anchor row (see config/platformInstitution.ts), never a real tenant, so
+  // {{institutionName}} here is deliberately overridden by the caller to the
+  // prospect's own institution name rather than left as the anchor's name.
+  'LEAD_SUBMITTED:IN_APP': {
+    subject: 'New demo request: {{leadName}}',
+    body: '{{leadName}} ({{leadPhone}}) requested a demo for {{institutionName}}. Source: {{source}}.',
+  },
+  'LEAD_SUBMITTED:EMAIL': {
+    subject: 'New lead: {{leadName}} — {{institutionName}}',
+    body: [
+      'Hello,',
+      '',
+      'A new demo request came in from the public request-demo form.',
+      '',
+      '  Name        : {{leadName}}',
+      '  Phone       : {{leadPhone}}',
+      '  Email       : {{leadEmail}}',
+      '  Institution : {{institutionName}}',
+      '  Source      : {{source}}',
+      '',
+      'Qualify and authorize this contact from Super Admin > Leads.',
+      '',
+      'PeopleNIT SMS',
+    ].join('\n'),
+  },
+  'LEAD_SUBMITTED:SMS': {
+    body: 'New lead: {{leadName}} ({{leadPhone}}) - {{institutionName}}. Check Super Admin > Leads.',
+  },
+
+  // ── Staff/teacher leave workflow ────────────────────────────────────────
+  'LEAVE_REQUESTED:IN_APP': {
+    subject: 'New leave request: {{applicantName}}',
+    body: '{{applicantName}} requested {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)).',
+  },
+  'LEAVE_REQUESTED:EMAIL': {
+    subject: 'Leave request from {{applicantName}}',
+    body: [
+      'Hello,',
+      '',
+      '{{applicantName}} has submitted a leave request.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Reason     : {{reason}}',
+      '',
+      'Review and approve or reject it from the Leave Management page.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  'LEAVE_APPROVED:IN_APP': {
+    subject: 'Leave request approved',
+    body: 'Your {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)) was approved.',
+  },
+  'LEAVE_APPROVED:EMAIL': {
+    subject: 'Your leave request was approved',
+    body: [
+      'Dear {{applicantName}},',
+      '',
+      'Your leave request has been approved.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Comment    : {{reviewerComment}}',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  'LEAVE_REJECTED:IN_APP': {
+    subject: 'Leave request rejected',
+    body: 'Your {{leaveTypeName}} leave from {{startDate}} to {{endDate}} ({{totalDays}} day(s)) was rejected. Reason: {{reviewerComment}}',
+  },
+  'LEAVE_REJECTED:EMAIL': {
+    subject: 'Your leave request was rejected',
+    body: [
+      'Dear {{applicantName}},',
+      '',
+      'Your leave request has been rejected.',
+      '',
+      '  Leave type : {{leaveTypeName}}',
+      '  From       : {{startDate}}',
+      '  To         : {{endDate}}',
+      '  Total days : {{totalDays}}',
+      '  Reason     : {{reviewerComment}}',
+      '',
+      'Contact the office if you have questions.',
+      '',
+      '{{institutionName}}',
     ].join('\n'),
   },
 };
