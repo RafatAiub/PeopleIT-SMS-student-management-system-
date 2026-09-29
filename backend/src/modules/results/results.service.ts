@@ -2,6 +2,7 @@ import * as resultsRepository from './results.repository';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, BadRequestError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import { notifySafe } from '../notifications/notifications.service';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
@@ -138,7 +139,52 @@ export async function submitExamResults(
   const bands = await getDefaultBands(institutionId);
   const result = await resultsRepository.upsertBulkResults(institutionId, examId, results, bands);
   logger.info('Exam results submitted', { institutionId, examId, count: results.length });
+  notifyResultsPublished(institutionId, examId, exam.name, studentIds);
   return result;
+}
+
+/**
+ * "Results published" — every affected student's own account plus every
+ * guardian who has a linked User account. P2 (bulk — see
+ * notifications/channels/email.channel.ts's PRIORITY_BY_TYPE): submitting a
+ * class's results is exactly the "invoices/reminders/campaigns" bulk
+ * scenario the daily-budget policy is designed for, and notify() already
+ * respects each recipient's NotificationPreference.
+ */
+function notifyResultsPublished(institutionId: string, examId: string, examName: string, studentIds: string[]): void {
+  prisma.student
+    .findMany({
+      where: { id: { in: studentIds }, institutionId },
+      select: {
+        id: true,
+        userId: true,
+        firstName: true,
+        lastName: true,
+        guardians: { select: { guardian: { select: { userId: true } } } },
+      },
+    })
+    .then((students) => {
+      for (const student of students) {
+        const guardianUserIds = student.guardians.map((g) => g.guardian.userId).filter((id): id is string => Boolean(id));
+        const recipientUserIds = [...new Set([student.userId, ...guardianUserIds].filter((id): id is string => Boolean(id)))];
+        if (recipientUserIds.length === 0) continue;
+        notifySafe({
+          institutionId,
+          type: 'RESULTS_PUBLISHED',
+          recipientUserIds,
+          contextId: `${examId}:${student.id}`,
+          data: { link: '/results' },
+          vars: { examName, studentName: `${student.firstName} ${student.lastName}` },
+        });
+      }
+    })
+    .catch((error) => {
+      logger.error('Failed to dispatch results-published notifications', {
+        institutionId,
+        examName,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 }
 
 export async function listResults(

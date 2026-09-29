@@ -95,6 +95,13 @@ export const LoginCustomerDto = z.object({
   password: z.string().min(1).max(200),
 });
 
+export const ForgotPasswordDto = z.object({ email });
+
+export const ResetPasswordDto = z.object({
+  token: z.string().min(1).max(2000),
+  password: z.string().min(8).max(200),
+});
+
 // ── Public: orders + payment ─────────────────────────────────────────────────
 
 const cartItemKind = z.enum(['PRODUCT', 'COURSE']);
@@ -148,5 +155,7 @@ export type CustomerQueryDtoType = z.infer<typeof CustomerQueryDto>;
 export type PublicProductQueryDtoType = z.infer<typeof PublicProductQueryDto>;
 export type RegisterCustomerDtoType = z.infer<typeof RegisterCustomerDto>;
 export type LoginCustomerDtoType = z.infer<typeof LoginCustomerDto>;
+export type ForgotPasswordDtoType = z.infer<typeof ForgotPasswordDto>;
+export type ResetPasswordDtoType = z.infer<typeof ResetPasswordDto>;
 export type CreateOrderDtoType = z.infer<typeof CreateOrderDto>;
 export type DemoPayDtoType = z.infer<typeof DemoPayDto>;

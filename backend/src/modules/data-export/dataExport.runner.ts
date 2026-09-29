@@ -5,7 +5,9 @@ import { Readable } from 'stream';
 import archiver from 'archiver';
 import { UserRole } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
+import { notifySafe } from '../notifications/notifications.service';
 import { CSV_BOM, csvRow, expiryFrom, exportFileName, fileNameFromUrl, STALE_EXPORT_MS } from './dataExport.logic';
 
 // =============================================================================
@@ -309,9 +311,23 @@ export async function runDataExportJob(jobId: string): Promise<void> {
   try {
     const result = await buildZip(job.id, job.institutionId, job.institution.name);
     const completedAt = new Date();
+    const expiresAt = expiryFrom(completedAt);
     await prisma.dataExportJob.update({
       where: { id: job.id },
-      data: { status: 'COMPLETED', fileUrl: `local:${result.fileName}`, completedAt, expiresAt: expiryFrom(completedAt) },
+      data: { status: 'COMPLETED', fileUrl: `local:${result.fileName}`, completedAt, expiresAt },
+    });
+
+    // "Data export ready" — P1, to the requester, with the (authenticated
+    // app) download link and its expiry. The actual file download endpoint
+    // requires a Bearer token, so the link is the app page that lists
+    // exports and downloads them, not a bare public URL.
+    notifySafe({
+      institutionId: job.institutionId,
+      type: 'DATA_EXPORT_READY',
+      recipientUserIds: [job.requestedByUserId],
+      contextId: job.id,
+      data: { link: '/data-export' },
+      vars: { downloadUrl: `${env.FRONTEND_URL}/data-export`, expiresAt: expiresAt.toDateString() },
     });
     await prisma.auditLog
       .create({

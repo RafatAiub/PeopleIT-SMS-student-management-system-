@@ -83,6 +83,11 @@ export const checkoutOptions = wrap(async (req, res) => {
 
 export const registerAccount = wrap(async (req, res) => successResponse(res, await commerce.registerCustomer(req.params.siteId, req.body), 'Account created', 201));
 export const loginAccount = wrap(async (req, res) => successResponse(res, await commerce.loginCustomer(req.params.siteId, req.body)));
+// Always the same success response regardless of whether the address has an
+// account — the service itself decides whether to actually send anything, so
+// this endpoint cannot be used to enumerate registered emails.
+export const forgotPassword = wrap(async (req, res) => successResponse(res, await commerce.forgotPassword(req.params.siteId, req.body.email), 'If that account exists, a reset link has been sent'));
+export const resetPassword = wrap(async (req, res) => successResponse(res, await commerce.resetPassword(req.params.siteId, req.body.token, req.body.password), 'Password reset'));
 export const accountMe = wrap(async (req, res) => successResponse(res, await commerce.accountMe(req.params.siteId, req.headers.authorization)));
 export const accountOrders = wrap(async (req, res) => successResponse(res, await commerce.accountOrders(req.params.siteId, req.headers.authorization)));
 

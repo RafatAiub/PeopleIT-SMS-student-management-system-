@@ -29,7 +29,7 @@ export interface NotifyInput {
  * still subject to (a) the user's opt-out and (b) whether that channel is
  * configured in this deployment — both resolved at delivery time.
  */
-const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
+export const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
   INVOICE_ISSUED: ['IN_APP', 'EMAIL'],
   PAYMENT_RECEIVED: ['IN_APP', 'EMAIL'],
   FEE_REMINDER: ['IN_APP', 'EMAIL', 'SMS'],
@@ -55,6 +55,17 @@ const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> = {
   // In-app only: an event can go to every student and guardian at once, and
   // a bulk email/SMS blast per event would be costly and noisy.
   EVENT_PUBLISHED: ['IN_APP'],
+  // Support tickets — requester + assigned staff.
+  SUPPORT_TICKET_CREATED: ['IN_APP', 'EMAIL'],
+  SUPPORT_TICKET_REPLIED: ['IN_APP', 'EMAIL'],
+  SUPPORT_TICKET_STATUS_CHANGED: ['IN_APP', 'EMAIL'],
+  // Academic results — every affected student + their guardians (bulk; see
+  // PRIORITY_BY_TYPE in notifications/channels/email.channel.ts).
+  RESULTS_PUBLISHED: ['IN_APP', 'EMAIL'],
+  // Payroll — the staff member the payslip is about.
+  PAYSLIP_ISSUED: ['IN_APP', 'EMAIL'],
+  // Tenant data export — the admin who requested it.
+  DATA_EXPORT_READY: ['IN_APP', 'EMAIL'],
 };
 
 /**

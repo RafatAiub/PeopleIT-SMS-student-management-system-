@@ -16,7 +16,7 @@ import type { SitesCtx } from './sites.service';
 
 type Handler = (req: Request, res: Response) => Promise<unknown>;
 
-const wrap = (fn: Handler) => async (req: Request, res: Response, next: NextFunction) => {
+export const wrap = (fn: Handler) => async (req: Request, res: Response, next: NextFunction) => {
   try {
     await fn(req, res);
   } catch (error) {
@@ -24,14 +24,14 @@ const wrap = (fn: Handler) => async (req: Request, res: Response, next: NextFunc
   }
 };
 
-const ctxOf = (req: Request): SitesCtx => ({
+export const ctxOf = (req: Request): SitesCtx => ({
   institutionId: sites.assertTenant(req.tenantId),
   userId: req.user!.sub,
   role: req.user!.role,
 });
 
-const q = (req: Request) => req.query as any;
-const paged = (res: Response, r: { items: unknown[]; total: number }, req: Request, extra?: Record<string, unknown>) =>
+export const q = (req: Request) => req.query as any;
+export const paged = (res: Response, r: { items: unknown[]; total: number }, req: Request, extra?: Record<string, unknown>) =>
   paginatedResponse(res, r.items, r.total, Number(q(req).page ?? 1), Number(q(req).pageSize ?? r.items.length ?? 20), 'Success', extra);
 
 // ── Admin: site ─────────────────────────────────────────────────────────────
@@ -119,12 +119,12 @@ export const removeDomain = wrap(async (req, res) => successResponse(res, await 
 
 // ── Public ──────────────────────────────────────────────────────────────────
 
-const previewOf = (req: Request): string | undefined =>
+export const previewOf = (req: Request): string | undefined =>
   (typeof req.query.preview === 'string' ? req.query.preview : undefined) ??
   (typeof req.headers['x-site-preview'] === 'string' ? (req.headers['x-site-preview'] as string) : undefined);
 
 /** Published responses may be cached briefly by browsers/CDNs; previews never. */
-function cache(res: Response, preview: boolean, seconds = 60) {
+export function cache(res: Response, preview: boolean, seconds = 60) {
   res.setHeader('Cache-Control', preview ? 'private, no-store' : `public, max-age=${seconds}, stale-while-revalidate=${seconds * 5}`);
 }
 

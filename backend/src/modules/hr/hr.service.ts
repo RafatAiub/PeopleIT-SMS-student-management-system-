@@ -1,8 +1,14 @@
 import * as hrRepository from './hr.repository';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import { NotFoundError, ConflictError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
-import { Prisma } from '@prisma/client';
+import { EmailPriority, Prisma } from '@prisma/client';
+import crypto from 'crypto';
+import { sendEmail } from '../email/sender';
+import { staffInviteEmail } from '../email/templates/invite.templates';
+import { findInstitutionBranding } from '../notifications/notifications.repository';
+import { notifySafe } from '../notifications/notifications.service';
 import { getInvoiceTenantTag } from '../../utils/invoiceNumber';
 import {
   computePayrollBreakdown,
@@ -48,6 +54,53 @@ function mapPayroll(payroll: any) {
   };
 }
 
+function generateTemporaryPassword(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+  const bytes = crypto.randomBytes(12);
+  let pwd = '';
+  for (let i = 0; i < 12; i++) pwd += chars[bytes[i] % chars.length];
+  return pwd;
+}
+
+/** Fire-and-forget: a slow/broken mail provider must never fail staff creation. */
+function sendStaffInviteEmail(params: {
+  institutionId: string;
+  firstName: string;
+  role: string;
+  loginEmail: string;
+  temporaryPassword: string;
+}): void {
+  findInstitutionBranding(params.institutionId)
+    .then((branding) => {
+      const mail = staffInviteEmail({
+        firstName: params.firstName,
+        institutionName: branding.name,
+        role: params.role,
+        loginEmail: params.loginEmail,
+        temporaryPassword: params.temporaryPassword,
+        loginUrl: `${env.FRONTEND_URL}/login`,
+        institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+      });
+      return sendEmail({
+        to: params.loginEmail,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+        template: 'hr.staff-invite',
+        priority: EmailPriority.P0_SECURITY,
+        institutionId: params.institutionId,
+        fromName: branding.name,
+        replyTo: branding.contactEmail ?? undefined,
+      });
+    })
+    .catch((error) => {
+      logger.error('Failed to send staff invite email', {
+        institutionId: params.institutionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+}
+
 // --- Staff Services ---
 
 export async function createStaff(institutionId: string, data: CreateStaffDtoType) {
@@ -62,7 +115,12 @@ export async function createStaff(institutionId: string, data: CreateStaffDtoTyp
       targetUserId = existingUser.id;
     } else {
       const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('Staff@123', 10);
+      // Random per-invite temporary password (was a hardcoded 'Staff@123' —
+      // a fixed default password shared by every auto-created staff account
+      // is itself a security hole; a random one is only ever readable once,
+      // by the new staff member, via the invite email below).
+      const temporaryPassword = generateTemporaryPassword();
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
       const nameParts = (data.name || 'Staff Member').trim().split(' ');
       const firstName = nameParts[0] || 'Staff';
       const lastName = nameParts.slice(1).join(' ') || 'Member';
@@ -84,6 +142,14 @@ export async function createStaff(institutionId: string, data: CreateStaffDtoTyp
         },
       });
       targetUserId = newUser.id;
+
+      sendStaffInviteEmail({
+        institutionId,
+        firstName,
+        role: userRole,
+        loginEmail: newUser.email,
+        temporaryPassword,
+      });
     }
   }
 
@@ -212,7 +278,7 @@ class PayslipAllocator {
 
 async function createPayrollRecord(
   institutionId: string,
-  staff: { id: string; baseSalary: unknown },
+  staff: { id: string; baseSalary: unknown; userId?: string },
   payPeriod: string,
   manual: { allowances: number; deductions: number },
   allocator: PayslipAllocator,
@@ -236,7 +302,7 @@ async function createPayrollRecord(
   for (let attempt = 0; attempt < 4; attempt++) {
     const payslipNo = await allocator.next();
     try {
-      return await hrRepository.createPayroll(institutionId, {
+      const created = await hrRepository.createPayroll(institutionId, {
         staffId: staff.id,
         payPeriod,
         baseSalary,
@@ -248,6 +314,24 @@ async function createPayrollRecord(
         breakdown: breakdown as unknown as Prisma.InputJsonValue | null,
         payslipNo,
       });
+
+      // "Payslip issued" — P1, no salary figures in the subject (the
+      // template's :EMAIL subject is a plain "your payslip is ready"; the
+      // amount only appears in the body, which is fine — this is a direct
+      // 1:1 message to the staff member it's about, not a preview/summary
+      // surface). Never blocks payroll processing on a mail failure.
+      if (staff.userId) {
+        notifySafe({
+          institutionId,
+          type: 'PAYSLIP_ISSUED',
+          recipientUserIds: [staff.userId],
+          contextId: created.id,
+          data: { link: '/payroll' },
+          vars: { payPeriod, payslipNo, netAmount: netAmount.toFixed(2) },
+        });
+      }
+
+      return created;
     } catch (error) {
       if (!isPayslipCollision(error)) throw error;
       lastError = error;

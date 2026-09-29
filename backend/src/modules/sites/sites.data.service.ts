@@ -83,7 +83,10 @@ export async function events(siteId: string, q: { from?: string; to?: string; pr
 export async function teachers(siteId: string, preview?: string) {
   const { site } = await visibleSite(siteId, preview);
   const users = await prisma.user.findMany({
-    where: { institutionId: site.institutionId, role: 'TEACHER', isActive: true, status: 'ACTIVE' },
+    // Website v3 / owner decision 3: hidden until each teacher opts in
+    // (Website > Staff visibility). Behaviour change — this directory was
+    // previously every active TEACHER unconditionally.
+    where: { institutionId: site.institutionId, role: 'TEACHER', isActive: true, status: 'ACTIVE', showOnWebsite: true },
     select: {
       firstName: true,
       lastName: true,
@@ -120,7 +123,8 @@ export async function exams(siteId: string, preview?: string) {
   return { items };
 }
 
-async function publicExam(institutionId: string, examId?: string) {
+/** Exported for sites.portal.public.service.ts (result-summary, results-archive). */
+export async function publicExam(institutionId: string, examId?: string) {
   const where = { institutionId, isActive: true, endDate: { lte: new Date() } };
   const exam = examId
     ? await prisma.exam.findFirst({ where: { ...where, id: examId }, select: { id: true, name: true } })

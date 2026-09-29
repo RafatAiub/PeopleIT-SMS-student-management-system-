@@ -365,6 +365,7 @@ async function startTwoFactorChallenge(user: {
   email: string;
   firstName: string;
   twoFactorMethod: string | null;
+  institutionId: string | null;
 }): Promise<TwoFactorChallenge> {
   const method = user.twoFactorMethod === 'TOTP' ? 'TOTP' : 'EMAIL';
   const challengeToken = signChallengeToken(user.id);
@@ -400,6 +401,7 @@ async function startTwoFactorChallenge(user: {
     firstName: user.firstName,
     code,
     expiresInMinutes: OTP_TTL_MINUTES,
+    institutionId: user.institutionId,
   });
 
   logger.info('2FA challenge issued (EMAIL)', { userId: user.id });

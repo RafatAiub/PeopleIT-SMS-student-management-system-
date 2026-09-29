@@ -1,8 +1,12 @@
 import bcrypt from 'bcryptjs';
 import { UserRepository } from './user.repository';
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from '../../utils/AppError';
-import { UserRole } from '@prisma/client';
+import { EmailPriority, UserRole } from '@prisma/client';
 import { env } from '../../config/env';
+import { logger } from '../../utils/logger';
+import { sendEmail } from '../email/sender';
+import { staffInviteEmail } from '../email/templates/invite.templates';
+import { findInstitutionBranding } from '../notifications/notifications.repository';
 
 // F8: classId/sectionId are client-supplied on the STUDENT branch of
 // create/updateUser — must belong to this tenant (Section/Class are scoped
@@ -128,6 +132,38 @@ export class UserService {
     // instead of always reporting studentProfile/guardianProfile as null.
     const created = await UserRepository.getUserById(tenantId, user.id);
     const { passwordHash: _passwordHash, ...createdWithoutPassword } = created!;
+
+    // Fire-and-forget invite mail — an admin just handed this user a
+    // password out-of-band (this call), so emailing it too is the delivery
+    // channel, not a duplicate secret store; never blocks the response, and a
+    // delivery failure never fails account creation itself.
+    findInstitutionBranding(tenantId)
+      .then((branding) => {
+        const mail = staffInviteEmail({
+          firstName: data.firstName,
+          institutionName: branding.name,
+          role: data.role,
+          loginEmail: data.email,
+          temporaryPassword: data.password,
+          loginUrl: `${env.FRONTEND_URL}/login`,
+          institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+        });
+        return sendEmail({
+          to: data.email,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          template: 'users.invite',
+          priority: EmailPriority.P0_SECURITY,
+          institutionId: tenantId,
+          fromName: branding.name,
+          replyTo: branding.contactEmail ?? undefined,
+        });
+      })
+      .catch((error) => {
+        logger.error('Failed to send user invite email', { tenantId, error: error instanceof Error ? error.message : String(error) });
+      });
+
     return createdWithoutPassword;
   }
 

@@ -517,11 +517,26 @@ export function readGates(settings: unknown): { publicResults: boolean; showTopp
   };
 }
 
-/** Settings keys exposed on the public resolve endpoint. */
+/**
+ * Settings keys exposed on the public resolve endpoint (sites.public.service
+ * resolveSite → settings). Anything not listed here stays server-side only —
+ * that is the fix for the bug in §1 of WEBSITE_V3_PLAN.md: a school could
+ * save a new setting in the admin UI and it would never reach a visitor.
+ *
+ * `hidePoweredBy` is listed deliberately: it is honest to show the school's
+ * own request back to them, but it is NEVER the source of truth for whether
+ * the footer credit renders — resolveSite adds a separate, server-computed
+ * `poweredBy` field (sites.portal.logic.ts resolvePoweredBy) that also checks
+ * the institution's plan feature, so a crafted request can't remove the
+ * credit on its own.
+ */
 const PUBLIC_SETTING_KEYS = [
   'siteName', 'siteNameBn', 'tagline', 'taglineBn', 'logoUrl', 'faviconUrl', 'social', 'analyticsId', 'defaultLanguage',
   'languages', 'liteMode', 'publicResults', 'showToppers', 'establishedYear', 'footerText', 'footerTextBn',
   'defaultEnquiryFormId',
+  // Website v3 (Track B5) — portal chrome and opt-in public data sources.
+  'topBar', 'hotlines', 'importantLinks', 'eServices', 'hidePoweredBy',
+  'publicResultSummary', 'publicFeeChart', 'publicLibrary', 'publicTransport',
 ];
 
 export function publicSettings(settings: unknown): Record<string, unknown> {

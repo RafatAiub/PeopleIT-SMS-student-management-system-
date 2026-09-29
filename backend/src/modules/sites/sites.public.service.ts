@@ -4,11 +4,14 @@
 // user ids, submission data or anything about individual people.
 // =============================================================================
 
-import { Prisma, Site } from '@prisma/client';
+import { EmailPriority, Prisma, Site } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { sendDirectMail } from '../../utils/mailer';
+import { sendEmail } from '../email/sender';
+import { formSubmittedAckEmail } from '../email/templates/site-form.templates';
+import { findInstitutionBranding } from '../notifications/notifications.repository';
 import * as enquiriesService from '../enquiries/enquiries.service';
 import { CreateEnquiryDto } from '../enquiries/enquiries.dto';
 import {
@@ -21,10 +24,12 @@ import {
   slugFromParam,
   validateSubmission,
 } from './sites.logic';
+import { resolvePoweredBy } from './sites.portal.logic';
 import { liveBaseUrl, platformSiteDomain } from './sites.config';
 import { verifyPreviewToken } from './sites.preview';
 import { normalizeHostname, wwwAlternate } from './domains/hostname';
 import { primaryActiveHost } from './sites.repository';
+import { isFeatureEnabled } from '../saas/entitlements.service';
 
 const NOT_FOUND = 'Site not found';
 
@@ -65,7 +70,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
   const preview = verifyPreviewToken(q.preview, site.id);
   if (!preview && site.status !== 'PUBLISHED') throw new NotFoundError(NOT_FOUND);
 
-  const [institution, pages, primaryHost] = await Promise.all([
+  const [institution, pages, primaryHost, brandingFeature] = await Promise.all([
     prisma.institution.findUniqueOrThrow({
       where: { id: site.institutionId },
       select: { name: true, slug: true, logoUrl: true, address: true, contactEmail: true, contactPhone: true, email: true, phone: true },
@@ -76,7 +81,12 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     primaryActiveHost(site.id),
+    // Owner decision 4: hidePoweredBy only takes effect on a plan that
+    // carries this feature — resolved server-side so a crafted request
+    // can never remove the credit on its own.
+    isFeatureEnabled(site.institutionId, 'website_remove_branding'),
   ]);
+  const rawSettings = (site.settings && typeof site.settings === 'object' ? (site.settings as Record<string, unknown>) : {}) as Record<string, unknown>;
 
   return {
     preview,
@@ -88,6 +98,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
       theme: site.theme,
       navigation: site.navigation,
       settings: publicSettings(site.settings),
+      poweredBy: resolvePoweredBy(rawSettings.hidePoweredBy === true, brandingFeature.enabled),
       publishedAt: site.publishedAt,
       canonicalUrl: liveBaseUrl(site.subdomain, primaryHost),
     },
@@ -223,8 +234,45 @@ export async function submitForm(
   notifyStaff(site.institutionId, form, result.values, enquiryId).catch((error) =>
     logger.error('Sites: form notification failed', { formId: form.id, error: (error as Error).message }),
   );
+  notifySubmitter(site.institutionId, form.name, fields, result.values).catch((error) =>
+    logger.error('Sites: form-submitter acknowledgement failed', { formId: form.id, error: (error as Error).message }),
+  );
   logger.info('Site form submitted', { formId: form.id, submissionId: submission.id, institutionId: site.institutionId });
   return { received: true };
+}
+
+/** Acknowledges receipt to whichever field the form itself declares as type "email" — never guesses a key name. */
+async function notifySubmitter(
+  institutionId: string,
+  formName: string,
+  fields: FormField[],
+  values: Record<string, string | boolean>,
+) {
+  const emailField = fields.find((f) => f.type === 'email');
+  const submitterEmail = emailField ? values[emailField.key] : undefined;
+  if (typeof submitterEmail !== 'string' || !submitterEmail.includes('@')) return;
+
+  const nameField = fields.find((f) => /name/i.test(f.key));
+  const name = nameField && typeof values[nameField.key] === 'string' ? (values[nameField.key] as string) : undefined;
+
+  const branding = await findInstitutionBranding(institutionId);
+  const mail = formSubmittedAckEmail({
+    name,
+    institutionName: branding.name,
+    formName,
+    institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+  });
+  await sendEmail({
+    to: submitterEmail,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+    template: 'sites.form-submitted-ack',
+    priority: EmailPriority.P1_TRANSACTIONAL,
+    institutionId,
+    fromName: branding.name,
+    replyTo: branding.contactEmail ?? undefined,
+  });
 }
 
 async function notifyStaff(
@@ -250,7 +298,14 @@ async function notifyStaff(
     const lines = Object.entries(values).map(([k, v]) => `${k}: ${v === true ? 'yes' : v === false ? 'no' : v}`);
     const text = `A new submission arrived on the website form "${form.name}".\n\n${lines.join('\n')}\n`;
     for (const to of form.notifyEmails) {
-      await sendDirectMail({ to, subject: `Website form: ${form.name}`, text }).catch((error) =>
+      await sendDirectMail({
+        to,
+        subject: `Website form: ${form.name}`,
+        text,
+        priority: EmailPriority.P1_TRANSACTIONAL,
+        template: 'sites.form-staff-notice',
+        institutionId,
+      }).catch((error) =>
         logger.warn('Sites: form notify email failed', { formId: form.id, error: (error as Error).message }),
       );
     }
@@ -261,7 +316,7 @@ async function notifyStaff(
 
 export async function sitemap(siteId: string) {
   const { site } = await visibleSite(siteId, null);
-  const [pages, posts, primaryHost] = await Promise.all([
+  const [pages, posts, albums, admissions, notices, primaryHost] = await Promise.all([
     prisma.sitePage.findMany({
       where: { siteId: site.id, published: { not: Prisma.DbNull } },
       select: { slug: true, seo: true, publishedAt: true },
@@ -273,6 +328,23 @@ export async function sitemap(siteId: string) {
       orderBy: { publishedAt: 'desc' },
       take: 1000,
     }),
+    // Track B4 — detail-page URLs (see WEBSITE_V3_PLAN.md §7 for the route convention).
+    prisma.siteAlbum.findMany({
+      where: { siteId: site.id, institutionId: site.institutionId, status: 'PUBLISHED' },
+      select: { id: true, updatedAt: true },
+      take: 500,
+    }),
+    prisma.siteAdmissionCircular.findMany({
+      where: { siteId: site.id, institutionId: site.institutionId, status: 'PUBLISHED' },
+      select: { id: true, updatedAt: true },
+      take: 500,
+    }),
+    prisma.notice.findMany({
+      where: { institutionId: site.institutionId, isActive: true, audience: { in: ['ALL', 'PUBLIC'] }, classId: null, sectionId: null, publishedAt: { lte: new Date() } },
+      select: { id: true, publishedAt: true },
+      orderBy: { publishedAt: 'desc' },
+      take: 200,
+    }),
     primaryActiveHost(site.id),
   ]);
   const base = liveBaseUrl(site.subdomain, primaryHost);
@@ -281,6 +353,9 @@ export async function sitemap(siteId: string) {
       .filter((p) => !(p.seo as Record<string, unknown> | null)?.noindex)
       .map((p) => ({ path: p.slug ? `/${p.slug}` : '/', lastmod: p.publishedAt })),
     ...posts.map((p) => ({ path: `/blog/${p.slug}`, lastmod: p.updatedAt })),
+    ...albums.map((a) => ({ path: `/gallery/${a.id}`, lastmod: a.updatedAt })),
+    ...admissions.map((a) => ({ path: `/admissions/${a.id}`, lastmod: a.updatedAt })),
+    ...notices.map((n) => ({ path: `/notices/${n.id}`, lastmod: n.publishedAt })),
   ];
   return buildSitemap(base, entries);
 }

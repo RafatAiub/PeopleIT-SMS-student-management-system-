@@ -16,6 +16,7 @@ import { startLibraryOverdueJob, stopLibraryOverdueJob } from './modules/library
 import { startReportScheduleJob, stopReportScheduleJob } from './modules/reports/reportSchedule.scheduler';
 import { startDataExportJob, stopDataExportJob } from './modules/data-export/dataExport.scheduler';
 import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.scheduler';
+import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules/email/scheduler';
 
 const server = http.createServer(app);
 
@@ -64,6 +65,8 @@ async function startServer() {
     startDataExportJob();
     // Re-checks pending custom domains every 10 min; runs scheduled page publishes every minute.
     startDomainCheckJob();
+    // Retries P1/P2 emails deferred by the daily Brevo budget once it resets at UTC midnight.
+    startEmailDeferredRetryJob();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -100,6 +103,7 @@ async function gracefulShutdown(signal: string) {
   stopReportScheduleJob();
   stopDataExportJob();
   stopDomainCheckJob();
+  stopEmailDeferredRetryJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

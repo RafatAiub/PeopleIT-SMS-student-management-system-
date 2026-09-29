@@ -1,9 +1,11 @@
-import { CampaignChannel, NotificationChannel, Prisma } from '@prisma/client';
+import { CampaignChannel, EmailPriority, NotificationChannel, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { sendSms } from '../../utils/sms.service';
-import { getTransport } from '../../utils/mailer';
+import { sendEmail } from '../email/sender';
+import { buildEmailLayout } from '../email/layout';
+import { paragraph } from '../email/components';
+import { unsubscribeUrl } from '../email/unsubscribe';
 import {
   AddressedRecipient,
   addressRecipients,
@@ -52,6 +54,7 @@ async function transmit(
   campaign: { id: string; subject: string | null },
   to: AddressedRecipient,
   body: string,
+  institution: { name: string; logoUrl: string | null; color: string | null },
 ): Promise<SendOutcome> {
   try {
     if (channel === 'SMS') {
@@ -59,13 +62,32 @@ async function transmit(
       return result.success ? { ok: true, providerRef: result.message.slice(0, 190) } : { ok: false, error: result.message };
     }
     if (channel === 'EMAIL') {
-      const info = await getTransport().sendMail({
-        from: env.EMAIL_FROM,
-        to: to.address,
-        subject: campaign.subject || 'Message from your school',
-        text: body,
+      // Owner decision §3: campaigns are the one place List-Unsubscribe (RFC
+      // 8058, one-click) belongs — never on receipts/OTPs/invites.
+      const unsubUrl = unsubscribeUrl({ email: to.address, institutionId });
+      const html = buildEmailLayout({
+        preheader: body.slice(0, 150),
+        heading: campaign.subject || 'Message from your school',
+        bodyHtml: paragraph(body),
+        institution,
+        footerExtra: `<a href="${unsubUrl}" style="color:#9ca3af;">Unsubscribe from these emails</a>`,
       });
-      return { ok: true, providerRef: info.messageId };
+      const result = await sendEmail({
+        to: to.address,
+        toName: to.name,
+        subject: campaign.subject || 'Message from your school',
+        html,
+        text: body,
+        template: 'campaign',
+        priority: EmailPriority.P2_BULK,
+        institutionId,
+        fromName: institution.name,
+        tags: [`campaign:${campaign.id}`],
+        idempotencyKey: `campaign:${campaign.id}:${to.address}`,
+        listUnsubscribe: { url: unsubUrl },
+      });
+      if (result.status === 'SENT') return { ok: true, providerRef: result.logId };
+      return { ok: false, error: result.error ?? result.status };
     }
     const created = await prisma.notification.create({
       data: {
@@ -88,6 +110,7 @@ async function transmit(
 async function processRecipient(params: {
   campaign: { id: string; institutionId: string; channel: CampaignChannel; subject: string | null; body: string };
   institutionName: string;
+  institutionBranding: { name: string; logoUrl: string | null; color: string | null };
   recipient: AddressedRecipient;
   demo: boolean;
   usage: Prisma.UsageRecordCreateManyInput[];
@@ -130,7 +153,7 @@ async function processRecipient(params: {
   if (claimed.count === 0) return false;
 
   const body = personalize(campaign.body, { name: recipient.name, institution: params.institutionName });
-  const outcome = await transmit(campaign.channel, campaign.institutionId, campaign, recipient, body);
+  const outcome = await transmit(campaign.channel, campaign.institutionId, campaign, recipient, body, params.institutionBranding);
 
   if (outcome.ok) {
     await prisma.notificationDelivery.update({
@@ -182,7 +205,7 @@ export async function runCampaign(campaignId: string): Promise<void> {
         status: true,
         createdByUserId: true,
         createdBy: { select: { role: true } },
-        institution: { select: { name: true } },
+        institution: { select: { name: true, logoUrl: true, themeColor: true } },
       },
     });
     if (!campaign || campaign.status !== 'SENDING') return;
@@ -220,7 +243,14 @@ export async function runCampaign(campaignId: string): Promise<void> {
       const usage: Prisma.UsageRecordCreateManyInput[] = [];
       const results = await Promise.all(
         addressed.slice(i, i + BATCH_SIZE).map((recipient) =>
-          processRecipient({ campaign, institutionName: campaign.institution.name, recipient, demo, usage }).catch(
+          processRecipient({
+            campaign,
+            institutionName: campaign.institution.name,
+            institutionBranding: { name: campaign.institution.name, logoUrl: campaign.institution.logoUrl, color: campaign.institution.themeColor },
+            recipient,
+            demo,
+            usage,
+          }).catch(
             (error) => {
               logger.error('Campaign recipient failed', {
                 campaignId: campaign.id,

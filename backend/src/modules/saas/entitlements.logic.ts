@@ -36,6 +36,12 @@ export const FEATURE_CATALOG = {
   custom_fields: 'Custom fields',
   multi_branch: 'Multiple branches',
   api_access: 'API access & webhooks',
+  // Website v3 (Track B5, owner decision 4): removes the "Powered by
+  // PeopleNIT" footer credit from a school's public site. Resolved through
+  // this same override → plan-feature → flag-default → enabled chain as
+  // every other feature; see sites.portal.logic.ts resolvePoweredBy() for
+  // how the Sites module combines it with settings.hidePoweredBy.
+  website_remove_branding: 'Remove "Powered by" footer credit',
 } as const;
 
 export const LIMIT_CATALOG = {

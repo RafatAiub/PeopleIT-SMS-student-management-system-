@@ -5,21 +5,20 @@
 // sent — the run is logged, lastRunAt still advances, and callers get
 // `demo: true`. ReportSchedule has no isDemo column, so demo runs are only
 // visible through the API response and the server log.
-import { UserRole } from '@prisma/client';
+import { EmailPriority, UserRole } from '@prisma/client';
 import { prisma } from '../../config/prisma';
-import { env } from '../../config/env';
-import { getTransport } from '../../utils/mailer';
 import { logger } from '../../utils/logger';
+import { sendEmail } from '../email/sender';
+import { currentTransportMode } from '../email/transport';
 import { canAccessReport } from './analytics.access';
 import { renderReportCsv } from './analytics.csv';
 import { BOM } from './analytics.logic';
 import { REPORT_KEYS, ReportFiltersDto, type ReportKey } from './analytics.dto';
 
 const NON_STAFF_ROLES: UserRole[] = [UserRole.STUDENT, UserRole.GUARDIAN];
-const SEND_TIMEOUT_MS = 30_000;
 
 export function isEmailDemoMode(): boolean {
-  return !(env.EMAIL_ENABLED && env.SMTP_HOST);
+  return currentTransportMode() === 'demo';
 }
 
 /** Of `emails`, those belonging to active staff users of the institution (lower-cased). */
@@ -60,22 +59,6 @@ export interface RunResult {
   rows: number;
   bytes: number;
   rangeLabel: string;
-}
-
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(timer);
-        reject(e);
-      },
-    );
-  });
 }
 
 /** Throws with a readable reason when the schedule can no longer run. */
@@ -127,26 +110,31 @@ export async function executeSchedule(schedule: ScheduleForRun, now = new Date()
 
   let sent = 0;
   let failed = 0;
+  const attachments = [{ filename, content: Buffer.from(`${BOM}${report.csv}`, 'utf8'), contentType: 'text/csv; charset=utf-8' }];
   // One message per recipient so addresses are never disclosed to each other.
   for (const to of recipients) {
-    try {
-      await withTimeout(
-        getTransport().sendMail({
-          from: env.EMAIL_FROM,
-          to,
-          subject,
-          text,
-          attachments: [{ filename, content: `${BOM}${report.csv}`, contentType: 'text/csv; charset=utf-8' }],
-        }),
-        SEND_TIMEOUT_MS,
-      );
+    const result = await sendEmail({
+      to,
+      subject,
+      html: `<pre style="font-family:monospace;white-space:pre-wrap;">${text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))}</pre>`,
+      text,
+      template: 'reports.scheduled-report',
+      // Owner decision §4.2: scheduled reports are P2 bulk — deferred to the
+      // next UTC day, never dropped, if the daily budget is already spent.
+      priority: EmailPriority.P2_BULK,
+      institutionId: schedule.institutionId,
+      attachments,
+      idempotencyKey: `report-schedule:${schedule.id}:${dateKey}:${to}`,
+    });
+    if (result.status === 'SENT') {
       sent += 1;
-    } catch (err) {
+    } else {
       failed += 1;
-      logger.error('Scheduled report email failed', {
+      logger.error('Scheduled report email did not send', {
         scheduleId: schedule.id,
         institutionId: schedule.institutionId,
-        error: err instanceof Error ? err.message : String(err),
+        status: result.status,
+        error: result.error,
       });
     }
   }

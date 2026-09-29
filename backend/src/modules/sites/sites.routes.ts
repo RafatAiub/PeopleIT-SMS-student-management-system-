@@ -51,13 +51,16 @@ import {
 } from './sites.dto';
 import * as cc from './sites.commerce.controller';
 import * as lc from './sites.lms.controller';
+import * as pc from './sites.portal.controller';
 import {
   CreateOrderDto,
   CreateProductDto,
   CustomerQueryDto,
   DemoPayDto,
+  ForgotPasswordDto,
   LoginCustomerDto,
   OrderQueryDto,
+  ResetPasswordDto,
   PayCallbackParamDto,
   ProductQueryDto,
   PublicOrderParamDto,
@@ -82,6 +85,46 @@ import {
   UpdateCourseDto,
   UpdateLessonDto,
 } from './sites.lms.dto';
+import {
+  AdmissionQueryDto,
+  AlbumPhotoOrderDto,
+  AlbumPhotoParamDto,
+  AlbumQueryDto,
+  CommitteeQueryDto,
+  CreateAdmissionDto,
+  CreateAlbumDto,
+  CreateAlbumPhotoDto,
+  CreateCommitteeMemberDto,
+  CreateDownloadDto,
+  DataAdmissionParamDto,
+  DataAdmissionsQueryDto,
+  DataAlbumParamDto,
+  DataAlbumsQueryDto,
+  DataBranchesQueryDto,
+  DataClassStatsQueryDto,
+  DataCommitteeQueryDto,
+  DataDownloadsQueryDto,
+  DataExamRoutineQueryDto,
+  DataFeeChartQueryDto,
+  DataHolidaysQueryDto,
+  DataLibraryQueryDto,
+  DataNoticeParamDto,
+  DataProfileQueryDto,
+  DataResultSummaryQueryDto,
+  DataResultsArchiveQueryDto,
+  DataStaffQueryDto,
+  DataSubjectsQueryDto,
+  DataTransportQueryDto,
+  DownloadQueryDto,
+  StaffVisibilityQueryDto,
+  ToggleStaffVisibilityDto,
+  UpdateAdmissionDto,
+  UpdateAlbumDto,
+  UpdateAlbumPhotoDto,
+  UpdateCommitteeMemberDto,
+  UpdateDownloadDto,
+  UpdateProfileDto,
+} from './sites.portal.dto';
 
 // =============================================================================
 // Admin API — mounted at /api/v1/sites
@@ -141,6 +184,49 @@ sitesRouter.post('/domains', MANAGE, validate({ body: CreateDomainDto }), c.addD
 sitesRouter.post('/domains/:id/verify', MANAGE, validate({ params: IdParamDto }), c.verifyDomain);
 sitesRouter.put('/domains/:id/primary', MANAGE, validate({ params: IdParamDto }), c.setPrimaryDomain);
 sitesRouter.delete('/domains/:id', MANAGE, validate({ params: IdParamDto }), c.removeDomain);
+
+// =============================================================================
+// Website v3 (Track B) — institution profile, staff visibility, committee,
+// albums, downloads, admission circulars, DSHE compliance. Admin side.
+// =============================================================================
+
+sitesRouter.get('/profile', MANAGE, pc.getProfile);
+sitesRouter.put('/profile', MANAGE, validate({ body: UpdateProfileDto }), pc.updateProfile);
+sitesRouter.get('/me/compliance', MANAGE, pc.getCompliance);
+
+sitesRouter.get('/staff-visibility', MANAGE, validate({ query: StaffVisibilityQueryDto }), pc.listStaffVisibility);
+sitesRouter.put('/staff-visibility', MANAGE, validate({ body: ToggleStaffVisibilityDto }), pc.setStaffVisibility);
+
+sitesRouter.get('/committee', MANAGE, validate({ query: CommitteeQueryDto }), pc.listCommittee);
+sitesRouter.post('/committee', MANAGE, validate({ body: CreateCommitteeMemberDto }), pc.createCommitteeMember);
+sitesRouter.put('/committee/:id', MANAGE, validate({ params: IdParamDto, body: UpdateCommitteeMemberDto }), pc.updateCommitteeMember);
+sitesRouter.delete('/committee/:id', MANAGE, validate({ params: IdParamDto }), pc.deleteCommitteeMember);
+
+sitesRouter.get('/albums', MANAGE, validate({ query: AlbumQueryDto }), pc.listAlbums);
+sitesRouter.post('/albums', MANAGE, validate({ body: CreateAlbumDto }), pc.createAlbum);
+sitesRouter.get('/albums/:id', MANAGE, validate({ params: IdParamDto }), pc.getAlbum);
+sitesRouter.put('/albums/:id', MANAGE, validate({ params: IdParamDto, body: UpdateAlbumDto }), pc.updateAlbum);
+sitesRouter.delete('/albums/:id', MANAGE, validate({ params: IdParamDto }), pc.deleteAlbum);
+sitesRouter.post('/albums/:id/photos', MANAGE, validate({ params: IdParamDto, body: CreateAlbumPhotoDto }), pc.addAlbumPhoto);
+sitesRouter.put('/albums/:id/photos/order', MANAGE, validate({ params: IdParamDto, body: AlbumPhotoOrderDto }), pc.reorderAlbumPhotos);
+sitesRouter.put(
+  '/albums/:id/photos/:photoId',
+  MANAGE,
+  validate({ params: AlbumPhotoParamDto, body: UpdateAlbumPhotoDto }),
+  pc.updateAlbumPhoto,
+);
+sitesRouter.delete('/albums/:id/photos/:photoId', MANAGE, validate({ params: AlbumPhotoParamDto }), pc.deleteAlbumPhoto);
+
+sitesRouter.get('/downloads', MANAGE, validate({ query: DownloadQueryDto }), pc.listDownloads);
+sitesRouter.post('/downloads', MANAGE, validate({ body: CreateDownloadDto }), pc.createDownload);
+sitesRouter.put('/downloads/:id', MANAGE, validate({ params: IdParamDto, body: UpdateDownloadDto }), pc.updateDownload);
+sitesRouter.delete('/downloads/:id', MANAGE, validate({ params: IdParamDto }), pc.deleteDownload);
+
+sitesRouter.get('/admissions', MANAGE, validate({ query: AdmissionQueryDto }), pc.listAdmissions);
+sitesRouter.post('/admissions', MANAGE, validate({ body: CreateAdmissionDto }), pc.createAdmission);
+sitesRouter.get('/admissions/:id', MANAGE, validate({ params: IdParamDto }), pc.getAdmission);
+sitesRouter.put('/admissions/:id', MANAGE, validate({ params: IdParamDto, body: UpdateAdmissionDto }), pc.updateAdmission);
+sitesRouter.delete('/admissions/:id', MANAGE, validate({ params: IdParamDto }), pc.deleteAdmission);
 
 // =============================================================================
 // Website Builder v2 — Shop (commerce) and Courses (LMS), admin side.
@@ -264,6 +350,37 @@ publicSitesRouter.get('/:siteId/data/fees-link', validate({ ...site, query: Data
 publicSitesRouter.get('/:siteId/data/courses', validate({ ...site, query: DataCoursesQueryDto }), c.dataCourses);
 
 // =============================================================================
+// Website v3 (Track B3/B4) — profile, staff directory, class/gender counts,
+// subjects, exam routine, results, fee chart, holidays, library, transport,
+// branches, committee, albums, downloads, admission circulars, notice detail.
+// See docs/redesign/WEBSITE_V3_PLAN.md §7 for the full contract.
+// =============================================================================
+
+publicSitesRouter.get('/:siteId/data/profile', validate({ ...site, query: DataProfileQueryDto }), pc.dataProfile);
+publicSitesRouter.get('/:siteId/data/staff', validate({ ...site, query: DataStaffQueryDto }), pc.dataStaff);
+publicSitesRouter.get('/:siteId/data/class-stats', validate({ ...site, query: DataClassStatsQueryDto }), pc.dataClassStats);
+publicSitesRouter.get('/:siteId/data/subjects', validate({ ...site, query: DataSubjectsQueryDto }), pc.dataSubjects);
+publicSitesRouter.get('/:siteId/data/exam-routine', validate({ ...site, query: DataExamRoutineQueryDto }), pc.dataExamRoutine);
+publicSitesRouter.get('/:siteId/data/result-summary', validate({ ...site, query: DataResultSummaryQueryDto }), pc.dataResultSummary);
+publicSitesRouter.get('/:siteId/data/results-archive', validate({ ...site, query: DataResultsArchiveQueryDto }), pc.dataResultsArchive);
+publicSitesRouter.get('/:siteId/data/fee-chart', validate({ ...site, query: DataFeeChartQueryDto }), pc.dataFeeChart);
+publicSitesRouter.get('/:siteId/data/holidays', validate({ ...site, query: DataHolidaysQueryDto }), pc.dataHolidays);
+publicSitesRouter.get('/:siteId/data/library', validate({ ...site, query: DataLibraryQueryDto }), pc.dataLibrary);
+publicSitesRouter.get('/:siteId/data/transport', validate({ ...site, query: DataTransportQueryDto }), pc.dataTransport);
+publicSitesRouter.get('/:siteId/data/branches', validate({ ...site, query: DataBranchesQueryDto }), pc.dataBranches);
+publicSitesRouter.get('/:siteId/data/committee', validate({ ...site, query: DataCommitteeQueryDto }), pc.dataCommittee);
+publicSitesRouter.get('/:siteId/data/albums', validate({ ...site, query: DataAlbumsQueryDto }), pc.dataAlbums);
+publicSitesRouter.get('/:siteId/data/albums/:id', validate({ params: DataAlbumParamDto, query: PublicPreviewQueryDto }), pc.dataAlbumDetail);
+publicSitesRouter.get('/:siteId/data/downloads', validate({ ...site, query: DataDownloadsQueryDto }), pc.dataDownloads);
+publicSitesRouter.get('/:siteId/data/admissions', validate({ ...site, query: DataAdmissionsQueryDto }), pc.dataAdmissions);
+publicSitesRouter.get(
+  '/:siteId/data/admissions/:id',
+  validate({ params: DataAdmissionParamDto, query: PublicPreviewQueryDto }),
+  pc.dataAdmissionDetail,
+);
+publicSitesRouter.get('/:siteId/data/notices/:id', validate({ params: DataNoticeParamDto, query: PublicPreviewQueryDto }), pc.dataNoticeDetail);
+
+// =============================================================================
 // Website Builder v2 — Shop (commerce) and Courses (LMS), public side.
 // =============================================================================
 
@@ -277,6 +394,8 @@ publicSitesRouter.get('/:siteId/checkout/options', validate({ params: PublicSite
 // Customer account
 publicSitesRouter.post('/:siteId/account/register', accountLimiter, validate({ params: PublicSiteParamDto, body: RegisterCustomerDto }), cc.registerAccount);
 publicSitesRouter.post('/:siteId/account/login', accountLimiter, validate({ params: PublicSiteParamDto, body: LoginCustomerDto }), cc.loginAccount);
+publicSitesRouter.post('/:siteId/account/forgot', accountLimiter, validate({ params: PublicSiteParamDto, body: ForgotPasswordDto }), cc.forgotPassword);
+publicSitesRouter.post('/:siteId/account/reset', accountLimiter, validate({ params: PublicSiteParamDto, body: ResetPasswordDto }), cc.resetPassword);
 publicSitesRouter.get('/:siteId/account/me', validate({ params: PublicSiteParamDto }), cc.accountMe);
 publicSitesRouter.get('/:siteId/account/orders', validate({ params: PublicSiteParamDto }), cc.accountOrders);
 publicSitesRouter.get('/:siteId/account/courses', validate({ params: PublicSiteParamDto }), lc.accountCourses);

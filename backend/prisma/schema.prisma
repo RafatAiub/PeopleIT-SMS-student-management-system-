@@ -125,6 +125,33 @@ model Institution {
   // ── Website builder (Sites) ────────────────────────────────────────
   site      Site?
   siteMedia SiteMedia[]
+
+  // ── Website v3 — DSHE profile fields (Track B1) ─────────────────────
+  // Additive nullable columns directly on Institution rather than a new
+  // SiteProfile model: these are singular (one-per-institution) facts,
+  // exactly like the existing aboutText/contactEmail/heroTitle columns
+  // above — a separate 1:1 model would only earn its keep for one-to-many
+  // data. The two officer contacts and "head of institution" are each a
+  // small, optional struct (and headOfInstitution is a union: an existing
+  // staff member OR a free-typed name+photo+designation), so they are
+  // stored as Json rather than 3-4 near-always-null flat columns each;
+  // shape is enforced by sites.portal.dto.ts, not the database.
+  nameBn           String? // প্রতিষ্ঠানের নাম (বাংলা)
+  eiin             String? // Educational Institution Identification Number
+  establishedYear  Int?
+  mpoInfo          String? @db.Text // MPO / নাতিয়করণ status and reference number
+  recognitionInfo  String? @db.Text // পাঠদানের অনুমতি ও স্বীকৃতি
+  // { userId?: string; name?: string; photoUrl?: string; designation?: string }
+  headOfInstitution Json?
+  // { name?: string; designation?: string; phone?: string; email?: string }
+  informationOfficer Json?
+  // { name?: string; designation?: string; phone?: string; email?: string }
+  complaintsOfficer  Json?
+
+  siteCommitteeMembers   SiteCommitteeMember[]
+  siteAlbums             SiteAlbum[]
+  siteDownloads          SiteDownload[]
+  siteAdmissionCirculars SiteAdmissionCircular[]
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -589,6 +616,13 @@ model User {
   status UserStatus @default(ACTIVE)
 
   isActive                 Boolean                  @default(true)
+  // Website v3 (Track B2) — opt-in to appear in the public staff/teacher
+  // directory. Defaults to false (owner decision 3: hidden until opted in).
+  // Lives on User, not Teacher/StaffProfile: it's the one place guaranteed
+  // to exist for every account regardless of role, so a teacher without a
+  // StaffProfile row (or a staff member without a Teacher row) still has
+  // a single, unambiguous place to opt in.
+  showOnWebsite            Boolean                  @default(false)
   lastLoginAt              DateTime?
   failedLoginAttempts      Int                      @default(0)
   lockedUntil              DateTime?
@@ -2703,6 +2737,12 @@ model Site {
   customers     SiteCustomer[]
   orders        SiteOrder[]
   enrollments   SiteEnrollment[]
+
+  // ── Website v3 — Sites portal data (Track B2) ──────────────────────
+  committeeMembers   SiteCommitteeMember[]
+  albums             SiteAlbum[]
+  downloads          SiteDownload[]
+  admissionCirculars SiteAdmissionCircular[]
 }
 
 model SitePage {
@@ -3070,4 +3110,199 @@ model SiteLessonProgress {
   completedAt  DateTime         @default(now())
 
   @@unique([enrollmentId, lessonId])
+}
+
+// =============================================================================
+// Website v3 — Sites portal data (Track B2). Additive to the Sites blocks
+// above; see docs/redesign/WEBSITE_V3_PLAN.md §3 Track B / §7.
+// Album/download status reuse the existing SiteStatus enum (DRAFT/PUBLISHED)
+// rather than a new one — an admission circular's "closed" state is derived
+// from endDate at read time, not stored, to avoid a second nearly-identical
+// enum.
+// =============================================================================
+
+model SiteCommitteeMember {
+  id            String      @id @default(cuid())
+  siteId        String
+  site          Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  name          String
+  nameBn        String?
+  role          String // e.g. "Chairman / সভাপতি"
+  roleBn        String?
+  photoUrl      String?
+  phone         String?
+  // Phone is never in the public API response unless this is true.
+  showPhone     Boolean     @default(false)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([siteId])
+  @@index([institutionId])
+}
+
+model SiteAlbum {
+  id            String           @id @default(cuid())
+  siteId        String
+  site          Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution      @relation(fields: [institutionId], references: [id])
+  title         String
+  titleBn       String?
+  coverUrl      String?
+  description   String?          @db.Text
+  eventDate     DateTime?
+  status        SiteStatus       @default(DRAFT)
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  photos        SiteAlbumPhoto[]
+
+  @@index([siteId, status])
+  @@index([institutionId])
+}
+
+model SiteAlbumPhoto {
+  id        String    @id @default(cuid())
+  albumId   String
+  album     SiteAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([albumId])
+}
+
+model SiteDownload {
+  id            String      @id @default(cuid())
+  siteId        String
+  site          Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  title         String
+  titleBn       String?
+  category      String // e.g. "Syllabus", "Notice", "Form"
+  fileUrl       String
+  publishedAt   DateTime?
+  status        SiteStatus  @default(DRAFT)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([siteId, status, category])
+  @@index([institutionId])
+}
+
+model SiteAdmissionCircular {
+  id            String      @id @default(cuid())
+  siteId        String
+  site          Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  session       String // e.g. "2027"
+  classNames    String[] // free-text class names this circular covers
+  title         String
+  titleBn       String?
+  body          String      @db.Text // sanitised HTML
+  startDate     DateTime?
+  endDate       DateTime?
+  fee           Decimal?    @db.Decimal(10, 2)
+  pdfUrl        String?
+  applyUrl      String?
+  // Loosely references SiteForm.id (not a DB foreign key — checked at the
+  // service layer — so deleting a form never blocks deleting/keeping a
+  // circular that once pointed at it).
+  formId        String?
+  status        SiteStatus  @default(DRAFT)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([siteId, status])
+  @@index([institutionId])
+}
+
+// =============================================================================
+// Email delivery (Website v3 plan, Track A)
+// =============================================================================
+
+enum EmailPriority {
+  P0_SECURITY
+  P1_TRANSACTIONAL
+  P2_BULK
+}
+
+enum EmailLogStatus {
+  QUEUED
+  SENT
+  DEFERRED
+  SKIPPED
+  SUPPRESSED
+  FAILED
+}
+
+enum EmailSuppressionReason {
+  HARD_BOUNCE
+  SPAM
+  BLOCKED
+  INVALID
+  UNSUBSCRIBED
+  MANUAL
+}
+
+// ALL = never email this address; BULK = only broadcast mail (campaigns,
+// newsletters) is stopped — receipts, OTPs and resets still go.
+enum EmailSuppressionScope {
+  ALL
+  BULK
+}
+
+model EmailSuppression {
+  id            String                 @id @default(cuid())
+  // Always stored lowercase and trimmed.
+  email         String
+  scope         EmailSuppressionScope  @default(ALL)
+  reason        EmailSuppressionReason
+  // brevo-webhook | unsubscribe-link | admin
+  source        String
+  institutionId String?
+  note          String?
+  createdAt     DateTime               @default(now())
+
+  @@unique([email, scope])
+  @@index([institutionId])
+}
+
+// One row per send attempt. `toHash` is sha256(lowercase email) so the log is
+// searchable without keeping plain addresses; `toMasked` is for display.
+model EmailLog {
+  id            String         @id @default(cuid())
+  institutionId String?
+  template      String
+  priority      EmailPriority
+  status        EmailLogStatus @default(QUEUED)
+  toHash        String
+  toMasked      String
+  subject       String
+  // brevo-api | smtp | demo
+  provider      String?
+  messageId     String?
+  idempotencyKey String?       @unique
+  tags          String[]
+  error         String?
+  // Deferred sends (daily budget spent) are retried from this time.
+  notBefore     DateTime?
+  lastEvent     String?
+  lastEventAt   DateTime?
+  createdAt     DateTime       @default(now())
+  sentAt        DateTime?
+
+  @@index([status, notBefore])
+  @@index([createdAt])
+  @@index([institutionId, createdAt])
+  @@index([messageId])
+  @@index([toHash])
 }

@@ -29,6 +29,16 @@ export const NOTIFICATION_TYPES = [
   'LEAVE_REJECTED',
   // School events published to an audience
   'EVENT_PUBLISHED',
+  // Support tickets
+  'SUPPORT_TICKET_CREATED',
+  'SUPPORT_TICKET_REPLIED',
+  'SUPPORT_TICKET_STATUS_CHANGED',
+  // Academic results
+  'RESULTS_PUBLISHED',
+  // HR / payroll
+  'PAYSLIP_ISSUED',
+  // Tenant data export
+  'DATA_EXPORT_READY',
 ] as const;
 
 // Subset that concerns platform subscription billing — used by the frontend

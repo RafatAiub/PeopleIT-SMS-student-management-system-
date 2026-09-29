@@ -23,7 +23,19 @@ import { sanitizeHtml, slugify, uniqueSlug } from './sites.logic';
 import { getOrCreateSite, type SitesCtx } from './sites.service';
 import { visibleSite } from './sites.public.service';
 import * as repo from './sites.repository';
-import { pathPreviewUrl, platformSiteDomain } from './sites.config';
+import { primaryActiveHost } from './sites.repository';
+import { pathPreviewUrl, platformSiteDomain, liveBaseUrl } from './sites.config';
+import { findInstitutionBranding } from '../notifications/notifications.repository';
+import { sendEmail } from '../email/sender';
+import {
+  siteCustomerWelcomeEmail,
+  siteCustomerPasswordResetEmail,
+  siteOrderConfirmedEmail,
+  siteCourseEnrollmentEmail,
+} from '../email/templates/site-customer.templates';
+import { getRedis } from '../../config/redis';
+import crypto from 'crypto';
+import { EmailPriority } from '@prisma/client';
 import { hostOf } from './domains/hostname';
 import {
   allowedReturnHosts,
@@ -295,6 +307,41 @@ async function settleOrderSideEffects(
   }
 }
 
+/** Course-enrollment mail for the COURSE lines of a just-settled order (the receipt itself is notifyOrderPaid, below). */
+function notifyCourseEnrollments(
+  order: { id: string; siteId: string; institutionId: string; customerId: string | null },
+  lines: OrderLine[],
+): void {
+  if (!order.customerId) return;
+  const courseIds = lines.filter((l) => l.kind === 'COURSE').map((l) => l.refId);
+  if (courseIds.length === 0) return;
+
+  (async () => {
+    const [customer, site, courses] = await Promise.all([
+      prisma.siteCustomer.findUnique({ where: { id: order.customerId! } }),
+      prisma.site.findUnique({ where: { id: order.siteId } }),
+      prisma.siteCourse.findMany({ where: { id: { in: courseIds } }, select: { id: true, title: true, slug: true } }),
+    ]);
+    if (!customer || !site) return;
+    const base = await siteUrl(site);
+
+    for (const course of courses) {
+      sendSiteCustomerMail(order.institutionId, (branding) => {
+        const mail = siteCourseEnrollmentEmail({
+          name: customer.name,
+          institutionName: branding.name,
+          courseName: course.title,
+          learnUrl: `${base}/learn/${course.slug}`,
+          institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+        });
+        return { to: customer.email, subject: mail.subject, html: mail.html, text: mail.text, template: 'site-customer.course-enrollment', priority: EmailPriority.P1_TRANSACTIONAL };
+      });
+    }
+  })().catch((error) => {
+    logger.error('Course-enrollment notification failed', { orderId: order.id, error: error instanceof Error ? error.message : String(error) });
+  });
+}
+
 async function revokeOrderAccess(tx: Prisma.TransactionClient, order: { id: string }, lines: OrderLine[]) {
   for (const line of lines) {
     if (line.kind === 'PRODUCT') {
@@ -325,6 +372,8 @@ export async function updateOrder(ctx: SitesCtx, id: string, data: UpdateOrderDt
       } else if ((to === 'PAID' || to === 'FULFILLED') && from === 'PENDING') {
         // Manually marked paid by an admin (cash/bank transfer, etc.) — grant access exactly once.
         await settleOrderSideEffects(tx, saved, lines);
+        notifyOrderPaid(saved.id).catch(() => undefined);
+        notifyCourseEnrollments(saved, lines);
       }
     }
     return saved;
@@ -482,6 +531,38 @@ function toPublicCustomer(c: { id: string; name: string; email: string; phone: s
   return { id: c.id, name: c.name, email: c.email, phone: c.phone };
 }
 
+/** Live public URL for a site — falls back to the platform subdomain when no custom domain is active/verified yet. Exported for sites.lms.service.ts (free-enrollment email). */
+export async function siteUrl(site: { id: string; subdomain: string }): Promise<string> {
+  return liveBaseUrl(site.subdomain, await primaryActiveHost(site.id));
+}
+
+/** Fire-and-forget — a mail provider hiccup must never fail registration/checkout/enrollment. Exported for sites.lms.service.ts. */
+export function sendSiteCustomerMail(
+  institutionId: string,
+  build: (branding: { name: string; logoUrl: string | null; color: string | null; contactEmail: string | null }) => {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+    template: string;
+    priority: EmailPriority;
+  },
+): void {
+  findInstitutionBranding(institutionId)
+    .then((branding) => {
+      const mail = build(branding);
+      return sendEmail({
+        ...mail,
+        institutionId,
+        fromName: branding.name,
+        replyTo: branding.contactEmail ?? undefined,
+      });
+    })
+    .catch((error) => {
+      logger.error('Site customer email failed', { institutionId, error: error instanceof Error ? error.message : String(error) });
+    });
+}
+
 export async function registerCustomer(siteId: string, data: RegisterCustomerDtoType) {
   const { site } = await visibleSite(siteId, null);
   const existing = await prisma.siteCustomer.findUnique({ where: { siteId_email: { siteId: site.id, email: data.email } } });
@@ -506,7 +587,114 @@ export async function registerCustomer(siteId: string, data: RegisterCustomerDto
         },
       });
   const token = signCustomerToken(customer.id, site.id);
+
+  const url = await siteUrl(site);
+  sendSiteCustomerMail(site.institutionId, (branding) => {
+    const mail = siteCustomerWelcomeEmail({
+      name: customer.name,
+      institutionName: branding.name,
+      siteUrl: url,
+      institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+    });
+    return { to: customer.email, subject: mail.subject, html: mail.html, text: mail.text, template: 'site-customer.welcome', priority: EmailPriority.P1_TRANSACTIONAL };
+  });
+
   return { token, customer: toPublicCustomer(customer) };
+}
+
+// ── Password reset (single-use, 1h expiry) ──────────────────────────────────
+// SiteCustomer has no reset-token column (schema is owned by another
+// engineer this cycle — see the Track-A brief). Rather than add one, the
+// reset token is stateless (HMAC-signed customerId + expiry, same pattern as
+// sites.customer.auth.ts's site-customer JWT) and "single-use" is enforced by
+// recording consumed token hashes in Redis with a TTL equal to the token's
+// own remaining lifetime — never in Postgres. If Redis is unreachable when a
+// reset link is used, the request fails closed (treated as already used)
+// rather than silently allowing an unbounded number of replays.
+const RESET_TOKEN_TTL_SECONDS = 60 * 60; // 1 hour
+const RESET_SECRET_LABEL = 'site-customer-reset';
+
+function resetTokenSecret(): string {
+  return crypto.createHmac('sha256', env.JWT_ACCESS_SECRET).update(RESET_SECRET_LABEL).digest('hex');
+}
+
+export function signResetToken(customerId: string, siteId: string, expiresAt: number): string {
+  const body = `${customerId}.${siteId}.${expiresAt}`;
+  const sig = crypto.createHmac('sha256', resetTokenSecret()).update(body).digest('base64url');
+  return `${Buffer.from(body).toString('base64url')}.${sig}`;
+}
+
+export function verifyResetToken(token: string, siteId: string): { customerId: string; expiresAt: number } | null {
+  const [b64, sig] = token.split('.');
+  if (!b64 || !sig) return null;
+  let body: string;
+  try {
+    body = Buffer.from(b64, 'base64url').toString('utf8');
+  } catch {
+    return null;
+  }
+  const expected = crypto.createHmac('sha256', resetTokenSecret()).update(body).digest('base64url');
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const [customerId, tokenSiteId, expiresAtRaw] = body.split('.');
+  const expiresAt = Number(expiresAtRaw);
+  if (!customerId || tokenSiteId !== siteId || !Number.isFinite(expiresAt)) return null;
+  if (Date.now() > expiresAt) return null;
+  return { customerId, expiresAt };
+}
+
+export function resetTokenUsedKey(token: string): string {
+  return `site-reset:used:${crypto.createHash('sha256').update(token).digest('hex')}`;
+}
+
+export async function forgotPassword(siteId: string, email: string): Promise<{ requested: true }> {
+  const { site } = await visibleSite(siteId, null);
+  const customer = await prisma.siteCustomer.findUnique({ where: { siteId_email: { siteId: site.id, email: email.toLowerCase().trim() } } });
+  // Always the same response — do not disclose whether the address has an account.
+  if (!customer || isUnclaimedPasswordHash(customer.passwordHash)) return { requested: true };
+
+  const expiresAt = Date.now() + RESET_TOKEN_TTL_SECONDS * 1000;
+  const token = signResetToken(customer.id, site.id, expiresAt);
+  const resetUrl = `${await siteUrl(site)}/account/reset-password?token=${encodeURIComponent(token)}`;
+
+  sendSiteCustomerMail(site.institutionId, (branding) => {
+    const mail = siteCustomerPasswordResetEmail({
+      name: customer.name,
+      institutionName: branding.name,
+      url: resetUrl,
+      expiresInMinutes: RESET_TOKEN_TTL_SECONDS / 60,
+      institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+    });
+    return { to: customer.email, subject: mail.subject, html: mail.html, text: mail.text, template: 'site-customer.password-reset', priority: EmailPriority.P0_SECURITY };
+  });
+
+  return { requested: true };
+}
+
+export async function resetPassword(siteId: string, token: string, newPassword: string): Promise<{ reset: true }> {
+  const { site } = await visibleSite(siteId, null);
+  const payload = verifyResetToken(token, site.id);
+  if (!payload) throw new BadRequestError('This reset link is invalid or has expired');
+
+  const usedKey = resetTokenUsedKey(token);
+  let alreadyUsed = false;
+  try {
+    // SET ... NX — atomically claims the token; a second concurrent request
+    // with the same token loses the race and is told it was already used.
+    const ttl = Math.max(1, Math.ceil((payload.expiresAt - Date.now()) / 1000));
+    const claimed = await getRedis().set(usedKey, '1', 'EX', ttl, 'NX');
+    alreadyUsed = claimed === null;
+  } catch (error) {
+    logger.error('Site customer reset: Redis unavailable — failing closed', { error: error instanceof Error ? error.message : String(error) });
+    throw new BadRequestError('This reset link cannot be verified right now — please try again shortly');
+  }
+  if (alreadyUsed) throw new BadRequestError('This reset link has already been used');
+
+  const customer = await prisma.siteCustomer.findFirst({ where: { id: payload.customerId, siteId: site.id } });
+  if (!customer) throw new BadRequestError('This reset link is invalid or has expired');
+
+  const passwordHash = await hashPassword(newPassword);
+  await prisma.siteCustomer.update({ where: { id: customer.id }, data: { passwordHash } });
+  return { reset: true };
 }
 
 const INVALID_LOGIN = 'Invalid email or password';
@@ -713,7 +901,10 @@ export async function createOrder(siteId: string, body: CreateOrderDtoType, auth
       if (isFree) await settleOrderSideEffects(tx, created, priced.lines);
       return created;
     });
-    if (isFree) notifyOrderPaid(order.id).catch(() => undefined);
+    if (isFree) {
+      notifyOrderPaid(order.id).catch(() => undefined);
+      notifyCourseEnrollments(order, priced.lines);
+    }
     return { order: await toPublicOrder(order) };
   }
 
@@ -822,6 +1013,7 @@ async function creditOrder(orderId: string, verified: { gatewayRef: string; gate
 
   logger.info('Site order credited', { orderId: order.id, orderNo: order.orderNo });
   notifyOrderPaid(order.id).catch(() => undefined);
+  notifyCourseEnrollments(order, (order.items as unknown as OrderLine[]) ?? []);
   return { credited: true };
 }
 
@@ -961,24 +1153,39 @@ async function notifyOrderPaid(orderId: string): Promise<void> {
   try {
     const order = await prisma.siteOrder.findUnique({ where: { id: orderId } });
     if (!order) return;
-    const site = await prisma.site.findUnique({ where: { id: order.siteId }, select: { settings: true } });
+    const site = await prisma.site.findUnique({ where: { id: order.siteId } });
     const shop = shopSettingsOf(site?.settings);
     const lines = ((order.items as unknown as OrderLine[]) ?? []) as OrderLine[];
     const itemLines = lines.map((l) => `${l.name} x${l.qty} — ${l.unitPrice.toFixed(2)}`).join('\n');
     const total = Number(order.total).toFixed(2);
 
+    // Staff-facing "new paid order" notice — plain text, not a receipt, so it
+    // stays outside the customer-branded HTML layout. Not security mail:
+    // explicit P1 priority (sendDirectMail's default is P0, meant for auth
+    // flows only).
     for (const to of new Set(shop.notifyEmails)) {
       await sendDirectMail({
         to,
         subject: `New paid order ${order.orderNo}`,
         text: `Order ${order.orderNo} has been paid.\nTotal: ${order.currency} ${total}\n\n${itemLines}`,
+        priority: EmailPriority.P1_TRANSACTIONAL,
+        template: 'sites.order-paid-staff-notice',
+        institutionId: order.institutionId,
       }).catch((error) => logger.warn('Sites: order notify email failed', { orderId, error: (error as Error).message }));
     }
-    await sendDirectMail({
-      to: order.email,
-      subject: `Your order ${order.orderNo} is confirmed`,
-      text: `Thank you, ${order.customerName}! Your order ${order.orderNo} is confirmed.\n\n${itemLines}\n\nTotal: ${order.currency} ${total}`,
-    }).catch((error) => logger.warn('Sites: buyer receipt email failed', { orderId, error: (error as Error).message }));
+
+    const orderUrl = site ? `${await siteUrl(site)}/account/orders/${order.orderNo}` : env.FRONTEND_URL;
+    sendSiteCustomerMail(order.institutionId, (branding) => {
+      const mail = siteOrderConfirmedEmail({
+        name: order.customerName,
+        institutionName: branding.name,
+        orderNo: order.orderNo,
+        total: `${order.currency} ${total}`,
+        orderUrl,
+        institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+      });
+      return { to: order.email, subject: mail.subject, html: mail.html, text: mail.text, template: 'site-customer.order-confirmed', priority: EmailPriority.P1_TRANSACTIONAL };
+    });
   } catch (error) {
     // Never let a notification failure affect the payment itself.
     logger.warn('Sites: order-paid notification skipped', { orderId, error: (error as Error).message });

@@ -59,6 +59,8 @@ import supportRouter from './modules/support/support.routes';
 import dataExportRouter from './modules/data-export/dataExport.routes';
 import usageRouter from './modules/usage/usage.routes';
 import { sitesRouter, publicSitesRouter } from './modules/sites/sites.routes';
+import emailPublicRouter from './modules/email/email.public.routes';
+import emailAdminRouter from './modules/email/email.admin.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -99,6 +101,14 @@ app.use(
     // subject to the frontend origin allow-list, or every payment callback
     // gets silently blocked before it reaches the controller.
     if (req.path.startsWith('/api/v1/billing/gateway/') || req.path.startsWith('/api/v1/fees/gateway/')) {
+      callback(null, { origin: true, credentials: false });
+      return;
+    }
+
+    // Brevo's webhook server and mail-client one-click unsubscribe POSTs are
+    // not our frontend and carry no credentials — same treatment as the
+    // payment gateway callbacks above.
+    if (req.path.startsWith('/api/v1/email/webhooks/') || req.path.startsWith('/api/v1/email/unsubscribe')) {
       callback(null, { origin: true, credentials: false });
       return;
     }
@@ -146,7 +156,9 @@ const globalLimiter = rateLimit({
     env.NODE_ENV === 'test' ||
     req.originalUrl.startsWith('/api/v1/billing/gateway/') ||
     req.originalUrl.startsWith('/api/v1/fees/gateway/') ||
-    req.originalUrl.startsWith('/api/v1/public/sites/pay/'),
+    req.originalUrl.startsWith('/api/v1/public/sites/pay/') ||
+    req.originalUrl.startsWith('/api/v1/email/webhooks/') ||
+    req.originalUrl.startsWith('/api/v1/email/unsubscribe'),
 });
 app.use('/api/', globalLimiter);
 
@@ -265,6 +277,12 @@ app.use('/api/v1/student-applications/apply', studentApplicationLimiter);
 app.use('/api/', enforceReadOnly);
 
 // Mount API routes
+// Public (unauthenticated) email endpoints — Brevo webhook + one-click/simple
+// unsubscribe. Mounted before the authenticated routers per the same
+// convention as feeGatewayRouter above.
+app.use('/api/v1/email', emailPublicRouter);
+app.use('/api/v1/email/admin', emailAdminRouter);
+
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
 app.use('/api/v1/student-applications', studentPublicRouter);

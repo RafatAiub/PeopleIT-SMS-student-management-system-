@@ -3,14 +3,16 @@
 // and the learner experience (curriculum, progress).
 // =============================================================================
 
-import { Prisma } from '@prisma/client';
+import { EmailPriority, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { logger } from '../../utils/logger';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../utils/AppError';
 import { sanitizeHtml, slugify, uniqueSlug } from './sites.logic';
 import { getOrCreateSite, type SitesCtx } from './sites.service';
 import { visibleSite } from './sites.public.service';
-import { currentCustomer } from './sites.commerce.service';
+import { currentCustomer, sendSiteCustomerMail, siteUrl } from './sites.commerce.service';
 import { unclaimedPasswordHash } from './sites.customer.auth';
+import { siteCourseEnrollmentEmail } from '../email/templates/site-customer.templates';
 import type {
   CreateCourseDtoType,
   CreateLessonDtoType,
@@ -230,6 +232,31 @@ export async function listEnrollments(ctx: SitesCtx, courseId: string, q: Enroll
   };
 }
 
+/** Fire-and-forget course-access email — never blocks the enrollment call itself. */
+function notifyCourseEnrollment(
+  site: { id: string; subdomain: string },
+  institutionId: string,
+  customer: { name: string; email: string },
+  course: { title: string; slug: string },
+): void {
+  siteUrl(site)
+    .then((base) => {
+      sendSiteCustomerMail(institutionId, (branding) => {
+        const mail = siteCourseEnrollmentEmail({
+          name: customer.name,
+          institutionName: branding.name,
+          courseName: course.title,
+          learnUrl: `${base}/learn/${course.slug}`,
+          institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+        });
+        return { to: customer.email, subject: mail.subject, html: mail.html, text: mail.text, template: 'site-customer.course-enrollment', priority: EmailPriority.P1_TRANSACTIONAL };
+      });
+    })
+    .catch((error) => {
+      logger.error('Course-enrollment email failed', { institutionId, error: error instanceof Error ? error.message : String(error) });
+    });
+}
+
 export async function grantEnrollment(ctx: SitesCtx, courseId: string, data: GrantEnrollmentDtoType) {
   const site = await getOrCreateSite(ctx.institutionId);
   const course = await courseOrThrow(ctx, courseId);
@@ -243,11 +270,13 @@ export async function grantEnrollment(ctx: SitesCtx, courseId: string, data: Gra
   if (existing) {
     if (existing.status === 'ACTIVE') throw new ConflictError('This learner already has access to the course');
     const reactivated = await prisma.siteEnrollment.update({ where: { id: existing.id }, data: { status: 'ACTIVE' } });
+    notifyCourseEnrollment(site, ctx.institutionId, customer, course);
     return { id: reactivated.id, status: reactivated.status, customer: { id: customer.id, name: customer.name, email: customer.email } };
   }
   const enrollment = await prisma.siteEnrollment.create({
     data: { siteId: site.id, courseId: course.id, customerId: customer.id, institutionId: ctx.institutionId, status: 'ACTIVE' },
   });
+  notifyCourseEnrollment(site, ctx.institutionId, customer, course);
   return { id: enrollment.id, status: enrollment.status, customer: { id: customer.id, name: customer.name, email: customer.email } };
 }
 
@@ -370,6 +399,7 @@ export async function enrollFreeCourse(siteId: string, slugParam: string, authHe
       data: { siteId: site.id, courseId: course.id, customerId: customer.id, institutionId: site.institutionId, status: 'ACTIVE' },
     });
   }
+  notifyCourseEnrollment(site, site.institutionId, customer, course);
   return { enrolled: true };
 }
 

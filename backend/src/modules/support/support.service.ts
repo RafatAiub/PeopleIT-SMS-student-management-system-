@@ -2,6 +2,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
+import { notifySafe } from '../notifications/notifications.service';
 import { canViewTenantTicket, isTenantTicketManager, statusAfterReply, tenantUpdateError } from './support.logic';
 import type {
   CreateTicketInput,
@@ -65,6 +66,37 @@ async function writeAudit(institutionId: string, userId: string, action: string,
     .catch((err: Error) => logger.error('Support: audit log write failed', { error: err.message }));
 }
 
+// ── Notifications ────────────────────────────────────────────────────────────
+// "requester + assigned staff" (both events below), minus whoever just
+// triggered the event — a reply/status-change never notifies its own actor.
+// The one exception is TICKET_CREATED, which is a receipt to the requester
+// themselves (there is no assignee yet at creation).
+
+type TicketForNotify = { id: string; institutionId: string; createdBy: { id: string }; assignedTo: { id: string } | null; subject: string };
+
+function ticketRecipients(ticket: TicketForNotify, excludeUserId?: string): string[] {
+  const ids = [ticket.createdBy.id, ticket.assignedTo?.id].filter((id): id is string => Boolean(id));
+  return [...new Set(ids)].filter((id) => id !== excludeUserId);
+}
+
+function notifyTicketEvent(
+  ticket: TicketForNotify,
+  type: 'SUPPORT_TICKET_CREATED' | 'SUPPORT_TICKET_REPLIED' | 'SUPPORT_TICKET_STATUS_CHANGED',
+  recipientUserIds: string[],
+  contextId: string,
+  vars: Record<string, string>,
+): void {
+  if (recipientUserIds.length === 0) return;
+  notifySafe({
+    institutionId: ticket.institutionId,
+    type,
+    recipientUserIds,
+    contextId,
+    data: { link: '/support' },
+    vars: { ticketSubject: ticket.subject, ...vars },
+  });
+}
+
 // ── Tenant side ────────────────────────────────────────────────────────────
 
 export async function listTenantTickets(institutionId: string, viewer: Viewer, q: ListTicketsQuery) {
@@ -90,7 +122,7 @@ export async function listTenantTickets(institutionId: string, viewer: Viewer, q
 }
 
 export async function createTicket(institutionId: string, viewer: Viewer, input: CreateTicketInput) {
-  return prisma.supportTicket.create({
+  const ticket = await prisma.supportTicket.create({
     data: {
       institutionId,
       subject: input.subject,
@@ -100,6 +132,8 @@ export async function createTicket(institutionId: string, viewer: Viewer, input:
     },
     select: detailSelect,
   });
+  notifyTicketEvent(ticket, 'SUPPORT_TICKET_CREATED', [ticket.createdBy.id], ticket.id, { status: ticket.status });
+  return ticket;
 }
 
 async function getTenantTicketOrThrow(institutionId: string, viewer: Viewer, id: string) {
@@ -118,10 +152,11 @@ export async function getTenantTicket(institutionId: string, viewer: Viewer, id:
 export async function replyTenantTicket(institutionId: string, viewer: Viewer, id: string, body: string) {
   const ticket = await getTenantTicketOrThrow(institutionId, viewer, id);
   const nextStatus = statusAfterReply(ticket.status, 'requester');
-  await prisma.$transaction([
+  const [message] = await prisma.$transaction([
     prisma.supportTicketMessage.create({ data: { ticketId: ticket.id, authorUserId: viewer.userId, body } }),
     prisma.supportTicket.updateMany({ where: { id: ticket.id, institutionId }, data: { status: nextStatus, updatedAt: new Date() } }),
   ]);
+  notifyTicketEvent(ticket, 'SUPPORT_TICKET_REPLIED', ticketRecipients(ticket, viewer.userId), message.id, { status: nextStatus });
   return getTenantTicketOrThrow(institutionId, viewer, id);
 }
 
@@ -136,6 +171,11 @@ export async function updateTenantTicket(institutionId: string, viewer: Viewer, 
       ...(input.priority !== undefined ? { priority: input.priority } : {}),
     },
   });
+  if (input.status !== undefined && input.status !== ticket.status) {
+    notifyTicketEvent(ticket, 'SUPPORT_TICKET_STATUS_CHANGED', ticketRecipients(ticket, viewer.userId), `${ticket.id}:${input.status}:${Date.now()}`, {
+      status: input.status,
+    });
+  }
   return getTenantTicketOrThrow(institutionId, viewer, id);
 }
 
@@ -178,11 +218,12 @@ export async function getPlatformTicket(id: string) {
 export async function replyPlatformTicket(viewer: Viewer, id: string, body: string) {
   const ticket = await getPlatformTicketOrThrow(id);
   const nextStatus = statusAfterReply(ticket.status, 'support');
-  await prisma.$transaction([
+  const [message] = await prisma.$transaction([
     prisma.supportTicketMessage.create({ data: { ticketId: ticket.id, authorUserId: viewer.userId, body } }),
     prisma.supportTicket.update({ where: { id: ticket.id }, data: { status: nextStatus } }),
   ]);
   await writeAudit(ticket.institutionId, viewer.userId, 'SUPPORT_REPLY', ticket.id, { platform: true, status: nextStatus });
+  notifyTicketEvent(ticket, 'SUPPORT_TICKET_REPLIED', ticketRecipients(ticket, viewer.userId), message.id, { status: nextStatus });
   return getPlatformTicketOrThrow(id);
 }
 
@@ -213,5 +254,10 @@ export async function updatePlatformTicket(viewer: Viewer, id: string, input: Pl
     },
   });
   await writeAudit(ticket.institutionId, viewer.userId, 'SUPPORT_UPDATE', ticket.id, { platform: true, ...input } as Prisma.InputJsonObject);
+  if (input.status !== undefined && input.status !== ticket.status) {
+    notifyTicketEvent(ticket, 'SUPPORT_TICKET_STATUS_CHANGED', ticketRecipients(ticket, viewer.userId), `${ticket.id}:${input.status}:${Date.now()}`, {
+      status: input.status,
+    });
+  }
   return getPlatformTicketOrThrow(id);
 }
