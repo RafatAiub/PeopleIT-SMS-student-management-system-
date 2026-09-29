@@ -98,7 +98,12 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
       theme: site.theme,
       navigation: site.navigation,
       settings: publicSettings(site.settings),
-      poweredBy: resolvePoweredBy(rawSettings.hidePoweredBy === true, brandingFeature.enabled),
+      // Only an explicit grant counts: the entitlements "no plan ⇒ everything
+      // enabled" fallback must not remove the credit.
+      poweredBy: resolvePoweredBy(
+        rawSettings.hidePoweredBy === true,
+        brandingFeature.enabled && (brandingFeature.source === 'plan' || brandingFeature.source === 'override'),
+      ),
       publishedAt: site.publishedAt,
       canonicalUrl: liveBaseUrl(site.subdomain, primaryHost),
     },

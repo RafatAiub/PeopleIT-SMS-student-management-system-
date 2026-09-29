@@ -46,6 +46,11 @@ export async function enqueueNotification(
   payload: NotificationJobData,
   options: JobsOptions = {},
 ): Promise<void> {
+  // Jest shares the dev Redis, and no test runs the worker: a real job would be
+  // picked up later by a dev server after the test deleted its institution.
+  // Suites that assert on enqueueing mock this module instead.
+  if (process.env.NODE_ENV === 'test') return;
+
   // BullMQ's blocking client requires maxRetriesPerRequest: null, which means
   // `.add()` against an unreachable Redis retries forever and NEVER settles.
   // Left unbounded, one Redis outage leaks a pending promise per notification
