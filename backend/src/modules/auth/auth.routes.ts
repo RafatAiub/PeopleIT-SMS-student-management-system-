@@ -30,6 +30,12 @@ import {
   disableTwoFactorController,
   regenerateBackupCodesController,
 } from './auth.controller';
+import {
+  listSessionsController,
+  revokeSessionController,
+  revokeOtherSessionsController,
+  logoutAllController,
+} from './sessions.controller';
 
 // =============================================================================
 // Auth Routes — /api/v1/auth
@@ -51,6 +57,10 @@ import {
 //   POST /2fa/email/enable         switch on emailed codes
 //   POST /2fa/disable              switch off (password required)
 //   POST /2fa/backup-codes         reissue backup codes (password required)
+//   GET  /sessions                 signed-in devices (this device flagged)
+//   DELETE /sessions/:id           sign one device out
+//   POST /sessions/revoke-others   sign out every other device
+//   POST /logout-all               sign out every device, including this one
 // =============================================================================
 
 const router = Router();
@@ -119,5 +129,26 @@ router.post(
   validate({ body: PasswordConfirmDto }),
   regenerateBackupCodesController,
 );
+
+// ── Authenticated: sessions / devices ────────────────────────────────────────
+// Same reasoning as above — own account only, no tenant required.
+
+const SessionIdParamDto = z.object({ id: z.string().min(1).max(64) });
+const RevokeOthersDto = z.object({ refreshToken: z.string().min(1).max(512).optional() }).default({});
+
+router.get('/sessions', authenticate, listSessionsController);
+router.post(
+  '/sessions/revoke-others',
+  authenticate,
+  validate({ body: RevokeOthersDto }),
+  revokeOtherSessionsController,
+);
+router.delete(
+  '/sessions/:id',
+  authenticate,
+  validate({ params: SessionIdParamDto }),
+  revokeSessionController,
+);
+router.post('/logout-all', authenticate, logoutAllController);
 
 export default router;

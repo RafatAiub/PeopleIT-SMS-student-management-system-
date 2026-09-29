@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronDown, Plus, GraduationCap, UserCircle, Download, X } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Calendar, Plus, GraduationCap, UserCircle, Download, X, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   DndContext,
@@ -7,7 +7,6 @@ import {
   PointerSensor,
   closestCenter,
   useDraggable,
-  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -16,35 +15,21 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
-import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { EmptyState } from '../../components/common/EmptyState';
+import { useT } from '../../i18n';
 import { DEPARTMENTS, FALLBACK_SUBJECTS_JUNIOR, isSeniorClass, getFallbackSubjects } from '../../utils/curriculum';
-
-const DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
-const TIME_SLOTS = [
-  { start: '09:00 AM', end: '09:45 AM', label: 'Period 1' },
-  { start: '09:45 AM', end: '10:30 AM', label: 'Period 2' },
-  { start: '10:30 AM', end: '11:15 AM', label: 'Period 3' },
-  { start: '11:15 AM', end: '11:30 AM', label: 'Tiffin Break', isBreak: true },
-  { start: '11:30 AM', end: '12:15 PM', label: 'Period 4' },
-  { start: '12:15 PM', end: '01:00 PM', label: 'Period 5' },
-];
-type TimeSlot = typeof TIME_SLOTS[number];
-
-interface RoutineEntry {
-  id: string;
-  subject: string;
-  teacher: string;
-  className?: string;
-  sectionName?: string;
-}
-
-interface PaletteBlockType {
-  id: string;
-  subject: string;
-  teacherUserId: string;
-  teacherName: string;
-}
+import TimetableDesktopGrid from './TimetableDesktopGrid';
+import TimetableMobileDayView from './TimetableMobileDayView';
+import TimetableEditModal, { type TimetableEditInitial } from './TimetableEditModal';
+import TimetableSettingsPopover from './TimetableSettingsPopover';
+import {
+  loadTimetableSettings,
+  saveTimetableSettings,
+  mergeWithSlots,
+  type TimetableSettings,
+} from './timetableSettings';
+import type { RoutineEntry, PaletteBlockType } from './types';
 
 const BLOCK_COLORS = ['#2563eb', '#059669', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#65a30d'];
 function colorForId(id: string) {
@@ -53,20 +38,13 @@ function colorForId(id: string) {
   return BLOCK_COLORS[hash % BLOCK_COLORS.length];
 }
 
-// Convert 12hr time to 24hr for the backend matching
-const to24 = (timeStr: string) => {
-  const [time, modifier] = timeStr.split(' ');
-  const timeParts = time.split(':');
-  const minutes = timeParts[1];
-  let hours = timeParts[0];
-  if (hours === '12') {
-    hours = '00';
-  }
-  if (modifier === 'PM') {
-    hours = parseInt(hours, 10) + 12 + '';
-  }
-  return `${hours.padStart(2, '0')}:${minutes}`;
-};
+interface ChildSummary {
+  id: string;
+  firstName: string;
+  lastName: string;
+  class: { name: string } | null;
+  section: { name: string } | null;
+}
 
 function PaletteChip({ block, onRemove }: { block: PaletteBlockType; onRemove: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -89,6 +67,7 @@ function PaletteChip({ block, onRemove }: { block: PaletteBlockType; onRemove: (
         type="button"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onRemove}
+        aria-label={`Remove ${block.subject} block`}
         className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1"
       >
         <X className="w-3 h-3" />
@@ -97,127 +76,64 @@ function PaletteChip({ block, onRemove }: { block: PaletteBlockType; onRemove: (
   );
 }
 
-function EmptyCell({ day, timeSlot }: { day: string; timeSlot: TimeSlot }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `cell-${day}-${timeSlot.label}`,
-    data: { day, timeSlot },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={`h-full w-full flex items-center justify-center rounded-xl transition-colors ${isOver ? 'bg-primary-100/60 dark:bg-primary-500/10 ring-2 ring-primary-400/50' : 'opacity-30'}`}
-    >
-      <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center italic">{isOver ? 'Drop here' : 'Free'}</span>
-    </div>
-  );
-}
-
-function PlacedPeriodCard({
-  day,
-  timeSlot,
-  entry,
-  onDelete,
-}: {
-  day: string;
-  timeSlot: TimeSlot;
-  entry: RoutineEntry;
-  onDelete: () => void;
-}) {
-  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
-    id: `slot-${entry.id}`,
-    data: { type: 'slot' as const, entry, day, timeSlot },
-  });
-  // Filled cells are droppable too — not just empty ones — so dragging a
-  // new block onto an occupied period replaces it instead of silently doing
-  // nothing (which is exactly what looked like "drag and drop isn't
-  // working" when someone tried to fix a wrong subject that way).
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `filled-${day}-${timeSlot.label}`,
-    data: { day, timeSlot, entry },
-  });
-  const setRefs = (node: HTMLDivElement | null) => {
-    setDragRef(node);
-    setDropRef(node);
-  };
-  return (
-    <div
-      ref={setRefs}
-      {...listeners}
-      {...attributes}
-      style={{ transform: transform ? CSS.Translate.toString(transform) : undefined }}
-      className={`group relative h-full w-full rounded-xl bg-gradient-to-br from-primary-50 dark:from-primary-500/10 to-primary-100/30 dark:to-primary-500/5 border shadow-xs flex flex-col items-center justify-center p-2 cursor-grab active:cursor-grabbing select-none touch-none hover:border-primary-400/30 transition-all ${isDragging ? 'opacity-30' : ''} ${isOver ? 'ring-2 ring-amber-400/70 border-amber-400/70' : 'border-primary-200 dark:border-primary-500/20'}`}
-      title={isOver ? 'Drop to replace this period' : undefined}
-    >
-      <button
-        type="button"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={onDelete}
-        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 bg-white/80 dark:bg-slate-900/80 rounded-full p-0.5"
-      >
-        <X className="w-3 h-3" />
-      </button>
-      <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-snug mb-1 break-words">{entry.subject}</span>
-      <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
-        {entry.teacher}
-      </span>
-    </div>
-  );
-}
-
 const TimetableGrid = () => {
+  const t = useT();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const isTeacher = user?.role === 'TEACHER';
   const isStudent = user?.role === 'STUDENT';
+  const isGuardian = user?.role === 'GUARDIAN';
+  // Only Super Admin / Admin may create, move, or delete periods — everyone
+  // else (incl. Teacher, whose own schedule is read from their assignments)
+  // gets a read-only view, per the redesign brief.
+  const isEditor = isAdmin;
 
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('None');
+  const [rawSlots, setRawSlots] = useState<any[]>([]);
   const [routine, setRoutine] = useState<Record<string, Record<string, RoutineEntry>>>({});
   const [loading, setLoading] = useState(true);
 
   const [teachers, setTeachers] = useState<any[]>([]);
-  // Classes/sections are fetched from `/students/meta/classes` and
-  // `/students/meta/sections` (the same tenant-scoped, self-healing metadata
-  // endpoints used elsewhere in the app, e.g. AttendanceEntry/Users/StudentList)
-  // rather than hardcoded, so the dropdowns always reflect real Class/Section
-  // records instead of letting an admin pick a combination that doesn't exist.
   const [classes, setClasses] = useState<any[]>([]);
   const [sections, setSections] = useState<any[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
   const [sectionsLoading, setSectionsLoading] = useState(false);
   const [branchId, setBranchId] = useState<string | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    day: 'Saturday',
-    period: 'Period 1',
-    subject: '',
-    teacherUserId: ''
-  });
-  const [submitting, setSubmitting] = useState(false);
 
-  // Drag-and-drop routine builder: a palette of reusable subject+teacher
-  // "blocks" the admin drags onto the grid. Palette state is local/session
-  // only (no backend model for it) and persists across class/section
-  // switches so the same block can be reused for multiple sections.
+  // Guardian: which linked child's routine is shown — resolved to a
+  // className/sectionName, the only real query the shared /timetables list
+  // endpoint supports without a student *user* id (which the guardian's own
+  // linked-children endpoint does not expose).
+  const [children, setChildren] = useState<ChildSummary[]>([]);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [childrenLoading, setChildrenLoading] = useState(isGuardian);
+  const selectedChild = children.find((c) => c.id === selectedChildId) || null;
+
+  // Settings (visible days / period rows) — persisted per-browser, per
+  // institution. Merged with whatever the fetched slots actually contain so
+  // an existing slot is never hidden by a narrower saved layout.
+  const [settings, setSettings] = useState<TimetableSettings>(() => loadTimetableSettings(user?.institutionId));
+  const effectiveSettings = useMemo(() => mergeWithSlots(settings, rawSlots), [settings, rawSlots]);
+
+  const handleSaveSettings = (next: TimetableSettings) => {
+    setSettings(next);
+    saveTimetableSettings(user?.institutionId, next);
+  };
+
+  // Add / Move-Edit modal — the keyboard-operable alternative to drag-drop.
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editInitial, setEditInitial] = useState<TimetableEditInitial | null>(null);
+
+  // Drag-and-drop routine builder palette (Admin only) — session-only state.
   const [paletteBlocks, setPaletteBlocks] = useState<PaletteBlockType[]>([]);
-  // Subjects offered for the selected class (+ department, for Class 9-12)
-  // — sourced from GET /curriculum/subjects (the same NCTB-aligned catalogue
-  // MarksEntry.tsx uses), falling back to a static list so the palette still
-  // works for an institution that hasn't seeded SubjectOffering rows yet.
   const [availableSubjects, setAvailableSubjects] = useState<string[]>(FALLBACK_SUBJECTS_JUNIOR);
   const [newBlockSubject, setNewBlockSubject] = useState('');
   const [newBlockTeacherUserId, setNewBlockTeacherUserId] = useState('');
   const [activeDragData, setActiveDragData] = useState<any>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  // Shared by fetchTimetables and the PDF download so the two never drift.
-  // pageSize=100 is required, not cosmetic: the list endpoint defaults to 20,
-  // and a near-full week (6 days x 5 periods = up to 30 slots) exceeds that —
-  // dayOfWeek is sorted alphabetically server-side (FRIDAY, MONDAY, SATURDAY,
-  // SUNDAY, THURSDAY, TUESDAY, WEDNESDAY), so WEDNESDAY sorts last and was
-  // silently getting cut off the grid while the PDF (which already requested
-  // pageSize=100) still showed it — that's the PDF/website mismatch bug.
   const buildQueryParams = () => {
     if (isAdmin) {
       return `?className=${encodeURIComponent(selectedClass)}&sectionName=${encodeURIComponent(selectedSection)}&pageSize=100`;
@@ -225,104 +141,88 @@ const TimetableGrid = () => {
       return `?teacherUserId=${user!.id}&pageSize=100`;
     } else if (isStudent) {
       return `?studentUserId=${user!.id}&pageSize=100`;
+    } else if (isGuardian && selectedChild?.class?.name && selectedChild?.section?.name) {
+      return `?className=${encodeURIComponent(selectedChild.class.name)}&sectionName=${encodeURIComponent(selectedChild.section.name)}&pageSize=100`;
     }
     return '?pageSize=100';
   };
 
+  const canFetch = () => {
+    if (!user) return false;
+    if (isAdmin) return !!(selectedClass && selectedSection);
+    if (isGuardian) return !childrenLoading && !!selectedChild?.class?.name && !!selectedChild?.section?.name;
+    return true;
+  };
+
   const fetchTimetables = async () => {
-    if (!user) return;
-    // Admin view is class/section driven — wait until a real class/section
-    // has been resolved from /students/meta/classes rather than querying
-    // with an empty className (which would just return nothing).
-    if (isAdmin && (!selectedClass || !selectedSection)) return;
+    if (!canFetch()) return;
     try {
       setLoading(true);
-
       const response = await apiClient.get(`/timetables${buildQueryParams()}`);
       const slots = Array.isArray(response.data.data) ? response.data.data : [];
+      setRawSlots(slots);
 
-      const formattedRoutine: any = {};
-
+      const formattedRoutine: Record<string, Record<string, RoutineEntry>> = {};
       slots.forEach((slot: any) => {
-        // Convert MONDAY to Monday
-        const dayFormatted = slot.dayOfWeek.charAt(0).toUpperCase() + slot.dayOfWeek.slice(1).toLowerCase();
-
-        // Find matching period label
-        const timeSlotInfo = TIME_SLOTS.find(ts => to24(ts.start) === slot.startTime);
-
-        if (timeSlotInfo) {
-          if (!formattedRoutine[dayFormatted]) formattedRoutine[dayFormatted] = {};
-
-          formattedRoutine[dayFormatted][timeSlotInfo.label] = {
-            id: slot.id,
-            subject: slot.subject,
-            teacher: slot.teacher?.user ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}` : 'Unassigned',
-            className: slot.className,
-            sectionName: slot.sectionName
-          };
-        }
+        if (!formattedRoutine[slot.dayOfWeek]) formattedRoutine[slot.dayOfWeek] = {};
+        formattedRoutine[slot.dayOfWeek][slot.startTime] = {
+          id: slot.id,
+          subject: slot.subject,
+          teacher: slot.teacher?.user ? `${slot.teacher.user.firstName} ${slot.teacher.user.lastName}` : 'Unassigned',
+          teacherUserId: slot.teacher?.user?.id,
+          className: slot.className,
+          sectionName: slot.sectionName,
+        } as RoutineEntry;
       });
-
       setRoutine(formattedRoutine);
     } catch (error) {
       console.error('Failed to fetch timetables', error);
-      toast.error('Failed to load timetables');
+      toast.error(t('Failed to load timetables'));
     } finally {
       setLoading(false);
     }
   };
 
-  // One-time (per user) load of teachers + the real class list — decoupled
-  // from selectedClass/selectedSection so switching dropdowns doesn't
-  // re-fetch the whole class list on every change.
+  // One-time (per user) load of teachers + the real class list.
   useEffect(() => {
     if (!isAdmin) {
       setClassesLoading(false);
       return;
     }
     setClassesLoading(true);
-
     apiClient.get('/users?role=TEACHER&pageSize=100')
-      .then(res => setTeachers(res.data.data || []))
+      .then((res) => setTeachers(res.data.data || []))
       .catch(console.error);
 
     apiClient.get('/students/meta/classes')
-      .then(res => {
+      .then((res) => {
         const classList = (res.data.data || []).slice().sort((a: any, b: any) => (a.level ?? 0) - (b.level ?? 0));
         setClasses(classList);
-        setSelectedClass(prev => (classList.some((c: any) => c.name === prev) ? prev : (classList[0]?.name ?? '')));
+        setSelectedClass((prev) => (classList.some((c: any) => c.name === prev) ? prev : (classList[0]?.name ?? '')));
       })
       .catch(console.error)
       .finally(() => setClassesLoading(false));
   }, [isAdmin, user]);
 
-  // Sections + branchId follow the selected class, resolved from the real
-  // Class record rather than a hardcoded A-G list — keeps the branch correct
-  // for multi-branch institutions and prevents picking a section that
-  // doesn't actually exist under this class.
   useEffect(() => {
     if (!isAdmin || !selectedClass) return;
-    const cls = classes.find(c => c.name === selectedClass);
+    const cls = classes.find((c) => c.name === selectedClass);
     if (!cls) return;
-
     setBranchId(cls.branchId ?? null);
     setSectionsLoading(true);
     apiClient.get(`/students/meta/sections?classId=${cls.id}`)
-      .then(res => {
+      .then((res) => {
         const sectionList = res.data.data || [];
         setSections(sectionList);
-        setSelectedSection(prev => (sectionList.some((s: any) => s.name === prev) ? prev : (sectionList[0]?.name ?? '')));
+        setSelectedSection((prev) => (sectionList.some((s: any) => s.name === prev) ? prev : (sectionList[0]?.name ?? '')));
       })
       .catch(console.error)
       .finally(() => setSectionsLoading(false));
   }, [isAdmin, selectedClass, classes]);
 
-  // Subject list for the palette follows the selected class/department, same
-  // pattern as MarksEntry.tsx's fetchSubjectOfferings.
   useEffect(() => {
     if (!isAdmin || !selectedClass) return;
     let cancelled = false;
-
     const fetchSubjects = async () => {
       try {
         const params: Record<string, string> = { className: selectedClass };
@@ -341,30 +241,43 @@ const TimetableGrid = () => {
       }
       if (!cancelled) setAvailableSubjects(getFallbackSubjects(selectedClass, selectedDepartment));
     };
-
     fetchSubjects();
     return () => {
       cancelled = true;
     };
   }, [isAdmin, selectedClass, selectedDepartment]);
 
-  // Keep the palette form's subject selection valid as the offered list
-  // changes (new class/department picked) — default to the first offering
-  // rather than leaving a stale/invalid subject selected.
   useEffect(() => {
-    setNewBlockSubject(prev => (availableSubjects.includes(prev) ? prev : (availableSubjects[0] ?? '')));
+    setNewBlockSubject((prev) => (availableSubjects.includes(prev) ? prev : (availableSubjects[0] ?? '')));
   }, [availableSubjects]);
+
+  // Guardian: linked children, mirroring MyLectureMaterials's own fetch.
+  useEffect(() => {
+    if (!isGuardian) return;
+    apiClient.get('/guardians/me/students')
+      .then((res) => {
+        const list: ChildSummary[] = res.data.data || [];
+        setChildren(list);
+        if (list.length > 0) setSelectedChildId(list[0].id);
+      })
+      .catch((err) => {
+        console.error('Failed to load linked children', err);
+        toast.error(t('Failed to load your children'));
+      })
+      .finally(() => setChildrenLoading(false));
+  }, [isGuardian]);
 
   useEffect(() => {
     fetchTimetables();
-  }, [selectedClass, selectedSection, user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, selectedSection, selectedChildId, childrenLoading, user]);
 
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const downloadPdf = async () => {
     if (!user) return;
-    if (isAdmin && (!selectedClass || !selectedSection)) {
-      toast.error('Select a class and section first');
+    if (!canFetch()) {
+      toast.error(isGuardian ? t('Select a child first') : t('Select a class and section first'));
       return;
     }
     setDownloadingPdf(true);
@@ -373,54 +286,21 @@ const TimetableGrid = () => {
       const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.download = isAdmin
-        ? `timetable-${selectedClass}-${selectedSection}.pdf`
-        : 'my-schedule.pdf';
+      link.download = isAdmin ? `timetable-${selectedClass}-${selectedSection}.pdf` : 'my-schedule.pdf';
       link.click();
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to download timetable PDF');
+      toast.error(err.response?.data?.message || t('Failed to download timetable PDF'));
     } finally {
       setDownloadingPdf(false);
     }
   };
 
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!branchId) {
-      toast.error('Could not resolve your branch. Please refresh and try again.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const slotInfo = TIME_SLOTS.find(s => s.label === formData.period);
-
-      await apiClient.post('/timetables', {
-        branchId,
-        className: selectedClass,
-        sectionName: selectedSection,
-        dayOfWeek: formData.day.toUpperCase(),
-        startTime: slotInfo ? to24(slotInfo.start) : '09:00',
-        endTime: slotInfo ? to24(slotInfo.end) : '09:45',
-        subject: formData.subject,
-        teacherUserId: formData.teacherUserId,
-      });
-      toast.success('Schedule added successfully!');
-      setIsAddModalOpen(false);
-      fetchTimetables();
-      setFormData({ ...formData, subject: '', teacherUserId: '' });
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to add schedule');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const addPaletteBlock = () => {
     if (!newBlockSubject.trim() || !newBlockTeacherUserId) return;
-    const teacher = teachers.find((t: any) => t.id === newBlockTeacherUserId);
+    const teacher = teachers.find((tch: any) => tch.id === newBlockTeacherUserId);
     if (!teacher) return;
-    setPaletteBlocks(prev => [
+    setPaletteBlocks((prev) => [
       ...prev,
       {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -433,16 +313,32 @@ const TimetableGrid = () => {
     setNewBlockTeacherUserId('');
   };
 
-  const removePaletteBlock = (id: string) => setPaletteBlocks(prev => prev.filter(b => b.id !== id));
+  const removePaletteBlock = (id: string) => setPaletteBlocks((prev) => prev.filter((b) => b.id !== id));
 
-  const deleteSlot = async (slotId: string) => {
+  const deleteSlot = async (entry: RoutineEntry) => {
     try {
-      await apiClient.delete(`/timetables/${slotId}`);
-      toast.success('Period removed');
+      await apiClient.delete(`/timetables/${entry.id}`);
+      toast.success(t('Period removed'));
       fetchTimetables();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to remove period');
+      toast.error(err.response?.data?.message || t('Failed to remove period'));
     }
+  };
+
+  const openMoveEdit = (day: string, startTime: string, entry?: RoutineEntry) => {
+    setEditInitial({
+      slotId: entry?.id,
+      day,
+      startTime,
+      subject: entry?.subject,
+      teacherUserId: entry?.teacherUserId,
+    });
+    setEditModalOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditInitial({ day: effectiveSettings.days[0] || '', startTime: effectiveSettings.periods.find((p) => !p.isBreak)?.start || '' });
+    setEditModalOpen(true);
   };
 
   const handleDragStart = (event: DragStartEvent) => setActiveDragData(event.active.data.current);
@@ -450,392 +346,281 @@ const TimetableGrid = () => {
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragData(null);
     const { active, over } = event;
-    if (!over) return; // dropped outside any valid cell (incl. a break row) -> no-op
+    if (!over) return;
 
-    const { day, timeSlot, entry: targetEntry } = over.data.current as {
+    const { day, period, entry: targetEntry } = over.data.current as {
       day: string;
-      timeSlot: TimeSlot;
+      period: { start: string; end: string };
       entry?: RoutineEntry;
     };
-    const startTime = to24(timeSlot.start);
-    const endTime = to24(timeSlot.end);
     const dragData = active.data.current as any;
 
     if (dragData?.type === 'palette') {
       if (!branchId || !selectedClass || !selectedSection) {
-        toast.error('Select a class and section first');
+        toast.error(t('Select a class and section first'));
         return;
       }
       const { subject, teacherUserId } = dragData.block as PaletteBlockType;
       try {
         if (targetEntry) {
-          // Dropped onto an already-filled period — replace it in place via
-          // a single update rather than delete-then-create, so a failure
-          // (e.g. teacher conflict) can never leave the period empty.
           await apiClient.put(`/timetables/${targetEntry.id}`, { subject, teacherUserId });
         } else {
           await apiClient.post('/timetables', {
             branchId,
             className: selectedClass,
             sectionName: selectedSection,
-            dayOfWeek: day.toUpperCase(),
-            startTime,
-            endTime,
+            dayOfWeek: day,
+            startTime: period.start,
+            endTime: period.end,
             subject,
             teacherUserId,
           });
         }
         fetchTimetables();
       } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to place block');
+        toast.error(err.response?.data?.message || t('Failed to place block'));
       }
     } else if (dragData?.type === 'slot') {
       const { entry } = dragData as { entry: RoutineEntry };
-      if (targetEntry && targetEntry.id === entry.id) return; // dropped back onto itself -> no-op
+      if (targetEntry && targetEntry.id === entry.id) return;
       if (targetEntry) {
-        // Moving one placed period onto a different filled one is blocked —
-        // unlike a palette drop, there's no single safe atomic update for
-        // "swap these two periods" — but say so instead of a silent no-op.
-        toast.error('That period is already filled. Drag a palette block onto it to replace it, or remove it first.');
+        toast.error(t('That period is already filled. Drag a palette block onto it to replace it, or remove it first.'));
         return;
       }
       try {
         await apiClient.put(`/timetables/${entry.id}`, {
-          dayOfWeek: day.toUpperCase(),
-          startTime,
-          endTime,
+          dayOfWeek: day,
+          startTime: period.start,
+          endTime: period.end,
         });
         fetchTimetables();
       } catch (err: any) {
-        toast.error(err.response?.data?.message || 'Failed to move period');
+        toast.error(err.response?.data?.message || t('Failed to move period'));
       }
     }
   };
 
+  if (isGuardian && childrenLoading) {
+    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">{t('Loading your dashboard...')}</div>;
+  }
+
+  if (isGuardian && children.length === 0) {
+    return (
+      <div className="glass-card p-8">
+        <EmptyState
+          title={t('No linked children found')}
+          description={t("Contact your school administrator to link your account to your child's student profile.")}
+          icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+        />
+      </div>
+    );
+  }
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Calendar className="w-6 h-6 text-blue-500 dark:text-blue-400" />
-            {isAdmin && 'Class Routine Timetable'}
-            {isTeacher && 'My Teaching Schedule'}
-            {isStudent && 'My Class Schedule'}
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {isAdmin && 'Generate and view class routines across the institution.'}
-            {isTeacher && 'View your assigned classes and teaching slots.'}
-            {isStudent && 'View your daily class routine and subject teachers.'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={downloadPdf}
-            disabled={downloadingPdf || loading || (isAdmin && (!selectedClass || !selectedSection))}
-            isLoading={downloadingPdf}
-            className="px-5 py-2.5 text-sm"
-          >
-            <Download className="w-4 h-4" />
-            Download PDF
-          </Button>
-          {isAdmin && (
-            <Button variant="gradient" onClick={() => setIsAddModalOpen(true)} className="px-5 py-2.5 text-sm">
-              <Plus className="w-4 h-4" />
-              Add Slot Mapping
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Calendar className="w-6 h-6 text-blue-500 dark:text-blue-400" />
+              {isAdmin && t('Class Routine Timetable')}
+              {isTeacher && t('My Teaching Schedule')}
+              {isStudent && t('My Class Schedule')}
+              {isGuardian && t("My Child's Class Schedule")}
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 mt-1">
+              {isAdmin && t('Generate and view class routines across the institution.')}
+              {isTeacher && t('View your assigned classes and teaching slots.')}
+              {isStudent && t('View your daily class routine and subject teachers.')}
+              {isGuardian && t("View your child's daily class routine and subject teachers.")}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <TimetableSettingsPopover settings={settings} onSave={handleSaveSettings} />
+            <Button
+              variant="secondary"
+              onClick={downloadPdf}
+              disabled={downloadingPdf || loading || !canFetch()}
+              isLoading={downloadingPdf}
+              leftIcon={<Download className="w-4 h-4" />}
+            >
+              {t('Download PDF')}
             </Button>
-          )}
+            {isEditor && (
+              <Button variant="gradient" onClick={openAdd} leftIcon={<Plus className="w-4 h-4" />}>
+                {t('Add Slot Mapping')}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Selectors Bar - Admin Only */}
-      {isAdmin && (
-        <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
-          <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5">
-              <GraduationCap className="w-3.5 h-3.5" /> Select Class
-            </label>
-            <div className="relative">
+        {isGuardian && children.length > 1 && (
+          <div className="flex gap-2 flex-wrap">
+            {children.map((child) => (
+              <button
+                key={child.id}
+                onClick={() => setSelectedChildId(child.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  selectedChildId === child.id
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
+                }`}
+              >
+                {child.firstName} {child.lastName}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Selectors Bar - Admin Only */}
+        {isAdmin && (
+          <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center gap-6 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs">
+            <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                <GraduationCap className="w-3.5 h-3.5" /> {t('Select Class')}
+              </label>
               <select
                 value={selectedClass}
                 onChange={(e) => setSelectedClass(e.target.value)}
                 disabled={classesLoading || classes.length === 0}
                 className="input-field pr-10"
               >
-                {classesLoading && <option value="">Loading classes...</option>}
-                {!classesLoading && classes.length === 0 && <option value="">No classes found</option>}
-                {classes.map(cls => <option key={cls.id} value={cls.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{cls.name}</option>)}
+                {classesLoading && <option value="">{t('Loading classes...')}</option>}
+                {!classesLoading && classes.length === 0 && <option value="">{t('No classes found')}</option>}
+                {classes.map((cls) => <option key={cls.id} value={cls.name}>{cls.name}</option>)}
               </select>
             </div>
-          </div>
 
-          <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
-            <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5">
-              <UserCircle className="w-3.5 h-3.5" /> Select Section
-            </label>
-            <div className="relative">
+            <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider flex items-center gap-1.5">
+                <UserCircle className="w-3.5 h-3.5" /> {t('Select Section')}
+              </label>
               <select
                 value={selectedSection}
                 onChange={(e) => setSelectedSection(e.target.value)}
                 disabled={sectionsLoading || sections.length === 0}
                 className="input-field pr-10"
               >
-                {sectionsLoading && <option value="">Loading sections...</option>}
-                {!sectionsLoading && sections.length === 0 && <option value="">No sections found</option>}
-                {sections.map((sec: any) => <option key={sec.id} value={sec.name} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sec.name}</option>)}
+                {sectionsLoading && <option value="">{t('Loading sections...')}</option>}
+                {!sectionsLoading && sections.length === 0 && <option value="">{t('No sections found')}</option>}
+                {sections.map((sec: any) => <option key={sec.id} value={sec.name}>{sec.name}</option>)}
               </select>
             </div>
-          </div>
 
-          {isSeniorClass(selectedClass) && (
-            <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider">
-                Department
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedDepartment}
-                  onChange={(e) => setSelectedDepartment(e.target.value)}
-                  className="input-field pr-10"
-                >
-                  {DEPARTMENTS.map(dept => <option key={dept} value={dept} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{dept}</option>)}
+            {isSeniorClass(selectedClass) && (
+              <div className="flex flex-col flex-1 min-w-[200px] max-w-xs">
+                <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-2 uppercase tracking-wider">
+                  {t('Department')}
+                </label>
+                <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)} className="input-field pr-10">
+                  {DEPARTMENTS.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
                 </select>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Routine Builder Palette - Admin Only */}
-      {isAdmin && (
-        <div className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Routine Builder Palette</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Define a subject + teacher once, then drag it onto the grid below as many times as needed. Drag a placed period to move it, or hover it and click × to remove it.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-              <select
-                value={newBlockSubject}
-                onChange={(e) => setNewBlockSubject(e.target.value)}
-                disabled={availableSubjects.length === 0}
-                className="input-field text-sm py-2 w-48"
-              >
-                {availableSubjects.length === 0 && <option value="">No subjects found</option>}
-                {availableSubjects.map((sub) => (
-                  <option key={sub} value={sub} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{sub}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Teacher</label>
-              <select
-                value={newBlockTeacherUserId}
-                onChange={(e) => setNewBlockTeacherUserId(e.target.value)}
-                className="input-field text-sm py-2 w-48"
-              >
-                <option value="" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Select a teacher</option>
-                {teachers.map((t: any) => (
-                  <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{t.firstName} {t.lastName}</option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={addPaletteBlock}
-              disabled={!newBlockSubject.trim() || !newBlockTeacherUserId}
-              className="px-4 py-2 text-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Block
-            </Button>
-          </div>
-
-          {paletteBlocks.length > 0 ? (
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200/60 dark:border-white/5">
-              {paletteBlocks.map(block => (
-                <PaletteChip key={block.id} block={block} onRemove={() => removePaletteBlock(block.id)} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-slate-400 dark:text-slate-500 italic pt-3 border-t border-slate-200/60 dark:border-white/5">
-              No blocks yet — add one above, then drag it onto a period below.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Timetable Grid View */}
-      <div className="glass-card rounded-3xl border border-slate-200/50 dark:border-white/5 overflow-hidden shadow-xs relative bg-white dark:bg-slate-900/10">
-        {loading && (
-          <div className="absolute inset-0 z-10 bg-white/50 dark:bg-slate-950/50 backdrop-blur-xs flex items-center justify-center">
-            <div className="text-blue-600 dark:text-blue-400 animate-pulse font-semibold">Loading Timetable...</div>
+            )}
           </div>
         )}
-        <div className="overflow-x-auto">
-          <div className="min-w-[900px] grid grid-cols-7 divide-x divide-slate-200 dark:divide-white/5 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/60 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-            <div className="p-5 text-center">Time Slot</div>
-            {DAYS.map(day => (
-              <div key={day} className="p-5 text-center">{day}</div>
-            ))}
-          </div>
 
-          <div className="min-w-[900px] divide-y divide-slate-200 dark:divide-white/5">
-            {TIME_SLOTS.map(slot => (
-              <div key={slot.label} className={`grid grid-cols-7 divide-x divide-slate-200 dark:divide-white/5 transition-colors hover:bg-slate-50/30 dark:hover:bg-white/[0.02] ${slot.isBreak ? 'bg-slate-100/50 dark:bg-slate-950/60 text-slate-400 dark:text-slate-500 font-semibold' : ''}`}>
-                {/* Time Info */}
-                <div className="p-4 flex flex-col justify-center items-center bg-slate-50/50 dark:bg-slate-900/20">
-                  <div className="font-bold text-slate-900 dark:text-white text-xs">{slot.label}</div>
-                  <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 font-medium bg-slate-100 dark:bg-slate-950/50 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/5">{slot.start} - {slot.end}</div>
-                </div>
-
-                {/* Day Columns */}
-                {DAYS.map(day => {
-                  if (slot.isBreak) {
-                    return (
-                      <div key={day} className="p-4 flex items-center justify-center text-xs tracking-widest uppercase italic text-slate-400 dark:text-slate-500 opacity-50 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(226,232,240,0.3)_10px,rgba(226,232,240,0.3)_20px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.02)_10px,rgba(255,255,255,0.02)_20px)]">
-                        Break
-                      </div>
-                    );
-                  }
-
-                  const entry = routine[day]?.[slot.label];
-                  return (
-                    <div key={day} className="p-2.5 flex flex-col justify-center min-h-[90px]">
-                      {entry ? (
-                        isAdmin ? (
-                          <PlacedPeriodCard day={day} timeSlot={slot} entry={entry} onDelete={() => deleteSlot(entry.id)} />
-                        ) : (
-                          <div className="h-full w-full rounded-xl bg-gradient-to-br from-primary-50 dark:from-primary-500/10 to-primary-100/30 dark:to-primary-500/5 border border-primary-200 dark:border-primary-500/20 shadow-xs flex flex-col items-center justify-center p-2 group hover:border-primary-400/30 transition-all">
-                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 text-center leading-tight mb-1">{entry.subject}</span>
-
-                            {/* Teacher shows Class name, Student shows Teacher */}
-                            {isTeacher ? (
-                              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center">
-                                {entry.className} - {entry.sectionName}
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/80 px-2 py-0.5 rounded-md mt-1 border border-slate-200 dark:border-white/5 text-center max-w-full truncate">
-                                {entry.teacher}
-                              </span>
-                            )}
-                          </div>
-                        )
-                      ) : isAdmin ? (
-                        <EmptyCell day={day} timeSlot={slot} />
-                      ) : (
-                        <div className="h-full w-full flex items-center justify-center opacity-30">
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 text-center italic">Free</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Add Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} className="max-w-md p-0">
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                Add Class Schedule
-              </h3>
-            </div>
-
-            <form onSubmit={handleAddSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Day</label>
-                  <select
-                    value={formData.day}
-                    onChange={e => setFormData({ ...formData, day: e.target.value })}
-                    className="input-field"
-                  >
-                    {DAYS.map(d => <option key={d} value={d} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{d}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Period</label>
-                  <select
-                    value={formData.period}
-                    onChange={e => setFormData({ ...formData, period: e.target.value })}
-                    className="input-field"
-                  >
-                    {TIME_SLOTS.filter(s => !s.isBreak).map(s => (
-                      <option key={s.label} value={s.label} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Subject Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Mathematics"
-                  value={formData.subject}
-                  onChange={e => setFormData({ ...formData, subject: e.target.value })}
-                  className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Teacher Name</label>
-                <select
-                  required
-                  value={formData.teacherUserId}
-                  onChange={e => setFormData({ ...formData, teacherUserId: e.target.value })}
-                  className="input-field"
-                >
-                  <option value="" disabled className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">Select a teacher</option>
-                  {teachers.map((t: any) => (
-                    <option key={t.id} value={t.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{t.firstName} {t.lastName}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
-                <Button type="button" variant="ghost" onClick={() => setIsAddModalOpen(false)} className="px-5 py-2.5 text-sm">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="gradient" disabled={submitting || !branchId} isLoading={submitting} className="px-6 py-2.5 text-sm">
-                  {submitting ? 'Saving...' : 'Save Schedule'}
-                </Button>
-              </div>
-            </form>
-      </Modal>
-
-      <DragOverlay>
-        {activeDragData?.type === 'palette' && (
-          <div
-            className="flex items-center gap-2 pl-3 pr-3 py-2 rounded-lg border-l-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-lg"
-            style={{ borderLeftColor: colorForId(activeDragData.block.id) }}
-          >
+        {/* Routine Builder Palette - Admin Only */}
+        {isEditor && (
+          <div className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-xs space-y-4">
             <div>
-              <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{activeDragData.block.subject}</div>
-              <div className="text-[10px] text-slate-500 dark:text-slate-400">{activeDragData.block.teacherName}</div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">{t('Routine Builder Palette')}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {t('Define a subject + teacher once, then drag it onto the grid below as many times as needed. On touch devices, use the Add / Move-Edit action on a period instead.')}
+              </p>
             </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('Subject')}</label>
+                <select
+                  value={newBlockSubject}
+                  onChange={(e) => setNewBlockSubject(e.target.value)}
+                  disabled={availableSubjects.length === 0}
+                  className="input-field text-sm py-2 w-48"
+                >
+                  {availableSubjects.length === 0 && <option value="">{t('No subjects found')}</option>}
+                  {availableSubjects.map((sub) => <option key={sub} value={sub}>{sub}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{t('Teacher')}</label>
+                <select value={newBlockTeacherUserId} onChange={(e) => setNewBlockTeacherUserId(e.target.value)} className="input-field text-sm py-2 w-48">
+                  <option value="">{t('Select a teacher')}</option>
+                  {teachers.map((tch: any) => <option key={tch.id} value={tch.id}>{tch.firstName} {tch.lastName}</option>)}
+                </select>
+              </div>
+              <Button type="button" variant="secondary" size="sm" onClick={addPaletteBlock} disabled={!newBlockSubject.trim() || !newBlockTeacherUserId} leftIcon={<Plus className="w-3.5 h-3.5" />}>
+                {t('Add Block')}
+              </Button>
+            </div>
+
+            {paletteBlocks.length > 0 ? (
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200/60 dark:border-white/5">
+                {paletteBlocks.map((block) => (
+                  <PaletteChip key={block.id} block={block} onRemove={() => removePaletteBlock(block.id)} />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic pt-3 border-t border-slate-200/60 dark:border-white/5">
+                {t('No blocks yet — add one above, then drag it onto a period below.')}
+              </p>
+            )}
           </div>
         )}
-        {activeDragData?.type === 'slot' && (
-          <div className="rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/30 shadow-lg p-3">
-            <div className="text-xs font-bold text-blue-700 dark:text-blue-300">{activeDragData.entry.subject}</div>
-            <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{activeDragData.entry.teacher}</div>
-          </div>
-        )}
-      </DragOverlay>
-    </div>
+
+        <TimetableDesktopGrid
+          days={effectiveSettings.days}
+          periods={effectiveSettings.periods}
+          routine={routine}
+          isEditor={isEditor}
+          loading={loading}
+          onDelete={deleteSlot}
+          onMoveEdit={openMoveEdit}
+        />
+        <TimetableMobileDayView
+          days={effectiveSettings.days}
+          periods={effectiveSettings.periods}
+          routine={routine}
+          isEditor={isEditor}
+          loading={loading}
+          onDelete={deleteSlot}
+          onMoveEdit={openMoveEdit}
+        />
+
+        <TimetableEditModal
+          isOpen={editModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          initial={editInitial}
+          days={effectiveSettings.days}
+          periods={effectiveSettings.periods}
+          teachers={teachers}
+          branchId={branchId}
+          className={selectedClass}
+          sectionName={selectedSection}
+          onSaved={fetchTimetables}
+        />
+
+        <DragOverlay>
+          {activeDragData?.type === 'palette' && (
+            <div
+              className="flex items-center gap-2 pl-3 pr-3 py-2 rounded-lg border-l-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-lg"
+              style={{ borderLeftColor: colorForId(activeDragData.block.id) }}
+            >
+              <div>
+                <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{activeDragData.block.subject}</div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">{activeDragData.block.teacherName}</div>
+              </div>
+            </div>
+          )}
+          {activeDragData?.type === 'slot' && (
+            <div className="rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-300 dark:border-primary-500/30 shadow-lg p-3">
+              <div className="text-xs font-bold text-blue-700 dark:text-blue-300">{activeDragData.entry.subject}</div>
+              <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{activeDragData.entry.teacher}</div>
+            </div>
+          )}
+        </DragOverlay>
+      </div>
     </DndContext>
   );
 };

@@ -9,7 +9,7 @@ import {
   InstitutionFixture,
 } from './helpers/fixtures';
 
-describe('Fee setup, custom notifications, website items, system info', () => {
+describe('Fee setup, custom notifications, system info', () => {
   let inst: InstitutionFixture;
   let other: InstitutionFixture;
   let adminToken: string;
@@ -38,7 +38,6 @@ describe('Fee setup, custom notifications, website items, system info', () => {
     await prisma.feeCategory.deleteMany({ where: { id: feeCategoryId } });
     await prisma.class.deleteMany({ where: { id: classId } });
     await prisma.branch.deleteMany({ where: { id: branchId } });
-    await prisma.websiteItem.deleteMany({ where: { institutionId: { in: [inst.institutionId, other.institutionId] } } });
     await prisma.notification.deleteMany({ where: { institutionId: { in: [inst.institutionId, other.institutionId] }, type: 'CUSTOM' } });
     await prisma.notificationBroadcast.deleteMany({ where: { institutionId: { in: [inst.institutionId, other.institutionId] } } });
     await cleanupInstitution(inst);
@@ -101,28 +100,6 @@ describe('Fee setup, custom notifications, website items, system info', () => {
       .set('Authorization', `Bearer ${inst.usersByRole[UserRole.TEACHER].token}`)
       .send({ title: 'x', body: 'y', target: 'ALL' });
     expect(res.status).toBe(403);
-  });
-
-  it('manages website items per type and blocks unsafe URLs and other tenants', async () => {
-    const created = await request(app)
-      .post('/api/v1/website-items')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'FAQ', title: 'When does school start?', description: '8 AM' });
-    expect(created.status).toBe(201);
-
-    const list = await request(app).get('/api/v1/website-items?type=FAQ').set('Authorization', `Bearer ${adminToken}`);
-    expect(list.body.data.map((i: any) => i.id)).toContain(created.body.data.id);
-
-    const unsafe = await request(app)
-      .post('/api/v1/website-items')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'VIDEO', title: 'x', mediaUrl: 'javascript:alert(1)' });
-    expect(unsafe.status).toBe(422);
-
-    const crossTenant = await request(app)
-      .delete(`/api/v1/website-items/${created.body.data.id}`)
-      .set('Authorization', `Bearer ${otherAdminToken}`);
-    expect(crossTenant.status).toBe(404);
   });
 
   it('reports system info to admins', async () => {

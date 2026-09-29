@@ -13,6 +13,8 @@ import {
   ProcessPayrollDto,
   PayrollQueryDto,
   PayrollIdParamDto,
+  PayrollBatchDto,
+  PayrollReportQueryDto,
 } from './hr.dto';
 import * as hrController from './hr.controller';
 
@@ -33,6 +35,9 @@ router.patch('/staff/:id', ADMIN_ONLY, validate({ params: StaffIdParamDto, body:
 // Payroll endpoints — salary data, kept tightly scoped
 router.post('/payroll', ADMIN_ONLY, validate({ body: ProcessPayrollDto }), hrController.processPayroll);
 router.get('/payroll', ADMIN_AND_ACCOUNTANT_READ, validate({ query: PayrollQueryDto }), hrController.listPayrolls);
+// Batch run + report - literal paths mounted BEFORE /payroll/:id.
+router.post('/payroll/batch', ADMIN_ONLY, validate({ body: PayrollBatchDto }), hrController.processPayrollBatch);
+router.get('/payroll/report', ADMIN_AND_ACCOUNTANT_READ, validate({ query: PayrollReportQueryDto }), hrController.getPayrollReport);
 router.get('/payroll/:id', ADMIN_AND_ACCOUNTANT_READ, validate({ params: PayrollIdParamDto }), hrController.getPayroll);
 router.post('/payroll/:id/pay', ADMIN_ONLY, validate({ params: PayrollIdParamDto }), hrController.payPayroll);
 

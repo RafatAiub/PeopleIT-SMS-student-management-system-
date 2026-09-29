@@ -63,6 +63,37 @@ export const MarksheetQueryDto = z.object({
   sectionId: z.string().min(1, 'Invalid section ID').optional(),
 });
 
+// Class/section can be addressed by id or by name (the marks-entry UI works
+// with names, the student module with ids) — at least one class selector.
+const ClassScopeFields = {
+  classId: z.string().min(1).optional(),
+  className: z.string().trim().min(1).max(100).optional(),
+  sectionId: z.string().min(1).optional(),
+  sectionName: z.string().trim().min(1).max(100).optional(),
+};
+const requireClass = (d: { classId?: string; className?: string }) => Boolean(d.classId || d.className);
+const requireClassMessage = { message: 'classId or className is required', path: ['className'] };
+
+export const MeritListQueryDto = z
+  .object({
+    examId: z.string().min(1, 'Invalid exam ID'),
+    ...ClassScopeFields,
+    rankBy: z.enum(['total', 'percent']).default('total'),
+  })
+  .refine(requireClass, requireClassMessage);
+
+export const ClassAnalyticsQueryDto = z
+  .object({
+    examId: z.string().min(1, 'Invalid exam ID'),
+    ...ClassScopeFields,
+  })
+  .refine(requireClass, requireClassMessage);
+
+export const StudentIdParamDto = z.object({
+  // A cuid, or "me" for the signed-in STUDENT.
+  studentId: z.string().min(1, 'Invalid student ID'),
+});
+
 export const ExamIdParamDto = z.object({
   id: z.string().min(1, 'Invalid exam ID'),
 });
@@ -78,3 +109,5 @@ export type SingleExamResultEntryDtoType = z.infer<typeof SingleExamResultEntryD
 export type SubmitExamResultsDtoType = z.infer<typeof SubmitExamResultsDto>;
 export type ExamResultQueryDtoType = z.infer<typeof ExamResultQueryDto>;
 export type MarksheetQueryDtoType = z.infer<typeof MarksheetQueryDto>;
+export type MeritListQueryDtoType = z.infer<typeof MeritListQueryDto>;
+export type ClassAnalyticsQueryDtoType = z.infer<typeof ClassAnalyticsQueryDto>;

@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { BookOpen, Users, Download } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Users, Download, GraduationCap, Trophy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { PageHeader, Button, Select, Skeleton, SkeletonStatGrid, ErrorState, StatCard } from '../../components/ui';
+import { ReportCardDrawer } from './marks/ReportCardDrawer';
+import { computeGpa } from './gradePoints';
 
 interface ExamResult {
   id: string;
@@ -17,6 +20,8 @@ interface ExamResult {
   remarks: string | null;
   studentId: string;
   highestMarkInSubject: number | null;
+  /** Present only when the institution has a default grading scale (server-computed). */
+  gradePoint?: number;
 }
 
 interface ChildSummary {
@@ -46,6 +51,9 @@ const MyExamResults: React.FC = () => {
   const [results, setResults] = useState<ExamResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const [reportCardOpen, setReportCardOpen] = useState(false);
 
   // Load linked children for GUARDIAN role
   useEffect(() => {
@@ -94,25 +102,69 @@ const MyExamResults: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChildId, childrenLoading]);
 
-  const downloadReportCard = async (studentId: string, examId: string) => {
-    try {
-      const res = await apiClient.get(`/results/${studentId}/report-card`, {
-        params: { examId },
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `report-card-${studentId}.pdf`;
-      link.click();
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Report card not available for this exam yet');
-    }
+  const fetchReportCardBlob = async (studentId: string, examId: string): Promise<Blob> => {
+    const res = await apiClient.get(`/results/${studentId}/report-card`, {
+      params: { examId },
+      responseType: 'blob',
+    });
+    return new Blob([res.data], { type: 'application/pdf' });
   };
 
+  // Group results by exam, newest first. There is no date field on the
+  // response shape, so we approximate "newest" via a natural-order
+  // descending sort on the exam name (e.g. "Term 2" before "Term 1").
+  const examGroups = useMemo<ExamGroup[]>(() => {
+    const map = new Map<string, ExamGroup>();
+    results.forEach((r) => {
+      const examId = r.exam?.id || r.examId;
+      if (!map.has(examId)) {
+        map.set(examId, { examId, examName: r.exam?.name || 'Exam', records: [] });
+      }
+      map.get(examId)!.records.push(r);
+    });
+    return Array.from(map.values()).sort((a, b) => b.examName.localeCompare(a.examName, undefined, { numeric: true }));
+  }, [results]);
+
+  // Keep the exam picker in sync with whichever exams are actually present
+  // for the selected child — default to the most recent, and reset if the
+  // previously selected exam falls outside the new set (e.g. after
+  // switching children).
+  useEffect(() => {
+    if (examGroups.length === 0) {
+      setSelectedExamId(null);
+      return;
+    }
+    if (!selectedExamId || !examGroups.some((g) => g.examId === selectedExamId)) {
+      setSelectedExamId(examGroups[0].examId);
+    }
+  }, [examGroups, selectedExamId]);
+
+  const selectedGroup = examGroups.find((g) => g.examId === selectedExamId) || null;
+
+  const summary = useMemo(() => {
+    if (!selectedGroup) return null;
+    const totalObtained = selectedGroup.records.reduce((sum, r) => sum + Number(r.marksObtained), 0);
+    const totalPossible = selectedGroup.records.reduce((sum, r) => sum + Number(r.maxMarks), 0);
+    const percentage = totalPossible > 0 ? Math.round((totalObtained / totalPossible) * 100) : null;
+    // Server grade points (configured grading scale) win; otherwise the
+    // standard NCTB mapping of the server-computed letter grade.
+    const serverPoints = selectedGroup.records.map((r) => r.gradePoint).filter((p): p is number => typeof p === 'number');
+    const gpa =
+      serverPoints.length === selectedGroup.records.length && serverPoints.length > 0
+        ? Math.round((serverPoints.reduce((a, b) => a + b, 0) / serverPoints.length) * 100) / 100
+        : computeGpa(selectedGroup.records.map((r) => r.grade));
+    return { totalObtained, totalPossible, percentage, gpa };
+  }, [selectedGroup]);
+
+  const selectedChild = isGuardian ? children.find((c) => c.id === selectedChildId) : null;
+
   if (isGuardian && childrenLoading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your dashboard...</div>;
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-56" />
+        <SkeletonStatGrid count={3} />
+      </div>
+    );
   }
 
   if (isGuardian && children.length === 0) {
@@ -127,63 +179,39 @@ const MyExamResults: React.FC = () => {
     );
   }
 
-  // Group results by exam, newest first. There is no date field on the
-  // response shape, so we approximate "newest" via a natural-order
-  // descending sort on the exam name (e.g. "Term 2" before "Term 1").
-  const examGroupsMap = new Map<string, ExamGroup>();
-  results.forEach((r) => {
-    const examId = r.exam?.id || r.examId;
-    if (!examGroupsMap.has(examId)) {
-      examGroupsMap.set(examId, { examId, examName: r.exam?.name || 'Exam', records: [] });
-    }
-    examGroupsMap.get(examId)!.records.push(r);
-  });
-  const examGroups = Array.from(examGroupsMap.values()).sort((a, b) =>
-    b.examName.localeCompare(a.examName, undefined, { numeric: true })
-  );
-
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Exam Results</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">View your exam marks, grades and report cards.</p>
-      </div>
+      <PageHeader title="My Exam Results" description="View your exam marks, grades and report cards." />
 
       {isGuardian && children.length > 1 && (
         <div className="flex gap-2 flex-wrap">
           {children.map((child) => (
-            <button
+            <Button
               key={child.id}
+              type="button"
+              size="sm"
+              variant={selectedChildId === child.id ? 'primary' : 'secondary'}
               onClick={() => setSelectedChildId(child.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                selectedChildId === child.id
-                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
-                  : 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10'
-              }`}
             >
               {child.firstName} {child.lastName}
-            </button>
+            </Button>
           ))}
         </div>
       )}
 
       {loading ? (
-        <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your exam results...</div>
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-full sm:w-64" />
+          <SkeletonStatGrid count={3} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 w-full" />
+            ))}
+          </div>
+        </div>
       ) : error ? (
         <div className="glass-card p-8">
-          <EmptyState
-            title="Failed to load results"
-            description="Something went wrong while fetching your exam results."
-            icon={<BookOpen className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            action={
-              <button
-                onClick={fetchResults}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
-              >
-                Retry
-              </button>
-            }
-          />
+          <ErrorState message="Something went wrong while fetching your exam results." onRetry={fetchResults} />
         </div>
       ) : examGroups.length === 0 ? (
         <div className="glass-card p-8">
@@ -194,74 +222,107 @@ const MyExamResults: React.FC = () => {
           />
         </div>
       ) : (
-        examGroups.map((group) => (
-          <div
-            key={group.examId}
-            className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 overflow-hidden"
-          >
-            <div className="p-5 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/50 dark:border-white/5">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">{group.examName}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {group.records.length} subjects graded
-                </p>
-              </div>
-              <button
-                onClick={() => downloadReportCard(group.records[0].studentId, group.examId)}
-                className="flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-3 py-2 rounded-xl transition-all shadow-md shadow-primary-500/20 text-xs font-semibold active:scale-[0.98]"
+        <>
+          {/* Exam picker */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <Select
+              label="Exam"
+              value={selectedExamId ?? ''}
+              onChange={(e) => setSelectedExamId(e.target.value)}
+              options={examGroups.map((g) => ({ value: g.examId, label: g.examName }))}
+              containerClassName="w-full sm:w-64"
+            />
+            {selectedGroup && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setReportCardOpen(true)}
+                leftIcon={<Download className="w-4 h-4" />}
+                className="sm:mb-0"
               >
-                <Download className="w-3.5 h-3.5" />
                 Download Report Card
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300">
-                <thead className="bg-slate-50 dark:bg-slate-900/40 text-xs uppercase text-slate-500 dark:text-slate-400">
-                  <tr>
-                    <th className="px-6 py-3 font-medium">Subject</th>
-                    <th className="px-6 py-3 font-medium text-center">Marks</th>
-                    <th className="px-6 py-3 font-medium text-center">Grade</th>
-                    <th className="px-6 py-3 font-medium text-center">Highest in Class</th>
-                    <th className="px-6 py-3 font-medium">Remarks</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {group.records.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-6 py-3 font-medium text-slate-900 dark:text-white">{r.subject}</td>
-                      <td className="px-6 py-3 text-center tabular-nums">
-                        {Number(r.marksObtained)}/{Number(r.maxMarks)}
-                      </td>
-                      <td className="px-6 py-3 text-center">
-                        {r.grade ? (
-                          <StatusBadge status={r.grade} />
-                        ) : (
-                          <span className="text-slate-400 dark:text-slate-600">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 text-center tabular-nums">
-                        {r.highestMarkInSubject !== null ? (
+              </Button>
+            )}
+          </div>
+
+          {selectedGroup && summary && (
+            <>
+              {/* GPA / totals summary — computed on-screen from the grades
+                  shown below using the standard NCTB grade-point scale; the
+                  backend has no GPA field, so this is never sent anywhere,
+                  only ever a re-derived display of the real marks/grades on
+                  this page. */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <StatCard
+                  label="Total Marks"
+                  value={`${summary.totalObtained}/${summary.totalPossible}`}
+                  icon={<BookOpen />}
+                  tone="info"
+                  hint={summary.percentage !== null ? `${summary.percentage}%` : undefined}
+                />
+                <StatCard
+                  label="Subjects Graded"
+                  value={selectedGroup.records.length}
+                  icon={<GraduationCap />}
+                  tone="primary"
+                />
+                <StatCard
+                  label="GPA"
+                  value={summary.gpa !== null ? summary.gpa.toFixed(2) : '—'}
+                  icon={<Trophy />}
+                  tone="success"
+                  hint="Calculated from grades shown below"
+                />
+              </div>
+
+              {/* Subject cards — mobile-first; a wide table doesn't fit at
+                  360px width. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedGroup.records
+                  .slice()
+                  .sort((a, b) => a.subject.localeCompare(b.subject))
+                  .map((r) => (
+                    <div key={r.id} className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 p-4 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-bold text-slate-900 dark:text-white text-sm">{r.subject}</h3>
+                        {r.grade ? <StatusBadge status={r.grade} /> : <span className="text-slate-400 dark:text-slate-600 text-xs">—</span>}
+                      </div>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-400 tabular-nums">{Number(r.marksObtained)}</span>
+                        <span className="text-sm text-slate-500 dark:text-slate-400">/ {Number(r.maxMarks)}</span>
+                      </div>
+                      {r.highestMarkInSubject !== null && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Highest in class:{' '}
                           <span
                             className={
                               Number(r.marksObtained) > 0 && Number(r.marksObtained) === r.highestMarkInSubject
                                 ? 'font-bold text-emerald-600 dark:text-emerald-400'
-                                : 'text-slate-700 dark:text-slate-300'
+                                : 'font-semibold text-slate-700 dark:text-slate-300'
                             }
                           >
                             {r.highestMarkInSubject}
                           </span>
-                        ) : (
-                          <span className="text-slate-400 dark:text-slate-600">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3 text-slate-500 dark:text-slate-400">{r.remarks || '—'}</td>
-                    </tr>
+                        </p>
+                      )}
+                      {r.remarks && <p className="text-xs text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-white/5 pt-2">{r.remarks}</p>}
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {selectedGroup && (
+        <ReportCardDrawer
+          isOpen={reportCardOpen}
+          onClose={() => setReportCardOpen(false)}
+          title={`Report Card — ${selectedGroup.examName}`}
+          description={selectedChild ? `${selectedChild.firstName} ${selectedChild.lastName}` : undefined}
+          fileName={`report-card-${selectedGroup.records[0]?.studentId || 'me'}.pdf`}
+          fetchBlob={() => fetchReportCardBlob(selectedGroup.records[0].studentId, selectedGroup.examId)}
+        />
       )}
     </div>
   );

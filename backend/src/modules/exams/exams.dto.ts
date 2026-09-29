@@ -70,25 +70,6 @@ export const TimetableQueryDto = z.object({
   academicYearId: z.string().min(1).optional(),
 });
 
-// ── Exam Grades ──────────────────────────────────────────────────────────
-
-export const SaveGradesDto = z.object({
-  grades: z
-    .array(
-      z
-        .object({
-          minPercent: z.coerce.number().min(0).max(100),
-          maxPercent: z.coerce.number().min(0).max(100),
-          grade: z.string().trim().min(1, 'Grade is required').max(10),
-        })
-        .refine((g) => g.maxPercent >= g.minPercent, {
-          message: 'Ending range must be greater than or equal to starting range',
-          path: ['maxPercent'],
-        }),
-    )
-    .nonempty('Add at least one grade'),
-});
-
 // ── Exam Result (class summary) ──────────────────────────────────────────
 
 export const ExamResultQueryDto = z.object({
@@ -103,5 +84,4 @@ export type ExamListQueryDtoType = z.infer<typeof ExamListQueryDto>;
 export type TimetableEntryDtoType = z.infer<typeof TimetableEntryDto>;
 export type CreateTimetableDtoType = z.infer<typeof CreateTimetableDto>;
 export type TimetableQueryDtoType = z.infer<typeof TimetableQueryDto>;
-export type SaveGradesDtoType = z.infer<typeof SaveGradesDto>;
 export type ExamResultQueryDtoType = z.infer<typeof ExamResultQueryDto>;

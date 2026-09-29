@@ -8,6 +8,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma';
 import { logger } from '../utils/logger';
+import { redactSensitive } from '../utils/redact';
 
 const AUDITABLE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -106,7 +107,9 @@ export function auditLog(req: Request, res: Response, next: NextFunction): void 
           resource,
           resourceId: resourceId ?? null,
           metadata:
-            req.method !== 'DELETE' && req.body ? (req.body as Record<string, any>) : undefined,
+            req.method !== 'DELETE' && req.body
+              ? redactSensitive(req.body as Record<string, any>)
+              : undefined,
           ipAddress: getClientIp(req),
           userAgent: req.headers['user-agent'] ?? null,
         },

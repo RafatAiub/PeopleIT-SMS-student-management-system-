@@ -115,21 +115,6 @@ export const timetableApi = {
   remove: (id: string) => apiClient.delete(`/exams/timetable/${id}`),
 };
 
-// ── Exam Grades ──────────────────────────────────────────────────────────
-
-export interface ExamGrade {
-  id: string;
-  minPercent: string | number;
-  maxPercent: string | number;
-  grade: string;
-}
-
-export const gradesApi = {
-  list: async () => unwrap<ExamGrade[]>(await apiClient.get('/exams/grades'), []),
-  save: (grades: { minPercent: number; maxPercent: number; grade: string }[]) =>
-    apiClient.put('/exams/grades', { grades }),
-};
-
 // ── Exam Result ──────────────────────────────────────────────────────────
 
 export interface ClassResultRow {

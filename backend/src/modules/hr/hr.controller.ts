@@ -109,3 +109,29 @@ export async function payPayroll(
     next(error);
   }
 }
+
+export async function processPayrollBatch(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await hrService.processPayrollBatch(req.tenantId!, req.body.payPeriod);
+    successResponse(res, result, `Payroll batch processed: ${result.processed} created, ${result.skipped} already processed`);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPayrollReport(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await hrService.getPayrollReport(req.tenantId!, String(req.query.payPeriod));
+    successResponse(res, result);
+  } catch (error) {
+    next(error);
+  }
+}

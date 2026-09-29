@@ -4,6 +4,8 @@ import { LayoutTemplate, Type, User, ImageIcon, PenTool, QrCode, Trash2, Image a
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/Button';
+import { Input, Select } from '../../components/ui/Input';
+import { PageHeader } from '../../components/ui';
 import {
   IdCardTemplate,
   IdCardPreviewData,
@@ -105,6 +107,7 @@ function ImagePicker({
   value: string | null;
   onChange: (dataUrl: string | null) => void;
 }) {
+  const fieldId = React.useId();
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -115,21 +118,21 @@ function ImagePicker({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-lg border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div className="w-12 h-12 rounded-lg border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden shrink-0">
           {value ? (
             <img src={value} alt={label} className="w-full h-full object-cover" />
           ) : (
             <ImageIcon2 className="w-4 h-4 text-slate-400" />
           )}
         </div>
-        <label className="btn-secondary text-xs px-3 py-1.5 cursor-pointer">
+        <label htmlFor={fieldId} className="btn-secondary text-xs px-3 py-1.5 cursor-pointer">
           {value ? 'Change' : 'Upload'}
-          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <input id={fieldId} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </label>
         {value && (
-          <button type="button" onClick={() => onChange(null)} className="text-slate-400 hover:text-red-500 p-1" title="Remove image">
+          <button type="button" onClick={() => onChange(null)} className="text-slate-400 hover:text-red-500 p-1" title="Remove image" aria-label={`Remove ${label.toLowerCase()}`}>
             <X className="w-4 h-4" />
           </button>
         )}
@@ -139,18 +142,21 @@ function ImagePicker({
 }
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const fieldId = React.useId();
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
       <div className="flex items-center gap-2">
         <input
+          id={fieldId}
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-9 h-8 rounded-md border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent p-0.5 flex-shrink-0"
+          className="w-9 h-8 rounded-md border border-slate-300 dark:border-white/10 cursor-pointer bg-transparent p-0.5 shrink-0"
         />
         <input
           type="text"
+          aria-label={`${label} hex value`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="input-field font-mono text-xs min-w-0"
@@ -392,88 +398,78 @@ export default function IdCardDesigner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <LayoutTemplate className="w-6 h-6 text-primary-500 flex-shrink-0" />
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <LayoutTemplate className="w-6 h-6 text-primary-500 shrink-0" />
             Advanced ID Card Designer
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Drag, resize and bind data fields — the card below is exactly what will print.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <Button type="button" variant="ghost" onClick={() => navigate('/id-cards/builder')}>
-            Cancel
-          </Button>
-          <Button type="button" variant="gradient" onClick={handleSave} disabled={saving} isLoading={saving}>
-            Save Template
-          </Button>
-        </div>
-      </div>
+          </span>
+        }
+        description="Drag, resize and bind data fields — the card below is exactly what will print."
+        actions={
+          <>
+            <Button type="button" variant="ghost" onClick={() => navigate('/id-cards/builder')}>
+              Cancel
+            </Button>
+            <Button type="button" variant="gradient" onClick={handleSave} disabled={saving} isLoading={saving}>
+              Save Template
+            </Button>
+          </>
+        }
+      />
 
       {/* Template-level fields */}
       <div className="glass-card p-4 sm:p-6 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">Template Details</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="sm:col-span-2 space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Title</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="e.g. Custom Student ID Card"
-              className="input-field"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Applicable User</label>
-            <select
-              value={form.applicableTo}
-              onChange={(e) => setForm((p) => ({ ...p, applicableTo: e.target.value as 'STUDENT' | 'STAFF' }))}
-              className="input-field"
-            >
-              <option value="STUDENT">Student</option>
-              <option value="STAFF">Staff</option>
-            </select>
-          </div>
+          <Input
+            containerClassName="sm:col-span-2"
+            label="Title"
+            value={form.title}
+            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+            placeholder="e.g. Custom Student ID Card"
+          />
+          <Select
+            label="Applicable User"
+            value={form.applicableTo}
+            onChange={(e) => setForm((p) => ({ ...p, applicableTo: e.target.value as 'STUDENT' | 'STAFF' }))}
+            options={[
+              { value: 'STUDENT', label: 'Student' },
+              { value: 'STAFF', label: 'Staff' },
+            ]}
+          />
           <div className="flex items-end justify-between gap-2">
             <div>
-              <p className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Active</p>
+              <p className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider" id="designer-active-label">Active</p>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={form.isActive}
+              aria-labelledby="designer-active-label"
               onClick={() => setForm((p) => ({ ...p, isActive: !p.isActive }))}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${form.isActive ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${form.isActive ? 'bg-primary-600' : 'bg-slate-300 dark:bg-slate-700'}`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Width (mm)</label>
-            <input
-              type="number"
-              min={20}
-              max={200}
-              value={form.widthMm}
-              onChange={(e) => setForm((p) => ({ ...p, widthMm: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Height (mm)</label>
-            <input
-              type="number"
-              min={20}
-              max={200}
-              value={form.heightMm}
-              onChange={(e) => setForm((p) => ({ ...p, heightMm: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
+          <Input
+            label="Width (mm)"
+            type="number"
+            min={20}
+            max={200}
+            value={form.widthMm}
+            onChange={(e) => setForm((p) => ({ ...p, widthMm: Number(e.target.value) }))}
+          />
+          <Input
+            label="Height (mm)"
+            type="number"
+            min={20}
+            max={200}
+            value={form.heightMm}
+            onChange={(e) => setForm((p) => ({ ...p, heightMm: Number(e.target.value) }))}
+          />
           <ColorField label="Header / Accent Color" value={form.primaryColor} onChange={(v) => setForm((p) => ({ ...p, primaryColor: v }))} />
           <ColorField label="Footer Color" value={form.secondaryColor} onChange={(v) => setForm((p) => ({ ...p, secondaryColor: v }))} />
         </div>
@@ -492,6 +488,7 @@ export default function IdCardDesigner() {
             <select
               value={addDataKey}
               onChange={(e) => setAddDataKey(e.target.value as TextDataKey)}
+              aria-label="Data field to add as a new text element"
               className="input-field text-xs py-1.5 w-auto"
             >
               {TEXT_DATA_KEYS.map((key) => (
@@ -732,8 +729,9 @@ function ElementInspector({
       {element.type === 'TEXT' && (
         <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-white/5">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Data Field</label>
+            <label htmlFor="inspector-data-field" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Data Field</label>
             <select
+              id="inspector-data-field"
               value={element.dataKey}
               onChange={(e) => {
                 const newKey = e.target.value as TextDataKey;
@@ -756,10 +754,11 @@ function ElementInspector({
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">
+            <label htmlFor="inspector-printed-label" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">
               Printed Label <span className="normal-case text-slate-400 font-normal">(optional — e.g. "D.O.B")</span>
             </label>
             <input
+              id="inspector-printed-label"
               type="text"
               value={element.label || ''}
               onChange={(e) => onChange({ label: e.target.value || null })}
@@ -774,8 +773,9 @@ function ElementInspector({
           <div className="grid grid-cols-2 gap-3">
             <NumberField label="Font Size (pt)" value={element.fontSizePt} min={4} max={72} onChange={(v) => onChange({ fontSizePt: v })} />
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Align</label>
+              <label htmlFor="inspector-align" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Align</label>
               <select
+                id="inspector-align"
                 value={element.align}
                 onChange={(e) => onChange({ align: e.target.value as 'left' | 'center' | 'right' })}
                 className="input-field"
@@ -801,8 +801,9 @@ function ElementInspector({
 
       {element.type === 'PHOTO' && (
         <div className="space-y-1.5 pt-3 border-t border-slate-100 dark:border-white/5">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Shape</label>
+          <label htmlFor="inspector-photo-shape" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Shape</label>
           <select
+            id="inspector-photo-shape"
             value={element.shape}
             onChange={(e) => onChange({ shape: e.target.value as 'CIRCLE' | 'SQUARE' | 'ROUNDED' })}
             className="input-field"
@@ -837,10 +838,12 @@ function NumberField({
   max?: number;
   onChange: (v: number) => void;
 }) {
+  const fieldId = React.useId();
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
       <input
+        id={fieldId}
         type="number"
         value={Number.isFinite(value) ? Math.round(value * 100) / 100 : 0}
         min={min}

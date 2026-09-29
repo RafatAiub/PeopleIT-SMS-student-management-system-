@@ -14,13 +14,12 @@ import {
   CreateTimetableDto,
   UpdateTimetableEntryDto,
   TimetableQueryDto,
-  SaveGradesDto,
   ExamResultQueryDto,
 } from './exams.dto';
 import * as examsController from './exams.controller';
 
-// Exam module (Exam > Create Exam / Exam Timetable / Exam Result / Exam
-// Grade). Marks entry and report cards stay in the results module.
+// Exam module (Exam > Create Exam / Exam Timetable / Exam Result). Grade
+// bands live in the grading module; marks entry and report cards in results.
 const router = Router();
 
 router.use(authenticate, setTenant, auditLog);
@@ -43,8 +42,6 @@ router.put(
 );
 router.delete('/timetable/:id', WRITE_ROLES, validate({ params: IdParamDto }), examsController.deleteTimetableEntry);
 
-router.get('/grades', READ_ROLES, examsController.listGrades);
-router.put('/grades', WRITE_ROLES, validate({ body: SaveGradesDto }), examsController.saveGrades);
 
 router.get('/results', READ_ROLES, validate({ query: ExamResultQueryDto }), examsController.getClassResults);
 

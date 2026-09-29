@@ -1,11 +1,15 @@
 import crypto from 'crypto';
+import { EmailPriority } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { env } from '../../config/env';
 import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import * as applicationRepository from './institution-application.repository';
 import { provisionInstitutionAndAdmin } from '../institution/institution.service';
 import { checkEmailAuthorized } from '../authorized-email/authorized-email.service';
 import type { SubmitApplicationDtoType } from './institution-application.dto';
+import { sendEmail } from '../email/sender';
+import { institutionApprovedEmail, institutionRejectedEmail } from '../email/templates/institution-application.templates';
 
 export async function submitApplication(data: SubmitApplicationDtoType) {
   // Authorization gate: throws 401 for an email a Super Admin hasn't
@@ -102,6 +106,34 @@ export async function approveApplication(id: string, actorUserId: string) {
       });
     });
 
+  // Fire-and-forget, P0 (security/credentials): this is the ONLY delivery of
+  // the generated password (rule: never write plaintext passwords to logs —
+  // email is the delivery channel, not a log). A failure here must not fail
+  // the approval itself (the institution is already provisioned) — it is
+  // logged so the approver can hand the still-visible API response password
+  // to the admin some other way.
+  const approvalMail = institutionApprovedEmail({
+    institutionName: result.institution.name,
+    adminFirstName: application.applicantFirstName,
+    adminEmail: result.admin.email,
+    adminPassword,
+    loginUrl: `${env.FRONTEND_URL}/login`,
+  });
+  sendEmail({
+    to: result.admin.email,
+    subject: approvalMail.subject,
+    html: approvalMail.html,
+    text: approvalMail.text,
+    template: 'institution-application.approved',
+    priority: EmailPriority.P0_SECURITY,
+    institutionId: result.institution.id,
+  }).catch((error) => {
+    logger.error('Failed to send institution-approved credentials email', {
+      institutionId: result.institution.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+
   return { institution: result.institution, admin: result.admin, adminPassword };
 }
 
@@ -124,6 +156,25 @@ export async function rejectApplication(id: string, reason: string, actorUserId:
     slug: application.slug,
     actorUserId,
     reason,
+  });
+
+  const rejectionMail = institutionRejectedEmail({
+    applicantFirstName: application.applicantFirstName,
+    institutionName: application.institutionName,
+    reason,
+  });
+  sendEmail({
+    to: application.applicantEmail,
+    subject: rejectionMail.subject,
+    html: rejectionMail.html,
+    text: rejectionMail.text,
+    template: 'institution-application.rejected',
+    priority: EmailPriority.P1_TRANSACTIONAL,
+  }).catch((error) => {
+    logger.error('Failed to send institution-application-rejected email', {
+      applicationId: id,
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
 
   return updated;

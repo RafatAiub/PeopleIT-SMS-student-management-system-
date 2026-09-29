@@ -39,7 +39,7 @@ export class UserController {
   }
   static async createUser(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await UserService.createUser(req.tenantId!, req.body);
+      const user = await UserService.createUser(req.tenantId!, req.body, req.user!.role as UserRole);
       return successResponse(res, user, 'User created successfully', 201);
     } catch (error) {
       next(error);
@@ -77,7 +77,7 @@ export class UserController {
 
   static async updateUser(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await UserService.updateUser(req.tenantId!, req.params.id, req.body);
+      const user = await UserService.updateUser(req.tenantId!, req.params.id, req.body, req.user!.role as UserRole);
       return successResponse(res, user, 'User updated successfully');
     } catch (error) {
       next(error);

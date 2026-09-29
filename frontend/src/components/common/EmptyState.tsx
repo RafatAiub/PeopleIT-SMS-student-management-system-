@@ -1,11 +1,14 @@
 import React from 'react';
-import { InboxIcon } from 'lucide-react';
+import { Inbox } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
 interface EmptyStateProps {
   title?: string;
   description?: string;
   icon?: React.ReactNode;
   action?: React.ReactNode;
+  compact?: boolean;
+  className?: string;
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
@@ -13,21 +16,15 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   description = 'There are no items to display.',
   icon,
   action,
-}) => {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center animate-fadeIn">
-      <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center mb-5">
-        {icon || <InboxIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />}
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
-      <p className="text-slate-500 dark:text-slate-400 text-sm max-w-sm mb-6 leading-relaxed">
-        {description}
-      </p>
-      {action && (
-        <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-150">
-          {action}
-        </div>
-      )}
+  compact = false,
+  className,
+}) => (
+  <div className={cn('flex flex-col items-center justify-center px-4 text-center animate-fadeIn', compact ? 'py-8' : 'py-14', className)}>
+    <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/6 flex items-center justify-center mb-4 text-slate-500 dark:text-slate-400 [&>svg]:w-6 [&>svg]:h-6">
+      {icon || <Inbox />}
     </div>
-  );
-};
+    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
+    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mt-1 leading-relaxed">{description}</p>
+    {action && <div className="mt-5">{action}</div>}
+  </div>
+);

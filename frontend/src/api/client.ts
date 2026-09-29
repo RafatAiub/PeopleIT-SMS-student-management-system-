@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
+import { selectedBranchFor } from '@/store/branchStore';
 import toast from 'react-hot-toast';
 
 const apiClient = axios.create({
@@ -37,6 +38,16 @@ apiClient.interceptors.request.use(
     const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Header branch switcher (admins only). Sent only when a branch is
+    // selected for the current institution; endpoints that don't opt in ignore it.
+    const auth = useAuthStore.getState();
+    const branchId =
+      auth.user && (auth.user.role === 'ADMIN' || auth.user.role === 'SUPER_ADMIN')
+        ? selectedBranchFor(auth.user.institutionId)
+        : null;
+    if (branchId && !config.headers['X-Branch-Id']) {
+      config.headers['X-Branch-Id'] = branchId;
     }
     return config;
   },
@@ -153,13 +164,13 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 403) {
-      toast.error('Access denied. You do not have permission to perform this action.');
+      toast.error('Access denied. You do not have permission to perform this action.', { id: 'api-403' });
     } else if (error.response?.status === 500) {
-      toast.error('Server error. Please try again later.');
+      toast.error('Server error. Please try again later.', { id: 'api-500' });
     } else if (isColdStartError(error)) {
       // Non-idempotent methods (POST) are never auto-retried, so surface a
       // clear explanation instead of a confusing generic network error.
-      toast.error('The server is waking up from idle — please wait a few seconds and try again.');
+      toast.error('The server is waking up from idle — please wait a few seconds and try again.', { id: 'api-cold-start' });
     }
 
     return Promise.reject(error);

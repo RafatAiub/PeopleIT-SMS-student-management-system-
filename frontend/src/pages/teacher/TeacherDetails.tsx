@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Users as UsersIcon } from 'lucide-react';
+import React, { useState } from 'react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTableParams } from '../../hooks/useTableParams';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
+import { Drawer, Button, Input, PageHeader, ErrorState } from '../../components/ui';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 
 interface TeacherRow {
@@ -30,38 +29,60 @@ const emptyEdit = () => ({
   address: '', permanentAddress: '', canManageStudents: false,
 });
 
+const TEACHERS_KEY = 'teachers';
+
 const TeacherDetails = () => {
-  const [teachers, setTeachers] = useState<TeacherRow[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
 
-  const [editTarget, setEditTarget] = useState<TeacherRow | null>(null);
-  const [editData, setEditData] = useState(emptyEdit());
-  const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<TeacherRow | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const fetchTeachers = async () => {
-    setLoading(true);
-    try {
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: [TEACHERS_KEY, params.page, params.pageSize, debouncedSearch],
+    queryFn: async () => {
       const res = await apiClient.get('/users', {
         params: { role: 'TEACHER', page: params.page, pageSize: params.pageSize, search: debouncedSearch || undefined },
       });
-      setTeachers(res.data.data || []);
-      setTotal(res.data.meta?.total || 0);
-    } catch (error) {
-      console.error('Failed to fetch teachers', error);
-      toast.error('Failed to load teachers');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return { teachers: (res.data?.data || []) as TeacherRow[], total: res.data?.meta?.total || 0 };
+    },
+  });
+  const teachers = data?.teachers ?? [];
+  const total = data?.total ?? 0;
 
-  useEffect(() => {
-    fetchTeachers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.page, params.pageSize, debouncedSearch]);
+  const [editTarget, setEditTarget] = useState<TeacherRow | null>(null);
+  const [editData, setEditData] = useState(emptyEdit());
+  const [deleteTarget, setDeleteTarget] = useState<TeacherRow | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: [TEACHERS_KEY] });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, any> }) => apiClient.put(`/users/${id}`, payload),
+    onSuccess: () => {
+      toast.success('Teacher updated successfully');
+      setEditTarget(null);
+      invalidate();
+    },
+    onError: (error: any) => {
+      console.error('Failed to update teacher', error);
+      toast.error(error.response?.data?.message || 'Failed to update teacher');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.delete(`/users/${id}`),
+    onSuccess: () => {
+      toast.success('Teacher deleted successfully');
+      setDeleteTarget(null);
+      invalidate();
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete teacher', error);
+      toast.error(error.response?.data?.message || 'Failed to delete teacher');
+    },
+  });
 
   const openEdit = (row: TeacherRow) => {
     setEditTarget(row);
@@ -78,12 +99,20 @@ const TeacherDetails = () => {
     });
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+
+  const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editTarget) return;
-    setSaving(true);
-    try {
-      await apiClient.put(`/users/${editTarget.id}`, {
+    const errs: Record<string, string> = {};
+    if (!editData.firstName.trim()) errs.firstName = 'First name is required';
+    if (!editData.lastName.trim()) errs.lastName = 'Last name is required';
+    setEditErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    updateMutation.mutate({
+      id: editTarget.id,
+      payload: {
         firstName: editData.firstName,
         lastName: editData.lastName,
         phone: editData.phone || undefined,
@@ -93,32 +122,8 @@ const TeacherDetails = () => {
         address: editData.address || undefined,
         permanentAddress: editData.permanentAddress || undefined,
         canManageStudents: editData.canManageStudents,
-      });
-      toast.success('Teacher updated successfully');
-      setEditTarget(null);
-      fetchTeachers();
-    } catch (error: any) {
-      console.error('Failed to update teacher', error);
-      toast.error(error.response?.data?.message || 'Failed to update teacher');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await apiClient.delete(`/users/${deleteTarget.id}`);
-      toast.success('Teacher deleted successfully');
-      setDeleteTarget(null);
-      fetchTeachers();
-    } catch (error: any) {
-      console.error('Failed to delete teacher', error);
-      toast.error(error.response?.data?.message || 'Failed to delete teacher');
-    } finally {
-      setDeleting(false);
-    }
+      },
+    });
   };
 
   const columns: Column<TeacherRow>[] = [
@@ -127,7 +132,8 @@ const TeacherDetails = () => {
       render: (row) => <span className="text-slate-500 dark:text-slate-400">{teachers.findIndex((t) => t.id === row.id) + 1 + (params.page - 1) * params.pageSize}</span>,
     },
     {
-      key: 'teacher', header: 'Teacher',
+      key: 'teacher', header: 'Teacher', primary: true,
+      exportValue: (row) => `${row.firstName} ${row.lastName}`,
       render: (row) => (
         <div className="flex items-center gap-3">
           {row.avatarUrl ? (
@@ -144,9 +150,21 @@ const TeacherDetails = () => {
         </div>
       ),
     },
-    { key: 'gender', header: 'Gender', render: (row) => row.teacherProfile?.gender ? row.teacherProfile.gender.charAt(0) + row.teacherProfile.gender.slice(1).toLowerCase() : '—' },
-    { key: 'dob', header: 'Date of Birth', render: (row) => row.teacherProfile?.dateOfBirth ? new Date(row.teacherProfile.dateOfBirth).toLocaleDateString('en-GB').replace(/\//g, '-') : '—' },
-    { key: 'qualification', header: 'Qualification', render: (row) => row.teacherProfile?.qualification || '—' },
+    {
+      key: 'gender', header: 'Gender',
+      exportValue: (row) => row.teacherProfile?.gender || '',
+      render: (row) => row.teacherProfile?.gender ? row.teacherProfile.gender.charAt(0) + row.teacherProfile.gender.slice(1).toLowerCase() : '—',
+    },
+    {
+      key: 'dob', header: 'Date of Birth',
+      exportValue: (row) => row.teacherProfile?.dateOfBirth ? String(row.teacherProfile.dateOfBirth).slice(0, 10) : '',
+      render: (row) => row.teacherProfile?.dateOfBirth ? new Date(row.teacherProfile.dateOfBirth).toLocaleDateString('en-GB').replace(/\//g, '-') : '—',
+    },
+    {
+      key: 'qualification', header: 'Qualification',
+      exportValue: (row) => row.teacherProfile?.qualification || '',
+      render: (row) => row.teacherProfile?.qualification || '—',
+    },
   ];
 
   const actions: RowAction<TeacherRow>[] = [
@@ -156,58 +174,78 @@ const TeacherDetails = () => {
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-          <UsersIcon className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Manage Teacher</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">List Teacher</p>
-        </div>
-      </div>
+      <PageHeader title="Manage Teacher" description="List Teacher" />
 
       <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs">
         <div className="p-4">
-          <DataTable
-            data={teachers}
-            columns={columns}
-            actions={actions}
-            isLoading={loading}
-            searchPlaceholder="Search by name or email..."
-            serverSearch
-            onSearch={setSearch}
-            serverPagination
-            totalCount={total}
-            page={params.page}
-            pageSize={params.pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            emptyTitle="No teachers found"
-            emptyDescription="Add a teacher from Add New Teacher."
-          />
+          {isError ? (
+            <ErrorState title="Failed to load teachers" onRetry={() => refetch()} />
+          ) : (
+            <DataTable
+              data={teachers}
+              columns={columns}
+              actions={actions}
+              isLoading={isLoading}
+              searchPlaceholder="Search by name or email..."
+              serverSearch
+              onSearch={setSearch}
+              serverPagination
+              totalCount={total}
+              page={params.page}
+              pageSize={params.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              exportFileName="teachers"
+              emptyTitle="No teachers found"
+              emptyDescription="Add a teacher from Add New Teacher."
+            />
+          )}
         </div>
       </div>
 
-      <Modal isOpen={!!editTarget} onClose={() => setEditTarget(null)} className="max-w-2xl space-y-5">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white pb-2 border-b border-slate-200 dark:border-white/5">Edit Teacher</h3>
-        <form onSubmit={handleSaveEdit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
-              <input type="text" value={editData.firstName} onChange={(e) => setEditData((p) => ({ ...p, firstName: e.target.value }))} className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
-              <input type="text" value={editData.lastName} onChange={(e) => setEditData((p) => ({ ...p, lastName: e.target.value }))} className="input-field" />
-            </div>
+      <Drawer
+        isOpen={!!editTarget}
+        onClose={() => setEditTarget(null)}
+        title="Edit Teacher"
+        width="lg"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button type="submit" form="teacher-edit-form" variant="primary" isLoading={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </>
+        }
+      >
+        <form id="teacher-edit-form" onSubmit={handleSaveEdit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="edit-teacher-first-name"
+              label="First Name"
+              required
+              value={editData.firstName}
+              onChange={(e) => setEditData((p) => ({ ...p, firstName: e.target.value }))}
+              error={editErrors.firstName}
+              data-autofocus
+            />
+            <Input
+              id="edit-teacher-last-name"
+              label="Last Name"
+              required
+              value={editData.lastName}
+              onChange={(e) => setEditData((p) => ({ ...p, lastName: e.target.value }))}
+              error={editErrors.lastName}
+            />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="edit-teacher-phone"
+              label="Mobile"
+              value={editData.phone}
+              onChange={(e) => setEditData((p) => ({ ...p, phone: e.target.value }))}
+            />
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mobile</label>
-              <input type="text" value={editData.phone} onChange={(e) => setEditData((p) => ({ ...p, phone: e.target.value }))} className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender</label>
+              <label className="field-label">Gender</label>
               <div className="flex items-center gap-6 h-10">
                 {(['MALE', 'FEMALE'] as const).map((g) => (
                   <label key={g} className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
@@ -218,36 +256,41 @@ const TeacherDetails = () => {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Birth</label>
-              <input type="date" value={editData.dateOfBirth} onChange={(e) => setEditData((p) => ({ ...p, dateOfBirth: e.target.value }))} className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification</label>
-              <input type="text" value={editData.qualification} onChange={(e) => setEditData((p) => ({ ...p, qualification: e.target.value }))} className="input-field" />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="edit-teacher-dob"
+              type="date"
+              label="Date of Birth"
+              value={editData.dateOfBirth}
+              onChange={(e) => setEditData((p) => ({ ...p, dateOfBirth: e.target.value }))}
+            />
+            <Input
+              id="edit-teacher-qualification"
+              label="Qualification"
+              value={editData.qualification}
+              onChange={(e) => setEditData((p) => ({ ...p, qualification: e.target.value }))}
+            />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Address</label>
-              <input type="text" value={editData.address} onChange={(e) => setEditData((p) => ({ ...p, address: e.target.value }))} className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Permanent Address</label>
-              <input type="text" value={editData.permanentAddress} onChange={(e) => setEditData((p) => ({ ...p, permanentAddress: e.target.value }))} className="input-field" />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="edit-teacher-address"
+              label="Current Address"
+              value={editData.address}
+              onChange={(e) => setEditData((p) => ({ ...p, address: e.target.value }))}
+            />
+            <Input
+              id="edit-teacher-permanent-address"
+              label="Permanent Address"
+              value={editData.permanentAddress}
+              onChange={(e) => setEditData((p) => ({ ...p, permanentAddress: e.target.value }))}
+            />
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
             <input type="checkbox" checked={editData.canManageStudents} onChange={(e) => setEditData((p) => ({ ...p, canManageStudents: e.target.checked }))} className="w-4 h-4 rounded-sm accent-primary-500 cursor-pointer" />
             Grant permission to manage students and parents
           </label>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>
-            <Button type="submit" variant="gradient" isLoading={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
-          </div>
         </form>
-      </Modal>
+      </Drawer>
 
       <ConfirmModal
         isOpen={!!deleteTarget}
@@ -255,8 +298,8 @@ const TeacherDetails = () => {
         message={`This permanently removes ${deleteTarget?.firstName} ${deleteTarget?.lastName}'s account. This cannot be undone.`}
         confirmLabel="Delete"
         variant="danger"
-        isLoading={deleting}
-        onConfirm={handleDelete}
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
         onCancel={() => setDeleteTarget(null)}
       />
     </div>

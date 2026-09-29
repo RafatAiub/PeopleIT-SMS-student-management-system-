@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import type {
   CreateStaffDtoType,
@@ -163,6 +164,8 @@ export async function createPayroll(
     netAmount: number;
     status: 'PAID' | 'UNPAID' | 'PENDING';
     paidAt?: Date | null;
+    breakdown?: Prisma.InputJsonValue | null;
+    payslipNo?: string | null;
   },
 ) {
   return prisma.payrollRecord.create({
@@ -176,6 +179,8 @@ export async function createPayroll(
       netAmount: data.netAmount,
       status: data.status,
       paidAt: data.paidAt,
+      ...(data.breakdown ? { breakdown: data.breakdown } : {}),
+      ...(data.payslipNo ? { payslipNo: data.payslipNo } : {}),
     },
     include: {
       staff: {
@@ -303,4 +308,56 @@ export async function getPayrollSummary(institutionId: string) {
     paidThisMonthTotal: Number(paidThisMonthAgg._sum.netAmount ?? 0),
     currentPeriod: payPeriod,
   };
+}
+
+// --- Payroll components / batch / report (Wave C) ---
+
+export async function findStaffComponentAssignments(institutionId: string, staffId: string) {
+  return prisma.staffSalaryComponent.findMany({
+    where: { institutionId, staffId },
+    include: { component: true },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function findLatestPayslipNo(institutionId: string, prefix: string) {
+  const latest = await prisma.payrollRecord.findFirst({
+    where: { institutionId, payslipNo: { startsWith: prefix } },
+    orderBy: { payslipNo: 'desc' },
+    select: { payslipNo: true },
+  });
+  return latest?.payslipNo ?? null;
+}
+
+export async function findActiveStaffForBatch(institutionId: string) {
+  return prisma.staffProfile.findMany({
+    where: { institutionId, status: 'ACTIVE' },
+    include: { user: { select: STAFF_USER_SELECT } },
+    orderBy: { createdAt: 'asc' },
+  });
+}
+
+export async function findProcessedStaffIds(institutionId: string, payPeriod: string) {
+  const rows = await prisma.payrollRecord.findMany({
+    where: { institutionId, payPeriod },
+    select: { staffId: true },
+  });
+  return new Set(rows.map((r) => r.staffId));
+}
+
+export async function findPayrollsForReport(institutionId: string, payPeriod: string) {
+  return prisma.payrollRecord.findMany({
+    where: { institutionId, payPeriod },
+    include: {
+      staff: {
+        select: {
+          department: true,
+          designation: true,
+          employeeId: true,
+          user: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 }

@@ -1,106 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { UserPlus, Check, X, MailWarning, Loader2, ChevronDown } from 'lucide-react';
-import toast from 'react-hot-toast';
-import apiClient from '../../api/client';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { ConfirmModal } from '../../components/common/ConfirmModal';
-import { formatBdMobile } from '../../utils/identifier';
+import React, { useState } from 'react';
+import { Check, X, MailWarning, Loader2, ChevronDown, UserPlus } from 'lucide-react';
+import { Badge, Button, Skeleton, ErrorState } from '@/components/ui';
+import { EmptyState } from '@/components/common/EmptyState';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { formatBdMobile } from '@/utils/identifier';
+import { formatDate } from '@/i18n';
+import { useApproveRegistration, usePendingRegistrations, useRejectRegistration } from './users.queries';
+import type { PendingRegistration, PendingRole } from './users.types';
 
 // =============================================================================
 // Approval queue for self-registered users
 // =============================================================================
-// Sits above the user table rather than on its own route: an admin who never
-// goes looking for a queue would never find it, and a pending registration is
-// only actionable from the page they already visit to manage people.
-//
-// The panel renders nothing at all when the queue is empty, so it costs no
-// screen space on the common day.
+// A pending registration is only actionable from the tab an admin already
+// visits to manage people — approving/rejecting invalidates both the pending
+// queue and the user list, so a fresh approval shows up immediately below.
 
-type Role = 'STUDENT' | 'GUARDIAN' | 'TEACHER';
-
-interface PendingRegistration {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string | null;
-  requestedRole: Role;
-  emailVerified: boolean;
-  createdAt: string;
-}
-
-const ROLE_LABELS: Record<Role, string> = {
+const ROLE_LABELS: Record<PendingRole, string> = {
   STUDENT: 'Student',
   GUARDIAN: 'Parent / Guardian',
   TEACHER: 'Teacher',
 };
 
-interface Props {
-  /** Called after an approval so the parent's user list picks up the new row. */
-  onChanged?: () => void;
-}
+export default function PendingRegistrations() {
+  const { data: rows = [], isLoading, isError, refetch } = usePendingRegistrations();
+  const approveMutation = useApproveRegistration();
+  const rejectMutation = useRejectRegistration();
 
-const PendingRegistrations = ({ onChanged }: Props) => {
-  const [rows, setRows] = useState<PendingRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<PendingRegistration | null>(null);
-
   // Role overrides, keyed by registration id. Absent means "accept what they
   // asked for" — we only send a role when the admin actually changed it.
-  const [roleOverrides, setRoleOverrides] = useState<Record<string, Role>>({});
+  const [roleOverrides, setRoleOverrides] = useState<Record<string, PendingRole>>({});
 
-  const load = async () => {
-    try {
-      const res = await apiClient.get('/users/pending-registrations');
-      setRows(res.data.data || []);
-    } catch (err) {
-      console.error('Failed to load pending registrations', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const approve = async (row: PendingRegistration) => {
+  const approve = (row: PendingRegistration) => {
     setBusyId(row.id);
-    try {
-      const override = roleOverrides[row.id];
-      const { data } = await apiClient.post(`/users/pending-registrations/${row.id}/approve`, {
-        ...(override && override !== row.requestedRole ? { role: override } : {}),
-      });
-      toast.success(data.message || 'Registration approved');
-      setRows((current) => current.filter((r) => r.id !== row.id));
-      onChanged?.();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not approve this registration.');
-    } finally {
-      setBusyId(null);
-    }
+    const override = roleOverrides[row.id];
+    approveMutation.mutate(
+      { id: row.id, role: override && override !== row.requestedRole ? override : undefined },
+      { onSettled: () => setBusyId(null) }
+    );
   };
 
-  const reject = async () => {
+  const reject = () => {
     if (!rejecting) return;
-    const row = rejecting;
-    setBusyId(row.id);
-    try {
-      const { data } = await apiClient.post(`/users/pending-registrations/${row.id}/reject`);
-      toast.success(data.message || 'Registration rejected');
-      setRows((current) => current.filter((r) => r.id !== row.id));
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Could not reject this registration.');
-    } finally {
-      setBusyId(null);
-      setRejecting(null);
-    }
+    setBusyId(rejecting.id);
+    rejectMutation.mutate(rejecting.id, {
+      onSettled: () => {
+        setBusyId(null);
+        setRejecting(null);
+      },
+    });
   };
 
-  // Nothing to show while loading, and nothing to show when the queue is clear.
-  if (loading || rows.length === 0) return null;
+  if (isError) {
+    return <ErrorState message="Could not load pending registrations." onRetry={() => refetch()} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="glass-card rounded-2xl p-5 space-y-3">
+        <Skeleton className="h-4 w-64" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="glass-card rounded-2xl">
+        <EmptyState
+          icon={<UserPlus />}
+          title="No registrations waiting"
+          description="Self-registered students, guardians, and teachers who sign up with your institution code will appear here for approval."
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -147,8 +123,7 @@ const PendingRegistrations = ({ onChanged }: Props) => {
                     )}
                   </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Requested {ROLE_LABELS[row.requestedRole]} ·{' '}
-                    {new Date(row.createdAt).toLocaleDateString()}
+                    Requested {ROLE_LABELS[row.requestedRole]} · {formatDate(row.createdAt)}
                   </p>
                 </div>
 
@@ -161,16 +136,12 @@ const PendingRegistrations = ({ onChanged }: Props) => {
                       value={selectedRole}
                       disabled={busy}
                       onChange={(e) =>
-                        setRoleOverrides((o) => ({ ...o, [row.id]: e.target.value as Role }))
+                        setRoleOverrides((o) => ({ ...o, [row.id]: e.target.value as PendingRole }))
                       }
                       className="input-field py-2 pl-3 pr-8 text-sm appearance-none cursor-pointer"
                     >
-                      {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
-                        <option
-                          key={r}
-                          value={r}
-                          className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
-                        >
+                      {(Object.keys(ROLE_LABELS) as PendingRole[]).map((r) => (
+                        <option key={r} value={r} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                           {ROLE_LABELS[r]}
                         </option>
                       ))}
@@ -178,12 +149,7 @@ const PendingRegistrations = ({ onChanged }: Props) => {
                     <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
 
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => setRejecting(row)}
-                    className="py-2 px-3 text-sm"
-                  >
+                  <Button variant="secondary" disabled={busy} onClick={() => setRejecting(row)} className="py-2 px-3 text-sm">
                     <X className="w-4 h-4" />
                     <span className="sr-only sm:not-sr-only sm:ml-1">Reject</span>
                   </Button>
@@ -193,11 +159,7 @@ const PendingRegistrations = ({ onChanged }: Props) => {
                   <Button
                     variant="gradient"
                     disabled={busy || !row.emailVerified}
-                    title={
-                      row.emailVerified
-                        ? undefined
-                        : 'They must confirm their email address before you can approve them'
-                    }
+                    title={row.emailVerified ? undefined : 'They must confirm their email address before you can approve them'}
                     onClick={() => approve(row)}
                     className="py-2 px-3 text-sm"
                   >
@@ -233,6 +195,4 @@ const PendingRegistrations = ({ onChanged }: Props) => {
       />
     </>
   );
-};
-
-export default PendingRegistrations;
+}

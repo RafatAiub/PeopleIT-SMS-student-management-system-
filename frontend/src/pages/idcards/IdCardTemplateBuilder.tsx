@@ -7,6 +7,8 @@ import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Input, Select } from '../../components/ui/Input';
+import { PageHeader } from '../../components/ui';
 import { IdCardPreview, IdCardTemplate, IdCardShowFields, CanvasElement } from './IdCardPreview';
 
 // Sample data so the live preview always shows something meaningful while
@@ -157,6 +159,7 @@ function ImagePicker({
   value: string | null;
   onChange: (dataUrl: string | null) => void;
 }) {
+  const fieldId = React.useId();
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -167,18 +170,18 @@ function ImagePicker({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
+      <label htmlFor={fieldId} className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{label}</label>
       <div className="flex items-center gap-3">
-        <div className="w-14 h-14 rounded-lg border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div className="w-14 h-14 rounded-lg border border-dashed border-slate-300 dark:border-white/10 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-center overflow-hidden shrink-0">
           {value ? (
             <img src={value} alt={label} className="w-full h-full object-cover" />
           ) : (
             <ImageIcon className="w-5 h-5 text-slate-400" />
           )}
         </div>
-        <label className="btn-secondary text-xs px-3 py-1.5 cursor-pointer">
+        <label htmlFor={fieldId} className="btn-secondary text-xs px-3 py-1.5 cursor-pointer">
           {value ? 'Change' : 'Upload'}
-          <input type="file" accept="image/*" className="hidden" onChange={handleFile} />
+          <input id={fieldId} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         </label>
         {value && (
           <button
@@ -186,6 +189,7 @@ function ImagePicker({
             onClick={() => onChange(null)}
             className="text-slate-400 hover:text-red-500 p-1"
             title="Remove image"
+            aria-label={`Remove ${label.toLowerCase()}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -344,15 +348,15 @@ export default function IdCardTemplateBuilder() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-          <CreditCard className="w-6 h-6 text-primary-500" />
-          ID Card Template Builder
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Design student and staff ID card layouts, then generate cards from them.
-        </p>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <CreditCard className="w-6 h-6 text-primary-500" />
+            ID Card Template Builder
+          </span>
+        }
+        description="Design student and staff ID card layouts, then generate cards from them."
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
         {/* Form */}
@@ -389,106 +393,85 @@ export default function IdCardTemplateBuilder() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">ID Card Title</label>
-              <input
-                type="text"
-                required
-                value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                placeholder="e.g. Standard Student ID Card"
-                className="input-field"
-              />
-            </div>
+            <Input
+              containerClassName="col-span-2"
+              label="ID Card Title"
+              required
+              value={form.title}
+              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+              placeholder="e.g. Standard Student ID Card"
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Applicable User</label>
-              <select
-                value={form.applicableTo}
-                onChange={(e) => setForm((p) => ({ ...p, applicableTo: e.target.value as 'STUDENT' | 'STAFF' }))}
-                className="input-field"
-              >
-                <option value="STUDENT">Student</option>
-                <option value="STAFF">Staff</option>
-              </select>
-            </div>
+            <Select
+              label="Applicable User"
+              value={form.applicableTo}
+              onChange={(e) => setForm((p) => ({ ...p, applicableTo: e.target.value as 'STUDENT' | 'STAFF' }))}
+              options={[
+                { value: 'STUDENT', label: 'Student' },
+                { value: 'STAFF', label: 'Staff' },
+              ]}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Layout</label>
-              <select
-                value={form.layout}
-                onChange={(e) => setForm((p) => ({ ...p, layout: e.target.value as 'VERTICAL' | 'HORIZONTAL' }))}
-                className="input-field"
-              >
-                <option value="VERTICAL">Vertical</option>
-                <option value="HORIZONTAL">Horizontal</option>
-              </select>
-            </div>
+            <Select
+              label="Layout"
+              value={form.layout}
+              onChange={(e) => setForm((p) => ({ ...p, layout: e.target.value as 'VERTICAL' | 'HORIZONTAL' }))}
+              options={[
+                { value: 'VERTICAL', label: 'Vertical' },
+                { value: 'HORIZONTAL', label: 'Horizontal' },
+              ]}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Width (mm)</label>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                required
-                value={form.widthMm}
-                onChange={(e) => setForm((p) => ({ ...p, widthMm: Number(e.target.value) }))}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Width (mm)"
+              type="number"
+              min={1}
+              max={200}
+              required
+              value={form.widthMm}
+              onChange={(e) => setForm((p) => ({ ...p, widthMm: Number(e.target.value) }))}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Height (mm)</label>
-              <input
-                type="number"
-                min={1}
-                max={200}
-                required
-                value={form.heightMm}
-                onChange={(e) => setForm((p) => ({ ...p, heightMm: Number(e.target.value) }))}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Height (mm)"
+              type="number"
+              min={1}
+              max={200}
+              required
+              value={form.heightMm}
+              onChange={(e) => setForm((p) => ({ ...p, heightMm: Number(e.target.value) }))}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Photo Style</label>
-              <select
-                value={form.photoStyle}
-                onChange={(e) => setForm((p) => ({ ...p, photoStyle: e.target.value as FormState['photoStyle'] }))}
-                className="input-field"
-              >
-                <option value="CIRCLE">Circle</option>
-                <option value="SQUARE">Square</option>
-                <option value="ROUNDED">Rounded</option>
-              </select>
-            </div>
+            <Select
+              label="Photo Style"
+              value={form.photoStyle}
+              onChange={(e) => setForm((p) => ({ ...p, photoStyle: e.target.value as FormState['photoStyle'] }))}
+              options={[
+                { value: 'CIRCLE', label: 'Circle' },
+                { value: 'SQUARE', label: 'Square' },
+                { value: 'ROUNDED', label: 'Rounded' },
+              ]}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Photo Width (mm)</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                required
-                value={form.photoWidthMm}
-                onChange={(e) => setForm((p) => ({ ...p, photoWidthMm: Number(e.target.value) }))}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Photo Width (mm)"
+              type="number"
+              min={1}
+              max={100}
+              required
+              value={form.photoWidthMm}
+              onChange={(e) => setForm((p) => ({ ...p, photoWidthMm: Number(e.target.value) }))}
+            />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Photo Height (mm)</label>
-              <input
-                type="number"
-                min={1}
-                max={100}
-                required
-                value={form.photoHeightMm}
-                onChange={(e) => setForm((p) => ({ ...p, photoHeightMm: Number(e.target.value) }))}
-                className="input-field"
-              />
-            </div>
+            <Input
+              label="Photo Height (mm)"
+              type="number"
+              min={1}
+              max={100}
+              required
+              value={form.photoHeightMm}
+              onChange={(e) => setForm((p) => ({ ...p, photoHeightMm: Number(e.target.value) }))}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100 dark:border-white/5">
@@ -520,9 +503,10 @@ export default function IdCardTemplateBuilder() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Header / Accent Color</label>
+                    <label htmlFor="tpl-primary-color" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Header / Accent Color</label>
                     <div className="flex items-center gap-2">
                       <input
+                        id="tpl-primary-color"
                         type="color"
                         value={form.primaryColor}
                         onChange={(e) => setForm((p) => ({ ...p, primaryColor: e.target.value }))}
@@ -530,6 +514,7 @@ export default function IdCardTemplateBuilder() {
                       />
                       <input
                         type="text"
+                        aria-label="Header / Accent Color hex value"
                         value={form.primaryColor}
                         onChange={(e) => setForm((p) => ({ ...p, primaryColor: e.target.value }))}
                         className="input-field font-mono text-xs"
@@ -538,9 +523,10 @@ export default function IdCardTemplateBuilder() {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Footer Color</label>
+                    <label htmlFor="tpl-secondary-color" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Footer Color</label>
                     <div className="flex items-center gap-2">
                       <input
+                        id="tpl-secondary-color"
                         type="color"
                         value={form.secondaryColor}
                         onChange={(e) => setForm((p) => ({ ...p, secondaryColor: e.target.value }))}
@@ -548,6 +534,7 @@ export default function IdCardTemplateBuilder() {
                       />
                       <input
                         type="text"
+                        aria-label="Footer Color hex value"
                         value={form.secondaryColor}
                         onChange={(e) => setForm((p) => ({ ...p, secondaryColor: e.target.value }))}
                         className="input-field font-mono text-xs"

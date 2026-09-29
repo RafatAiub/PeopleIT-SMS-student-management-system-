@@ -102,6 +102,7 @@ export async function approve(
       to: user.email,
       firstName: user.firstName,
       institutionName: user.institution?.name ?? 'your institution',
+      institutionId,
     });
   } catch {
     logger.warn('Approval email could not be sent', { userId: user.id });

@@ -34,7 +34,10 @@ export async function getNotice(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const notice = await noticesService.getNotice(req.tenantId!, req.params.id);
+    const notice = await noticesService.getNotice(req.tenantId!, req.params.id, {
+      userId: req.user!.sub,
+      role: req.user!.role,
+    });
     successResponse(res, notice);
   } catch (error) {
     next(error);
@@ -47,7 +50,10 @@ export async function listNotices(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { notices, total } = await noticesService.listNotices(req.tenantId!, req.query as any);
+    const { notices, total } = await noticesService.listNotices(req.tenantId!, req.query as any, {
+      userId: req.user!.sub,
+      role: req.user!.role,
+    });
     paginatedResponse(
       res,
       notices,

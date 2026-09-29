@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import * as resultsService from './results.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
+import * as insightsService from './results.insights.service';
+import type { ClassAnalyticsQueryDtoType, MeritListQueryDtoType } from './results.dto';
 
 // ── Exam Controller Actions ─────────────────────────────────────────────────
 
@@ -167,6 +169,66 @@ export async function deleteResult(
   try {
     await resultsService.deleteResult(req.tenantId!, req.params.id);
     successResponse(res, null, 'Exam result deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ── Insights: merit list, class analytics, transcript, progress ─────────────
+
+export async function getMeritList(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const data = await insightsService.getMeritList(req.tenantId!, req.query as unknown as MeritListQueryDtoType);
+    successResponse(res, data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getClassAnalytics(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const data = await insightsService.getClassAnalytics(req.tenantId!, req.query as unknown as ClassAnalyticsQueryDtoType);
+    successResponse(res, data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getTranscript(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const data = await insightsService.getTranscript(req.tenantId!, req.params.studentId, {
+      sub: req.user!.sub,
+      role: req.user!.role,
+    });
+    successResponse(res, data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getProgress(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const data = await insightsService.getProgress(req.tenantId!, req.params.studentId, {
+      sub: req.user!.sub,
+      role: req.user!.role,
+    });
+    successResponse(res, data);
   } catch (error) {
     next(error);
   }

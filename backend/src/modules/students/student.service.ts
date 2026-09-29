@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import { prisma } from '../../config/prisma';
 import { env } from '../../config/env';
 import { BulkImportRowDto } from './student.dto';
+import { resolveStudentCustomFields } from '../custom-fields/customFields.service';
 import type {
   CreateStudentDtoType,
   UpdateStudentDtoType,
@@ -15,6 +16,7 @@ import type {
   UpdateRollNumbersDtoType,
   BulkAssignClassDtoType,
   PublicStudentApplicationDtoType,
+  SelfUpdateStudentDtoType,
 } from './student.dto';
 
 // =============================================================================
@@ -62,6 +64,36 @@ async function assertCategoryBelongsToInstitution(institutionId: string, categor
   }
 }
 
+// F5: branchId/classId/sectionId/academicYearId are all client-supplied and
+// must belong to this institution — otherwise a Student could be wired to
+// another tenant's branch/class/section/academic year row. Class/Section are
+// scoped indirectly via their Branch's institutionId (see schema.prisma).
+async function assertStudentLookupsBelongToInstitution(
+  institutionId: string,
+  data: { branchId?: string | null; classId?: string | null; sectionId?: string | null; academicYearId?: string | null },
+) {
+  if (data.branchId) {
+    const branch = await prisma.branch.findFirst({ where: { id: data.branchId, institutionId } });
+    if (!branch) throw new NotFoundError(`Branch with ID '${data.branchId}' not found`);
+  }
+  if (data.classId) {
+    const cls = await prisma.class.findFirst({ where: { id: data.classId, branch: { institutionId } } });
+    if (!cls) throw new NotFoundError(`Class with ID '${data.classId}' not found`);
+  }
+  if (data.sectionId) {
+    const section = await prisma.section.findFirst({
+      where: { id: data.sectionId, class: { branch: { institutionId } } },
+    });
+    if (!section) throw new NotFoundError(`Section with ID '${data.sectionId}' not found`);
+  }
+  if (data.academicYearId) {
+    const academicYear = await prisma.academicYear.findFirst({
+      where: { id: data.academicYearId, institutionId },
+    });
+    if (!academicYear) throw new NotFoundError(`Academic year with ID '${data.academicYearId}' not found`);
+  }
+}
+
 export async function listStudents(institutionId: string, query: StudentQueryDtoType) {
   return studentRepository.findAll(institutionId, query);
 }
@@ -99,8 +131,22 @@ export async function createStudent(
 
   await assertDepartmentIfRequired(institutionId, data.classId, data.department);
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
+  await assertStudentLookupsBelongToInstitution(institutionId, data);
 
-  const { password, ...studentFields } = data;
+  // Validated against the tenant's CustomFieldDefinitions (types + required);
+  // undefined when nothing is configured and nothing was sent.
+  const customFields = await resolveStudentCustomFields(institutionId, data.customFields, { isCreate: true });
+
+  const { password, customFields: _submittedCustomFields, ...studentFields } = data;
+  // New admissions land in the school's default session year unless one was picked.
+  if (!studentFields.academicYearId) {
+    const defaultSession = await prisma.academicYear.findFirst({
+      where: { institutionId, isCurrent: true },
+      orderBy: { startDate: 'desc' },
+      select: { id: true },
+    });
+    if (defaultSession) studentFields.academicYearId = defaultSession.id;
+  }
   const rounds = env.BCRYPT_ROUNDS ?? 12;
   const passwordHash = await bcrypt.hash(password, rounds);
 
@@ -121,6 +167,7 @@ export async function createStudent(
     return tx.student.create({
       data: {
         ...studentFields,
+        ...(customFields !== undefined ? { customFields } : {}),
         institutionId,
         userId: user.id,
       },
@@ -148,9 +195,52 @@ export async function updateStudent(
     data.department !== undefined ? data.department : (existing as { department?: string | null }).department;
   await assertDepartmentIfRequired(institutionId, nextClassId, nextDepartment);
   await assertCategoryBelongsToInstitution(institutionId, data.categoryId);
+  await assertStudentLookupsBelongToInstitution(institutionId, data);
 
-  const updated = await studentRepository.update(institutionId, id, data);
+  // Only touched when the payload carries customFields; merged over the
+  // stored values so a partial update never wipes other fields.
+  const customFields = await resolveStudentCustomFields(institutionId, data.customFields, {
+    isCreate: false,
+    existing: existing.customFields,
+  });
+  const { customFields: _submittedCustomFields, ...rest } = data;
+
+  const updated = await studentRepository.update(institutionId, id, {
+    ...rest,
+    ...(customFields !== undefined ? { customFields } : {}),
+  });
   logger.info('Student updated', { studentId: id, institutionId });
+  return updated;
+}
+
+/**
+ * PUT /students/me — a STUDENT edits their own safe fields only. Scoped to
+ * the caller's own Student row via req.user.sub; the DTO has already stripped
+ * every key outside the self-editable allow-list.
+ */
+export async function updateMe(institutionId: string, userId: string, data: SelfUpdateStudentDtoType) {
+  const own = await studentRepository.findByUserId(institutionId, userId);
+  if (!own) {
+    throw new NotFoundError('Student profile not found');
+  }
+
+  const patch: SelfUpdateStudentDtoType = {};
+  const keys = [
+    'phone',
+    'address',
+    'permanentAddress',
+    'avatarUrl',
+    'hobbies',
+    'emergencyContactName',
+    'emergencyContactPhone',
+    'emergencyContactRelation',
+  ] as const;
+  for (const key of keys) {
+    if (data[key] !== undefined) patch[key] = data[key];
+  }
+
+  const updated = await studentRepository.update(institutionId, own.id, patch);
+  logger.info('Student self-updated profile', { studentId: own.id, institutionId, fields: Object.keys(patch) });
   return updated;
 }
 

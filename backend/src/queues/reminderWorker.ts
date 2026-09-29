@@ -85,7 +85,8 @@ export const feeReminderWorker = new Worker(
         type: 'FEE_REMINDER',
         recipientUserIds: [studentUserId],
         contextId: invoiceNo,
-        channels: ['SMS'],
+        // Track A: fee reminders now also go by email (previously SMS-only).
+        channels: ['SMS', 'EMAIL'],
         data: { link: '/fees' },
         vars: {
           invoiceNo,

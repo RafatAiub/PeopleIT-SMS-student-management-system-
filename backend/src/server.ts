@@ -1,3 +1,5 @@
+import { initErrorTracking } from './config/errorTracking';
+initErrorTracking();
 import http from 'http';
 import { app } from './app';
 import { env } from './config/env';
@@ -8,6 +10,13 @@ import { feeReminderWorker } from './queues/reminderWorker';
 import { billingWorker } from './queues/billingWorker';
 import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
+import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holiday.scheduler';
+import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/overdue.scheduler';
+import { startLibraryOverdueJob, stopLibraryOverdueJob } from './modules/library/library.scheduler';
+import { startReportScheduleJob, stopReportScheduleJob } from './modules/reports/reportSchedule.scheduler';
+import { startDataExportJob, stopDataExportJob } from './modules/data-export/dataExport.scheduler';
+import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.scheduler';
+import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules/email/scheduler';
 
 const server = http.createServer(app);
 
@@ -43,6 +52,22 @@ async function startServer() {
       logger.info(`Health check endpoint: ${env.APP_URL}/health`);
     });
 
+    // Keeps government holidays in step with the published Bangladesh
+    // holiday calendar (next year's list, moon-sighting date changes).
+    startHolidaySyncJob();
+    // Daily: mark past-due UNPAID/PARTIAL invoices OVERDUE (in-process, Redis-independent).
+    startFeeOverdueJob();
+    // Daily: mark past-due library loans OVERDUE (in-process, Redis-independent).
+    startLibraryOverdueJob();
+    // Every 5 min: email due scheduled reports (demo/log-only when SMTP is not configured).
+    startReportScheduleJob();
+    // Builds requested tenant data exports and deletes expired ones.
+    startDataExportJob();
+    // Re-checks pending custom domains every 10 min; runs scheduled page publishes every minute.
+    startDomainCheckJob();
+    // Retries P1/P2 emails deferred by the daily Brevo budget once it resets at UTC midnight.
+    startEmailDeferredRetryJob();
+
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
     // AFTER the HTTP server is already listening, not awaited before it:
@@ -71,6 +96,14 @@ async function startServer() {
 // Graceful shutdown helper
 async function gracefulShutdown(signal: string) {
   logger.info(`Received ${signal}. Shutting down server gracefully...`);
+
+  stopHolidaySyncJob();
+  stopFeeOverdueJob();
+  stopLibraryOverdueJob();
+  stopReportScheduleJob();
+  stopDataExportJob();
+  stopDomainCheckJob();
+  stopEmailDeferredRetryJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

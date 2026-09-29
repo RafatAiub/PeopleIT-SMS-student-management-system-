@@ -51,3 +51,6 @@ backend/uploads/
 # hold the same live secrets as .env and must never be committed.
 .env.backup-*
 *.env.backup-*
+
+# Claude Code personal settings
+.claude/settings.local.json

@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import * as attendanceService from './attendance.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
-import { AssignTeacherDto, AttendanceSheetQueryDto, WeeklyAttendanceSheetQueryDto } from './attendance.dto';
+import {
+  AssignTeacherDto,
+  AttendanceSheetQueryDto,
+  WeeklyAttendanceSheetQueryDto,
+  type AttendanceSummaryQueryDtoType,
+} from './attendance.dto';
 
 export async function submitAttendance(
   req: Request,
@@ -9,8 +14,29 @@ export async function submitAttendance(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await attendanceService.submitBulkAttendance(req.tenantId, req.body);
+    const result = await attendanceService.submitBulkAttendance(
+      req.tenantId,
+      req.body,
+      req.user ? { userId: req.user.sub, role: req.user.role } : undefined,
+    );
     successResponse(res, { count: result.length }, 'Attendance records saved successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getMonthlySummary(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await attendanceService.getMonthlySummary(
+      req.tenantId,
+      req.query as unknown as AttendanceSummaryQueryDtoType,
+      req.user ? { userId: req.user.sub, role: req.user.role } : undefined,
+    );
+    successResponse(res, result);
   } catch (error) {
     next(error);
   }

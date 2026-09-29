@@ -1,8 +1,8 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
-import { LoadingSpinner } from './LoadingSpinner';
+import { AlertTriangle, Info } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { cn } from '../../lib/cn';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -16,6 +16,12 @@ interface ConfirmModalProps {
   variant?: 'danger' | 'warning' | 'info';
 }
 
+const STYLES = {
+  danger: { icon: 'text-red-600 dark:text-red-300', bg: 'bg-red-50 dark:bg-red-500/15', btn: 'danger' as const },
+  warning: { icon: 'text-amber-600 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-500/15', btn: 'primary' as const },
+  info: { icon: 'text-blue-600 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-500/15', btn: 'primary' as const },
+};
+
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isOpen,
   title,
@@ -27,51 +33,27 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   isLoading = false,
   variant = 'danger',
 }) => {
-  const variantStyles = {
-    danger: {
-      icon: 'text-red-600 dark:text-red-400',
-      iconBg: 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20',
-      btn: 'bg-red-600 hover:bg-red-500 text-white',
-    },
-    warning: {
-      icon: 'text-amber-600 dark:text-amber-400',
-      iconBg: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20',
-      btn: 'bg-amber-600 hover:bg-amber-500 text-white',
-    },
-    info: {
-      icon: 'text-primary-600 dark:text-primary-400',
-      iconBg: 'bg-primary-50 dark:bg-primary-500/10 border-primary-200 dark:border-primary-500/20',
-      btn: 'bg-primary-600 hover:bg-primary-500 text-white',
-    },
-  };
-
-  const styles = variantStyles[variant];
-
+  const s = STYLES[variant];
+  const titleId = React.useId();
   return (
-    <Modal isOpen={isOpen} onClose={onCancel}>
-      <div className="flex items-start gap-4">
-        <div className={`w-12 h-12 rounded-full border flex items-center justify-center flex-shrink-0 ${styles.iconBg}`}>
-          <AlertTriangle className={`w-6 h-6 ${styles.icon}`} />
+    <Modal isOpen={isOpen} onClose={isLoading ? () => {} : onCancel} hideCloseButton size="sm">
+      <div className="flex items-start gap-4" aria-labelledby={titleId}>
+        <div className={cn('w-10 h-10 rounded-full flex items-center justify-center shrink-0', s.bg)}>
+          {variant === 'info' ? <Info className={cn('w-5 h-5', s.icon)} /> : <AlertTriangle className={cn('w-5 h-5', s.icon)} />}
         </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">{title}</h3>
-          <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{message}</p>
+        <div className="flex-1 min-w-0 pt-0.5">
+          <h3 id={titleId} className="text-base font-semibold text-slate-900 dark:text-slate-50">{title}</h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 leading-relaxed">{message}</p>
         </div>
       </div>
 
-      <div className="flex gap-3 mt-6 justify-end">
-        <Button id="confirm-modal-cancel" variant="secondary" size="sm" onClick={onCancel} disabled={isLoading}>
+      <div className="flex flex-col-reverse sm:flex-row gap-2 mt-6 sm:justify-end">
+        <Button id="confirm-modal-cancel" variant="secondary" onClick={onCancel} disabled={isLoading} data-autofocus={variant === 'danger' ? true : undefined}>
           {cancelLabel}
         </Button>
-        <button
-          id="confirm-modal-confirm"
-          onClick={onConfirm}
-          disabled={isLoading}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all duration-200 active:scale-95 ${styles.btn}`}
-        >
-          {isLoading ? <LoadingSpinner size="sm" /> : null}
+        <Button id="confirm-modal-confirm" variant={s.btn} onClick={onConfirm} isLoading={isLoading} data-autofocus={variant === 'danger' ? undefined : true}>
           {confirmLabel}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

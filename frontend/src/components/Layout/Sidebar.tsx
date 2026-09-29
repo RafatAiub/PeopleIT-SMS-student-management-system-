@@ -5,13 +5,17 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, FileSignature, UsersRound, UserCog, ClipboardCheck,
-  FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe, Settings, CloudDownload,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, CalendarRange, PartyPopper,
+  FileSignature, UsersRound, UserCog, ClipboardCheck, FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe,
+  Settings, CloudDownload,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useT } from '@/i18n';
+import { cn } from '@/lib/cn';
+import { Avatar } from '@/components/ui/Display';
 
 type Role = User['role'];
 
@@ -73,6 +77,9 @@ const SUPER_ADMIN_NAV_ENTRIES: NavEntry[] = [
       { to: '/super-admin/support-access', label: 'Support Access' },
       { to: '/super-admin/audit-logs', label: 'Audit Logs' },
       { to: '/super-admin/system-health', label: 'System Health' },
+      { to: '/super-admin/email', label: 'Email Delivery' },
+      { to: '/super-admin/support', label: 'Support Tickets' },
+      { to: '/super-admin/usage', label: 'Usage & Costs' },
     ],
   },
 ];
@@ -84,8 +91,7 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Academics',
     icon: <BookOpen className="w-4.5 h-4.5" />,
     children: [
-      // Academics setup lookups (Medium/Section/Stream/Shifts/Subject/Semester/Class) —
-      // Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
+      // Academics setup lookups — Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
       { to: '/academics/mediums', label: 'Medium', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/sections', label: 'Section', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/streams', label: 'Stream', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -95,8 +101,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/academics/classes', label: 'Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/assign-class-teacher', label: 'Assign Class Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
-      { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/promotion', label: 'Promote Student', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
       { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
@@ -108,12 +113,12 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: <GraduationCap className="w-4.5 h-4.5" />,
     children: [
       { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/admissions/enquiries', label: 'Admission Enquiries', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
-      // Existing /students route/label — relabeled to "Student Details" here
-      // (STUDENT role still sees "My Profile" via getPageLabel's isStudentProfile special-case).
+      // (STUDENT role sees "My Profile" via getPageLabel's isStudentProfile special-case.)
       { to: '/students', label: 'Student Details', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
       { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
@@ -150,6 +155,11 @@ const NAV_ENTRIES: NavEntry[] = [
       // HR & Payroll: Admin Full, Accountant Read
       { to: '/hr', label: 'HR & Payroll', roles: ['ADMIN', 'ACCOUNTANT'] },
       { to: '/ai-insights', label: 'AI Insights', roles: ['ADMIN', 'TEACHER'] },
+      { to: '/ai', label: 'AI Assistant', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      { to: '/ai/review', label: 'AI Review Queue', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/ai/knowledge', label: 'Knowledge Base', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/developer', label: 'API & Webhooks', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/data-export', label: 'Data Export', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -182,9 +192,15 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Attendance',
     icon: <ClipboardCheck className="w-4.5 h-4.5" />,
     children: [
-      { to: '/attendance/staff', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Daily class attendance: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
+      { to: '/attendance', label: 'Student Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/subject-attendance', label: 'Subject Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/staff-attendance', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff-attendance/me', label: 'My Attendance', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       { to: '/attendance/monthly', label: 'Monthly Wise', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/attendance/report', label: 'Attendance Report', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/qr/kiosk', label: 'QR Check-in', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/qr/codes', label: 'Check-in QR Codes', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -192,14 +208,17 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Exam',
     icon: <FileSignature className="w-4.5 h-4.5" />,
     children: [
-      // Exam setup (exams, timetable, grade bands): Super Admin/Admin only
       { to: '/exams', label: 'Create Exam', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/exams/timetable', label: 'Create Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Admins manage the timetable; teachers, students and guardians read it.
+      { to: '/exams/timetable', label: 'Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
       // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only (published exams)
       { to: '/results', label: 'Exam Marks', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      // Class-wide result summary + report cards: Admin, Teacher
       { to: '/exams/result', label: 'Exam Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/exams/grades', label: 'Exam Grade', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/results/merit-list', label: 'Merit List', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/class-performance', label: 'Class Performance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/transcript', label: 'Transcript & Progress', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      // Grade bands: the default grading scale drives every grade in the app.
+      { to: '/grading', label: 'Exam Grade', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -221,19 +240,30 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: <FileBarChart className="w-4.5 h-4.5" />,
     children: [
       { to: '/reports', label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
+      // Analytics hub: tabs filtered by role; teachers limited to their own sections by the API
+      { to: '/analytics', label: 'Analytics', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER'] },
+      { to: '/analytics/schedules', label: 'Scheduled Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      { to: '/usage', label: 'Usage & Costs', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   { kind: 'link', to: '/custom-notifications', icon: <BellRing className="w-4.5 h-4.5" />, label: 'Custom Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
   // Announcement = Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
   { kind: 'link', to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Announcement', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-  { kind: 'link', to: '/web/sliders', icon: <GalleryHorizontal className="w-4.5 h-4.5" />, label: 'Sliders', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Sliders, Gallery and Web Settings open the matching Website Builder tab —
+  // the public school website is built there from page blocks.
+  { kind: 'link', to: '/website-builder?tab=pages', icon: <GalleryHorizontal className="w-4.5 h-4.5" />, label: 'Sliders', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Holiday List: Admin manages (create/edit/delete, weekly off days, govt sync), everyone else views read-only
+  { kind: 'link', to: '/holidays', icon: <CalendarHeart className="w-4.5 h-4.5" />, label: 'Holiday List' },
+  // Events: Admin creates/edits/deletes, everyone else sees the events addressed to their role
+  { kind: 'link', to: '/events', icon: <PartyPopper className="w-4.5 h-4.5" />, label: 'Events' },
+  { kind: 'link', to: '/academics/session-years', icon: <CalendarRange className="w-4.5 h-4.5" />, label: 'Session Year', roles: ['SUPER_ADMIN', 'ADMIN'] },
   {
     kind: 'category',
     label: 'Gallery',
     icon: <Images className="w-4.5 h-4.5" />,
     children: [
-      { to: '/web/gallery/photos', label: 'Photos', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/web/gallery/videos', label: 'Videos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=content', label: 'Photos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=media', label: 'Videos', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -241,11 +271,13 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Web Settings',
     icon: <Globe className="w-4.5 h-4.5" />,
     children: [
-      // Hero/About text and public contact details are both edited in the existing Website Builder.
-      { to: '/website-builder', label: 'Content Settings', roles: ['ADMIN'] },
-      { to: '/web/programs', label: 'Educational Program', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/web/faqs', label: "FAQ's", roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/website-builder#contact', label: 'Contact Us', roles: ['ADMIN'] },
+      { to: '/website-builder?tab=profile', label: 'Content Settings', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=pages', label: 'Educational Program', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=pages&focus=faq', label: "FAQ's", roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Contact form submissions from the public website
+      { to: '/website-builder?tab=forms', label: 'Contact Us', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Admins: full builder. Teachers: school news (blog drafts only).
+      { to: '/website-builder', label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
     ],
   },
   {
@@ -255,6 +287,11 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       // Messages: Admin Full, everyone else Own conversations only (Super Admin excluded)
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
+      { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/support', label: 'Support', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT'] },
+      // AI school assistant for guardians (answers from records; open questions go to staff review)
+      { to: '/ai/assistant', label: 'School Assistant', roles: ['GUARDIAN'] },
     ],
   },
   {
@@ -266,6 +303,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/library', label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
       // Transport: Admin Full, Transport Officer Full, Student/Guardian Own Only
       { to: '/transport', label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Inventory & assets: SA/A manage, Accountant read-only (enforced by API)
+      { to: '/inventory', label: 'Inventory & Assets', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
     ],
   },
   {
@@ -273,11 +312,11 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'ID Cards',
     icon: <CreditCard className="w-4.5 h-4.5" />,
     children: [
-      // Template design + card issuance: Admin Full (Super Admin only while impersonating via a support session, per ProtectedRoute's support-session bypass)
       { to: '/id-cards/builder', label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/id-cards/generate', label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
       { to: '/id-cards/mine', label: 'My ID Card', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
+      { to: '/qr/me', label: 'My Check-in QR', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'MANAGEMENT'] },
     ],
   },
   {
@@ -285,8 +324,10 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Administration',
     icon: <ShieldCheck className="w-4.5 h-4.5" />,
     children: [
-      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
+      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN.
       { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/settings/custom-fields', label: 'Custom Fields', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/onboarding/setup', label: 'Setup Wizard', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student fees.
       { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
     ],
@@ -300,6 +341,7 @@ const NAV_ENTRIES: NavEntry[] = [
 // link) but still needs a header page title.
 const EXTRA_ROUTE_LABELS: Record<string, string> = {
   '/teacher': 'Teacher Dashboard',
+  '/design-system': 'Design system',
 };
 
 const roleCanSee = (roles: Role[] | undefined, role: Role | undefined): boolean =>
@@ -321,10 +363,49 @@ export const getPageLabel = (pathname: string, role?: Role): string => {
   return EXTRA_ROUTE_LABELS[pathname] || 'Dashboard';
 };
 
+/** Flat, role-filtered list of every page the user can reach from the
+ *  sidebar — used by the command palette so it never offers a page the
+ *  sidebar (and route guards) would not. Duplicate routes are collapsed. */
+export interface NavTarget { to: string; label: string; group: string }
+export const getNavTargets = (role?: Role): NavTarget[] => {
+  const entries = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+  const out: NavTarget[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (entry.kind === 'link') {
+      if (roleCanSee(entry.roles, role) && !seen.has(entry.to)) {
+        seen.add(entry.to);
+        out.push({ to: entry.to, label: entry.label, group: entry.label });
+      }
+    } else {
+      for (const c of entry.children) {
+        if (!roleCanSee(c.roles, role) || seen.has(c.to)) continue;
+        seen.add(c.to);
+        const label = c.to === '/students' && role === 'STUDENT' ? 'My Profile' : c.label;
+        out.push({ to: c.to, label, group: entry.label });
+      }
+    }
+  }
+  return out;
+};
+
+export const ROLE_LABEL: Record<Role, string> = {
+  SUPER_ADMIN: 'Super Admin',
+  ADMIN: 'Administrator',
+  TEACHER: 'Teacher',
+  ACCOUNTANT: 'Accountant',
+  LIBRARIAN: 'Librarian',
+  TRANSPORT_OFFICER: 'Transport Officer',
+  GUARDIAN: 'Guardian',
+  STUDENT: 'Student',
+  MANAGEMENT: 'Management',
+};
+
 export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) => {
   const { sidebarCollapsed, toggleSidebar, setMobileMenuOpen } = useUiStore();
   const { user, supportSession } = useAuthStore();
   const { logout } = useAuth();
+  const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
   const [navFilter, setNavFilter] = React.useState('');
@@ -332,16 +413,26 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
   const entries = user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
 
+  // Several entries open the same page on different tabs (e.g.
+  // /website-builder?tab=pages). NavLink matches on pathname only, so a link
+  // with a query string is active only on an exact path+query match, and a
+  // plain link yields when the current URL belongs to one of those tab links.
+  const currentUrl = location.pathname + location.search;
+  const tabLinkActive = React.useMemo(
+    () => entries.some((e) => (e.kind === 'link' ? [e.to] : e.children.map((c) => c.to)).some((to) => to.includes('?') && to === currentUrl)),
+    [entries, currentUrl],
+  );
+  const isLinkActive = (to: string, routerActive: boolean) =>
+    to.includes('?') ? to === currentUrl : routerActive && !tabLinkActive;
+
   // Keep the accordion in sync with the current route: whichever category
-  // owns the active page auto-expands, like eSchool's sidebar does when you
-  // land on/navigate to one of its sub-pages.
+  // owns the active page auto-expands.
   React.useEffect(() => {
-    const owner = entries.find(
-      (entry) => entry.kind === 'category' && entry.children.some((c) => c.to === location.pathname)
-    );
+    const owns = (to: string) => entries.find((entry) => entry.kind === 'category' && entry.children.some((c) => c.to === to));
+    const owner = owns(currentUrl) ?? owns(location.pathname);
     if (owner) setOpenCategory(owner.label);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, user?.role]);
+  }, [currentUrl, user?.role]);
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -361,55 +452,45 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
     setOpenCategory((prev) => (prev === label ? null : label));
   };
 
-  const initials = user
-    ? `${user.firstName[0]}${user.lastName[0]}`.toUpperCase()
-    : 'U';
-
-  const roleLabel: Record<Role, string> = {
-    SUPER_ADMIN: 'Super Admin',
-    ADMIN: 'Administrator',
-    TEACHER: 'Teacher',
-    ACCOUNTANT: 'Accountant',
-    LIBRARIAN: 'Librarian',
-    TRANSPORT_OFFICER: 'Transport Officer',
-    GUARDIAN: 'Guardian',
-    STUDENT: 'Student',
-    MANAGEMENT: 'Management',
-  };
-  const roleLabelText = user ? roleLabel[user.role] : 'User';
-
+  const roleLabelText = user ? t(ROLE_LABEL[user.role]) : 'User';
   const { institutionLogo, institutionName } = useUiStore();
   // A bare Super Admin is on the global platform view, not scoped to any one
   // institution — only show institution branding while actively impersonating
-  // one via a support session. Otherwise always show the platform's own mark,
-  // regardless of what's cached from a previous session/institution.
+  // one via a support session.
   const showInstitutionBranding = user?.role !== 'SUPER_ADMIN' || !!supportSession;
 
   const navQuery = navFilter.trim().toLowerCase();
-  const showLabels = !sidebarCollapsed || isMobile;
+  const collapsed = sidebarCollapsed && !isMobile;
+  const showLabels = !collapsed;
+  const matches = (label: string) =>
+    !navQuery || label.toLowerCase().includes(navQuery) || t(label).toLowerCase().includes(navQuery);
+  const activeBar = <span aria-hidden className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r bg-primary-500" />;
 
   return (
     <aside
-      className={`flex flex-col h-full bg-white dark:bg-surface-950 border-r border-slate-200 dark:border-white/5 transition-all duration-300 ease-in-out flex-shrink-0 ${
-        isMobile ? 'w-full' : sidebarCollapsed ? 'w-16' : 'w-64'
-      }`}
+      aria-label="Main navigation"
+      style={{ background: 'var(--bg-sidebar)' }}
+      className={cn(
+        'flex flex-col h-full shrink-0 border-r border-black/20 transition-[width] duration-200 ease-out',
+        isMobile ? 'w-full' : collapsed ? 'w-[68px]' : 'w-64'
+      )}
     >
-      {/* Logo */}
-      <div className={`flex items-center justify-between px-4 py-5 border-b border-slate-200 dark:border-white/5 ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`}>
-        <div className="flex items-center gap-3">
+      {/* Brand */}
+      <div className={cn('flex items-center h-16 px-4 border-b border-white/8', collapsed ? 'justify-center' : 'justify-between')}>
+        <div className="flex items-center gap-3 min-w-0">
           {showInstitutionBranding && institutionLogo ? (
-            <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-1 flex items-center justify-center flex-shrink-0 shadow-xs overflow-hidden">
-              <img src={institutionLogo} alt="Logo" className="w-full h-full object-contain" />
+            <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden">
+              <img src={institutionLogo} alt="" className="w-full h-full object-contain" />
             </div>
           ) : (
-            <LogoMark className="w-8 h-8 flex-shrink-0 rounded-lg shadow-sm" />
+            <LogoMark className="w-9 h-9 shrink-0 rounded-lg" />
           )}
           {showLabels && (
-            <div>
-              <span className="font-extrabold text-base leading-none block text-slate-900 dark:text-white">
-                People<span className="text-accent-500">NIT</span>
+            <div className="min-w-0">
+              <span className="font-bold text-[15px] leading-none block text-white tracking-tight">
+                People<span className="text-primary-400">NIT</span>
               </span>
-              <span className="text-slate-500 dark:text-slate-500 text-[11px] truncate block max-w-[10rem]">
+              <span className="text-[11px] truncate block max-w-42 mt-1" style={{ color: 'var(--fg-sidebar-muted)' }}>
                 {showInstitutionBranding ? (institutionName || user?.institutionName || 'School Management') : 'Platform Administration'}
               </span>
             </div>
@@ -417,60 +498,54 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         </div>
         {isMobile && (
           <button
+            type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title="Close menu"
+            className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label={t('Close')}
           >
-            <X className="w-4.5 h-4.5" />
+            <X className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      {/* Search / filter */}
+      {/* Filter */}
       {showLabels && (
         <div className="px-3 pt-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none text-white/45" aria-hidden />
             <input
-              type="text"
+              type="search"
               value={navFilter}
               onChange={(e) => setNavFilter(e.target.value)}
-              placeholder="Search"
-              aria-label="Search navigation"
-              className="w-full bg-slate-100 dark:bg-white/5 border border-transparent focus:border-primary-300 dark:focus:border-primary-500/40 focus:bg-white dark:focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary-500/20 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 transition-colors"
+              placeholder={t('Filter menu…')}
+              aria-label="Filter navigation"
+              className="w-full h-9 rounded-lg pl-9 pr-3 text-sm bg-white/7 border border-white/6 text-white placeholder:text-white/45 focus:outline-none focus:border-primary-400/60 focus:bg-white/10 transition-colors"
             />
           </div>
         </div>
       )}
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 animate-fadeIn">
+      <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
         {entries.map((entry) => {
           if (entry.kind === 'link') {
             if (!roleCanSee(entry.roles, user?.role)) return null;
-            if (navQuery && !entry.label.toLowerCase().includes(navQuery)) return null;
+            if (!matches(entry.label)) return null;
             return (
               <NavLink
                 key={entry.to}
                 to={entry.to}
+                end
                 id={`sidebar-nav-${entry.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive ? 'active' : ''} ${(sidebarCollapsed && !isMobile) ? 'justify-center' : ''}`
-                }
-                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+                className={({ isActive }) => cn('sidebar-link', isLinkActive(entry.to, isActive) && 'active', collapsed && 'justify-center px-0')}
+                title={collapsed ? t(entry.label) : undefined}
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && (
-                      <motion.span
-                        layoutId={isMobile ? 'sidebar-active-indicator-mobile' : 'sidebar-active-indicator'}
-                        className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-600 dark:bg-primary-500 rounded-r"
-                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                      />
-                    )}
-                    <span className="flex-shrink-0">{entry.icon}</span>
-                    {showLabels && <span className="truncate">{entry.label}</span>}
+                    {isLinkActive(entry.to, isActive) && activeBar}
+                    <span className="shrink-0">{entry.icon}</span>
+                    {showLabels && <span className="truncate">{t(entry.label)}</span>}
                   </>
                 )}
               </NavLink>
@@ -479,33 +554,28 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
           // Category: role-filter, then (if searching) label-filter its children.
           const roleFiltered = entry.children.filter((c) => roleCanSee(c.roles, user?.role));
-          const visibleChildren = navQuery
-            ? roleFiltered.filter((c) => c.label.toLowerCase().includes(navQuery))
-            : roleFiltered;
+          const visibleChildren = navQuery ? roleFiltered.filter((c) => matches(c.label)) : roleFiltered;
           if (visibleChildren.length === 0) return null;
 
           const isOpen = navQuery ? true : openCategory === entry.label;
           const hasActiveChild = visibleChildren.some((c) => location.pathname === c.to);
 
           return (
-            <div key={entry.label} className="mb-0.5">
+            <div key={entry.label}>
               <button
                 type="button"
                 onClick={() => handleCategoryClick(entry.label)}
-                aria-expanded={isOpen}
-                className={`sidebar-link w-full ${showLabels ? 'justify-between' : 'justify-center'} ${
-                  hasActiveChild ? 'text-primary-600 dark:text-primary-400 font-semibold' : ''
-                }`}
-                title={(sidebarCollapsed && !isMobile) ? entry.label : undefined}
+                aria-expanded={showLabels ? isOpen : undefined}
+                className={cn('sidebar-link w-full', showLabels ? 'justify-between' : 'justify-center px-0', hasActiveChild && 'text-white!')}
+                title={collapsed ? t(entry.label) : undefined}
               >
+                {hasActiveChild && collapsed && activeBar}
                 <span className="flex items-center gap-3 min-w-0">
-                  <span className="flex-shrink-0">{entry.icon}</span>
-                  {showLabels && <span className="truncate">{entry.label}</span>}
+                  <span className={cn('shrink-0', hasActiveChild && 'text-primary-400')}>{entry.icon}</span>
+                  {showLabels && <span className="truncate">{t(entry.label)}</span>}
                 </span>
                 {showLabels && (
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 flex-shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                  />
+                  <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200', isOpen && 'rotate-180')} aria-hidden />
                 )}
               </button>
 
@@ -515,30 +585,33 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
                     className="overflow-hidden"
                   >
-                    <div className="ml-[1.15rem] pl-4 border-l border-slate-200 dark:border-white/10 my-1 space-y-0.5">
+                    <div className="ml-[1.35rem] pl-3 border-l border-white/10 my-0.5 space-y-px">
                       {visibleChildren.map((child) => {
                         const isStudentProfile = child.to === '/students' && user?.role === 'STUDENT';
                         const label = isStudentProfile ? 'My Profile' : child.label;
                         return (
                           <NavLink
-                            key={child.to}
+                            key={`${entry.label}-${child.to}`}
                             to={child.to}
                             end
                             id={`sidebar-nav-${label.toLowerCase().replace(/\s+/g, '-')}`}
                             onClick={() => isMobile && setMobileMenuOpen(false)}
                             className={({ isActive }) =>
-                              `flex items-center gap-2.5 pl-3 pr-3 py-2 rounded-lg text-sm transition-colors ${
-                                isActive
-                                  ? 'text-primary-600 dark:text-primary-400 font-semibold bg-primary-50 dark:bg-primary-500/10'
-                                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
-                              }`
+                              cn(
+                                'flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors',
+                                isLinkActive(child.to, isActive) ? 'font-semibold' : 'hover:text-white! hover:bg-white/6'
+                              )
+                            }
+                            style={({ isActive }) =>
+                              isLinkActive(child.to, isActive)
+                                ? { color: 'var(--fg-sidebar-active)', background: 'var(--bg-sidebar-active)' }
+                                : { color: 'var(--fg-sidebar-muted)' }
                             }
                           >
-                            <span className="w-1 h-1 rounded-full bg-current opacity-60 flex-shrink-0" />
-                            <span className="truncate">{label}</span>
+                            <span className="truncate">{t(label)}</span>
                           </NavLink>
                         );
                       })}
@@ -551,50 +624,58 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
         })}
       </nav>
 
-      {/* User Profile */}
-      <div className="border-t border-slate-200 dark:border-white/5 p-3">
-        {!sidebarCollapsed || isMobile ? (
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer group">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              {initials}
-            </div>
+      {/* User + collapse */}
+      <div className="border-t border-white/8 p-2.5 space-y-1">
+        {showLabels ? (
+          <div className="flex items-center gap-3 p-2 rounded-lg">
+            <Avatar name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} src={user?.avatarUrl} size="sm" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{roleLabelText}</p>
+              <p className="text-xs truncate" style={{ color: 'var(--fg-sidebar-muted)' }}>{roleLabelText}</p>
             </div>
             <button
+              type="button"
               id="sidebar-logout-btn"
               onClick={handleLogout}
-              title="Logout"
-              className="p-1 rounded-lg text-slate-500 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors md:opacity-0 md:group-hover:opacity-100"
+              aria-label={t('Sign out')}
+              title={t('Sign out')}
+              className="p-1.5 rounded-lg text-white/60 hover:text-red-300 hover:bg-red-500/15 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <button
+            type="button"
             id="sidebar-logout-collapsed-btn"
             onClick={handleLogout}
-            title="Logout"
-            className="w-full flex items-center justify-center p-2 rounded-xl text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            aria-label={t('Sign out')}
+            title={t('Sign out')}
+            className="w-full flex items-center justify-center p-2 rounded-lg text-white/60 hover:text-red-300 hover:bg-red-500/15 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
         )}
 
-        {/* Collapse Toggle */}
         {!isMobile && (
           <button
+            type="button"
             id="sidebar-collapse-btn"
             onClick={toggleSidebar}
-            className="w-full flex items-center justify-center p-2 mt-1 rounded-xl text-slate-500 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white/55 hover:text-white hover:bg-white/6 transition-colors text-xs"
+            aria-label={sidebarCollapsed ? t('Expand sidebar') : t('Collapse sidebar')}
+            title={sidebarCollapsed ? t('Expand sidebar') : t('Collapse sidebar')}
           >
-            {sidebarCollapsed
-              ? <ChevronRight className="w-4 h-4" />
-              : <ChevronLeft className="w-4 h-4" />}
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
+              <>
+                <ChevronLeft className="w-4 h-4" />
+                {t('Collapse sidebar')}
+              </>
+            )}
           </button>
         )}
       </div>

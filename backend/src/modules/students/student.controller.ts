@@ -5,6 +5,7 @@ import {
   paginatedResponse,
 } from '../../utils/response';
 import { NotFoundError } from '../../utils/AppError';
+import { emitStudentCreatedWebhook } from '../webhooks/webhooks.hooks';
 
 // =============================================================================
 // Student Controller — thin layer, delegates to student.service.ts
@@ -53,6 +54,7 @@ export async function createStudent(
   try {
     const student = await studentService.createStudent(req.tenantId!, req.body);
     successResponse(res, student, 'Student created successfully', 201);
+    emitStudentCreatedWebhook(req.tenantId!, student);
   } catch (error) {
     next(error);
   }
@@ -218,11 +220,14 @@ export async function listClasses(
         });
       }
 
-      // Find or create default academic year
+      // Reuse the default session year (Session Year page), else find or
+      // create one for the current calendar year
       const currentYear = new Date().getFullYear().toString();
-      let academicYear = await prisma.academicYear.findFirst({
-        where: { institutionId: req.tenantId!, label: currentYear }
-      });
+      let academicYear =
+        (await prisma.academicYear.findFirst({ where: { institutionId: req.tenantId!, isCurrent: true } })) ??
+        (await prisma.academicYear.findFirst({
+          where: { institutionId: req.tenantId!, label: currentYear }
+        }));
       if (!academicYear) {
         academicYear = await prisma.academicYear.create({
           data: {
@@ -397,6 +402,19 @@ export async function applyForAdmission(
   try {
     const result = await studentService.applyForAdmission(req.body);
     successResponse(res, result, 'Application submitted successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateMe(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const student = await studentService.updateMe(req.tenantId!, req.user!.sub, req.body);
+    successResponse(res, student, 'Profile updated successfully');
   } catch (error) {
     next(error);
   }

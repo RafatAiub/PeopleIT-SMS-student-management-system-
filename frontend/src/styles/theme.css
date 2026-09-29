@@ -1,90 +1,227 @@
 /*
- * Harbor design tokens — an eSchool-style education SaaS palette.
- * Replaces the old violet-indigo "Violet Pulse" primary with a deep
- * navy-teal (institutional, trustworthy) + the existing emerald accent,
- * plus the semantic layer (surface/border/text/status).
+ * PeopleNIT design tokens.
+ *
+ * Brand palette:
+ *   Primary  #f57722  — brand orange (primary-500)
+ *   Accent   #ff9d2a  — hover states, badges, secondary chart series (accent-500)
+ *   Info     #67aded  — info states, charts, dark-mode links (blue-400)
+ *   Dark     #393939  — body text, headings, dark sidebar (slate-700)
+ *   Light    #d3d3d3  — borders, dividers, disabled only (slate-300; never text)
+ *
+ * Contrast rules (validated, WCAG AA 4.5:1):
+ *   - #f57722 fails as text on white (2.78) AND with white text on it (2.78),
+ *     so it is a highlight colour only (active nav marker, focus ring, charts,
+ *     large surfaces with dark text).
+ *   - primary-600 #c2550a is the "darkened primary": white text on it and
+ *     it as text on white both pass (4.57). Buttons and links use it.
+ *   - primary-700 #a3460b (6.11) for small link text / hover.
+ *
+ * Tailwind's stock `slate`, `blue`, `emerald` and `amber` scales are
+ * overridden below. The existing pages use those classes ~5,700 times, so
+ * retinting the scales re-brands every screen without touching page markup.
+ *   slate   → brand neutrals (#393939 at 700, #d3d3d3 at 300)
+ *   blue    → info scale built on #67aded
+ *   emerald → success, darkened so 600 passes as text and behind white text
+ *   amber   → warning, same treatment
+ * Dark mode lifts slate-400/500 (see `.dark` block) so muted text stays
+ * readable on dark surfaces.
  */
 @theme {
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Inter', 'Hind Siliguri', ui-sans-serif, system-ui, sans-serif;
+  --font-bangla: 'Hind Siliguri', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-  /* Primary — navy-teal ("Harbor") */
-  --color-primary-50:  #EFF5F7;
-  --color-primary-100: #DCE9EE;
-  --color-primary-200: #B9D3DE;
-  --color-primary-300: #8FB6C7;
-  --color-primary-400: #5D92AA;
-  --color-primary-500: #3D7590;
-  --color-primary-600: #2B5C74;
-  --color-primary-700: #1F4759;
-  --color-primary-800: #17394A;
-  --color-primary-900: #122A36;
-  --color-primary-950: #0B1B23;
+  /* Primary — brand orange */
+  --color-primary-50:  #FFF6EF;
+  --color-primary-100: #FFEAD8;
+  --color-primary-200: #FFD1AD;
+  --color-primary-300: #FFB27A;
+  --color-primary-400: #FB8D45;
+  --color-primary-500: #F57722;
+  --color-primary-600: #C2550A;
+  --color-primary-700: #A3460B;
+  --color-primary-800: #843A10;
+  --color-primary-900: #6C3112;
+  --color-primary-950: #3D1706;
 
-  /* Accent — emerald (replaces teal) */
-  --color-accent-50:  #ECFDF5;
-  --color-accent-100: #D1FAE5;
-  --color-accent-200: #A7F3D0;
-  --color-accent-300: #6EE7B7;
-  --color-accent-400: #34D399;
-  --color-accent-500: #10B981;
-  --color-accent-600: #059669;
-  --color-accent-700: #047857;
-  --color-accent-800: #065F46;
-  --color-accent-900: #064E3B;
-  --color-accent-950: #022C22;
+  /* Accent — warm amber-orange (hover, badges, secondary series) */
+  --color-accent-50:  #FFF8EB;
+  --color-accent-100: #FFECC9;
+  --color-accent-200: #FFD78F;
+  --color-accent-300: #FFBF55;
+  --color-accent-400: #FFAD3A;
+  --color-accent-500: #FF9D2A;
+  --color-accent-600: #E07B0C;
+  --color-accent-700: #B35A07;
+  --color-accent-800: #8F470C;
+  --color-accent-900: #793B0F;
+  --color-accent-950: #461D03;
 
-  /* Surface — slate, dark-mode-first. 950 is the sidebar's real in-use
-     tone (#0B0F19), not the old unused #020617. */
-  --color-surface-50:  #F8FAFC;
-  --color-surface-100: #F1F5F9;
-  --color-surface-200: #E2E8F0;
-  --color-surface-300: #CBD5E1;
-  --color-surface-400: #94A3B8;
-  --color-surface-500: #64748B;
-  --color-surface-600: #475569;
-  --color-surface-700: #334155;
-  --color-surface-800: #1E293B;
-  --color-surface-900: #0F172A;
-  --color-surface-950: #0B0F19;
+  /* Neutral — overrides Tailwind slate */
+  --color-slate-50:  #FAFAFA;
+  --color-slate-100: #F3F3F3;
+  --color-slate-200: #E6E6E6;
+  --color-slate-300: #D3D3D3;
+  --color-slate-400: #737373;
+  --color-slate-500: #5F5F5F;
+  --color-slate-600: #4A4A4A;
+  --color-slate-700: #393939;
+  --color-slate-800: #2A2A2A;
+  --color-slate-900: #1E1E1E;
+  --color-slate-950: #141414;
 
-  /* Semantic aliases */
-  --color-surface-canvas: var(--color-surface-50);
-  --color-surface-canvas-dark: var(--color-surface-900);
-  --color-surface-card: #FFFFFF;
-  --color-surface-card-dark: var(--color-surface-900);
-  --color-surface-sidebar: var(--color-surface-950);
-  --color-border-default: var(--color-surface-200);
-  --color-border-default-dark: var(--color-surface-700);
-  --color-text-primary: var(--color-surface-900);
-  --color-text-secondary: var(--color-surface-600);
-  --color-text-muted: var(--color-surface-400);
+  /* Surface (legacy name kept — 16 usages) mirrors the neutral scale */
+  --color-surface-50:  #FAFAFA;
+  --color-surface-100: #F3F3F3;
+  --color-surface-200: #E6E6E6;
+  --color-surface-300: #D3D3D3;
+  --color-surface-400: #737373;
+  --color-surface-500: #5F5F5F;
+  --color-surface-600: #4A4A4A;
+  --color-surface-700: #393939;
+  --color-surface-800: #262626;
+  --color-surface-900: #1A1A1A;
+  --color-surface-950: #121212;
 
-  --color-success: var(--color-accent-500);
-  --color-warning: #F59E0B;
-  --color-danger: #EF4444;
-  --color-info: var(--color-primary-500);
+  /* Info — overrides Tailwind blue, built on #67aded (blue-400) */
+  --color-blue-50:  #F0F7FE;
+  --color-blue-100: #DEEDFC;
+  --color-blue-200: #C4E0FA;
+  --color-blue-300: #9BCBF5;
+  --color-blue-400: #67ADED;
+  --color-blue-500: #3F8FDC;
+  --color-blue-600: #2A6DB5;
+  --color-blue-700: #245A96;
+  --color-blue-800: #224C7C;
+  --color-blue-900: #213F66;
+  --color-blue-950: #172944;
 
-  /* Animation tokens — key names match the classes already used across
-     the app (animate-fadeIn etc.) so no JSX changes are needed. */
-  --animate-fadeIn: fadeIn 0.2s ease-out;
-  --animate-slideIn: slideIn 0.2s ease-out;
+  /* Success — emerald, darkened one step for AA */
+  --color-emerald-50:  #ECFDF5;
+  --color-emerald-100: #D1FAE5;
+  --color-emerald-200: #A7F3D0;
+  --color-emerald-300: #6EE7B7;
+  --color-emerald-400: #34D399;
+  --color-emerald-500: #0E9F6E;
+  --color-emerald-600: #047857;
+  --color-emerald-700: #065F46;
+  --color-emerald-800: #064E3B;
+  --color-emerald-900: #053D2E;
+  --color-emerald-950: #022C22;
+
+  /* Warning — amber, darkened one step for AA */
+  --color-amber-50:  #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #E89B0C;
+  --color-amber-600: #B45309;
+  --color-amber-700: #92400E;
+  --color-amber-800: #78350F;
+  --color-amber-900: #5F2A0C;
+  --color-amber-950: #451A03;
+
+  /* Semantic aliases — use these in new components */
+  --color-success: #047857;
+  --color-warning: #B45309;
+  --color-danger:  #DC2626;
+  --color-info:    #2A6DB5;
+  --color-brand:   #F57722;
+
+  /* Radius / shadow scale (4px grid) */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-xs: 0 1px 2px rgb(20 20 20 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(20 20 20 / 0.08), 0 1px 2px rgb(20 20 20 / 0.04);
+  --shadow-md: 0 4px 12px rgb(20 20 20 / 0.08), 0 2px 4px rgb(20 20 20 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(20 20 20 / 0.12), 0 4px 8px rgb(20 20 20 / 0.04);
+
+  /* Animation tokens — names match classes already used across the app */
+  --animate-fadeIn: fadeIn 0.18s ease-out;
+  --animate-slideIn: slideIn 0.18s ease-out;
   --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
   --animate-shimmer: shimmer 1.5s infinite linear;
 }
 
+/*
+ * Theme-aware surface tokens for the app shell and new components.
+ * Pages written with raw slate classes keep working; new components read
+ * these so light/dark is one definition.
+ */
+:root {
+  --bg-canvas: #FAFAFA;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F3F3F3;
+  --bg-hover: #F3F3F3;
+  --bg-sidebar: #393939;
+  --bg-sidebar-hover: rgb(255 255 255 / 0.07);
+  --bg-sidebar-active: rgb(245 119 34 / 0.16);
+  --fg-default: #1E1E1E;
+  --fg-body: #393939;
+  --fg-muted: #5F5F5F;
+  --fg-subtle: #737373;
+  --fg-sidebar: #D4D4D4;
+  --fg-sidebar-muted: #B0B0B0;
+  --fg-sidebar-active: #FFB27A;
+  --fg-link: #C2550A;
+  --border-default: #E6E6E6;
+  --border-strong: #D3D3D3;
+  --ring: #F57722;
+  --chart-1: #F57722;
+  --chart-2: #67ADED;
+  --chart-3: #FF9D2A;
+  --chart-4: #0E9F6E;
+  --chart-5: #737373;
+  --chart-6: #A3460B;
+  color-scheme: light;
+}
+
+.dark {
+  --bg-canvas: #141414;
+  --bg-card: #1E1E1E;
+  --bg-subtle: #262626;
+  --bg-hover: rgb(255 255 255 / 0.05);
+  --bg-sidebar: #171717;
+  --fg-default: #F3F3F3;
+  --fg-body: #D4D4D4;
+  --fg-muted: #A3A3A3;
+  --fg-subtle: #8C8C8C;
+  --fg-link: #67ADED;
+  --border-default: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --chart-5: #A3A3A3;
+  color-scheme: dark;
+
+  /* Muted text on dark surfaces: lift the mid neutrals so
+     `dark:text-slate-400/500` pass AA on #1a1a1a / #1e1e1e. */
+  --color-slate-400: #A3A3A3;
+  --color-slate-500: #8C8C8C;
+}
+
 @keyframes fadeIn {
-  0%   { opacity: 0; transform: translateY(8px); }
+  0%   { opacity: 0; transform: translateY(4px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes slideIn {
-  0%   { opacity: 0; transform: translateX(-16px); }
+  0%   { opacity: 0; transform: translateX(-8px); }
   100% { opacity: 1; transform: translateX(0); }
 }
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(43, 92, 116, 0.3); }
-  50%      { box-shadow: 0 0 25px rgba(43, 92, 116, 0.6); }
+  0%, 100% { box-shadow: 0 0 10px rgb(245 119 34 / 0.25); }
+  50%      { box-shadow: 0 0 22px rgb(245 119 34 / 0.5); }
 }
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

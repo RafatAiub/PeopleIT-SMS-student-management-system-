@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, Send, Trash2, MessageSquare, FileText, Video, Link2, Presentation, Image as ImageIcon } from 'lucide-react';
+import { ExternalLink, Send, Trash2, MessageSquare, FileText, Video, Link2, Presentation, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { useT } from '../../i18n';
 
 const RESOURCE_TYPES = [
   { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
@@ -59,6 +62,7 @@ interface MaterialDetailModalProps {
 }
 
 export default function MaterialDetailModal({ material, currentUserId, canComment, guardianStudentId, onClose }: MaterialDetailModalProps) {
+  const t = useT();
   const meta = resourceMeta(material.resourceType);
   const Icon = meta.icon;
 
@@ -77,7 +81,7 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
       });
       setComments(res.data.data || []);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to load comments');
+      toast.error(error.response?.data?.message || t('Failed to load comments'));
     } finally {
       setLoading(false);
     }
@@ -97,7 +101,7 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
       setNewComment('');
       fetchComments();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to post comment');
+      toast.error(error.response?.data?.message || t('Failed to post comment'));
     } finally {
       setPosting(false);
     }
@@ -111,63 +115,75 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
       setComments((prev) => prev.filter((c) => c.id !== toDelete.id));
       setToDelete(null);
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete comment');
+      toast.error(error.response?.data?.message || t('Failed to delete comment'));
     } finally {
       setDeleting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-xl shadow-sm overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-          <div className="flex gap-3 min-w-0">
-            <div className={`w-11 h-11 flex-shrink-0 rounded-xl flex items-center justify-center border ${meta.color}`}>
-              <Icon className="w-5.5 h-5.5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">{material.title}</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                {material.subject} · {material.className} - {material.sectionName} · {material.uploadedBy?.firstName} {material.uploadedBy?.lastName}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg flex-shrink-0"
+    <>
+      <Modal
+        isOpen
+        onClose={onClose}
+        size="xl"
+        title={
+          <span className="flex items-center gap-3">
+            <span className={`w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center border ${meta.color}`}>
+              <Icon className="w-4.5 h-4.5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate">{material.title}</span>
+            </span>
+          </span>
+        }
+        description={`${material.subject} · ${material.className} - ${material.sectionName} · ${material.uploadedBy?.firstName} ${material.uploadedBy?.lastName}`}
+        footer={
+          canComment ? (
+            <form onSubmit={handlePost} className="flex items-center gap-3 w-full">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+                {initials()}
+              </div>
+              <input
+                type="text"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder={t('Add class comment...')}
+                maxLength={2000}
+                className="input-field flex-1"
+              />
+              <Button type="submit" size="icon" disabled={posting || !newComment.trim()} aria-label={t('Post comment')} title={t('Post comment')} isLoading={posting}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </form>
+          ) : (
+            <p className="text-xs text-center text-slate-400 dark:text-slate-500 w-full">{t('Only teachers and students can post comments.')}</p>
+          )
+        }
+      >
+        <div className="space-y-4">
+          {material.description && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{material.description}</p>
+          )}
+          <a
+            href={material.fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+            <ExternalLink className="w-4 h-4" /> {t('Open material')}
+          </a>
 
-        {/* Body: description + open link + comments */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-4 border-b border-slate-100 dark:border-white/5">
-            {material.description && (
-              <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{material.description}</p>
-            )}
-            <a
-              href={material.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" /> Open material
-            </a>
-          </div>
-
-          <div className="p-6">
-            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-4">
-              <MessageSquare className="w-3.5 h-3.5" /> Class comments
+          <div className="pt-2 border-t border-slate-100 dark:border-white/5">
+            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-4 mt-4">
+              <MessageSquare className="w-3.5 h-3.5" /> {t('Class comments')}
             </h4>
 
             {loading ? (
-              <div className="text-center text-sm text-slate-500 py-6">Loading comments...</div>
+              <div className="text-center text-sm text-slate-500 py-6">{t('Loading comments...')}</div>
             ) : comments.length === 0 ? (
               <div className="text-center text-sm text-slate-500 dark:text-slate-400 py-6">
-                No comments yet. {canComment ? 'Start the conversation.' : ''}
+                {t('No comments yet.')} {canComment ? t('Start the conversation.') : ''}
               </div>
             ) : (
               <div className="space-y-4">
@@ -182,7 +198,7 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
                           {comment.author?.firstName} {comment.author?.lastName}
                         </span>
                         {comment.author?.role === 'TEACHER' && (
-                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded-full">Teacher</span>
+                          <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-1.5 py-0.5 rounded-full">{t('Teacher')}</span>
                         )}
                         <span className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(comment.createdAt)}</span>
                       </div>
@@ -191,8 +207,8 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
                     {comment.author?.id === currentUserId && (
                       <button
                         onClick={() => setToDelete(comment)}
-                        aria-label="Delete comment"
-                        title="Delete comment"
+                        aria-label={t('Delete comment')}
+                        title={t('Delete comment')}
                         className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -204,48 +220,18 @@ export default function MaterialDetailModal({ material, currentUserId, canCommen
             )}
           </div>
         </div>
-
-        {/* Comment input */}
-        <div className="p-4 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-          {canComment ? (
-            <form onSubmit={handlePost} className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
-                {initials()}
-              </div>
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add class comment..."
-                maxLength={2000}
-                className="input-field flex-1"
-              />
-              <button
-                type="submit"
-                disabled={posting || !newComment.trim()}
-                aria-label="Post comment"
-                title="Post comment"
-                className="p-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-xl transition-all shadow-sm disabled:opacity-50 active:scale-[0.98] flex-shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          ) : (
-            <p className="text-xs text-center text-slate-400 dark:text-slate-500">Only teachers and students can post comments.</p>
-          )}
-        </div>
-      </div>
+      </Modal>
 
       <ConfirmModal
         isOpen={!!toDelete}
-        title="Delete comment"
-        message="Are you sure you want to delete this comment? This cannot be undone."
-        confirmLabel="Delete"
+        title={t('Delete comment')}
+        message={t('Are you sure you want to delete this comment? This cannot be undone.')}
+        confirmLabel={t('Delete')}
         variant="danger"
         isLoading={deleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setToDelete(null)}
       />
-    </div>
+    </>
   );
 }

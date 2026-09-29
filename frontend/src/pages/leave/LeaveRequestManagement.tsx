@@ -7,6 +7,7 @@ import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
+import { PageHeader, ErrorState, Textarea } from '@/components/ui';
 import {
   useAllLeaveRequests,
   useLeaveTypes,
@@ -54,7 +55,7 @@ export default function LeaveRequestManagement({ audience }: LeaveRequestManagem
     ...(params.filters.dateTo ? { dateTo: params.filters.dateTo } : {}),
   };
 
-  const { data: requestsData, isLoading: requestsLoading } = useAllLeaveRequests(requestFilters);
+  const { data: requestsData, isLoading: requestsLoading, isError: requestsError, refetch: refetchRequests } = useAllLeaveRequests(requestFilters);
   const { data: leaveTypes = [] } = useLeaveTypes(true, showLeaveType);
 
   const approveMutation = useApproveLeaveRequest();
@@ -196,10 +197,7 @@ export default function LeaveRequestManagement({ audience }: LeaveRequestManagem
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">{copy.title}</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">{copy.subtitle}</p>
-      </div>
+      <PageHeader title={copy.title} description={copy.subtitle} />
 
       <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/5 shadow-xs">
         <div className="p-4 border-b border-slate-200/50 dark:border-white/5 flex flex-wrap items-center gap-3">
@@ -251,44 +249,43 @@ export default function LeaveRequestManagement({ audience }: LeaveRequestManagem
         </div>
 
         <div className="p-4">
-          <DataTable
-            data={requestsData?.data || []}
-            columns={requestColumns}
-            isLoading={requestsLoading}
-            serverPagination
-            totalCount={requestsData?.meta?.total || 0}
-            page={params.page}
-            pageSize={params.pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            emptyTitle={copy.emptyTitle}
-            emptyDescription="Try adjusting your filters."
-          />
+          {requestsError ? (
+            <ErrorState message="Could not load leave requests." onRetry={() => refetchRequests()} />
+          ) : (
+            <DataTable
+              data={requestsData?.data || []}
+              columns={requestColumns}
+              isLoading={requestsLoading}
+              serverPagination
+              totalCount={requestsData?.meta?.total || 0}
+              page={params.page}
+              pageSize={params.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              exportFileName={`${audience.toLowerCase()}-leave-requests`}
+              emptyTitle={copy.emptyTitle}
+              emptyDescription="Try adjusting your filters."
+            />
+          )}
         </div>
       </div>
 
       {/* Approve modal */}
-      <Modal isOpen={!!approveTarget} onClose={() => { setApproveTarget(null); setApproveComment(''); }} className="max-w-md p-0">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Approve Leave Request</h3>
-        </div>
-        <div className="p-6 space-y-4">
+      <Modal isOpen={!!approveTarget} onClose={() => { setApproveTarget(null); setApproveComment(''); }} title="Approve Leave Request" size="md">
+        <div className="space-y-4">
           {approveTarget && (
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Approve {approveTarget.applicant.firstName} {approveTarget.applicant.lastName}'s {approveTarget.leaveType?.name ?? 'leave'} request
               ({new Date(approveTarget.startDate).toLocaleDateString()} – {new Date(approveTarget.endDate).toLocaleDateString()})?
             </p>
           )}
-          <div>
-            <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Comment (optional)</label>
-            <textarea
-              rows={3}
-              value={approveComment}
-              onChange={(e) => setApproveComment(e.target.value)}
-              placeholder="Add an optional note for the applicant..."
-              className="input-field resize-none"
-            />
-          </div>
+          <Textarea
+            label="Comment (optional)"
+            rows={3}
+            value={approveComment}
+            onChange={(e) => setApproveComment(e.target.value)}
+            placeholder="Add an optional note for the applicant..."
+          />
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-white/5">
             <Button type="button" variant="secondary" onClick={() => { setApproveTarget(null); setApproveComment(''); }} className="py-2 px-4 text-sm">
               Cancel
@@ -307,27 +304,22 @@ export default function LeaveRequestManagement({ audience }: LeaveRequestManagem
       </Modal>
 
       {/* Reject modal */}
-      <Modal isOpen={!!rejectTarget} onClose={() => { setRejectTarget(null); setRejectComment(''); setRejectError(''); }} className="max-w-md p-0">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50 rounded-t-2xl">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Reject Leave Request</h3>
-        </div>
-        <div className="p-6 space-y-4">
+      <Modal isOpen={!!rejectTarget} onClose={() => { setRejectTarget(null); setRejectComment(''); setRejectError(''); }} title="Reject Leave Request" size="md">
+        <div className="space-y-4">
           {rejectTarget && (
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Reject {rejectTarget.applicant.firstName} {rejectTarget.applicant.lastName}'s {rejectTarget.leaveType?.name ?? 'leave'} request?
             </p>
           )}
-          <div>
-            <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Reason *</label>
-            <textarea
-              rows={3}
-              value={rejectComment}
-              onChange={(e) => { setRejectComment(e.target.value); if (rejectError) setRejectError(''); }}
-              placeholder="Explain why this request is being rejected (min 3 characters)..."
-              className={`input-field resize-none ${rejectError ? 'border-rose-500 focus:ring-rose-500' : ''}`}
-            />
-            {rejectError && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{rejectError}</p>}
-          </div>
+          <Textarea
+            label="Reason"
+            required
+            rows={3}
+            value={rejectComment}
+            onChange={(e) => { setRejectComment(e.target.value); if (rejectError) setRejectError(''); }}
+            placeholder="Explain why this request is being rejected (min 3 characters)..."
+            error={rejectError}
+          />
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100 dark:border-white/5">
             <Button type="button" variant="secondary" onClick={() => { setRejectTarget(null); setRejectComment(''); setRejectError(''); }} className="py-2 px-4 text-sm">
               Cancel
