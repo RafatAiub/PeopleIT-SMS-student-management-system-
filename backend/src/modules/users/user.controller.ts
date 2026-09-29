@@ -60,7 +60,10 @@ export class UserController {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const pageSize = req.query.pageSize ? parseInt(req.query.pageSize as string, 10) : 10;
       const search = req.query.search as string;
-      const targetInstitutionId = (req.query.institutionId as string) || req.tenantId;
+      // Only the platform owner may list another institution's users; everyone
+      // else is pinned to their own tenant whatever the query says.
+      const requested = typeof req.query.institutionId === 'string' ? req.query.institutionId : undefined;
+      const targetInstitutionId = req.user?.role === UserRole.SUPER_ADMIN ? requested || req.tenantId : req.tenantId;
 
       const { total, users } = await UserService.listUsers(targetInstitutionId, {
         role: req.query.role as UserRole,
