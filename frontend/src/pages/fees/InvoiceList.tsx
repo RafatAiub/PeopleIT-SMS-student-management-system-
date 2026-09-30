@@ -25,14 +25,14 @@ type TabId = 'invoices' | 'categories' | 'concessions' | 'reconciliation';
 // MyInvoices.tsx instead (see FeesRoute in App.tsx). SUPER_ADMIN can see this
 // screen (routed the same way) but never gets create/manage actions here,
 // matching the pre-existing behaviour of this page.
-const InvoiceList: React.FC = () => {
+const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices' }) => {
   const { user } = useAuthStore();
   const canManage = user?.role !== 'SUPER_ADMIN';
   // Backend: concessions write + mark-overdue are SUPER_ADMIN/ADMIN only; this
   // screen never gives SUPER_ADMIN manage actions, so ADMIN it is.
   const isAdmin = user?.role === 'ADMIN';
 
-  const [activeTab, setActiveTab] = useState<TabId>('invoices');
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [overdueConfirm, setOverdueConfirm] = useState(false);

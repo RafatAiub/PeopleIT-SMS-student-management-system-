@@ -41,6 +41,18 @@ const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsA
 const OnlineRegistrations = lazyWithRetry(() => import('./pages/students/OnlineRegistrations'));
 const AddNewTeacher = lazyWithRetry(() => import('./pages/teacher/AddNewTeacher'));
 const TeacherDetails = lazyWithRetry(() => import('./pages/teacher/TeacherDetails'));
+const ParentsList = lazyWithRetry(() => import('./pages/parents/ParentsList'));
+const StaffRoles = lazyWithRetry(() => import('./pages/staff/StaffRoles'));
+const StaffList = lazyWithRetry(() => import('./pages/staff/StaffList'));
+const CreateTimetable = lazyWithRetry(() => import('./pages/timetable/CreateTimetable'));
+const ClassTimetable = lazyWithRetry(() => import('./pages/timetable/ClassTimetable'));
+const TeacherTimetable = lazyWithRetry(() => import('./pages/timetable/TeacherTimetable'));
+const AttendanceMonthly = lazyWithRetry(() => import('./pages/attendance/AttendanceMonthly'));
+const AttendanceReport = lazyWithRetry(() => import('./pages/attendance/AttendanceReport'));
+const AssignFeesClasses = lazyWithRetry(() => import('./pages/fees/AssignFeesClasses'));
+const FeesTransactionLogs = lazyWithRetry(() => import('./pages/fees/FeesTransactionLogs'));
+const CustomNotifications = lazyWithRetry(() => import('./pages/communication/CustomNotifications'));
+const SystemUpdate = lazyWithRetry(() => import('./pages/settings/SystemUpdate'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
 const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
 const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
@@ -51,6 +63,9 @@ const MyInvoices = lazyWithRetry(() => import('./pages/fees/MyInvoices'));
 const AttendanceEntry = lazyWithRetry(() => import('./pages/attendance/AttendanceEntry'));
 const MarksEntry = lazyWithRetry(() => import('./pages/results/MarksEntry'));
 const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'));
+const ManageExam = lazyWithRetry(() => import('./pages/exams/ManageExam'));
+const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'));
+const ExamResult = lazyWithRetry(() => import('./pages/exams/ExamResult'));
 const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
 const Lacture = lazyWithRetry(() => import('./pages/lacture/Lacture'));
 const MyLectureMaterials = lazyWithRetry(() => import('./pages/lacture/MyLectureMaterials'));
@@ -89,7 +104,6 @@ const EnquiriesPage = lazyWithRetry(() => import('./pages/admissions/EnquiriesPa
 const CustomFieldsSettings = lazyWithRetry(() => import('./pages/settings/custom-fields/CustomFieldsSettings'));
 const GradingScales = lazyWithRetry(() => import('./pages/grading/GradingScales'));
 const Promotion = lazyWithRetry(() => import('./pages/promotion/Promotion'));
-const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'));
 const MeritList = lazyWithRetry(() => import('./pages/results/MeritList'));
 const ClassPerformance = lazyWithRetry(() => import('./pages/results/ClassPerformance'));
 const TranscriptPage = lazyWithRetry(() => import('./pages/results/TranscriptPage'));
@@ -839,6 +853,123 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/parents" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ParentsList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/roles" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffRoles />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/types" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <InvoiceList initialTab="categories" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/assign-classes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignFeesClasses />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/transactions" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <FeesTransactionLogs />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/custom-notifications" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CustomNotifications />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/sliders" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/web/gallery/photos" element={<Navigate to="/website-builder?tab=content" replace />} />
+
+        <Route path="/web/gallery/videos" element={<Navigate to="/website-builder?tab=media" replace />} />
+
+        <Route path="/web/programs" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/web/faqs" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/system-update" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SystemUpdate />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/create" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CreateTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/class" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ClassTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/teacher" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <TeacherTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Staff attendance lives at /staff-attendance; keep the old path working. */}
+        <Route path="/attendance/staff" element={<Navigate to="/staff-attendance" replace />} />
+
+        <Route path="/attendance/monthly" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceMonthly />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/report" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/students/assign-roll-no" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
             <DashboardLayout>
@@ -894,6 +1025,27 @@ const App = () => {
             </DashboardLayout>
           </ProtectedRoute>
         } />
+
+        {/* Exam module — role sets mirror backend exams.routes.ts */}
+        <Route path="/exams" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ManageExam />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+
+        <Route path="/exams/result" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ExamResult />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Grade bands now live in the grading module; keep the old path working. */}
+        <Route path="/exams/grades" element={<Navigate to="/grading" replace />} />
 
         <Route path="/id-cards/builder" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>

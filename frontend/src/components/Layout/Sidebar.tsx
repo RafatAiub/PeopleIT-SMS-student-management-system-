@@ -5,7 +5,9 @@ import {
   LayoutDashboard, BookOpen,
   MessageSquare, ChevronLeft, ChevronRight, ChevronDown,
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
-  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, PartyPopper,
+  Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, CalendarRange, PartyPopper,
+  FileSignature, UsersRound, UserCog, ClipboardCheck, FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe,
+  Settings, CloudDownload,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -89,10 +91,7 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Academics',
     icon: <BookOpen className="w-4.5 h-4.5" />,
     children: [
-      // Academics setup lookups (Medium/Section/Stream/Shifts/Subject/Semester/Class) —
-      // Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
-      // Session Year: academic sessions + the default one used by admissions/events — Admin only
-      { to: '/academics/session-years', label: 'Session Year', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Academics setup lookups — Super Admin/Admin only, ordering and labels match the eSchool reference sidebar.
       { to: '/academics/mediums', label: 'Medium', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/sections', label: 'Section', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/streams', label: 'Stream', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -102,21 +101,7 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/academics/classes', label: 'Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/assign-class-teacher', label: 'Assign Class Teacher', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/academics/assign-student-class', label: 'Assign New Student Class', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Attendance Records: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
-      { to: '/attendance', label: 'Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
-      { to: '/subject-attendance', label: 'Subject Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/staff-attendance', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/staff-attendance/me', label: 'My Attendance', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
-      { to: '/qr/kiosk', label: 'QR Check-in', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/qr/codes', label: 'Check-in QR Codes', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only
-      { to: '/results', label: 'Results', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/exams/timetable', label: 'Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/results/merit-list', label: 'Merit List', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/results/class-performance', label: 'Class Performance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
-      { to: '/results/transcript', label: 'Transcript & Progress', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/promotion', label: 'Promotion', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      { to: '/grading', label: 'Grading Scales', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/promotion', label: 'Promote Student', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/timetables', label: 'Timetable' },
       // Lecture Materials: Admin Full, Teacher R/W (own uploads), Student/Guardian Read-only (own class/section)
       { to: '/lectures', label: 'Lecture Materials', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
@@ -128,14 +113,12 @@ const NAV_ENTRIES: NavEntry[] = [
     icon: <GraduationCap className="w-4.5 h-4.5" />,
     children: [
       { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Admission enquiries CRM (pipeline + funnel) — Admin only
       { to: '/admissions/enquiries', label: 'Admission Enquiries', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
-      // Existing /students route/label — relabeled to "Student Details" here
-      // (STUDENT role still sees "My Profile" via getPageLabel's isStudentProfile special-case).
+      // (STUDENT role sees "My Profile" via getPageLabel's isStudentProfile special-case.)
       { to: '/students', label: 'Student Details', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
       { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
@@ -153,6 +136,17 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
+  { kind: 'link', to: '/parents', icon: <UsersRound className="w-4.5 h-4.5" />, label: 'Parents', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Staff Management',
+    icon: <UserCog className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/staff/roles', label: 'Roles & Permissions', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff', label: 'Staff', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
   {
     kind: 'category',
     label: 'Management',
@@ -164,8 +158,6 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/ai', label: 'AI Assistant', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
       { to: '/ai/review', label: 'AI Review Queue', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/ai/knowledge', label: 'Knowledge Base', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Admins: full builder. Teachers: school news (blog drafts only).
-      { to: '/website-builder', label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/developer', label: 'API & Webhooks', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/data-export', label: 'Data Export', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
@@ -187,36 +179,105 @@ const NAV_ENTRIES: NavEntry[] = [
   },
   {
     kind: 'category',
-    label: 'Holiday',
-    icon: <CalendarHeart className="w-4.5 h-4.5" />,
+    label: 'Timetable',
+    icon: <CalendarClock className="w-4.5 h-4.5" />,
     children: [
-      // Holiday List: Admin manages (create/edit/delete, weekly off days, govt sync), everyone else views read-only
-      { to: '/holidays', label: 'Holiday List' },
+      { to: '/timetable/create', label: 'Create Timetable', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/timetable/class', label: 'Class Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/timetable/teacher', label: 'Teacher Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
     ],
   },
   {
     kind: 'category',
-    label: 'Events',
-    icon: <PartyPopper className="w-4.5 h-4.5" />,
+    label: 'Attendance',
+    icon: <ClipboardCheck className="w-4.5 h-4.5" />,
     children: [
-      // Events: Admin creates/edits/deletes, everyone else sees the events addressed to their role
-      { to: '/events', label: 'Events' },
+      // Daily class attendance: Admin Full, Teacher R/W, Accountant Read, Student/Guardian Own Only
+      { to: '/attendance', label: 'Student Attendance', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/subject-attendance', label: 'Subject Attendance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/staff-attendance', label: 'Staff Attendance', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/staff-attendance/me', label: 'My Attendance', roles: ['TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+      { to: '/attendance/monthly', label: 'Monthly Wise', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/attendance/report', label: 'Attendance Report', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/qr/kiosk', label: 'QR Check-in', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/qr/codes', label: 'Check-in QR Codes', roles: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
     kind: 'category',
-    label: 'Finance',
+    label: 'Exam',
+    icon: <FileSignature className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/exams', label: 'Create Exam', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Admins manage the timetable; teachers, students and guardians read it.
+      { to: '/exams/timetable', label: 'Exam Timetable', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      // Exam Marks & Grades: Admin Full, Teacher R/W, Student/Guardian Own Only (published exams)
+      { to: '/results', label: 'Exam Marks', roles: ['ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      { to: '/exams/result', label: 'Exam Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/merit-list', label: 'Merit List', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/class-performance', label: 'Class Performance', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/results/transcript', label: 'Transcript & Progress', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN'] },
+      // Grade bands: the default grading scale drives every grade in the app.
+      { to: '/grading', label: 'Exam Grade', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Fees',
     icon: <Receipt className="w-4.5 h-4.5" />,
     children: [
+      // Fees Type = the fee-category tab of the Fees & Billing page (same data, no duplicate screen)
+      { to: '/fees/types', label: 'Fees Type', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/fees/assign-classes', label: 'Assign Fees Classes', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
-      { to: '/fees', label: 'Fees & Billing', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees', label: 'Fees Paid', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees/transactions', label: 'Fees Transactions Logs', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Reports',
+    icon: <FileBarChart className="w-4.5 h-4.5" />,
+    children: [
       { to: '/reports', label: 'Reports', roles: ['ADMIN', 'ACCOUNTANT'] },
       // Analytics hub: tabs filtered by role; teachers limited to their own sections by the API
       { to: '/analytics', label: 'Analytics', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER'] },
       { to: '/analytics/schedules', label: 'Scheduled Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
       { to: '/usage', label: 'Usage & Costs', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student-fee "Fees & Billing" above.
-      { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
+    ],
+  },
+  { kind: 'link', to: '/custom-notifications', icon: <BellRing className="w-4.5 h-4.5" />, label: 'Custom Notifications', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Announcement = Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
+  { kind: 'link', to: '/notices', icon: <Megaphone className="w-4.5 h-4.5" />, label: 'Announcement', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  // Sliders, Gallery and Web Settings open the matching Website Builder tab —
+  // the public school website is built there from page blocks.
+  { kind: 'link', to: '/website-builder?tab=pages', icon: <GalleryHorizontal className="w-4.5 h-4.5" />, label: 'Sliders', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // Holiday List: Admin manages (create/edit/delete, weekly off days, govt sync), everyone else views read-only
+  { kind: 'link', to: '/holidays', icon: <CalendarHeart className="w-4.5 h-4.5" />, label: 'Holiday List' },
+  // Events: Admin creates/edits/deletes, everyone else sees the events addressed to their role
+  { kind: 'link', to: '/events', icon: <PartyPopper className="w-4.5 h-4.5" />, label: 'Events' },
+  { kind: 'link', to: '/academics/session-years', icon: <CalendarRange className="w-4.5 h-4.5" />, label: 'Session Year', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  {
+    kind: 'category',
+    label: 'Gallery',
+    icon: <Images className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/website-builder?tab=content', label: 'Photos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=media', label: 'Videos', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    ],
+  },
+  {
+    kind: 'category',
+    label: 'Web Settings',
+    icon: <Globe className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/website-builder?tab=profile', label: 'Content Settings', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=pages', label: 'Educational Program', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      { to: '/website-builder?tab=pages&focus=faq', label: "FAQ's", roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Contact form submissions from the public website
+      { to: '/website-builder?tab=forms', label: 'Contact Us', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // Admins: full builder. Teachers: school news (blog drafts only).
+      { to: '/website-builder', label: 'Website Builder', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
     ],
   },
   {
@@ -226,11 +287,9 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       // Messages: Admin Full, everyone else Own conversations only (Super Admin excluded)
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-      // Notices: Admin Full, Teacher R/W, everyone else Read (Super Admin excluded)
-      { to: '/notices', label: 'Notices', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
-      { to: '/support', label: 'Support', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT'] },
       // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
       { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      { to: '/support', label: 'Support', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT'] },
       // AI school assistant for guardians (answers from records; open questions go to staff review)
       { to: '/ai/assistant', label: 'School Assistant', roles: ['GUARDIAN'] },
     ],
@@ -244,6 +303,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/library', label: 'Library', roles: ['ADMIN', 'LIBRARIAN', 'STUDENT', 'GUARDIAN'] },
       // Transport: Admin Full, Transport Officer Full, Student/Guardian Own Only
       { to: '/transport', label: 'Transport', roles: ['ADMIN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+      // Inventory & assets: SA/A manage, Accountant read-only (enforced by API)
+      { to: '/inventory', label: 'Inventory & Assets', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
     ],
   },
   {
@@ -251,7 +312,6 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'ID Cards',
     icon: <CreditCard className="w-4.5 h-4.5" />,
     children: [
-      // Template design + card issuance: Admin Full (Super Admin only while impersonating via a support session, per ProtectedRoute's support-session bypass)
       { to: '/id-cards/builder', label: 'ID Card Builder', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/id-cards/generate', label: 'Generate ID Cards', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Self-service "my card" view: Student + staff-like roles (matches /id-cards/me's server-side role scoping)
@@ -264,16 +324,17 @@ const NAV_ENTRIES: NavEntry[] = [
     label: 'Administration',
     icon: <ShieldCheck className="w-4.5 h-4.5" />,
     children: [
-      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN — Teacher/Accountant would 403, so kept out of the nav too.
+      // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN.
       { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Branches & Classes: Super Admin/Admin Full, everyone else Read
-      { to: '/settings', label: 'Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       { to: '/settings/custom-fields', label: 'Custom Fields', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/onboarding/setup', label: 'Setup Wizard', roles: ['SUPER_ADMIN', 'ADMIN'] },
-      // Inventory & assets: SA/A manage, Accountant read-only (enforced by API)
-      { to: '/inventory', label: 'Inventory & Assets', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student fees.
+      { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },
     ],
   },
+  // Branches & Classes, profile, security: Super Admin/Admin Full, everyone else Read
+  { kind: 'link', to: '/settings', icon: <Settings className="w-4.5 h-4.5" />, label: 'System Settings', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
+  { kind: 'link', to: '/system-update', icon: <CloudDownload className="w-4.5 h-4.5" />, label: 'System Update', roles: ['SUPER_ADMIN', 'ADMIN'] },
 ];
 
 // Not a sidebar entry (reached via role-based redirect, not a direct nav
@@ -352,15 +413,26 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
 
   const entries = user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
 
+  // Several entries open the same page on different tabs (e.g.
+  // /website-builder?tab=pages). NavLink matches on pathname only, so a link
+  // with a query string is active only on an exact path+query match, and a
+  // plain link yields when the current URL belongs to one of those tab links.
+  const currentUrl = location.pathname + location.search;
+  const tabLinkActive = React.useMemo(
+    () => entries.some((e) => (e.kind === 'link' ? [e.to] : e.children.map((c) => c.to)).some((to) => to.includes('?') && to === currentUrl)),
+    [entries, currentUrl],
+  );
+  const isLinkActive = (to: string, routerActive: boolean) =>
+    to.includes('?') ? to === currentUrl : routerActive && !tabLinkActive;
+
   // Keep the accordion in sync with the current route: whichever category
   // owns the active page auto-expands.
   React.useEffect(() => {
-    const owner = entries.find(
-      (entry) => entry.kind === 'category' && entry.children.some((c) => c.to === location.pathname)
-    );
+    const owns = (to: string) => entries.find((entry) => entry.kind === 'category' && entry.children.some((c) => c.to === to));
+    const owner = owns(currentUrl) ?? owns(location.pathname);
     if (owner) setOpenCategory(owner.label);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, user?.role]);
+  }, [currentUrl, user?.role]);
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -465,13 +537,13 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                 to={entry.to}
                 end
                 id={`sidebar-nav-${entry.label.toLowerCase().replace(/\s+/g, '-')}`}
-                className={({ isActive }) => cn('sidebar-link', isActive && 'active', collapsed && 'justify-center px-0')}
+                className={({ isActive }) => cn('sidebar-link', isLinkActive(entry.to, isActive) && 'active', collapsed && 'justify-center px-0')}
                 title={collapsed ? t(entry.label) : undefined}
                 onClick={() => isMobile && setMobileMenuOpen(false)}
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && activeBar}
+                    {isLinkActive(entry.to, isActive) && activeBar}
                     <span className="shrink-0">{entry.icon}</span>
                     {showLabels && <span className="truncate">{t(entry.label)}</span>}
                   </>
@@ -530,11 +602,11 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
                             className={({ isActive }) =>
                               cn(
                                 'flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[13px] transition-colors',
-                                isActive ? 'font-semibold' : 'hover:text-white! hover:bg-white/6'
+                                isLinkActive(child.to, isActive) ? 'font-semibold' : 'hover:text-white! hover:bg-white/6'
                               )
                             }
                             style={({ isActive }) =>
-                              isActive
+                              isLinkActive(child.to, isActive)
                                 ? { color: 'var(--fg-sidebar-active)', background: 'var(--bg-sidebar-active)' }
                                 : { color: 'var(--fg-sidebar-muted)' }
                             }

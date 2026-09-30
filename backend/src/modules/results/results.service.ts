@@ -81,14 +81,16 @@ async function ensureStandardExams(institutionId: string) {
   ];
 
   await prisma.exam.createMany({
-    data: standardExams.map((exam) => ({ ...exam, institutionId, isActive: true })),
+    data: standardExams.map((exam) => ({ ...exam, institutionId, isActive: true, isPublished: true })),
   });
   logger.info('Standard exams auto-seeded', { institutionId });
 }
 
-export async function listExams(institutionId: string, query: ExamQueryDtoType) {
+export async function listExams(institutionId: string, query: ExamQueryDtoType, requesterRole?: string) {
   await ensureStandardExams(institutionId);
-  return resultsRepository.findAllExams(institutionId, query);
+  // Students/guardians only ever see exams whose results are published.
+  const publishedOnly = requesterRole === UserRole.STUDENT || requesterRole === UserRole.GUARDIAN;
+  return resultsRepository.findAllExams(institutionId, { ...query, publishedOnly });
 }
 
 export async function deleteExam(institutionId: string, id: string) {
@@ -230,6 +232,7 @@ async function getMyResultsRaw(
       examId,
       page: 1,
       pageSize: 500,
+      publishedOnly: true,
     });
     return own ? attachHighestMarks(institutionId, own.id, records) : records;
   }
@@ -244,6 +247,7 @@ async function getMyResultsRaw(
         examId,
         page: 1,
         pageSize: 500,
+        publishedOnly: true,
       });
       return attachHighestMarks(institutionId, studentId, records);
     }
@@ -256,6 +260,7 @@ async function getMyResultsRaw(
       examId,
       page: 1,
       pageSize: 500,
+      publishedOnly: true,
     });
     return records;
   }
@@ -359,7 +364,10 @@ export async function generateReportCard(
         },
       },
     }),
-    prisma.exam.findFirst({ where: { id: examId, institutionId }, select: { name: true, startDate: true, endDate: true } }),
+    prisma.exam.findFirst({
+      where: { id: examId, institutionId },
+      select: { name: true, startDate: true, endDate: true, isPublished: true },
+    }),
     prisma.examResult.findMany({
       where: { institutionId, examId, studentId },
       select: { subject: true, marksObtained: true, maxMarks: true, grade: true, remarks: true },
@@ -369,6 +377,9 @@ export async function generateReportCard(
 
   if (!student) throw new NotFoundError('Student not found');
   if (!exam) throw new NotFoundError('Exam not found');
+  if (!exam.isPublished && (requester.role === 'STUDENT' || requester.role === 'GUARDIAN')) {
+    throw new NotFoundError('Exam not found');
+  }
   if (results.length === 0) throw new NotFoundError('No results found for this student in this exam');
 
   // Default grading scale (null → fixed fallback; the PDF is then identical

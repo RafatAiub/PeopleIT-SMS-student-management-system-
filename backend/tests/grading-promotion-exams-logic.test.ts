@@ -14,7 +14,6 @@ import {
   type GradeBandInput,
 } from '../src/modules/grading/grading.core';
 import { buildClassAnalytics, rankEntries } from '../src/modules/results/results.insights.logic';
-import { findConflicts, timesOverlap, type SlotLike } from '../src/modules/exam-timetable/examTimetable.logic';
 import {
   decodeBatchId,
   encodeBatchId,
@@ -200,45 +199,6 @@ describe('buildClassAnalytics', () => {
 });
 
 // ── Timetable conflicts ─────────────────────────────────────────────────────
-
-describe('exam timetable conflicts', () => {
-  const base: SlotLike = {
-    id: 'existing',
-    className: 'Class 8',
-    sectionName: 'A',
-    subjectName: 'Math',
-    date: '2026-11-02',
-    startTime: '10:00',
-    endTime: '12:00',
-    room: '101',
-  };
-
-  it('treats intervals as half-open', () => {
-    expect(timesOverlap('10:00', '12:00', '12:00', '13:00')).toBe(false);
-    expect(timesOverlap('10:00', '12:00', '11:59', '13:00')).toBe(true);
-  });
-
-  it('flags the same class+section at an overlapping time', () => {
-    const c = findConflicts({ ...base, id: undefined, subjectName: 'English', room: '202', startTime: '11:00', endTime: '13:00' }, [base]);
-    expect(c.map((x) => x.type)).toEqual(['CLASS']);
-  });
-
-  it('a whole-class slot collides with any section', () => {
-    const c = findConflicts({ ...base, id: undefined, sectionName: null, room: null }, [base]);
-    expect(c.map((x) => x.type)).toEqual(['CLASS']);
-  });
-
-  it('different sections do not collide, but a shared room does', () => {
-    const c = findConflicts({ ...base, id: undefined, sectionName: 'B', room: ' 101 ' }, [base]);
-    expect(c.map((x) => x.type)).toEqual(['ROOM']);
-  });
-
-  it('ignores other dates, non-overlapping times and the slot itself', () => {
-    expect(findConflicts({ ...base, id: undefined, date: '2026-11-03' }, [base])).toEqual([]);
-    expect(findConflicts({ ...base, id: undefined, startTime: '12:00', endTime: '13:00' }, [base])).toEqual([]);
-    expect(findConflicts({ ...base }, [base])).toEqual([]);
-  });
-});
 
 // ── Promotion ───────────────────────────────────────────────────────────────
 

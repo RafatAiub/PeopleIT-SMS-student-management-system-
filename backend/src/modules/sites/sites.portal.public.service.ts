@@ -221,12 +221,24 @@ export async function examRoutine(siteId: string, q: { examId?: string; class?: 
     });
     return { exams, slots: [] as unknown[] };
   }
-  const slots = await prisma.examTimetableSlot.findMany({
-    where: { institutionId: site.institutionId, examId: q.examId, ...(q.class ? { className: q.class } : {}) },
-    select: { className: true, sectionName: true, subjectName: true, date: true, startTime: true, endTime: true, room: true },
+  // Reads the Exam module's timetable (one paper per class + subject). Exam
+  // papers are scheduled per class, so sectionName and room are always null;
+  // they stay in the response to keep the public portal's contract stable.
+  const rows = await prisma.examTimetable.findMany({
+    where: { institutionId: site.institutionId, examId: q.examId, ...(q.class ? { class: { name: q.class } } : {}) },
+    select: { date: true, startTime: true, endTime: true, class: { select: { name: true } }, subject: { select: { name: true } } },
     orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
     take: 500,
   });
+  const slots = rows.map((r) => ({
+    className: r.class.name,
+    sectionName: null,
+    subjectName: r.subject.name,
+    date: r.date,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    room: null,
+  }));
   return { exams: [] as unknown[], slots };
 }
 
