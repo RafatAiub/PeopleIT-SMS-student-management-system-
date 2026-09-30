@@ -26,3 +26,18 @@ The same procedure was rehearsed first on a local database built with production
 **Consequence:** until the branches are merged, `Habib`'s staff-attendance screens won't work against production. Everything `main` serves today keeps working.
 
 **When merging:** choose one model. Then write a migration that converts production's `main`-shaped table, mapping `staffId` → the profile's user id and adding the extra columns. Don't recreate the table.
+
+## Update 2026-09-30: conflict resolved
+
+The `dev` branch (a teammate's merge of `main` + `Habib`) added two migrations, and they were applied to production on 2026-09-29 at 13:35 UTC:
+
+- **`20260929300000_unify_staff_attendance`** converted production's `main`-shaped `StaffAttendance` to the `Habib` model (`staffUserId`, check-in/out, note, marked-by). The table had 0 rows.
+- **`20260929310000_drop_duplicate_tables`** dropped `ExamTimetableSlot`, `ExamGrade`, `WebsiteItem` and the `WebsiteItemType` enum.
+  - If any of those held data, it is in the pre-migration backup `D:/PeopleIT/backups/prod-before-v3-migration-2026-09-29.dump`.
+- `main`'s `20260927120000_add_staff_attendance` is now a guarded no-op when the table exists, so a fresh database replays the full chain cleanly.
+
+`Habib` merged `origin/dev` (`b413fe7`). The repo's migration history now matches production exactly: `prisma migrate status` reports "up to date".
+
+One new forward migration is pending for production:
+
+- **`20260930090000_leave_request_type_set_null`** changes the `LeaveRequest.leaveTypeId` foreign key from RESTRICT to SET NULL, to match the schema. It's safe: it only changes how deleting a leave type affects leave requests.
