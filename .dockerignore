@@ -1,0 +1,16 @@
+# Keep secrets, dependencies and build output out of Docker images.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+!deploy/.env.*.example
+.git
+.github
+**/*.dump
+**/*.log
+scratch
+backend/data
+backend/tests
+frontend/dev-dist
+coverage

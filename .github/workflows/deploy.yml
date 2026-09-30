@@ -1,0 +1,130 @@
+name: Deploy to VPS
+
+# Push to main → CI → build images → (approval) → deploy to the Contabo VPS.
+# Migrations run only when asked: the "migrate" input on a manual run, or the
+# repository variable AUTO_MIGRATE=true for pushes. Back up the database first.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      migrate:
+        description: Run prisma migrate deploy before starting the new version
+        type: boolean
+        default: false
+      tag:
+        description: Deploy an existing image tag (a git SHA) instead of building — for rollbacks
+        type: string
+        default: ''
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  ci:
+    if: ${{ !inputs.tag }}
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    name: Build and push images
+    needs: ci
+    if: ${{ !inputs.tag }}
+    runs-on: ubuntu-latest
+    outputs:
+      prefix: ${{ steps.prefix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image prefix (GHCR needs lowercase)
+        id: prefix
+        run: echo "value=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/api.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.prefix.outputs.value }}/api:${{ github.sha }}
+            ${{ steps.prefix.outputs.value }}/api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/web.Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=/api/v1
+            VITE_APP_HOSTS=${{ vars.APP_DOMAIN }},${{ vars.API_DOMAIN }}
+            VITE_PLATFORM_SITE_DOMAIN=${{ vars.PLATFORM_SITE_DOMAIN }}
+            VITE_CLOUDINARY_CLOUD_NAME=${{ vars.VITE_CLOUDINARY_CLOUD_NAME }}
+            VITE_CLOUDINARY_UPLOAD_PRESET=${{ vars.VITE_CLOUDINARY_UPLOAD_PRESET }}
+          tags: |
+            ${{ steps.prefix.outputs.value }}/web:${{ github.sha }}
+            ${{ steps.prefix.outputs.value }}/web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    name: Deploy
+    needs: [images]
+    # Runs after a build, or on its own for a rollback (tag given).
+    if: ${{ always() && (needs.images.result == 'success' || inputs.tag) }}
+    runs-on: ubuntu-latest
+    # Add required reviewers to this environment in GitHub settings to get an
+    # approval step before production changes.
+    environment:
+      name: production
+      url: https://${{ vars.APP_DOMAIN }}
+    env:
+      TAG: ${{ inputs.tag || github.sha }}
+      MIGRATE: ${{ (github.event_name == 'workflow_dispatch' && inputs.migrate) || (github.event_name == 'push' && vars.AUTO_MIGRATE == 'true') }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/peoplenit' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Upload compose file and deploy script
+        run: |
+          scp -i ~/.ssh/id_deploy -P "${{ vars.VPS_PORT || 22 }}" \
+            deploy/docker-compose.prod.yml deploy/deploy.sh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$DEPLOY_DIR/"
+
+      - name: Deploy on the server
+        run: |
+          FLAG=""; [ "$MIGRATE" = "true" ] && FLAG="--migrate"
+          ssh -i ~/.ssh/id_deploy -p "${{ vars.VPS_PORT || 22 }}" \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "chmod +x $DEPLOY_DIR/deploy.sh && $DEPLOY_DIR/deploy.sh $TAG $FLAG"
+
+      - name: Smoke test
+        run: |
+          for _ in $(seq 1 10); do
+            curl -fsS "https://${{ vars.APP_DOMAIN }}/health" && exit 0
+            sleep 6
+          done
+          echo "Health check failed after deploy" >&2
+          exit 1

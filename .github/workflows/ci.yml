@@ -5,6 +5,8 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+  # Lets deploy.yml run the same checks before it builds images.
+  workflow_call:
 
 jobs:
   lint-typecheck:
@@ -51,8 +53,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Queues, the email budget and rate limits use Redis.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       NODE_ENV: test
+      EMAIL_ENABLED: 'false'
+      SMS_ENABLED: 'false'
       DATABASE_URL: postgresql://sms_ci_user:sms_ci_pass@localhost:5432/sms_ci_db
       REDIS_URL: redis://localhost:6379
       JWT_ACCESS_SECRET: ci_dummy_access_secret_at_least_32_chars_long
@@ -98,6 +112,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Site and ZIP-import logic tests
+        working-directory: frontend
+        run: |
+          for t in src/site/__tests__/site-logic.test.ts src/pages/website/import/__tests__/zip-import.test.ts; do
+            npx esbuild "$t" --bundle --platform=node --loader:.css=empty --jsx=automatic --log-level=error --outfile="$RUNNER_TEMP/t.cjs"
+            node "$RUNNER_TEMP/t.cjs"
+          done
 
       - name: Build frontend
         run: npm run build --workspace=frontend
