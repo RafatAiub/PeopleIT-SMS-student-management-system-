@@ -21,7 +21,9 @@ services:
         - backend/**
         - package.json
         - package-lock.json
-    buildCommand: npm ci && npx prisma generate --schema backend/prisma/schema.prisma && npm run build --workspace=backend
+    # --include=dev: NODE_ENV=production would otherwise skip the TypeScript
+    # compiler, Prisma CLI and @types packages the build needs.
+    buildCommand: npm ci --include=dev && npx prisma generate --schema backend/prisma/schema.prisma && npm run build --workspace=backend
     startCommand: cd backend && node dist/server.js
     healthCheckPath: /health
     envVars:
@@ -61,7 +63,7 @@ services:
         sync: false
       - key: QR_SECRET
         generateValue: true
-      # Optional: leave unset to use the in-process scheduler without Redis.
+      # Required at startup — copy it from the existing `main` service.
       - key: REDIS_URL
         sync: false
       - key: EMAIL_ENABLED
@@ -82,7 +84,7 @@ services:
         - frontend/**
         - package.json
         - package-lock.json
-    buildCommand: npm ci && npm run build --workspace=frontend
+    buildCommand: npm ci --include=dev && npm run build --workspace=frontend
     staticPublishPath: frontend/dist
     # SPA: every client-side route serves index.html.
     routes:
