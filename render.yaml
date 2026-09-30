@@ -42,16 +42,21 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      # Copy both JWT secrets from the existing `main` Render service. With no
+      # ENCRYPTION_KEY set, JWT_ACCESS_SECRET is also the key that decrypts
+      # users' stored 2FA secrets — a different value breaks 2FA logins for
+      # anyone sharing this database.
       - key: JWT_ACCESS_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_REFRESH_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_ACCESS_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
       - key: BCRYPT_ROUNDS
         value: "12"
+      # Optional. Leave empty unless the `main` service sets it — then copy it exactly.
       - key: ENCRYPTION_KEY
         sync: false
       - key: QR_SECRET
