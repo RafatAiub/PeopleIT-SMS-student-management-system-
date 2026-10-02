@@ -90,6 +90,8 @@ app.use(
 const allowedOrigins = [
   env.FRONTEND_URL,
   'https://peopleitsms.vercel.app',
+  'https://people-it-sms-student-management-sy.vercel.app',
+  'https://people-it-sms-student-management-system-git-dev-saimon7.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
   ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
