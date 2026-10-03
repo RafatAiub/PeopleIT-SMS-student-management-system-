@@ -3407,3 +3407,14 @@ model NotificationBroadcast {
 }
 
 
+
+// =============================================================================
+// FEATURES v4 (docs/plans/FEATURES_V4_PLAN.md). Each track adds its models
+// directly below its own marker only, so parallel work never collides.
+// =============================================================================
+
+// === TRACK AI: lesson builder (TeachingResource …) ===
+
+// === TRACK WEB: website collections ===
+
+// === TRACK ATT: attendance devices & consent ===
