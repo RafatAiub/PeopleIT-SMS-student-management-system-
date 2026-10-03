@@ -101,6 +101,13 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('false'),
+  // Schedulers (overdue marking, report emails, domain checks …) and the
+  // BullMQ queue workers. On by default; set BACKGROUND_JOBS=false for a
+  // light local dev server that only answers API requests.
+  BACKGROUND_JOBS: z
+    .string()
+    .transform((v) => v !== 'false')
+    .default('true'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),

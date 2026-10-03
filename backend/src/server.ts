@@ -6,9 +6,6 @@ import { env } from './config/env';
 import { prisma } from './config/prisma';
 import { closeRedis, pingRedis, REDIS_IS_TLS, REDIS_HOST } from './config/redis';
 import { logger } from './utils/logger';
-import { feeReminderWorker } from './queues/reminderWorker';
-import { billingWorker } from './queues/billingWorker';
-import { notificationWorker } from './queues/notificationWorker';
 import { registerSubscriptionLifecycleJob } from './queues/billingQueue';
 import { startHolidaySyncJob, stopHolidaySyncJob } from './modules/holidays/holiday.scheduler';
 import { startFeeOverdueJob, stopFeeOverdueJob } from './modules/fees/overdue/overdue.scheduler';
@@ -20,6 +17,38 @@ import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules
 
 const server = http.createServer(app);
 
+// BullMQ workers start polling Redis as soon as their module is imported, so
+// they are loaded on demand — only when background jobs are enabled.
+let workers: Array<{ close(): Promise<void> }> = [];
+
+async function startWorkers() {
+  const [{ feeReminderWorker }, { billingWorker }, { notificationWorker }] = await Promise.all([
+    import('./queues/reminderWorker'),
+    import('./queues/billingWorker'),
+    import('./queues/notificationWorker'),
+  ]);
+  workers = [feeReminderWorker, billingWorker, notificationWorker];
+  logger.info('BullMQ workers registered: feeReminders, subscriptionBilling, notifications');
+}
+
+function startSchedulers() {
+  // Keeps government holidays in step with the published Bangladesh
+  // holiday calendar (next year's list, moon-sighting date changes).
+  startHolidaySyncJob();
+  // Daily: mark past-due UNPAID/PARTIAL invoices OVERDUE (in-process, Redis-independent).
+  startFeeOverdueJob();
+  // Daily: mark past-due library loans OVERDUE (in-process, Redis-independent).
+  startLibraryOverdueJob();
+  // Every 5 min: email due scheduled reports (demo/log-only when SMTP is not configured).
+  startReportScheduleJob();
+  // Builds requested tenant data exports and deletes expired ones.
+  startDataExportJob();
+  // Re-checks pending custom domains every 10 min; runs scheduled page publishes every minute.
+  startDomainCheckJob();
+  // Retries P1/P2 emails deferred by the daily Brevo budget once it resets at UTC midnight.
+  startEmailDeferredRetryJob();
+}
+
 const PORT = env.PORT || 3001;
 
 async function startServer() {
@@ -27,6 +56,7 @@ async function startServer() {
     // Test Database connection
     await prisma.$connect();
     logger.info('Database connected successfully');
+
 
     // Redis is not required for the app to serve requests (the in-app
     // notification write is synchronous), but email/SMS delivery, fee
@@ -44,29 +74,18 @@ async function startServer() {
       );
     }
 
-    // Workers are initialized on file import; log which queues they cover.
-    logger.info(`BullMQ workers registered: feeReminders, subscriptionBilling, notifications`);
-
     server.listen(PORT, () => {
       logger.info(`Server is running in ${env.NODE_ENV} mode on port ${PORT}`);
       logger.info(`Health check endpoint: ${env.APP_URL}/health`);
     });
 
-    // Keeps government holidays in step with the published Bangladesh
-    // holiday calendar (next year's list, moon-sighting date changes).
-    startHolidaySyncJob();
-    // Daily: mark past-due UNPAID/PARTIAL invoices OVERDUE (in-process, Redis-independent).
-    startFeeOverdueJob();
-    // Daily: mark past-due library loans OVERDUE (in-process, Redis-independent).
-    startLibraryOverdueJob();
-    // Every 5 min: email due scheduled reports (demo/log-only when SMTP is not configured).
-    startReportScheduleJob();
-    // Builds requested tenant data exports and deletes expired ones.
-    startDataExportJob();
-    // Re-checks pending custom domains every 10 min; runs scheduled page publishes every minute.
-    startDomainCheckJob();
-    // Retries P1/P2 emails deferred by the daily Brevo budget once it resets at UTC midnight.
-    startEmailDeferredRetryJob();
+    if (!env.BACKGROUND_JOBS) {
+      logger.warn('BACKGROUND_JOBS=false: schedulers and queue workers are not running (API only).');
+      return;
+    }
+
+    await startWorkers();
+    startSchedulers();
 
     // Registers the repeatable subscription-lifecycle-scan job (fixed jobId,
     // safe to call on every restart — BullMQ won't duplicate it). Fired
@@ -111,10 +130,8 @@ async function gracefulShutdown(signal: string) {
 
     try {
       // Shutdown BullMQ Workers
-      await feeReminderWorker.close();
-      await billingWorker.close();
-      await notificationWorker.close();
-      logger.info('BullMQ workers closed');
+      await Promise.all(workers.map((w) => w.close()));
+      if (workers.length) logger.info('BullMQ workers closed');
 
       // Close Redis connection
       await closeRedis();

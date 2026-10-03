@@ -16,13 +16,31 @@ export default defineConfig({
       includeAssets: ['favicon.svg'],
       manifest: pwaManifest,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Precache only the app shell and the pages that must work offline
+        // (attendance entry, QR kiosk). Every other page's code is cached the
+        // first time it is opened (runtime rule below), instead of the whole
+        // ~9 MB of chunks downloading in the background on first visit.
+        globPatterns: [
+          'index.html',
+          '*.{svg,png,ico,webmanifest}',
+          'assets/index-*.{js,css}',
+          'assets/vendor-*.js',
+          'assets/AttendanceEntry-*.js',
+          'assets/QrKioskPage-*.js',
+          'assets/*.woff2',
+        ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
+          {
+            // Hashed build chunks never change, so a cached copy is always right.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'app-chunks', expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+          },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
             handler: 'StaleWhileRevalidate',
