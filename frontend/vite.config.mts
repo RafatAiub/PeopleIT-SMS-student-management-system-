@@ -16,18 +16,19 @@ export default defineConfig({
       includeAssets: ['favicon.svg'],
       manifest: pwaManifest,
       workbox: {
-        // Precache only the app shell and the pages that must work offline
-        // (attendance entry, QR kiosk). Every other page's code is cached the
-        // first time it is opened (runtime rule below), instead of the whole
-        // ~9 MB of chunks downloading in the background on first visit.
+        // Precache only the app shell (entry + vendor chunks, CSS, icons).
+        // Per-page lazy chunks are cached on first visit via runtimeCaching
+        // below — precaching all ~300 of them made every first load download
+        // ~1.4 MB of pages the user may never open.
+        // Attendance entry and the QR kiosk must open offline even on a device
+        // that never visited them online, so their chunks are precached too.
         globPatterns: [
           'index.html',
-          '*.{svg,png,ico,webmanifest}',
           'assets/index-*.{js,css}',
           'assets/vendor-*.js',
+          '*.{svg,png,ico}',
           'assets/AttendanceEntry-*.js',
           'assets/QrKioskPage-*.js',
-          'assets/*.woff2',
         ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
@@ -36,10 +37,10 @@ export default defineConfig({
         runtimeCaching: [
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
           {
-            // Hashed build chunks never change, so a cached copy is always right.
+            // Hashed filenames never change content, so cache-first is safe.
             urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
             handler: 'CacheFirst',
-            options: { cacheName: 'app-chunks', expiration: { maxEntries: 250, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+            options: { cacheName: 'app-chunks', expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 } },
           },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
