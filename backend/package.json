@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
     "@prisma/client": "^5.14.0",
+    "@types/archiver": "^6.0.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -51,7 +52,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.0",
     "@faker-js/faker": "^10.5.0",
-    "@types/archiver": "^6.0.4",
     "@types/jest": "^29.5.12",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.39.5",
