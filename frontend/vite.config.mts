@@ -16,13 +16,23 @@ export default defineConfig({
       includeAssets: ['favicon.svg'],
       manifest: pwaManifest,
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Precache only the app shell (entry + vendor chunks, CSS, icons).
+        // Per-page lazy chunks are cached on first visit via runtimeCaching
+        // below — precaching all ~300 of them made every first load download
+        // ~1.4 MB of pages the user may never open.
+        globPatterns: ['index.html', 'assets/index-*.{js,css}', 'assets/vendor-*.js', '*.{svg,png,ico}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           { urlPattern: ({ url }) => url.pathname.startsWith('/api/'), handler: 'NetworkOnly' },
+          {
+            // Hashed filenames never change content, so cache-first is safe.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'app-chunks', expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+          },
           {
             urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
             handler: 'StaleWhileRevalidate',
