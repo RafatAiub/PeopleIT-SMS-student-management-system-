@@ -1,12 +1,12 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import type { GradeBand } from '../../utils/grading';
+import { getDefaultBands } from '../grading/grading.resolver';
 import type {
   CreateExamDtoType,
   ExamListQueryDtoType,
   TimetableEntryDtoType,
   TimetableQueryDtoType,
-  SaveGradesDtoType,
 } from './exams.dto';
 
 const classSummarySelect = {
@@ -200,29 +200,14 @@ export async function syncExamDatesFromTimetable(examId: string) {
   });
 }
 
-// ── Exam Grades ──────────────────────────────────────────────────────────
+// ── Grade bands ──────────────────────────────────────────────────────────
 
-export async function findGrades(institutionId: string) {
-  return prisma.examGrade.findMany({
-    where: { institutionId },
-    orderBy: { minPercent: 'asc' },
-  });
-}
-
-export async function replaceGrades(institutionId: string, grades: SaveGradesDtoType['grades'][number][]) {
-  return prisma.$transaction([
-    prisma.examGrade.deleteMany({ where: { institutionId } }),
-    prisma.examGrade.createMany({ data: grades.map((g) => ({ ...g, institutionId })) }),
-  ]);
-}
-
+// Grades come from the institution's default grading scale (Exam > Exam
+// Grade, managed by the grading module); none configured → [] and
+// computeGrade falls back to the built-in bands.
 export async function loadGradeBands(institutionId: string): Promise<GradeBand[]> {
-  const rows = await findGrades(institutionId);
-  return rows.map((r) => ({
-    minPercent: Number(r.minPercent),
-    maxPercent: Number(r.maxPercent),
-    grade: r.grade,
-  }));
+  const bands = await getDefaultBands(institutionId);
+  return (bands ?? []).map((b) => ({ minPercent: b.minPercent, maxPercent: b.maxPercent, grade: b.grade }));
 }
 
 // ── Exam Result (class summary) ──────────────────────────────────────────

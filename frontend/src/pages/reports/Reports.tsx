@@ -1,152 +1,163 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { BarChart, TrendingUp, Users, DollarSign, Activity, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
-import apiClient from '../../api/client';
-import { Button } from '../../components/ui/Button';
+import React, { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Users, TrendingUp, DollarSign, Activity } from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
+import apiClient from '@/api/client';
+import { PageHeader, StatCard, SkeletonStatGrid, Skeleton, ErrorState, IncompleteNotice } from '@/components/ui';
+import { DataTable, Column } from '@/components/DataTable/DataTable';
+import { chartColors, chartAxis, chartGrid, chartTooltipStyle } from '@/lib/chartTheme';
+import { useT, formatCurrency, formatNumber, formatDate } from '@/i18n';
 
-const Reports = () => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+interface DashboardStats {
+  totalStudents: number;
+  totalTeachers: number;
+  totalRevenue: number;
+  attendanceRate: number;
+  attendanceTrend: number[];
+  feeTrend: number[];
+}
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    try {
+interface TrendRow {
+  id: string;
+  date: string;
+  attendancePercent: number;
+  feesCollected: number;
+}
+
+const REPORTS_DASHBOARD_KEY = 'reports-dashboard';
+
+export default function Reports() {
+  const t = useT();
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: [REPORTS_DASHBOARD_KEY],
+    queryFn: async (): Promise<DashboardStats> => {
       const res = await apiClient.get('/reports/dashboard');
-      setData(res.data.data);
-      setError(false);
-    } catch (err: any) {
-      console.error('Failed to fetch reports', err);
-      setError(true);
-      toast.error(err.response?.data?.message || 'Failed to load reports');
-    } finally {
-      setLoading(false);
+      return res.data.data;
+    },
+  });
+
+  // The trend arrays are the last 7 days ending today, in order (see
+  // reports.repository.ts `getDashboardStats`) — derive real calendar-day
+  // labels for each index rather than inventing any data.
+  const trendRows: TrendRow[] = useMemo(() => {
+    const attendanceTrend = data?.attendanceTrend ?? [];
+    const feeTrend = data?.feeTrend ?? [];
+    const len = Math.max(attendanceTrend.length, feeTrend.length);
+    const rows: TrendRow[] = [];
+    for (let i = 0; i < len; i++) {
+      const offsetFromToday = len - 1 - i;
+      const day = new Date();
+      day.setDate(day.getDate() - offsetFromToday);
+      rows.push({
+        id: String(i),
+        date: day.toISOString().slice(0, 10),
+        attendancePercent: attendanceTrend[i] ?? 0,
+        feesCollected: feeTrend[i] ?? 0,
+      });
     }
-  }, []);
-
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
-
-  // Fee amounts aren't already 0-100 like attendance %, so normalize each
-  // day against the week's max for the bar-height visualization.
-  const feeTrendPercents = useMemo(() => {
-    const trend: number[] = data?.feeTrend ?? [];
-    const max = Math.max(...trend, 1);
-    return trend.map((v) => Math.round((v / max) * 100));
+    return rows;
   }, [data]);
 
-  if (loading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading reports...</div>;
-  }
+  const chartData = useMemo(
+    () => trendRows.map((r) => ({ ...r, label: formatDate(r.date) })),
+    [trendRows]
+  );
 
-  if (error) {
+  const colors = chartColors();
+
+  const trendColumns: Column<TrendRow>[] = [
+    { key: 'date', header: 'Date', accessor: 'date', render: (r) => formatDate(r.date) },
+    {
+      key: 'attendancePercent',
+      header: 'Attendance %',
+      align: 'right',
+      exportValue: (r) => r.attendancePercent,
+      render: (r) => `${formatNumber(r.attendancePercent)}%`,
+    },
+    {
+      key: 'feesCollected',
+      header: 'Fees Collected',
+      align: 'right',
+      exportValue: (r) => r.feesCollected,
+      render: (r) => formatCurrency(r.feesCollected),
+    },
+  ];
+
+  if (isError) {
     return (
-      <div className="glass-card p-10 rounded-2xl border border-rose-200 dark:border-rose-500/10 bg-rose-50/50 dark:bg-rose-500/5 text-center flex flex-col items-center justify-center space-y-3 max-w-lg mx-auto">
-        <AlertCircle className="w-10 h-10 text-rose-500" />
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Couldn't load reports</h3>
-        <p className="text-slate-600 dark:text-slate-400 text-sm">Something went wrong while fetching the analytics data.</p>
-        <Button variant="gradient" onClick={fetchReports} className="px-4 py-2 text-sm">
-          Retry
-        </Button>
+      <div className="space-y-6">
+        <PageHeader title={t('Reports & Analytics')} description={t('Overview of attendance, fees, and performance trends.')} />
+        <ErrorState message={t('Something went wrong while fetching the analytics data.')} onRetry={() => refetch()} />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">System Reports & Analytics</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Overview of attendance, fees, and performance trends.</p>
-      </div>
+      <PageHeader title={t('Reports & Analytics')} description={t('Overview of attendance, fees, and performance trends.')} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Students</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.totalStudents || 0}</h3>
-            </div>
-          </div>
+      {isLoading ? (
+        <SkeletonStatGrid count={4} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard label={t('Total Students')} value={formatNumber(data?.totalStudents ?? 0)} icon={<Users />} tone="primary" />
+          <StatCard label={t('Average Attendance')} value={`${formatNumber(data?.attendanceRate ?? 0)}%`} icon={<TrendingUp />} tone="success" />
+          <StatCard label={t('Total Revenue')} value={formatCurrency(data?.totalRevenue ?? 0)} icon={<DollarSign />} tone="accent" />
+          <StatCard label={t('Active Teaching Staff')} value={formatNumber(data?.totalTeachers ?? 0)} icon={<Activity />} tone="info" />
         </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Average Attendance</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.attendanceRate || 0}%</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-50 dark:bg-violet-500/20 flex items-center justify-center text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-transparent">
-              <DollarSign className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Total Revenue</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">${data?.totalRevenue || 0}</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-transparent">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Active Staff</p>
-              <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{data?.totalTeachers || 0}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-            Fee Collections
-          </h3>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {feeTrendPercents.map((val, i) => (
-              <div key={i} className="w-full bg-primary-100 dark:bg-primary-500/20 rounded-t-sm relative group h-full" title={`৳${(data?.feeTrend?.[i] ?? 0).toLocaleString()}`}>
-                <div
-                  className="absolute bottom-0 w-full bg-primary-500/50 dark:bg-primary-500/50 rounded-t-sm transition-all"
-                  style={{ height: `${val}%` }}
-                ></div>
-              </div>
-            ))}
-          </div>
+        <div className="glass-card p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">{t('Fee Collections (last 7 days)')}</h3>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={chartData}>
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="label" {...chartAxis} />
+                <YAxis {...chartAxis} />
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                <Bar dataKey="feesCollected" name={t('Fees Collected')} fill={colors[0]} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
-        
-        <div className="glass-card p-6 rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-            <BarChart className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-            Attendance Trends
-          </h3>
-          <div className="h-64 flex items-end justify-between gap-2">
-            {(data?.attendanceTrend ?? []).map((val: number, i: number) => (
-              <div key={i} className="w-full bg-emerald-100 dark:bg-emerald-500/20 rounded-t-sm relative group h-full" title={`${val}%`}>
-                <div
-                  className="absolute bottom-0 w-full bg-emerald-500/50 dark:bg-emerald-500/50 rounded-t-sm transition-all"
-                  style={{ height: `${val}%` }}
-                ></div>
-              </div>
-            ))}
-          </div>
+
+        <div className="glass-card p-4 sm:p-6">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-4">{t('Attendance Trend (last 7 days)')}</h3>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={chartData}>
+                <CartesianGrid {...chartGrid} />
+                <XAxis dataKey="label" {...chartAxis} />
+                <YAxis {...chartAxis} domain={[0, 100]} />
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => `${v}%`} />
+                <Line type="monotone" dataKey="attendancePercent" name={t('Attendance %')} stroke={colors[3]} strokeWidth={2} dot={{ r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
+
+      <div className="glass-card p-4 sm:p-6 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{t('Daily Breakdown')}</h3>
+        <DataTable
+          data={trendRows}
+          columns={trendColumns}
+          isLoading={isLoading || isFetching}
+          exportFileName="reports-daily-breakdown"
+          emptyTitle={t('No data yet')}
+          emptyDescription={t('Attendance and fee records will appear here once recorded.')}
+        />
+      </div>
+
+      <IncompleteNotice reason={t('Branch, class, section and date-range filters need report endpoint parameters (planned).')} />
     </div>
   );
-};
-
-export default Reports;
+}

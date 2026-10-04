@@ -1,31 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  MinusCircle,
   Search,
-  Zap,
-  LayoutGrid,
   List,
   CalendarDays,
   Printer,
   Download,
   Save,
   Keyboard,
-  Sparkles,
   ChevronRight,
   ChevronLeft,
-  Calendar as CalendarIcon,
-  RotateCcw,
-  CheckCheck,
   Lock,
   Smartphone,
-  Check,
-  X
+  CheckCheck,
+  Eraser,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Table, TableHead, TableHeaderCell, TableRow, TableCell } from '../../components/ui/Table';
+import { Kbd, Alert } from '../../components/ui';
+import { AttendanceStudentRow } from './AttendanceStudentRow';
+import { AttendanceDailyTable } from './AttendanceDailyTable';
+import { AttendanceWeeklyMatrix, type WeekDayInfo } from './AttendanceWeeklyMatrix';
+import { STATUS_BY_KEY } from './attendanceStatus';
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY';
 
@@ -39,15 +33,6 @@ export interface StudentRecord {
   notes?: string | null;
   recentHistory?: ('PRESENT' | 'ABSENT' | 'LATE')[];
   attendanceMap?: Record<string, { status: AttendanceStatus; notes?: string | null }>;
-}
-
-interface WeekDayInfo {
-  dateStr: string;
-  dayName: string;
-  dayNum: number;
-  fullDate: Date;
-  isHoliday: boolean;
-  holidayName: string;
 }
 
 interface AttendanceRegisterSheetProps {
@@ -67,12 +52,25 @@ interface AttendanceRegisterSheetProps {
   onSave: () => Promise<void>;
   loading: boolean;
   isTeacher?: boolean;
+  isDirty?: boolean;
+  saveError?: string | null;
 }
 
-const CYCLE_STATUS_MAP: Record<string, AttendanceStatus | undefined> = {
-  undefined: 'PRESENT',
-  PRESENT: 'ABSENT',
-  ABSENT: 'PRESENT',
+// 4-state cycle used by the weekly matrix's click-to-cycle cells:
+// unmarked → Present → Absent → Late → Half day → Present …
+const CYCLE_STATUS_ORDER: AttendanceStatus[] = ['PRESENT', 'ABSENT', 'LATE', 'HALF_DAY'];
+
+function nextCycleStatus(current?: AttendanceStatus): AttendanceStatus {
+  if (!current) return 'PRESENT';
+  const idx = CYCLE_STATUS_ORDER.indexOf(current);
+  return CYCLE_STATUS_ORDER[(idx + 1) % CYCLE_STATUS_ORDER.length];
+}
+
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+const isTypingTarget = (el: EventTarget | null) => {
+  const tag = (el as HTMLElement)?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 };
 
 export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = ({
@@ -91,7 +89,9 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
   onResetAttendance,
   onSave,
   loading,
-  isTeacher
+  isTeacher,
+  isDirty,
+  saveError,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | AttendanceStatus | 'UNMARKED'>('ALL');
@@ -100,7 +100,10 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [gridFocus, setGridFocus] = useState<{ studentIndex: number; dayIndex: number } | null>(null);
-  const [activeNoteCell, setActiveNoteCell] = useState<{ studentId: string; dateStr: string } | null>(null);
+
+  const tableBodyRef = useRef<HTMLTableSectionElement>(null);
+  const weeklyBodyRef = useRef<HTMLTableSectionElement>(null);
+  const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // Auto-detect view mode preference based on window width on initial mount
   useEffect(() => {
@@ -138,20 +141,9 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         dateStr.endsWith('-05-01');
 
       const isHoliday = isWeekend || isNationalHoliday;
-      const holidayName = isNationalHoliday
-        ? 'National Holiday'
-        : isWeekend
-        ? 'Government Weekend'
-        : '';
+      const holidayName = isNationalHoliday ? 'National Holiday' : isWeekend ? 'Government Weekend' : '';
 
-      weekDays.push({
-        dateStr,
-        dayName,
-        dayNum,
-        fullDate: d,
-        isHoliday,
-        holidayName
-      });
+      weekDays.push({ dateStr, dayName, dayNum, fullDate: d, isHoliday, holidayName });
     }
     return weekDays;
   };
@@ -163,7 +155,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
   const isSelectedDateHoliday = selectedDayInfo?.isHoliday ?? false;
   const selectedDateHolidayName = selectedDayInfo?.holidayName || 'Holiday';
 
-  // Stats computation
+  // Live counts
   const totalStudents = students.length;
   let presentCount = 0;
   let absentCount = 0;
@@ -177,79 +169,67 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
     else if (st === 'ABSENT') absentCount++;
     else if (st === 'LATE') lateCount++;
     else if (st === 'HALF_DAY') halfDayCount++;
-
     if (st) markedCount++;
   });
 
   const unmarkedCount = Math.max(0, totalStudents - markedCount);
-  const completionPercentage = totalStudents > 0 ? Math.round((markedCount / totalStudents) * 100) : 0;
-  const presentPercentage = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
 
   // Filtered list
-  const filteredStudents = students.filter((s) => {
-    const fullName = `${s.firstName} ${s.lastName}`.toLowerCase();
-    const roll = String(s.rollNumber || '').toLowerCase();
-    const sId = String(s.studentId || '').toLowerCase();
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      roll.includes(searchTerm.toLowerCase()) ||
-      sId.includes(searchTerm.toLowerCase());
+  const filteredStudents = useMemo(
+    () =>
+      students.filter((s) => {
+        const fullName = `${s.firstName} ${s.lastName}`.toLowerCase();
+        const roll = String(s.rollNumber || '').toLowerCase();
+        const sId = String(s.studentId || '').toLowerCase();
+        const matchesSearch =
+          fullName.includes(searchTerm.toLowerCase()) || roll.includes(searchTerm.toLowerCase()) || sId.includes(searchTerm.toLowerCase());
 
-    const currentStatus = attendance[s.id];
-    let matchesFilter = true;
-    if (statusFilter === 'UNMARKED') {
-      matchesFilter = !currentStatus;
-    } else if (statusFilter !== 'ALL') {
-      matchesFilter = currentStatus === statusFilter;
-    }
+        const currentStatus = attendance[s.id];
+        let matchesFilter = true;
+        if (statusFilter === 'UNMARKED') matchesFilter = !currentStatus;
+        else if (statusFilter !== 'ALL') matchesFilter = currentStatus === statusFilter;
 
-    return matchesSearch && matchesFilter;
-  });
+        return matchesSearch && matchesFilter;
+      }),
+    [students, searchTerm, statusFilter, attendance]
+  );
+
+  // Keep focus indices in range whenever the filtered list changes.
+  useEffect(() => {
+    setActiveRowIndex((i) => Math.min(i, Math.max(0, filteredStudents.length - 1)));
+    setGridFocus((g) => (g ? { ...g, studentIndex: Math.min(g.studentIndex, Math.max(0, filteredStudents.length - 1)) } : g));
+  }, [filteredStudents.length]);
 
   // Date Navigation
   const changeWeekByDays = (days: number) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
     const nextDateStr = d.toISOString().split('T')[0];
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (nextDateStr > todayStr) {
-      setSelectedDate(todayStr);
-    } else {
-      setSelectedDate(nextDateStr);
-    }
+    setSelectedDate(nextDateStr > todayStr() ? todayStr() : nextDateStr);
   };
 
-  const isToday = selectedDate === new Date().toISOString().split('T')[0];
+  const isToday = selectedDate === todayStr();
 
-  // Fast 1-Click Status Cycle
+  // Fast 1-Click Status Cycle (weekly matrix cell click)
   const handleCellCycleStatus = (studentId: string, dateStr: string, currentStatus?: AttendanceStatus) => {
-    const nextStatus = CYCLE_STATUS_MAP[String(currentStatus)];
-    if (nextStatus) {
-      onWeeklyStatusChange(studentId, dateStr, nextStatus);
-      if (dateStr === selectedDate) onStatusChange(studentId, nextStatus);
-    } else {
-      onWeeklyStatusChange(studentId, dateStr, 'PRESENT');
-      if (dateStr === selectedDate) onStatusChange(studentId, 'PRESENT');
-    }
+    const nextStatus = nextCycleStatus(currentStatus);
+    onWeeklyStatusChange(studentId, dateStr, nextStatus);
+    if (dateStr === selectedDate) onStatusChange(studentId, nextStatus);
   };
 
   // Bulk Mark Day Present
   const handleBulkMarkDayPresent = (dateStr: string) => {
     filteredStudents.forEach((student) => {
       onWeeklyStatusChange(student.id, dateStr, 'PRESENT');
-      if (dateStr === selectedDate) {
-        onStatusChange(student.id, 'PRESENT');
-      }
+      if (dateStr === selectedDate) onStatusChange(student.id, 'PRESENT');
     });
-    toast.success(`Marked all students Present for ${dateStr}! ⚡`);
+    toast.success(`Marked all students Present for ${dateStr}!`);
   };
 
   // Export to CSV
-  const exportToCSV = () => {
+  const exportToCSV = async () => {
     if (students.length === 0) return;
-    const csvRows = [
-      ['Roll No', 'Student ID', 'Student Name', 'Class', 'Section', 'Date', 'Status', 'Notes']
-    ];
+    const csvRows = [['Roll No', 'Student ID', 'Student Name', 'Class', 'Section', 'Date', 'Status', 'Notes']];
 
     students.forEach((s) => {
       csvRows.push([
@@ -260,7 +240,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         sectionName,
         selectedDate,
         attendance[s.id] || 'UNMARKED',
-        `"${notes[s.id] || ''}"`
+        `"${notes[s.id] || ''}"`,
       ]);
     });
 
@@ -275,13 +255,128 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
     toast.success('Attendance CSV exported successfully!');
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // ↑/↓ move between students, ←/→ move between status options (or columns
+  // in the weekly view), P/A/L/H set status & advance, Space toggles
+  // present/absent, Ctrl+S saves. Only active for the desktop grid views
+  // (table/weekly) — the "cards" view is the touch-first mobile layout.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrlSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's';
+      if (ctrlSave) {
+        e.preventDefault();
+        if (!loading) onSave();
+        return;
+      }
+
+      if (isTypingTarget(e.target) || isSelectedDateHoliday) return;
+      if (viewMode !== 'table' && viewMode !== 'weekly') return;
+      if (filteredStudents.length === 0) return;
+
+      const key = e.key;
+      const upperKey = key.length === 1 ? key.toUpperCase() : key;
+
+      if (viewMode === 'table') {
+        if (key === 'ArrowDown') {
+          e.preventDefault();
+          setActiveRowIndex((i) => Math.min(i + 1, filteredStudents.length - 1));
+        } else if (key === 'ArrowUp') {
+          e.preventDefault();
+          setActiveRowIndex((i) => Math.max(i - 1, 0));
+        } else if (key === ' ') {
+          e.preventDefault();
+          const student = filteredStudents[activeRowIndex];
+          if (student) {
+            const cur = attendance[student.id];
+            onStatusChange(student.id, cur === 'PRESENT' ? 'ABSENT' : 'PRESENT');
+          }
+        } else if (STATUS_BY_KEY[upperKey]) {
+          e.preventDefault();
+          const student = filteredStudents[activeRowIndex];
+          if (student) {
+            onStatusChange(student.id, STATUS_BY_KEY[upperKey]);
+            setActiveRowIndex((i) => Math.min(i + 1, filteredStudents.length - 1));
+          }
+        }
+      } else if (viewMode === 'weekly') {
+        const focus = gridFocus ?? { studentIndex: activeRowIndex, dayIndex: weekDays.findIndex((d) => d.dateStr === selectedDate) };
+        if (key === 'ArrowDown') {
+          e.preventDefault();
+          setGridFocus({ ...focus, studentIndex: Math.min(focus.studentIndex + 1, filteredStudents.length - 1) });
+        } else if (key === 'ArrowUp') {
+          e.preventDefault();
+          setGridFocus({ ...focus, studentIndex: Math.max(focus.studentIndex - 1, 0) });
+        } else if (key === 'ArrowRight') {
+          e.preventDefault();
+          setGridFocus({ ...focus, dayIndex: Math.min(focus.dayIndex + 1, 6) });
+        } else if (key === 'ArrowLeft') {
+          e.preventDefault();
+          setGridFocus({ ...focus, dayIndex: Math.max(focus.dayIndex - 1, 0) });
+        } else if (key === ' ' || STATUS_BY_KEY[upperKey]) {
+          const day = weekDays[focus.dayIndex];
+          const student = filteredStudents[focus.studentIndex];
+          if (day && student && !day.isHoliday && day.dateStr <= todayStr()) {
+            e.preventDefault();
+            const studentWeeklyMap = weeklyAttendance[student.id] || {};
+            const currentStatus =
+              studentWeeklyMap[day.dateStr]?.status ?? (day.dateStr === selectedDate ? attendance[student.id] : undefined);
+            const nextStatus = key === ' ' ? (currentStatus === 'PRESENT' ? 'ABSENT' : 'PRESENT') : STATUS_BY_KEY[upperKey];
+            onWeeklyStatusChange(student.id, day.dateStr, nextStatus);
+            if (day.dateStr === selectedDate) onStatusChange(student.id, nextStatus);
+            if (key !== ' ') {
+              setGridFocus({ ...focus, studentIndex: Math.min(focus.studentIndex + 1, filteredStudents.length - 1) });
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [
+    viewMode,
+    filteredStudents,
+    activeRowIndex,
+    gridFocus,
+    weekDays,
+    selectedDate,
+    attendance,
+    weeklyAttendance,
+    loading,
+    onSave,
+    onStatusChange,
+    onWeeklyStatusChange,
+    isSelectedDateHoliday,
+  ]);
+
+  // Keep the focused row/cell scrolled into view and DOM-focused so keyboard
+  // navigation is visible and screen-reader-announced.
+  useEffect(() => {
+    if (viewMode === 'table') {
+      const row = tableBodyRef.current?.querySelector<HTMLElement>(`[data-row-index="${activeRowIndex}"]`);
+      row?.focus({ preventScroll: true });
+      row?.scrollIntoView({ block: 'nearest' });
+    } else if (viewMode === 'cards') {
+      const card = cardRefs.current[activeRowIndex];
+      card?.focus({ preventScroll: true });
+      card?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeRowIndex, viewMode]);
+
+  useEffect(() => {
+    if (viewMode !== 'weekly' || !gridFocus) return;
+    const cell = weeklyBodyRef.current?.querySelector<HTMLElement>(
+      `[data-row-index="${gridFocus.studentIndex}"][data-day-index="${gridFocus.dayIndex}"]`
+    );
+    cell?.focus({ preventScroll: true });
+    cell?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [gridFocus, viewMode]);
 
   return (
     <div className="space-y-4 pb-20 md:pb-6">
-      {/* ── 📱 MOBILE HORIZONTAL DAY CAROUSEL (SINGLE-THUMB DATE TAP) ───────────── */}
+      {/* ── MOBILE HORIZONTAL DAY CAROUSEL (SINGLE-THUMB DATE TAP) ───────────── */}
       <div className="block md:hidden no-print">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2 px-1 flex items-center justify-between">
           <span>Tap day to view/take attendance:</span>
@@ -312,16 +407,14 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         </div>
       </div>
 
-      {/* ── 1. DESKTOP DATE & WEEK CONTROLS BAR ───────────────────────────── */}
+      {/* ── DESKTOP DATE & WEEK CONTROLS BAR ───────────────────────────── */}
       <div className="hidden md:flex glass-card p-4 rounded-2xl items-center justify-between gap-4 border border-slate-200/60 dark:border-white/10 no-print shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400">
             <CalendarDays className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] font-bold text-primary-600 dark:text-primary-400 tracking-wider uppercase">
-              ATTENDANCE REGISTER
-            </div>
+            <div className="text-[10px] font-bold text-primary-600 dark:text-primary-400 tracking-wider uppercase">ATTENDANCE REGISTER</div>
             <div className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
               {weekStartDateStr && weekEndDateStr ? (
                 <>
@@ -340,13 +433,8 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           </div>
         </div>
 
-        {/* Week Jump Controls */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => changeWeekByDays(-7)}
-            title="Previous Week"
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
+          <button onClick={() => changeWeekByDays(-7)} title="Previous Week" className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
             <ChevronLeft className="w-4 h-4" />
           </button>
 
@@ -354,94 +442,99 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
             type="date"
             value={selectedDate}
             onChange={(e) => {
-              const todayStr = new Date().toISOString().split('T')[0];
-              if (e.target.value > todayStr) {
-                toast.error("Cannot select a future date!");
-              } else {
-                setSelectedDate(e.target.value);
-              }
+              if (e.target.value > todayStr()) toast.error('Cannot select a future date!');
+              else setSelectedDate(e.target.value);
             }}
-            max={new Date().toISOString().split('T')[0]}
+            max={todayStr()}
+            aria-label="Selected date"
             className="input-field py-1.5 px-3 text-xs font-semibold max-w-[140px]"
           />
 
-          <button
-            onClick={() => changeWeekByDays(7)}
-            title="Next Week"
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-          >
+          <button onClick={() => changeWeekByDays(7)} title="Next Week" className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
             <ChevronRight className="w-4 h-4" />
           </button>
 
           {!isToday && (
-            <button
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className="text-xs font-bold px-3 py-2 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-all"
-            >
+            <button onClick={() => setSelectedDate(todayStr())} className="text-xs font-bold px-3 py-2 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-500/20 transition-all">
               This Week
             </button>
           )}
         </div>
 
-        {/* Action Tools */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={exportToCSV}
-            disabled={students.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-bold transition-all disabled:opacity-50"
-          >
+          <button onClick={exportToCSV} disabled={students.length === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-bold transition-all disabled:opacity-50">
             <Download className="w-3.5 h-3.5" />
             CSV
           </button>
-          <button
-            onClick={handlePrint}
-            disabled={students.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-bold transition-all disabled:opacity-50"
-          >
+          <button onClick={handlePrint} disabled={students.length === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-xs font-bold transition-all disabled:opacity-50">
             <Printer className="w-3.5 h-3.5" />
             Print
           </button>
         </div>
       </div>
 
-      {/* ── 2. TOOLBAR (SEARCH & RESPONSIVE VIEW SWITCHER) ─────────────────── */}
+      {/* ── TOOLBAR (SEARCH & RESPONSIVE VIEW SWITCHER) ─────────────────── */}
       <div className="glass-card p-3 md:p-4 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 border border-slate-200/60 dark:border-white/5 no-print">
-        {/* Search & Filter */}
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex-1">
+        <div className="flex items-center gap-2 flex-1 flex-wrap">
+          <div className="relative flex-1 min-w-[140px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search student profile..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search students"
               className="input-field pl-9 py-2 text-xs w-full"
             />
           </div>
 
-          {/* Quick Mark All Present button */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            aria-label="Filter by status"
+            className="input-field py-2 text-xs font-semibold w-auto"
+          >
+            <option value="ALL">All statuses</option>
+            <option value="UNMARKED">Unmarked</option>
+            <option value="PRESENT">Present</option>
+            <option value="ABSENT">Absent</option>
+            <option value="LATE">Late</option>
+            <option value="HALF_DAY">Half day</option>
+          </select>
+
           <button
             type="button"
-            disabled={isSelectedDateHoliday || selectedDate > new Date().toISOString().split('T')[0]}
+            disabled={isSelectedDateHoliday || selectedDate > todayStr()}
             onClick={() => {
               onBatchSetStatus('PRESENT', 'ALL');
-              toast.success('Marked all students Present! ⚡');
+              toast.success('Marked all students Present!');
             }}
             className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed disabled:hover:bg-slate-300 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition-all whitespace-nowrap"
           >
             <CheckCheck className="w-4 h-4" />
             <span className="hidden sm:inline">Mark All Present</span>
           </button>
+
+          <button
+            type="button"
+            disabled={isSelectedDateHoliday || selectedDate > todayStr()}
+            onClick={() => {
+              onResetAttendance();
+              toast.success('Cleared unsaved marks for this date.');
+            }}
+            title="Unmark all students for this date (does not affect already-saved records until you Save)"
+            className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-700 dark:text-slate-300 text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition-all whitespace-nowrap"
+          >
+            <Eraser className="w-4 h-4" />
+            <span className="hidden sm:inline">Clear</span>
+          </button>
         </div>
 
-        {/* 📱 Mobile Responsive View Switcher (Cards | Weekly | Table) */}
         <div className="flex items-center justify-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-white/5">
           <button
             onClick={() => setViewMode('cards')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              viewMode === 'cards'
-                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400'
+              viewMode === 'cards' ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs' : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Mobile Touch Cards View"
           >
@@ -451,9 +544,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           <button
             onClick={() => setViewMode('weekly')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              viewMode === 'weekly'
-                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400'
+              viewMode === 'weekly' ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs' : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Weekly Calendar Matrix View"
           >
@@ -463,9 +554,7 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           <button
             onClick={() => setViewMode('table')}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              viewMode === 'table'
-                ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400'
+              viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-primary-600 dark:text-primary-400 shadow-xs' : 'text-slate-500 dark:text-slate-400'
             }`}
             title="Daily Register Table View"
           >
@@ -475,7 +564,38 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
         </div>
       </div>
 
-      {/* ── 3. MAIN ATTENDANCE VIEW CONTENT ─────────────────────────────── */}
+      {/* ── KEYBOARD SHORTCUTS HINT ──────────────────────────────────────── */}
+      {(viewMode === 'table' || viewMode === 'weekly') && (
+        <div className="hidden md:flex items-center justify-between gap-3 px-1 no-print">
+          <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+            <Keyboard className="w-3.5 h-3.5" aria-hidden />
+            <span className="flex items-center gap-1"><Kbd>↑</Kbd><Kbd>↓</Kbd> Row</span>
+            <span className="flex items-center gap-1"><Kbd>←</Kbd><Kbd>→</Kbd> {viewMode === 'weekly' ? 'Day' : 'Option'}</span>
+            <span className="flex items-center gap-1"><Kbd>P</Kbd><Kbd>A</Kbd><Kbd>L</Kbd><Kbd>H</Kbd> Set + next</span>
+            <span className="flex items-center gap-1"><Kbd>Space</Kbd> Toggle P/A</span>
+            <span className="flex items-center gap-1"><Kbd>Ctrl</Kbd>+<Kbd>S</Kbd> Save</span>
+          </div>
+          <button type="button" onClick={() => setShowKeyboardHelp((v) => !v)} className="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline shrink-0">
+            {showKeyboardHelp ? 'Hide details' : 'More'}
+          </button>
+        </div>
+      )}
+      {showKeyboardHelp && (
+        <Alert tone="info" title="Keyboard shortcuts">
+          <ul className="list-disc list-inside space-y-0.5">
+            <li>Arrow Up / Down — move between students</li>
+            <li>Arrow Left / Right — move between status options (or day columns in the weekly view)</li>
+            <li>P, A, L, H — mark Present, Absent, Late or Half day for the focused row, then advance</li>
+            <li>Space — toggle Present/Absent for the focused row</li>
+            <li>Ctrl+S — save the register</li>
+          </ul>
+        </Alert>
+      )}
+
+      {saveError && <Alert tone="danger" title="Failed to save attendance">{saveError}</Alert>}
+      {isDirty && !loading && <Alert tone="warning" title="Unsaved changes" className="no-print">You have unmarked changes — remember to save before leaving this page.</Alert>}
+
+      {/* ── MAIN ATTENDANCE VIEW CONTENT ─────────────────────────────── */}
       {loading ? (
         <div className="glass-card p-12 rounded-2xl border border-slate-200/60 dark:border-white/5 text-center flex flex-col items-center justify-center space-y-3">
           <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
@@ -486,7 +606,6 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           No students found matching current search.
         </div>
       ) : isSelectedDateHoliday && viewMode !== 'weekly' ? (
-        /* ── HOLIDAY LOCK — attendance entry disabled for this date ────── */
         <div className="glass-card p-10 rounded-2xl border border-purple-200 dark:border-purple-500/20 bg-purple-50/50 dark:bg-purple-950/20 text-center flex flex-col items-center justify-center space-y-3">
           <Lock className="w-10 h-10 text-purple-500" />
           <h3 className="text-base font-bold text-slate-900 dark:text-white">{selectedDateHolidayName}</h3>
@@ -495,283 +614,69 @@ export const AttendanceRegisterSheet: React.FC<AttendanceRegisterSheetProps> = (
           </p>
         </div>
       ) : viewMode === 'cards' ? (
-        /* ══════════════════════════════════════════════════════════════════ */
-        /* ── A. 📱 MOBILE-FIRST TOUCH CARDS VIEW (44PX+ THUMB TARGETS) ──── */
-        /* ══════════════════════════════════════════════════════════════════ */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 no-print">
-          {filteredStudents.map((student) => {
-            const currentStatus = attendance[student.id];
-            const currentNote = notes[student.id] || '';
-
-            return (
-              <div
-                key={student.id}
-                className={`glass-card p-4 rounded-2xl border transition-all relative flex flex-col justify-between space-y-3 ${
-                  currentStatus === 'PRESENT'
-                    ? 'border-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-500/5 ring-1 ring-emerald-500/20'
-                    : currentStatus === 'ABSENT'
-                    ? 'border-rose-500/50 bg-rose-50/20 dark:bg-rose-500/5 ring-1 ring-rose-500/20'
-                    : 'border-slate-200/60 dark:border-white/5'
-                }`}
-              >
-                {/* Student Info Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-500 to-purple-600 text-white font-black text-sm flex items-center justify-center shadow-md">
-                      {student.firstName[0]}
-                      {student.lastName[0]}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                        {student.firstName} {student.lastName}
-                      </h4>
-                      <div className="text-[11px] text-slate-400 font-mono">Roll: #{student.rollNumber || 'N/A'} • ID: {student.studentId}</div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      currentStatus === 'PRESENT'
-                        ? 'bg-emerald-500 text-white'
-                        : currentStatus === 'ABSENT'
-                        ? 'bg-rose-500 text-white'
-                        : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    {currentStatus || 'UNMARKED'}
-                  </span>
-                </div>
-
-                {/* ⚡ 44px+ Touch Buttons for Present and Absent */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => onStatusChange(student.id, 'PRESENT')}
-                    className={`h-11 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-                      currentStatus === 'PRESENT'
-                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30 scale-[1.02]'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-emerald-100 active:scale-95'
-                    }`}
-                  >
-                    <Check className="w-4 h-4 stroke-[3]" />
-                    <span>Present</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => onStatusChange(student.id, 'ABSENT')}
-                    className={`h-11 rounded-2xl text-xs font-extrabold transition-all flex items-center justify-center gap-2 ${
-                      currentStatus === 'ABSENT'
-                        ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30 scale-[1.02]'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-100 active:scale-95'
-                    }`}
-                  >
-                    <X className="w-4 h-4 stroke-[3]" />
-                    <span>Absent</span>
-                  </button>
-                </div>
-
-                {/* Touch Input Remark */}
-                <input
-                  type="text"
-                  placeholder="Remark / Note..."
-                  value={currentNote}
-                  onChange={(e) => onNoteChange(student.id, e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400"
-                />
-              </div>
-            );
-          })}
+        <div
+          role="grid"
+          aria-label={`Attendance for ${className} section ${sectionName} on ${selectedDate}`}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 no-print"
+        >
+          {filteredStudents.map((student, idx) => (
+            <AttendanceStudentRow
+              key={student.id}
+              student={student}
+              status={attendance[student.id]}
+              note={notes[student.id] || ''}
+              isActive={idx === activeRowIndex}
+              onFocusRow={() => setActiveRowIndex(idx)}
+              onStatusChange={(status) => onStatusChange(student.id, status)}
+              onNoteChange={(note) => onNoteChange(student.id, note)}
+              rowRef={(el) => {
+                cardRefs.current[idx] = el;
+              }}
+            />
+          ))}
         </div>
       ) : viewMode === 'weekly' ? (
-        /* ══════════════════════════════════════════════════════════════════ */
-        /* ── B. WEEKLY CALENDAR MATRIX VIEW ──────────────────────────────── */
-        /* ══════════════════════════════════════════════════════════════════ */
-        <div className="glass-card rounded-2xl border border-slate-200/70 dark:border-white/10 overflow-hidden shadow-sm relative">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300">
-                  <th className="py-4 px-5 min-w-[200px] font-bold text-xs uppercase tracking-wider bg-slate-100/90 dark:bg-slate-800/90 sticky left-0 z-20 shadow-xs border-r border-slate-200 dark:border-white/10">
-                    <span>Student Profile</span>
-                  </th>
-
-                  {weekDays.map((day) => {
-                    const isSelectedDateCol = day.dateStr === selectedDate;
-                    return (
-                      <th
-                        key={day.dateStr}
-                        className={`py-3 px-2 text-center min-w-[120px] border-r border-slate-200/60 dark:border-white/5 transition-all ${
-                          day.isHoliday
-                            ? 'bg-purple-50/80 dark:bg-purple-950/30 text-purple-950 dark:text-purple-300'
-                            : isSelectedDateCol
-                            ? 'bg-primary-50 dark:bg-primary-600/20 text-primary-900 dark:text-white font-extrabold ring-2 ring-primary-500 inset-0'
-                            : 'hover:bg-slate-100/60 dark:hover:bg-white/5'
-                        }`}
-                      >
-                        <div onClick={() => setSelectedDate(day.dateStr)} className="cursor-pointer">
-                          <div className="text-sm font-black tracking-tight">{day.dayNum}</div>
-                          <div className="text-[11px] font-bold uppercase opacity-75">{day.dayName}</div>
-                        </div>
-
-                        {day.isHoliday ? (
-                          <div className="mt-1 flex items-center justify-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">
-                            <Lock className="w-2.5 h-2.5" />
-                            <span>Holiday</span>
-                          </div>
-                        ) : day.dateStr > new Date().toISOString().split('T')[0] ? (
-                          <div className="mt-1 flex items-center justify-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500">
-                            <Lock className="w-2.5 h-2.5 opacity-60" />
-                            <span>Locked</span>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMarkDayPresent(day.dateStr)}
-                            className="mt-1 w-full text-[9px] font-bold px-1.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center gap-1"
-                          >
-                            <Zap className="w-2.5 h-2.5" />
-                            Fill Day
-                          </button>
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
-                {filteredStudents.map((student) => {
-                  const studentWeeklyMap = weeklyAttendance[student.id] || {};
-
-                  return (
-                    <tr key={student.id} className="hover:bg-slate-50/60 dark:hover:bg-white/[0.01]">
-                      <td className="py-3 px-5 sticky left-0 z-10 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-white/10">
-                        <div className="font-bold text-slate-900 dark:text-white text-xs">
-                          {student.firstName} {student.lastName}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-mono">Roll: #{student.rollNumber || 'N/A'}</div>
-                      </td>
-
-                      {weekDays.map((day) => {
-                        const dayRecord = studentWeeklyMap[day.dateStr] || (day.dateStr === selectedDate ? { status: attendance[student.id], notes: notes[student.id] } : undefined);
-                        const status = dayRecord?.status;
-                        const todayStr = new Date().toISOString().split('T')[0];
-                        const isFuture = day.dateStr > todayStr;
-
-                        if (day.isHoliday) {
-                          return (
-                            <td key={day.dateStr} className="py-3 px-2 text-center border-r bg-purple-50/30 dark:bg-purple-950/10 text-purple-600">
-                              <Lock className="w-3.5 h-3.5 mx-auto opacity-60" />
-                            </td>
-                          );
-                        }
-
-                        if (isFuture) {
-                          return (
-                            <td key={day.dateStr} className="py-3 px-2 text-center border-r bg-slate-50/30 dark:bg-slate-900/10 text-slate-400 dark:text-slate-600" title="Future Date">
-                              <Lock className="w-3.5 h-3.5 mx-auto opacity-30" />
-                            </td>
-                          );
-                        }
-
-                        return (
-                          <td
-                            key={day.dateStr}
-                            onClick={() => handleCellCycleStatus(student.id, day.dateStr, status)}
-                            className="py-2 px-2 text-center border-r transition-all cursor-pointer hover:bg-slate-100/50"
-                          >
-                            {status === 'PRESENT' ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                                <Check className="w-3.5 h-3.5 stroke-[3]" />
-                              </span>
-                            ) : status === 'ABSENT' ? (
-                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-100 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400">
-                                <X className="w-3.5 h-3.5 stroke-[3]" />
-                              </span>
-                            ) : (
-                              <span className="text-slate-300 dark:text-slate-700 text-xs">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AttendanceWeeklyMatrix
+          students={filteredStudents}
+          weekDays={weekDays}
+          selectedDate={selectedDate}
+          attendance={attendance}
+          notes={notes}
+          weeklyAttendance={weeklyAttendance}
+          gridFocus={gridFocus}
+          onSetSelectedDate={setSelectedDate}
+          onCellCycleStatus={handleCellCycleStatus}
+          onBulkMarkDayPresent={handleBulkMarkDayPresent}
+          onFocusCell={(studentIndex, dayIndex) => setGridFocus({ studentIndex, dayIndex })}
+          bodyRef={weeklyBodyRef}
+        />
       ) : (
-        /* ══════════════════════════════════════════════════════════════════ */
-        /* ── C. DAILY REGISTER TABLE VIEW ───────────────────────────────── */
-        /* ══════════════════════════════════════════════════════════════════ */
-        <Table>
-          <TableHead>
-            <TableHeaderCell className="w-12 text-center">#</TableHeaderCell>
-            <TableHeaderCell className="w-20">Roll</TableHeaderCell>
-            <TableHeaderCell>Student Details</TableHeaderCell>
-            <TableHeaderCell className="text-center">Attendance Status</TableHeaderCell>
-          </TableHead>
-          <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-            {filteredStudents.map((student, idx) => {
-              const currentStatus = attendance[student.id];
-
-              return (
-                <TableRow key={student.id} index={idx}>
-                  <TableCell className="text-center font-mono text-xs text-slate-400 font-bold">{idx + 1}</TableCell>
-                  <TableCell className="font-mono font-bold text-xs">{student.rollNumber || '—'}</TableCell>
-                  <TableCell className="font-bold text-slate-900 dark:text-white">
-                    {student.firstName} {student.lastName}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onStatusChange(student.id, 'PRESENT')}
-                        title="Mark Present"
-                        className={`p-2 rounded-xl transition-all ${
-                          currentStatus === 'PRESENT'
-                            ? 'bg-emerald-500 text-white shadow-xs'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
-                        }`}
-                      >
-                        <Check className="w-4 h-4 stroke-[3]" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onStatusChange(student.id, 'ABSENT')}
-                        title="Mark Absent"
-                        className={`p-2 rounded-xl transition-all ${
-                          currentStatus === 'ABSENT'
-                            ? 'bg-rose-500 text-white shadow-xs'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10'
-                        }`}
-                      >
-                        <X className="w-4 h-4 stroke-[3]" />
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </tbody>
-        </Table>
+        <AttendanceDailyTable
+          students={filteredStudents}
+          attendance={attendance}
+          activeRowIndex={activeRowIndex}
+          onFocusRow={setActiveRowIndex}
+          onStatusChange={onStatusChange}
+          bodyRef={tableBodyRef}
+        />
       )}
 
-      {/* ── 4. 📱 STICKY FLOATING MOBILE BOTTOM ACTION BAR ──────────────────── */}
+      {/* ── STICKY FLOATING MOBILE BOTTOM ACTION BAR ──────────────────── */}
       {students.length > 0 && (
         <div className="fixed bottom-0 left-0 right-0 z-40 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-t border-slate-200 dark:border-white/10 shadow-sm no-print md:sticky md:bottom-6 md:rounded-2xl md:border md:m-0">
           <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
-            <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
+            <div className="hidden sm:flex items-center gap-3 text-xs font-mono">
               <span className="text-emerald-600 font-bold">{presentCount} Present</span>
               <span className="text-rose-600 font-bold">{absentCount} Absent</span>
-              {unmarkedCount > 0 && <span className="text-amber-600 font-bold">({unmarkedCount} Unmarked)</span>}
+              <span className="text-amber-600 font-bold">{lateCount} Late</span>
+              <span className="text-blue-600 font-bold">{halfDayCount} Half-day</span>
+              {unmarkedCount > 0 && <span className="text-slate-500 font-bold">({unmarkedCount} Unmarked)</span>}
             </div>
 
             <button
               onClick={onSave}
               disabled={loading || isSelectedDateHoliday}
-              title={isSelectedDateHoliday ? `${selectedDate} is a holiday — attendance cannot be submitted` : undefined}
+              title={isSelectedDateHoliday ? `${selectedDate} is a holiday — attendance cannot be submitted` : 'Save (Ctrl+S)'}
               className="w-full md:w-auto h-12 md:h-11 flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-extrabold py-3 px-8 rounded-2xl transition-all shadow-sm active:scale-95 text-sm"
             >
               <Save className="w-4 h-4" />

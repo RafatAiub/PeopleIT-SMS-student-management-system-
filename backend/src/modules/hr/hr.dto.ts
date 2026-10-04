@@ -120,3 +120,14 @@ export type UpdateStaffDtoType = z.infer<typeof UpdateStaffDto>;
 export type ProcessPayrollDtoType = z.infer<typeof ProcessPayrollDto>;
 export type StaffQueryDtoType = z.infer<typeof StaffQueryDto>;
 export type PayrollQueryDtoType = z.infer<typeof PayrollQueryDto>;
+
+export const PayrollBatchDto = z.object({
+  payPeriod: z.string().trim().min(1, 'Pay period is required').max(40),
+});
+
+export const PayrollReportQueryDto = z.object({
+  payPeriod: z.string().trim().min(1, 'Pay period is required').max(40),
+});
+
+export type PayrollBatchDtoType = z.infer<typeof PayrollBatchDto>;
+export type PayrollReportQueryDtoType = z.infer<typeof PayrollReportQueryDto>;

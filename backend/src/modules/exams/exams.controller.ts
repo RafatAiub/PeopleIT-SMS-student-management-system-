@@ -67,17 +67,6 @@ export const deleteTimetableEntry = handle(async (req, res) => {
   successResponse(res, null, 'Timetable entry deleted successfully');
 });
 
-// ── Exam Grades ──────────────────────────────────────────────────────────
-
-export const listGrades = handle(async (req, res) => {
-  successResponse(res, await examsService.listGrades(req.tenantId!));
-});
-
-export const saveGrades = handle(async (req, res) => {
-  const grades = await examsService.saveGrades(req.tenantId!, req.body);
-  successResponse(res, grades, 'Grades saved successfully');
-});
-
 // ── Exam Result ──────────────────────────────────────────────────────────
 
 export const getClassResults = handle(async (req, res) => {

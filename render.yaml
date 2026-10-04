@@ -1,0 +1,106 @@
+# Render Blueprint — deploys the full app (backend API + frontend) from `dev`.
+# Render dashboard → New → Blueprint → pick this repo. Values marked
+# `sync: false` are prompted for once at creation (secrets never live here).
+#
+# Database migrations are NOT run on deploy (Render's free plan has no
+# pre-deploy step, and schema changes should be applied deliberately):
+#   cd backend && npx prisma migrate deploy
+
+services:
+  # ── Backend API (Express + Prisma) ──────────────────────────────────────
+  - type: web
+    name: peoplenit-sms-api-dev
+    runtime: node
+    plan: free
+    branch: dev
+    autoDeploy: true
+    # npm workspaces: install from the repo root so the shared lockfile and
+    # hoisted node_modules resolve; only rebuild when backend code changes.
+    buildFilter:
+      paths:
+        - backend/**
+        - package.json
+        - package-lock.json
+    # --include=dev: NODE_ENV=production would otherwise skip the TypeScript
+    # compiler, Prisma CLI and @types packages the build needs.
+    buildCommand: npm ci --include=dev && npx prisma generate --schema backend/prisma/schema.prisma && npm run build --workspace=backend
+    startCommand: cd backend && node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      # Behind Render's proxy — rate limits then key on the real client IP.
+      - key: TRUST_PROXY
+        value: "true"
+      - key: APP_NAME
+        value: PeopleNIT SMS
+      # This service's own URL, e.g. https://peoplenit-sms-api-dev.onrender.com
+      - key: APP_URL
+        sync: false
+      # The frontend URL below (CORS + email links), e.g. https://peoplenit-sms-dev.onrender.com
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      # Copy both JWT secrets from the existing `main` Render service. With no
+      # ENCRYPTION_KEY set, JWT_ACCESS_SECRET is also the key that decrypts
+      # users' stored 2FA secrets — a different value breaks 2FA logins for
+      # anyone sharing this database.
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      # Optional. Leave empty unless the `main` service sets it — then copy it exactly.
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: QR_SECRET
+        generateValue: true
+      # Required at startup — copy it from the existing `main` service.
+      - key: REDIS_URL
+        sync: false
+      - key: EMAIL_ENABLED
+        value: "false"
+      - key: SMS_ENABLED
+        value: "false"
+      - key: LOG_LEVEL
+        value: info
+
+  # ── Frontend (Vite static build) ────────────────────────────────────────
+  - type: web
+    name: peoplenit-sms-dev
+    runtime: static
+    branch: dev
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - frontend/**
+        - package.json
+        - package-lock.json
+    buildCommand: npm ci --include=dev && npm run build --workspace=frontend
+    staticPublishPath: frontend/dist
+    # SPA: every client-side route serves index.html.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Backend API base, e.g. https://peoplenit-sms-api-dev.onrender.com/api/v1
+      - key: VITE_API_URL
+        sync: false

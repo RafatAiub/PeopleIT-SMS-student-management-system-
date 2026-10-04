@@ -418,6 +418,138 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '{{institutionName}}',
     ].join('\n'),
   },
+  // ── EVENT_PUBLISHED ─────────────────────────────────────────────────────
+  'EVENT_PUBLISHED:IN_APP': {
+    subject: 'New event: {{eventTitle}}',
+    body: '{{eventTitle}} — {{eventWhen}} at {{venue}}.',
+  },
+
+  // ── SUPPORT_TICKET_CREATED ──────────────────────────────────────────────
+  'SUPPORT_TICKET_CREATED:IN_APP': {
+    subject: 'Support ticket opened',
+    body: 'Your ticket "{{ticketSubject}}" has been received.',
+  },
+  'SUPPORT_TICKET_CREATED:EMAIL': {
+    subject: 'We received your support ticket',
+    body: [
+      'Hello,',
+      '',
+      'Your support ticket has been received.',
+      '',
+      '  Subject : {{ticketSubject}}',
+      '  Status  : {{status}}',
+      '',
+      'We will get back to you soon.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  // ── SUPPORT_TICKET_REPLIED ───────────────────────────────────────────────
+  'SUPPORT_TICKET_REPLIED:IN_APP': {
+    subject: 'New reply on your ticket',
+    body: 'There is a new reply on "{{ticketSubject}}".',
+  },
+  'SUPPORT_TICKET_REPLIED:EMAIL': {
+    subject: 'New reply: {{ticketSubject}}',
+    body: [
+      'Hello,',
+      '',
+      'There is a new reply on your support ticket.',
+      '',
+      '  Subject : {{ticketSubject}}',
+      '  Status  : {{status}}',
+      '',
+      'Sign in to view and reply.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  // ── SUPPORT_TICKET_STATUS_CHANGED ────────────────────────────────────────
+  'SUPPORT_TICKET_STATUS_CHANGED:IN_APP': {
+    subject: 'Ticket status updated',
+    body: '"{{ticketSubject}}" is now {{status}}.',
+  },
+  'SUPPORT_TICKET_STATUS_CHANGED:EMAIL': {
+    subject: 'Ticket status updated: {{ticketSubject}}',
+    body: [
+      'Hello,',
+      '',
+      'Your support ticket status has changed.',
+      '',
+      '  Subject     : {{ticketSubject}}',
+      '  New status  : {{status}}',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  // ── RESULTS_PUBLISHED ────────────────────────────────────────────────────
+  'RESULTS_PUBLISHED:IN_APP': {
+    subject: 'Results published: {{examName}}',
+    body: 'Results for {{studentName}} in {{examName}} are now available.',
+  },
+  'RESULTS_PUBLISHED:EMAIL': {
+    subject: '{{examName}} results are published',
+    body: [
+      'Dear Student/Guardian,',
+      '',
+      'Results have been published for {{studentName}}.',
+      '',
+      '  Exam : {{examName}}',
+      '',
+      'Sign in to your portal to view the full result.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  // ── PAYSLIP_ISSUED ───────────────────────────────────────────────────────
+  // Subject is deliberately figure-free (rule: no salary amounts in the
+  // subject line, which can surface in previews/push notifications) — the
+  // net amount only appears inside the body of this 1:1 message.
+  'PAYSLIP_ISSUED:IN_APP': {
+    subject: 'Your payslip is ready',
+    body: 'Your payslip for {{payPeriod}} ({{payslipNo}}) is ready.',
+  },
+  'PAYSLIP_ISSUED:EMAIL': {
+    subject: 'Your payslip for {{payPeriod}} is ready',
+    body: [
+      'Dear Staff Member,',
+      '',
+      'Your payslip has been issued.',
+      '',
+      '  Pay period  : {{payPeriod}}',
+      '  Payslip no. : {{payslipNo}}',
+      '  Net amount  : Tk {{netAmount}}',
+      '',
+      'Sign in to your portal to view or download the full payslip.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+
+  // ── DATA_EXPORT_READY ────────────────────────────────────────────────────
+  'DATA_EXPORT_READY:IN_APP': {
+    subject: 'Your data export is ready',
+    body: 'Your requested data export is ready to download (expires {{expiresAt}}).',
+  },
+  'DATA_EXPORT_READY:EMAIL': {
+    subject: 'Your data export is ready to download',
+    body: [
+      'Hello,',
+      '',
+      'The data export you requested is ready.',
+      '',
+      '  Download : {{downloadUrl}}',
+      '  Expires  : {{expiresAt}}',
+      '',
+      'After it expires you will need to request a new export.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

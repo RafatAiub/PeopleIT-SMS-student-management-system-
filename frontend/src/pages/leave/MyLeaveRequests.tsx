@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/common/EmptyState';
+import { PageHeader, ErrorState, Select, Textarea } from '@/components/ui';
 import {
   useLeaveTypes,
   useMyLeaveRequests,
@@ -32,7 +33,7 @@ export default function MyLeaveRequests({ audience = 'STAFF' }: MyLeaveRequestsP
   const isStudent = audience === 'STUDENT';
   const { data: leaveTypes = [] } = useLeaveTypes(false, !isStudent);
   const { params, setPage } = useTableParams();
-  const { data: requestsData, isLoading } = useMyLeaveRequests({ page: params.page, pageSize: params.pageSize });
+  const { data: requestsData, isLoading, isError, refetch } = useMyLeaveRequests({ page: params.page, pageSize: params.pageSize });
 
   const createMutation = useCreateLeaveRequest();
   const cancelMutation = useCancelLeaveRequest();
@@ -88,10 +89,7 @@ export default function MyLeaveRequests({ audience = 'STAFF' }: MyLeaveRequestsP
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Leave Requests</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Apply for leave and track the status of your requests.</p>
-      </div>
+      <PageHeader title="My Leave Requests" description="Apply for leave and track the status of your requests." />
 
       {/* Apply for Leave form */}
       <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/5 shadow-xs p-6">
@@ -102,20 +100,15 @@ export default function MyLeaveRequests({ audience = 'STAFF' }: MyLeaveRequestsP
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className={`grid grid-cols-1 gap-4 ${isStudent ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
             {!isStudent && (
-              <div>
-                <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Leave Type *</label>
-                <select
-                  value={form.leaveTypeId}
-                  onChange={(e) => setForm((prev) => ({ ...prev, leaveTypeId: e.target.value }))}
-                  className={`input-field ${errors.leaveTypeId ? 'border-rose-500 focus:ring-rose-500' : ''}`}
-                >
-                  <option value="">Select leave type</option>
-                  {leaveTypes.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.isPaid ? 'Paid' : 'Unpaid'})</option>
-                  ))}
-                </select>
-                {errors.leaveTypeId && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.leaveTypeId}</p>}
-              </div>
+              <Select
+                label="Leave Type"
+                required
+                value={form.leaveTypeId}
+                onChange={(e) => setForm((prev) => ({ ...prev, leaveTypeId: e.target.value }))}
+                error={errors.leaveTypeId}
+                placeholder="Select leave type"
+                options={leaveTypes.map((lt) => ({ value: lt.id, label: `${lt.name} (${lt.isPaid ? 'Paid' : 'Unpaid'})` }))}
+              />
             )}
             <div>
               <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Start Date *</label>
@@ -139,17 +132,15 @@ export default function MyLeaveRequests({ audience = 'STAFF' }: MyLeaveRequestsP
               {errors.endDate && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.endDate}</p>}
             </div>
           </div>
-          <div>
-            <label className="text-xs text-slate-700 dark:text-slate-400 font-medium mb-1 block">Reason *</label>
-            <textarea
-              rows={3}
-              value={form.reason}
-              onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))}
-              placeholder="Briefly explain the reason for your leave (min 10 characters)..."
-              className={`input-field resize-none ${errors.reason ? 'border-rose-500 focus:ring-rose-500' : ''}`}
-            />
-            {errors.reason && <p className="text-xs text-rose-600 dark:text-rose-400 mt-1">{errors.reason}</p>}
-          </div>
+          <Textarea
+            label="Reason"
+            required
+            rows={3}
+            value={form.reason}
+            onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))}
+            placeholder="Briefly explain the reason for your leave (min 10 characters)..."
+            error={errors.reason}
+          />
           <div className="flex justify-end">
             <Button type="submit" variant="gradient" isLoading={createMutation.isPending} className="py-2.5 px-5 text-sm">
               Submit Request
@@ -164,7 +155,9 @@ export default function MyLeaveRequests({ audience = 'STAFF' }: MyLeaveRequestsP
           <h3 className="text-md font-semibold text-slate-900 dark:text-white">Request History</h3>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <ErrorState message="Could not load your leave requests." onRetry={() => refetch()} />
+        ) : isLoading ? (
           <div className="p-8 text-center text-slate-500 dark:text-slate-400 text-sm">Loading your leave requests...</div>
         ) : requests.length === 0 ? (
           <EmptyState title="No leave requests yet" description="Requests you submit will show up here." />

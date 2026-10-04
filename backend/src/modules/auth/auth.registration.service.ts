@@ -121,6 +121,7 @@ export async function register(dto: RegisterDtoType): Promise<RegisterResult> {
     firstName: user.firstName,
     token: rawToken,
     expiresInMinutes: EMAIL_TOKEN_TTL_MINUTES,
+    institutionId: institution.id,
   });
 
   logger.info('User self-registered', {
@@ -209,7 +210,7 @@ export async function verifyEmail(dto: VerifyEmailDtoType): Promise<VerifyEmailR
 export async function resendVerification(dto: ResendVerificationDtoType): Promise<{ message: string }> {
   const user = await prisma.user.findUnique({
     where: { email: dto.email },
-    select: { id: true, email: true, firstName: true, emailVerifiedAt: true },
+    select: { id: true, email: true, firstName: true, emailVerifiedAt: true, institutionId: true },
   });
 
   // Neutral acknowledgement whether or not the account exists, and whether or
@@ -246,6 +247,7 @@ export async function resendVerification(dto: ResendVerificationDtoType): Promis
     firstName: user.firstName,
     token: rawToken,
     expiresInMinutes: EMAIL_TOKEN_TTL_MINUTES,
+    institutionId: user.institutionId,
   });
 
   logger.info('Verification email resent', { userId: user.id });
@@ -264,7 +266,7 @@ export async function forgotPassword(dto: ForgotPasswordDtoType): Promise<{ mess
 
   const user = await prisma.user.findFirst({
     where,
-    select: { id: true, email: true, firstName: true, isActive: true, status: true },
+    select: { id: true, email: true, firstName: true, isActive: true, status: true, institutionId: true },
   });
 
   if (!user || !user.isActive || user.status !== UserStatus.ACTIVE) {
@@ -296,6 +298,7 @@ export async function forgotPassword(dto: ForgotPasswordDtoType): Promise<{ mess
     firstName: user.firstName,
     token: rawToken,
     expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
+    institutionId: user.institutionId,
   });
 
   logger.info('Password reset requested', { userId: user.id });

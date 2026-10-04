@@ -1,7 +1,8 @@
-import { NotificationChannel } from '@prisma/client';
-import { env } from '../../../config/env';
-import { logger } from '../../../utils/logger';
-import { getTransport as transport, resetTransport } from '../../../utils/mailer';
+import { EmailPriority, NotificationChannel } from '@prisma/client';
+import { sendEmail } from '../../email/sender';
+import { buildEmailLayout } from '../../email/layout';
+import { renderPlainBodyToHtml } from '../../email/components';
+import { findInstitutionBranding } from '../notifications.repository';
 import { RenderedMessage } from '../renderer';
 import {
   NotificationChannelAdapter,
@@ -11,18 +12,28 @@ import {
 } from './channel.types';
 
 /**
- * Exposed for tests, which flip env between cases. The transport itself now
- * lives in utils/mailer.ts so auth mail and notification mail share one
- * connection pool rather than opening two.
+ * Every notification `type` (== templateKey here) mapped to an EmailPriority
+ * (owner decision §4.2). FEE_REMINDER is the one default-EMAIL type that is
+ * genuinely bulk (every guardian, every term) — everything else is one
+ * transactional event about one recipient.
  */
-export const resetEmailTransport = resetTransport;
+const PRIORITY_BY_TYPE: Record<string, EmailPriority> = {
+  FEE_REMINDER: EmailPriority.P2_BULK,
+  // Submitting one exam's results fans out to every affected student +
+  // guardian at once — the same "bulk" shape as fee reminders/campaigns.
+  RESULTS_PUBLISHED: EmailPriority.P2_BULK,
+};
+
+function priorityFor(templateKey: string): EmailPriority {
+  return PRIORITY_BY_TYPE[templateKey] ?? EmailPriority.P1_TRANSACTIONAL;
+}
 
 export const emailChannel: NotificationChannelAdapter = {
   channel: NotificationChannel.EMAIL,
 
-  // Deliberately always true: with EMAIL_ENABLED=false the adapter still runs,
-  // through jsonTransport, so the delivery log reflects a real render. Flip
-  // this to `env.EMAIL_ENABLED` if you would rather record SKIPPED instead.
+  // Always true: sender.sendEmail() itself records an honest SKIPPED
+  // EmailLog row when no transport is configured (demo mode) — the adapter
+  // does not need to pre-guess that here.
   isConfigured() {
     return true;
   },
@@ -38,28 +49,42 @@ export const emailChannel: NotificationChannelAdapter = {
   ): Promise<SendResult> {
     if (!to.email) return { ok: false, error: 'recipient has no email address' };
 
-    try {
-      const info = await transport().sendMail({
-        from: env.EMAIL_FROM,
-        to: to.email,
-        subject: message.subject ?? ctx.templateKey,
-        text: message.body,
-      });
+    const branding = await findInstitutionBranding(ctx.institutionId);
+    const bodyHtml = renderPlainBodyToHtml(message.body);
+    const html = buildEmailLayout({
+      preheader: message.subject ?? ctx.templateKey,
+      heading: message.subject ?? ctx.templateKey,
+      bodyHtml,
+      institution: { name: branding.name, logoUrl: branding.logoUrl, color: branding.color },
+    });
 
-      if (!env.EMAIL_ENABLED) {
-        // Body is intentionally not logged — it can contain guardian PII.
-        logger.info('[EMAIL disabled] rendered but not transmitted', {
-          templateKey: ctx.templateKey,
-          subject: message.subject,
-        });
-      }
+    const result = await sendEmail({
+      to: to.email,
+      toName: to.name,
+      subject: message.subject ?? ctx.templateKey,
+      html,
+      text: message.body,
+      template: `notification.${ctx.templateKey}`,
+      priority: priorityFor(ctx.templateKey),
+      institutionId: ctx.institutionId,
+      fromName: branding.name,
+      replyTo: branding.contactEmail ?? undefined,
+      // Keyed on the same dedupe unit the notification worker already claims
+      // (delivery row) — one NotificationDelivery -> one EmailLog attempt.
+      idempotencyKey: `notify:${ctx.institutionId}:${ctx.templateKey}:${to.userId}:${to.email}`,
+    });
 
-      return { ok: true, providerRef: info.messageId };
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : String(error);
-      logger.error('Email delivery failed', { templateKey: ctx.templateKey, error: messageText });
-      // Structured failure, not a throw: the worker owns the retry decision.
-      return { ok: false, error: messageText };
+    if (result.status === 'SENT') return { ok: true, providerRef: result.logId };
+    if (result.status === 'SKIPPED' || result.status === 'SUPPRESSED' || result.status === 'DEFERRED') {
+      // Not retryable by the notification worker's backoff (demo mode /
+      // suppressed address / budget exhausted are not transient provider
+      // errors) — report success so the delivery is marked SENT rather than
+      // endlessly retried; the EmailLog row is still the honest record.
+      return { ok: true, providerRef: result.logId };
     }
+    return { ok: false, error: result.error ?? 'email send failed' };
   },
 };
+
+/** Exposed for tests, which flip env between cases. Re-exported for callers that imported this name from here previously. */
+export { resetTransport as resetEmailTransport } from '../../email/transport';

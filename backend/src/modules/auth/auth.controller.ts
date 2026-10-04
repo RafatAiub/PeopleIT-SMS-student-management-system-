@@ -4,6 +4,7 @@ import * as registrationService from './auth.registration.service';
 import * as twoFactorService from './auth.twofactor.service';
 import { successResponse } from '../../utils/response';
 import { UnauthorizedError } from '../../utils/AppError';
+import { sessionContextFrom } from './sessions.service';
 
 /** Every 2FA-management route runs behind `authenticate`, so this is set. */
 function currentUserId(req: Request): string {
@@ -22,7 +23,7 @@ export async function loginController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await authService.login(req.body);
+    const result = await authService.login(req.body, sessionContextFrom(req));
 
     // Two outcomes share this endpoint: a completed login, or a 2FA challenge
     // carrying no session credentials. Both are 200 — the challenge is a
@@ -45,7 +46,7 @@ export async function verifyTwoFactorController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const result = await authService.verifyTwoFactor(req.body);
+    const result = await authService.verifyTwoFactor(req.body, sessionContextFrom(req));
     successResponse(res, result, 'Login successful', 200);
   } catch (error) {
     next(error);
@@ -58,7 +59,7 @@ export async function refreshController(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const tokens = await authService.refreshToken(req.body);
+    const tokens = await authService.refreshToken(req.body, sessionContextFrom(req));
     successResponse(res, tokens, 'Token refreshed');
   } catch (error) {
     next(error);

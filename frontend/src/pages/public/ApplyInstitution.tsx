@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, User, Mail, Phone, MapPin, MessageSquare, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Building2, User, Mail, Phone, MapPin, MessageSquare, CheckCircle2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { institutionApplicationApi } from '../../api/institutionApplication.api';
 import { LogoMark } from '../../components/common/LogoMark';
+import { LanguageToggle } from './LanguageToggle';
+import { useT } from '@/i18n';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -83,9 +85,11 @@ const validateName = (name: string, fieldName: string): string | null => {
 };
 
 const ApplyInstitution = () => {
+  const t = useT();
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [rateLimitMessage, setRateLimitMessage] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     institutionName: '',
     slug: '',
@@ -129,6 +133,7 @@ const ApplyInstitution = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRateLimitMessage(null);
     if (!validate()) return;
 
     setSubmitting(true);
@@ -157,6 +162,11 @@ const ApplyInstitution = () => {
           </span>,
           { duration: 8000 },
         );
+      } else if (err.response?.status === 429) {
+        // The rate limiter's own message is already a friendly, specific
+        // sentence (see backend/src/app.ts applicationLimiter) — keep it
+        // visible inline rather than letting it disappear as a passing toast.
+        setRateLimitMessage(err.response?.data?.message || 'Too many applications submitted. Please try again later.');
       } else {
         toast.error(err.response?.data?.message || 'Failed to submit application');
       }
@@ -172,14 +182,16 @@ const ApplyInstitution = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 blur-[120px]" />
       </div>
 
+      <LanguageToggle />
+
       <div className="relative z-10 w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="text-center mb-8">
           <LogoMark className="w-14 h-14 mx-auto mb-4 shadow-lg" />
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white mb-2">
-            Register Your Institution
+            {t('Register Your Institution')}
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
-            Apply to join PeopleNIT SMS — our team will review your application
+            {t('Apply to join PeopleNIT SMS — our team will review your application')}
           </p>
         </div>
 
@@ -187,42 +199,52 @@ const ApplyInstitution = () => {
           {submitted ? (
             <div className="text-center py-6 space-y-4">
               <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto" />
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Application Submitted!</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{t('Application Submitted!')}</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
-                Thank you. Our Super Admin will review your application and contact{' '}
-                <span className="font-semibold text-slate-800 dark:text-slate-200">{formData.applicantEmail}</span> with
-                your login credentials once it's approved.
+                {t('Thank you. Our Super Admin will review your application and contact')}{' '}
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{formData.applicantEmail}</span>{' '}
+                {t("with your login credentials once it's approved.")}
               </p>
               <Link
                 to="/login"
                 className="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline mt-2"
               >
-                <ArrowLeft className="w-4 h-4" /> Back to Login
+                <ArrowLeft className="w-4 h-4" /> {t('Back to Login')}
               </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {rateLimitMessage && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 p-3.5 text-amber-800 dark:text-amber-300"
+                >
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p className="text-xs font-medium leading-relaxed">{rateLimitMessage}</p>
+                </div>
+              )}
+
               <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Institution Details
+                {t('Institution Details')}
               </h3>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Institution Name *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Institution Name')} *</label>
                 <div className="relative">
                   <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     value={formData.institutionName}
                     onChange={(e) => setFormData({ ...formData, institutionName: e.target.value })}
-                    placeholder="e.g. Government Science College"
+                    placeholder={t('e.g. Government Science College')}
                     className={`input-field pl-10 ${errors.institutionName ? 'border-red-500' : ''}`}
                   />
                 </div>
-                {errors.institutionName && <span className="text-xs text-red-500 mt-1 block">{errors.institutionName}</span>}
+                {errors.institutionName && <span className="text-xs text-red-500 mt-1 block">{t(errors.institutionName)}</span>}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Institution Code / EIIN *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Institution Code / EIIN')} *</label>
                 <input
                   type="text"
                   value={formData.slug}
@@ -230,25 +252,25 @@ const ApplyInstitution = () => {
                   placeholder="e.g. 102030"
                   className={`input-field font-mono ${errors.slug ? 'border-red-500' : ''}`}
                 />
-                {errors.slug && <span className="text-xs text-red-500 mt-1 block">{errors.slug}</span>}
+                {errors.slug && <span className="text-xs text-red-500 mt-1 block">{t(errors.slug)}</span>}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Address</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Address')}</label>
                 <div className="relative">
                   <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="City, District"
+                    placeholder={t('City, District')}
                     className="input-field pl-10"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Institution Phone</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Institution Phone')}</label>
                 <div className="relative">
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
@@ -260,48 +282,48 @@ const ApplyInstitution = () => {
                   />
                 </div>
                 {errors.phone ? (
-                  <span className="text-xs text-red-500 mt-1 block">{errors.phone}</span>
+                  <span className="text-xs text-red-500 mt-1 block">{t(errors.phone)}</span>
                 ) : (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Landline or mobile with area code (7+ digits)
+                    {t('Landline or mobile with area code (7+ digits)')}
                   </p>
                 )}
               </div>
 
               <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider pt-2">
-                Your Contact Details
+                {t('Your Contact Details')}
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">First Name *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('First Name')} *</label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
                       type="text"
                       value={formData.applicantFirstName}
                       onChange={(e) => setFormData({ ...formData, applicantFirstName: e.target.value })}
-                      placeholder="First Name"
+                      placeholder={t('First Name')}
                       className={`input-field pl-10 ${errors.applicantFirstName ? 'border-red-500' : ''}`}
                     />
                   </div>
-                  {errors.applicantFirstName && <span className="text-xs text-red-500 mt-1 block">{errors.applicantFirstName}</span>}
+                  {errors.applicantFirstName && <span className="text-xs text-red-500 mt-1 block">{t(errors.applicantFirstName)}</span>}
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Last Name *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Last Name')} *</label>
                   <input
                     type="text"
                     value={formData.applicantLastName}
                     onChange={(e) => setFormData({ ...formData, applicantLastName: e.target.value })}
-                    placeholder="Last Name"
+                    placeholder={t('Last Name')}
                     className={`input-field ${errors.applicantLastName ? 'border-red-500' : ''}`}
                   />
-                  {errors.applicantLastName && <span className="text-xs text-red-500 mt-1 block">{errors.applicantLastName}</span>}
+                  {errors.applicantLastName && <span className="text-xs text-red-500 mt-1 block">{t(errors.applicantLastName)}</span>}
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Email Address')} *</label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
@@ -312,14 +334,14 @@ const ApplyInstitution = () => {
                     className={`input-field pl-10 ${errors.applicantEmail ? 'border-red-500' : ''}`}
                   />
                 </div>
-                {errors.applicantEmail && <span className="text-xs text-red-500 mt-1 block">{errors.applicantEmail}</span>}
+                {errors.applicantEmail && <span className="text-xs text-red-500 mt-1 block">{t(errors.applicantEmail)}</span>}
                 <p className="text-[11px] text-slate-500 mt-1">
-                  We'll contact you here with your login credentials once your application is approved.
+                  {t("We'll contact you here with your login credentials once your application is approved.")}
                 </p>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Your Mobile Number *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Your Mobile Number')} *</label>
                 <div className="relative">
                   <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input
@@ -331,22 +353,22 @@ const ApplyInstitution = () => {
                   />
                 </div>
                 {errors.applicantPhone ? (
-                  <span className="text-xs text-red-500 mt-1 block">{errors.applicantPhone}</span>
+                  <span className="text-xs text-red-500 mt-1 block">{t(errors.applicantPhone)}</span>
                 ) : (
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Bangladesh mobile number (e.g., 01700000000 or +8801700000000)
+                    {t('Bangladesh mobile number (e.g., 01700000000 or +8801700000000)')}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Message (optional)</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">{t('Message (optional)')}</label>
                 <div className="relative">
                   <MessageSquare className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                   <textarea
                     value={formData.message}
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                    placeholder="Anything else you'd like us to know?"
+                    placeholder={t("Anything else you'd like us to know?")}
                     rows={3}
                     className="input-field pl-10 resize-none"
                   />
@@ -358,12 +380,12 @@ const ApplyInstitution = () => {
                 disabled={submitting}
                 className="btn-primary w-full justify-center py-3 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Submitting…' : 'Submit Application'}
+                {submitting ? t('Submitting…') : t('Submit Application')}
               </button>
 
               <p className="text-center">
                 <Link to="/login" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                  Already have an account? Sign in
+                  {t('Already have an account? Sign in')}
                 </Link>
               </p>
             </form>

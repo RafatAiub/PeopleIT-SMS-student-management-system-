@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { httpUrl } from '../../utils/url';
 
 export const AssignmentResourceTypeEnum = z.enum(['NOTE', 'SLIDE', 'VIDEO', 'PDF', 'LINK', 'IMAGE']);
 
@@ -25,7 +26,7 @@ export const CreateAssignmentDto = z.object({
   title: z.string().min(1, 'Title is required').max(200),
   instructions: z.string().max(4000).optional().nullable(),
   resourceType: AssignmentResourceTypeEnum.optional().nullable(),
-  fileUrl: z.string().url('Must be a valid URL').optional().nullable(),
+  fileUrl: httpUrl('Must be a valid URL').optional().nullable(),
   dueDate: z.string().datetime().or(z.date()).optional().nullable(),
   parentAssignmentId: z.string().min(1).optional().nullable(),
 });

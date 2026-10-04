@@ -286,3 +286,24 @@ export async function findInstitutionName(institutionId: string): Promise<string
   });
   return institution?.name ?? 'Your Institution';
 }
+
+export interface InstitutionBrandingRow {
+  name: string;
+  logoUrl: string | null;
+  color: string | null;
+  contactEmail: string | null;
+}
+
+/** For the email layout's header (logo/name/accent) and reply-to (school's own contact address). */
+export async function findInstitutionBranding(institutionId: string): Promise<InstitutionBrandingRow> {
+  const institution = await prisma.institution.findUnique({
+    where: { id: institutionId },
+    select: { name: true, logoUrl: true, themeColor: true, contactEmail: true, email: true },
+  });
+  return {
+    name: institution?.name ?? 'Your Institution',
+    logoUrl: institution?.logoUrl ?? null,
+    color: institution?.themeColor ?? null,
+    contactEmail: institution?.contactEmail ?? institution?.email ?? null,
+  };
+}

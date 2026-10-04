@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
 import { SubscriptionBanner } from './components/common/SubscriptionBanner';
+import { CommandPalette } from './components/Layout/CommandPalette';
 import { useMySubscription } from './hooks/useBilling';
 import apiClient from './api/client';
 
@@ -40,6 +41,18 @@ const StudentsAdmission = lazyWithRetry(() => import('./pages/students/StudentsA
 const OnlineRegistrations = lazyWithRetry(() => import('./pages/students/OnlineRegistrations'));
 const AddNewTeacher = lazyWithRetry(() => import('./pages/teacher/AddNewTeacher'));
 const TeacherDetails = lazyWithRetry(() => import('./pages/teacher/TeacherDetails'));
+const ParentsList = lazyWithRetry(() => import('./pages/parents/ParentsList'));
+const StaffRoles = lazyWithRetry(() => import('./pages/staff/StaffRoles'));
+const StaffList = lazyWithRetry(() => import('./pages/staff/StaffList'));
+const CreateTimetable = lazyWithRetry(() => import('./pages/timetable/CreateTimetable'));
+const ClassTimetable = lazyWithRetry(() => import('./pages/timetable/ClassTimetable'));
+const TeacherTimetable = lazyWithRetry(() => import('./pages/timetable/TeacherTimetable'));
+const AttendanceMonthly = lazyWithRetry(() => import('./pages/attendance/AttendanceMonthly'));
+const AttendanceReport = lazyWithRetry(() => import('./pages/attendance/AttendanceReport'));
+const AssignFeesClasses = lazyWithRetry(() => import('./pages/fees/AssignFeesClasses'));
+const FeesTransactionLogs = lazyWithRetry(() => import('./pages/fees/FeesTransactionLogs'));
+const CustomNotifications = lazyWithRetry(() => import('./pages/communication/CustomNotifications'));
+const SystemUpdate = lazyWithRetry(() => import('./pages/settings/SystemUpdate'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
 const StudentsCategory = lazyWithRetry(() => import('./pages/students/StudentsCategory'));
 const AssignRollNo = lazyWithRetry(() => import('./pages/students/AssignRollNo'));
@@ -53,7 +66,6 @@ const MyExamResults = lazyWithRetry(() => import('./pages/results/MyExamResults'
 const ManageExam = lazyWithRetry(() => import('./pages/exams/ManageExam'));
 const ExamTimetable = lazyWithRetry(() => import('./pages/exams/ExamTimetable'));
 const ExamResult = lazyWithRetry(() => import('./pages/exams/ExamResult'));
-const ExamGrade = lazyWithRetry(() => import('./pages/exams/ExamGrade'));
 const TimetableGrid = lazyWithRetry(() => import('./pages/timetables/TimetableGrid'));
 const Lacture = lazyWithRetry(() => import('./pages/lacture/Lacture'));
 const MyLectureMaterials = lazyWithRetry(() => import('./pages/lacture/MyLectureMaterials'));
@@ -67,15 +79,58 @@ const LeaveSettings = lazyWithRetry(() => import('./pages/leave/LeaveSettings'))
 const LeaveReport = lazyWithRetry(() => import('./pages/leave/LeaveReport'));
 const LeaveRequestManagement = lazyWithRetry(() => import('./pages/leave/LeaveRequestManagement'));
 const MyLeaveRequests = lazyWithRetry(() => import('./pages/leave/MyLeaveRequests'));
+const ManageHoliday = lazyWithRetry(() => import('./pages/holidays/ManageHoliday'));
+const SessionYears = lazyWithRetry(() => import('./pages/academics/SessionYears'));
+const Events = lazyWithRetry(() => import('./pages/events/Events'));
 const AiInsights = lazyWithRetry(() => import('./pages/ai/AiInsights'));
+const AiHub = lazyWithRetry(() => import('./pages/ai/AiHub'));
+const AiDrafts = lazyWithRetry(() => import('./pages/ai/AiDrafts'));
+const KnowledgeBase = lazyWithRetry(() => import('./pages/ai/KnowledgeBase'));
+const GuardianChat = lazyWithRetry(() => import('./pages/ai/GuardianChat'));
+const AdmissionAssistant = lazyWithRetry(() => import('./pages/ai/AdmissionAssistant'));
 const WebsiteBuilder = lazyWithRetry(() => import('./pages/website/WebsiteBuilder'));
+const SitePageEditor = lazyWithRetry(() => import('./pages/website/editor/PageEditor'));
+const PublicSiteRoutes = lazyWithRetry(() => import('./site/PublicSite').then((m) => ({ default: m.PublicSiteRoutes })));
 const Reports = lazyWithRetry(() => import('./pages/reports/Reports'));
 const Messages = lazyWithRetry(() => import('./pages/communication/Messages'));
 const Users = lazyWithRetry(() => import('./pages/users/Users'));
 const Settings = lazyWithRetry(() => import('./pages/settings/Settings'));
+const DesignSystem = lazyWithRetry(() => import('./pages/design-system/DesignSystem'));
+const StudentDashboard = lazyWithRetry(() => import('./pages/dashboards/StudentDashboard'));
+const StudentProfile = lazyWithRetry(() => import('./pages/students/profile/StudentProfile'));
+const DemoCheckout = lazyWithRetry(() => import('./pages/fees/DemoCheckout'));
+const CampaignsPage = lazyWithRetry(() => import('./pages/communication/campaigns/CampaignsPage'));
+const EnquiriesPage = lazyWithRetry(() => import('./pages/admissions/EnquiriesPage'));
+const CustomFieldsSettings = lazyWithRetry(() => import('./pages/settings/custom-fields/CustomFieldsSettings'));
+const GradingScales = lazyWithRetry(() => import('./pages/grading/GradingScales'));
+const Promotion = lazyWithRetry(() => import('./pages/promotion/Promotion'));
+const MeritList = lazyWithRetry(() => import('./pages/results/MeritList'));
+const ClassPerformance = lazyWithRetry(() => import('./pages/results/ClassPerformance'));
+const TranscriptPage = lazyWithRetry(() => import('./pages/results/TranscriptPage'));
+const StaffAttendancePage = lazyWithRetry(() => import('./pages/staff-attendance/StaffAttendancePage'));
+const MyStaffAttendance = lazyWithRetry(() => import('./pages/staff-attendance/MyStaffAttendance'));
+const SubjectAttendancePage = lazyWithRetry(() => import('./pages/subject-attendance/SubjectAttendancePage'));
+const QrKioskPage = lazyWithRetry(() => import('./pages/qr/QrKioskPage'));
+const QrCodesPage = lazyWithRetry(() => import('./pages/qr/QrCodesPage'));
+const MyQrCode = lazyWithRetry(() => import('./pages/qr/MyQrCode'));
+const InventoryHub = lazyWithRetry(() => import('./pages/inventory/InventoryHub'));
+const AnalyticsHub = lazyWithRetry(() => import('./pages/analytics/AnalyticsHub'));
+const ScheduledReports = lazyWithRetry(() => import('./pages/analytics/ScheduledReports'));
+const SetupWizard = lazyWithRetry(() => import('./pages/onboarding/SetupWizard'));
+const DeveloperSettings = lazyWithRetry(() => import('./pages/developer/DeveloperSettings'));
+const DataExport = lazyWithRetry(() => import('./pages/data-export/DataExport'));
+const UsageReport = lazyWithRetry(() => import('./pages/usage/UsageReport'));
+const SupportTickets = lazyWithRetry(() => import('./pages/support/SupportTickets'));
+const HelpCenter = lazyWithRetry(() => import('./pages/help/HelpCenter'));
+const WhatsNew = lazyWithRetry(() => import('./pages/help/WhatsNew'));
+const PlatformSupportConsole = lazyWithRetry(() => import('./pages/support/PlatformSupportConsole'));
+const PlatformUsageReport = lazyWithRetry(() => import('./pages/usage/PlatformUsageReport'));
+const PublicEnquiryPage = lazyWithRetry(() => import('./pages/admissions/PublicEnquiryPage'));
+const ApplicationStatusPage = lazyWithRetry(() => import('./pages/admissions/ApplicationStatusPage'));
 const SupportAccessPortal = lazyWithRetry(() => import('./pages/superadmin/SupportAccessPortal'));
 const AuditLogsPortal = lazyWithRetry(() => import('./pages/superadmin/AuditLogsPortal'));
 const SystemHealthPortal = lazyWithRetry(() => import('./pages/superadmin/SystemHealthPortal'));
+const EmailDeliveryPortal = lazyWithRetry(() => import('./pages/superadmin/EmailDeliveryPortal'));
 const InstitutionApplications = lazyWithRetry(() => import('./pages/superadmin/InstitutionApplications'));
 const AuthorizedEmails = lazyWithRetry(() => import('./pages/superadmin/AuthorizedEmails'));
 const ApplyInstitution = lazyWithRetry(() => import('./pages/public/ApplyInstitution'));
@@ -148,6 +203,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
       '/super-admin/support-access',
       '/super-admin/audit-logs',
       '/super-admin/system-health',
+      '/super-admin/email',
       '/super-admin/applications',
       '/super-admin/authorized-emails',
       '/super-admin/leads',
@@ -178,6 +234,10 @@ const LibraryRoute = () => {
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyLibraryIssues />;
   }
+  // Staff screen only for roles the API allows; others go home instead of a page of 403s.
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'LIBRARIAN'].includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
   return <LibraryManagement />;
 };
 
@@ -186,6 +246,9 @@ const TransportRoute = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyTransportAssignment />;
+  }
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'TRANSPORT_OFFICER'].includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
   return <TransportManagement />;
 };
@@ -213,6 +276,9 @@ const FeesRoute = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT' || user?.role === 'GUARDIAN') {
     return <MyInvoices />;
+  }
+  if (!user || !['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'].includes(user.role)) {
+    return <Navigate to="/" replace />;
   }
   return <InvoiceList />;
 };
@@ -244,7 +310,11 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { mobileMenuOpen, setMobileMenuOpen } = useUiStore();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-surface-900 text-slate-900 dark:text-slate-200 transition-colors duration-300">
+    <div className="flex h-dvh overflow-hidden text-slate-900 dark:text-slate-100" style={{ background: 'var(--bg-canvas)' }}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[70] focus:px-3 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">
+        Skip to content
+      </a>
+      <CommandPalette />
       {/* Desktop Sidebar */}
       <div className="hidden md:flex md:flex-shrink-0 h-full">
         <Sidebar />
@@ -260,7 +330,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-950/50"
               onClick={() => setMobileMenuOpen(false)}
             />
             {/* Sidebar drawer content */}
@@ -269,7 +339,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 350, damping: 35 }}
-              className="relative w-64 bg-slate-900 h-full shadow-2xl"
+              className="relative w-72 max-w-[85vw] h-full shadow-2xl"
             >
               <Sidebar isMobile={true} />
             </motion.div>
@@ -288,7 +358,9 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8"
+          id="main-content"
+          tabIndex={-1}
+          className="w-full max-w-[1440px] mx-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 focus:outline-none"
         >
           <ErrorBoundary>{children}</ErrorBoundary>
         </motion.main>
@@ -300,7 +372,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 const DashboardRouter = () => {
   const { user } = useAuthStore();
   if (user?.role === 'STUDENT') {
-    return <Navigate to="/students" replace />;
+    return <StudentDashboard />;
   }
   if (user?.role === 'GUARDIAN') {
     return <GuardianDashboard />;
@@ -368,25 +440,40 @@ const App = () => {
   }, [theme]);
 
   return (
-    <React.Suspense fallback={<div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-surface-900 text-slate-500 dark:text-slate-400">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-      Loading PeopleNIT SMS...
+    <React.Suspense fallback={<div role="status" className="h-dvh w-screen flex flex-col items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400" style={{ background: 'var(--bg-canvas)' }}>
+      <span className="w-9 h-9 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+      Loading PeopleNIT SMS…
     </div>}>
       <Toaster 
         position="top-right" 
-        toastOptions={{ 
-          className: 'dark:bg-slate-800 dark:text-white dark:border-white/10 bg-white text-slate-900 border-slate-200 shadow-xl',
+        gutter={8}
+        containerStyle={{ top: 72 }}
+        toastOptions={{
+          duration: 4000,
+          className: 'text-sm font-medium',
           style: {
-            border: '1px solid',
-            borderRadius: '12px'
-          }
-        }} 
+            background: 'var(--bg-card)',
+            color: 'var(--fg-default)',
+            border: '1px solid var(--border-default)',
+            borderRadius: '10px',
+            boxShadow: '0 12px 32px rgb(20 20 20 / 0.12)',
+            padding: '10px 14px',
+            maxWidth: 420,
+          },
+          success: { iconTheme: { primary: '#047857', secondary: '#ffffff' } },
+          error: { iconTheme: { primary: '#DC2626', secondary: '#ffffff' } },
+        }}
       />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
         <Route path="/apply" element={<ApplyInstitution />} />
         <Route path="/apply-admission" element={<StudentRegistration />} />
+        <Route path="/admission-enquiry" element={<PublicEnquiryPage />} />
+        <Route path="/admission-status" element={<ApplicationStatusPage />} />
+        <Route path="/admission-assistant/:slug" element={<AdmissionAssistant />} />
+        {/* Public school website, path-based (works before a domain is connected) */}
+        <Route path="/s/:subdomain/*" element={<PublicSiteRoutes />} />
         <Route path="/request-demo" element={<RequestDemo />} />
         {/* Self-service signup and the landing pages for the links sent by
             the confirmation / password-reset emails. All unauthenticated. */}
@@ -416,6 +503,240 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <StudentList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/communication/campaigns" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <CampaignsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admissions/enquiries" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <EnquiriesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings/custom-fields" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CustomFieldsSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/grading" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <GradingScales />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/promotion" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <Promotion />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/exams/timetable" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <ExamTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/merit-list" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <MeritList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/class-performance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ClassPerformance />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/results/transcript" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <TranscriptPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff-attendance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffAttendancePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff-attendance/me" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <MyStaffAttendance />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/subject-attendance" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'STUDENT', 'GUARDIAN']}>
+            <DashboardLayout>
+              <SubjectAttendancePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/kiosk" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <QrKioskPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/codes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <QrCodesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/qr/me" element={
+          <ProtectedRoute allowedRoles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT', 'STUDENT']}>
+            <DashboardLayout>
+              <MyQrCode />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/inventory" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <InventoryHub />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/analytics" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGEMENT', 'ACCOUNTANT', 'TEACHER']}>
+            <DashboardLayout>
+              <AnalyticsHub />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/analytics/schedules" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <ScheduledReports />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/onboarding/setup" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SetupWizard />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/developer" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DeveloperSettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/data-export" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DataExport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/usage" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <UsageReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/support" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <SupportTickets />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/help" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <HelpCenter />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/help/whats-new" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <WhatsNew />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/support" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <PlatformSupportConsole />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/super-admin/usage" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <PlatformUsageReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Demo payment checkout (only reachable when a gateway runs in demo mode) */}
+        <Route path="/fees/demo-checkout" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'GUARDIAN', 'STUDENT']}>
+            <DashboardLayout>
+              <DemoCheckout />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Student profile — mirrors GET /students/:id READ_ROLES */}
+        <Route path="/students/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN']}>
+            <DashboardLayout>
+              <StudentProfile />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -532,6 +853,123 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/parents" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <ParentsList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff/roles" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffRoles />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/staff" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <StaffList />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/types" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <InvoiceList initialTab="categories" />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/assign-classes" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <AssignFeesClasses />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/fees/transactions" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <FeesTransactionLogs />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/custom-notifications" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CustomNotifications />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/web/sliders" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/web/gallery/photos" element={<Navigate to="/website-builder?tab=content" replace />} />
+
+        <Route path="/web/gallery/videos" element={<Navigate to="/website-builder?tab=media" replace />} />
+
+        <Route path="/web/programs" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/web/faqs" element={<Navigate to="/website-builder?tab=pages" replace />} />
+
+        <Route path="/system-update" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SystemUpdate />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/create" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <CreateTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/class" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <ClassTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/timetable/teacher" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <TeacherTimetable />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Staff attendance lives at /staff-attendance; keep the old path working. */}
+        <Route path="/attendance/staff" element={<Navigate to="/staff-attendance" replace />} />
+
+        <Route path="/attendance/monthly" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceMonthly />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/attendance/report" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AttendanceReport />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/students/assign-roll-no" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
             <DashboardLayout>
@@ -597,13 +1035,6 @@ const App = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/exams/timetable" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-            <DashboardLayout>
-              <ExamTimetable />
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
 
         <Route path="/exams/result" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
@@ -613,13 +1044,8 @@ const App = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/exams/grades" element={
-          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
-            <DashboardLayout>
-              <ExamGrade />
-            </DashboardLayout>
-          </ProtectedRoute>
-        } />
+        {/* Grade bands now live in the grading module; keep the old path working. */}
+        <Route path="/exams/grades" element={<Navigate to="/grading" replace />} />
 
         <Route path="/id-cards/builder" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
@@ -657,6 +1083,30 @@ const App = () => {
           <ProtectedRoute>
             <DashboardLayout>
               <TimetableGrid />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/holidays" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ManageHoliday />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/events" element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Events />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/academics/session-years" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <SessionYears />
             </DashboardLayout>
           </ProtectedRoute>
         } />
@@ -743,11 +1193,51 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/ai" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <AiHub />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/review" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
+            <DashboardLayout>
+              <AiDrafts />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/knowledge" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <KnowledgeBase />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/ai/assistant" element={
+          <ProtectedRoute allowedRoles={['GUARDIAN']}>
+            <DashboardLayout>
+              <GuardianChat />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Teachers get a blog-only view (drafts; admins publish) */}
         <Route path="/website-builder" element={
-          <ProtectedRoute allowedRoles={['ADMIN']}>
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER']}>
             <DashboardLayout>
               <WebsiteBuilder />
             </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Full-screen drag-and-drop page editor (no dashboard chrome) */}
+        <Route path="/website-builder/pages/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <SitePageEditor />
           </ProtectedRoute>
         } />
         
@@ -843,6 +1333,14 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        <Route path="/super-admin/email" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <EmailDeliveryPortal />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/super-admin/applications" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
             <DashboardLayout>
@@ -879,6 +1377,15 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN']}>
             <DashboardLayout>
               <Settings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* Design system reference (sample content only) — not in the sidebar */}
+        <Route path="/design-system" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DesignSystem />
             </DashboardLayout>
           </ProtectedRoute>
         } />

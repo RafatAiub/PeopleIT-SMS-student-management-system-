@@ -9,7 +9,6 @@ import type {
   CreateTimetableDtoType,
   TimetableEntryDtoType,
   TimetableQueryDtoType,
-  SaveGradesDtoType,
   ExamResultQueryDtoType,
 } from './exams.dto';
 
@@ -143,34 +142,6 @@ export async function deleteTimetableEntry(institutionId: string, id: string) {
   if (!existing) throw new NotFoundError('Timetable entry not found');
   await examsRepository.deleteTimetableEntry(id);
   await examsRepository.syncExamDatesFromTimetable(existing.examId);
-}
-
-// ── Exam Grades ──────────────────────────────────────────────────────────
-
-export async function listGrades(institutionId: string) {
-  return examsRepository.findGrades(institutionId);
-}
-
-export async function saveGrades(institutionId: string, data: SaveGradesDtoType) {
-  const sorted = [...data.grades].sort((a, b) => a.minPercent - b.minPercent);
-
-  const seen = new Set<string>();
-  for (const g of sorted) {
-    const key = g.grade.toUpperCase();
-    if (seen.has(key)) throw new BadRequestError(`Grade "${g.grade}" is defined more than once`);
-    seen.add(key);
-  }
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].minPercent <= sorted[i - 1].maxPercent) {
-      throw new BadRequestError(
-        `Range ${sorted[i].minPercent}-${sorted[i].maxPercent} overlaps ${sorted[i - 1].minPercent}-${sorted[i - 1].maxPercent}`,
-      );
-    }
-  }
-
-  await examsRepository.replaceGrades(institutionId, sorted);
-  logger.info('Exam grades saved', { institutionId, count: sorted.length });
-  return examsRepository.findGrades(institutionId);
 }
 
 // ── Exam Result (class summary) ──────────────────────────────────────────

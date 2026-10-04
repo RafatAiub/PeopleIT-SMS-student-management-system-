@@ -1,9 +1,13 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load env file from current CWD or subfolder fallback
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+// Load env file from current CWD or subfolder fallback. SKIP_DOTENV=true makes
+// the process use only its own environment — scripts/dev-local.cmd sets it so
+// a local dev server can never pick up production values from backend/.env.
+if (process.env.SKIP_DOTENV !== 'true') {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+}
 
 import { z } from 'zod';
 
@@ -89,14 +93,25 @@ const envSchema = z.object({
   GREENWEB_API_TOKEN: z.string().optional(),
   GREENWEB_BASE_URL: z.string().url().default('https://api.greenweb.com.bd/api.php'),
 
-  // Email — SMTP via nodemailer. Disabled by default: with EMAIL_ENABLED=false
-  // the channel still renders and "sends" every message through nodemailer's
-  // jsonTransport (recorded SENT, no network call, no real delivery) until a
-  // real provider is configured — see modules/notifications/channels/email.channel.ts.
+  // Email — Brevo (transactional HTTP API preferred) or SMTP relay via
+  // nodemailer, selected at send time by utils/mailer.ts:
+  //   1. BREVO_API_KEY set             -> Brevo HTTP API (api.brevo.com)
+  //   2. else EMAIL_ENABLED + SMTP_HOST -> SMTP relay (e.g. Brevo SMTP relay)
+  //   3. else                           -> demo mode: rendered, logged, never sent
+  // Disabled by default: with neither configured, every message still renders
+  // and "sends" through nodemailer's jsonTransport (recorded SENT, no network
+  // call, no real delivery) — see modules/notifications/channels/email.channel.ts.
   EMAIL_ENABLED: z
     .string()
     .transform((v) => v === 'true')
     .default('false'),
+  // Schedulers (overdue marking, report emails, domain checks …) and the
+  // BullMQ queue workers. On by default; set BACKGROUND_JOBS=false for a
+  // light local dev server that only answers API requests.
+  BACKGROUND_JOBS: z
+    .string()
+    .transform((v) => v !== 'false')
+    .default('true'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
@@ -106,6 +121,31 @@ const envSchema = z.object({
     .transform((v) => v === 'true')
     .default('false'),
   EMAIL_FROM: z.string().default('PeopleNIT SMS <noreply@peopleit.com>'),
+  // Brevo transactional API key (Settings > SMTP & API > API Keys in Brevo).
+  // When set, takes priority over SMTP_HOST for every outbound email.
+  BREVO_API_KEY: z.string().optional(),
+  // Optional overrides split out from EMAIL_FROM ("Name <email>"); when unset,
+  // the name/address are parsed out of EMAIL_FROM itself.
+  EMAIL_FROM_NAME: z.string().optional(),
+  EMAIL_REPLY_TO: z.string().email().optional(),
+  // Per-send network timeout for both the Brevo API call and the SMTP socket.
+  EMAIL_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+  // Brevo free plan hard cap: 300 emails/day, TOTAL across every institution.
+  // Counted per UTC calendar day (modules/email/budget.ts). 50 of these are
+  // reserved exclusively for P0_SECURITY mail (OTP/reset/verify/invites) —
+  // see EmailPriority in schema.prisma and modules/email/sender.ts.
+  EMAIL_DAILY_LIMIT: z.coerce.number().int().positive().default(300),
+  // Within the non-reserved pool (limit - 50), P1 transactional mail (the
+  // "comes next" tier) gets this many slots reserved ahead of P2 bulk mail —
+  // P2 starts deferring to the next UTC day once usedToday crosses
+  // (limit - 50 - EMAIL_P1_HEADROOM), while P1 keeps sending up to
+  // (limit - 50). See modules/email/budget.ts.
+  EMAIL_P1_HEADROOM: z.coerce.number().int().min(0).default(50),
+  // Shared secret the Brevo webhook URL must carry as ?token=; without it any
+  // caller could forge bounce/spam events and suppress arbitrary addresses.
+  // Required only once BREVO_API_KEY (or SMTP over the Brevo relay) is
+  // actually in use — see modules/email/email.public.routes.ts.
+  EMAIL_WEBHOOK_TOKEN: z.string().optional(),
 
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'debug']).default('info'),

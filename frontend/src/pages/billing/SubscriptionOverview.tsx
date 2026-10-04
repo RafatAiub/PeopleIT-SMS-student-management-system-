@@ -41,6 +41,14 @@ const PAYMENT_STATUS_BADGE: Record<
   REFUNDED: { label: 'Refunded', variant: 'info' },
 };
 
+const STATUS_BADGE: Record<SubscriptionStatus, { label: string; variant: 'success' | 'info' | 'warning' | 'danger' | 'neutral' }> = {
+  TRIALING: { label: 'Trialing', variant: 'info' },
+  ACTIVE: { label: 'Active', variant: 'success' },
+  GRACE: { label: 'Grace period', variant: 'warning' },
+  EXPIRED: { label: 'Expired', variant: 'danger' },
+  CANCELLED: { label: 'Cancelled', variant: 'neutral' },
+};
+
 const CYCLES: BillingCycle[] = ['MONTHLY', 'QUARTERLY', 'HALF_YEARLY', 'YEARLY'];
 
 const MONTHS_PER_CYCLE: Record<BillingCycle, number> = {
@@ -301,7 +309,10 @@ const SubscriptionOverview: React.FC = () => {
               <hero.Icon className="w-6 h-6" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className={`text-xs font-bold uppercase tracking-wider ${toneStyle.eyebrow}`}>{hero.eyebrow}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className={`text-xs font-bold uppercase tracking-wider ${toneStyle.eyebrow}`}>{hero.eyebrow}</p>
+                <Badge variant={STATUS_BADGE[subscription.status].variant}>{STATUS_BADGE[subscription.status].label}</Badge>
+              </div>
               <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white mt-0.5">
                 {hero.headline(subscription.daysRemaining)}
               </h2>

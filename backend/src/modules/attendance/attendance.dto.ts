@@ -53,6 +53,13 @@ export const WeeklyAttendanceSheetQueryDto = z.object({
   }),
 });
 
+export const AttendanceSummaryQueryDto = z.object({
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'month must be YYYY-MM'),
+  className: z.string().min(1, 'Class name is required'),
+  sectionName: z.string().min(1, 'Section name is required'),
+});
+
+export type AttendanceSummaryQueryDtoType = z.infer<typeof AttendanceSummaryQueryDto>;
 export type BulkSubmitAttendanceDtoType = z.infer<typeof BulkSubmitAttendanceDto>;
 export type AttendanceQueryDtoType = z.infer<typeof AttendanceQueryDto>;
 export type AssignTeacherDtoType = z.infer<typeof AssignTeacherDto>;

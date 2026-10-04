@@ -1,371 +1,132 @@
-import React, { useState, useEffect } from 'react';
-import { Layout, Palette, Type, Info, Mail, Phone, MapPin, Globe, Save } from 'lucide-react';
-import toast from 'react-hot-toast';
-import apiClient from '../../api/client';
-import { Button } from '../../components/ui/Button';
+import { useSearchParams } from 'react-router-dom';
+import {
+  LayoutDashboard, FileText, Palette, Menu as MenuIcon, Image as ImageIcon, Newspaper, ClipboardList, Globe, Settings as SettingsIcon,
+  ShoppingBag, GraduationCap, Code2, Contact, FolderKanban, Blocks,
+} from 'lucide-react';
+import { PageHeader, Tabs, TabPanel, Skeleton, SkeletonStatGrid, ErrorState, Badge } from '@/components/ui';
+import type { TabItem } from '@/components/ui';
+import { useT } from '@/i18n';
+import { useSite, apiError } from './sites.queries';
+import { useSiteRole } from './siteUtils';
+import { OverviewTab } from './tabs/OverviewTab';
+import { ProfileTab } from './tabs/ProfileTab';
+import { PagesTab } from './tabs/PagesTab';
+import { DesignTab } from './tabs/DesignTab';
+import { NavigationTab } from './tabs/NavigationTab';
+import { ContentTab } from './tabs/ContentTab';
+import { ShopTab } from './tabs/ShopTab';
+import { CoursesTab } from './tabs/CoursesTab';
+import { MediaTab } from './tabs/MediaTab';
+import { BlogTab } from './tabs/BlogTab';
+import { FormsTab } from './tabs/FormsTab';
+import { CodeTab } from './tabs/CodeTab';
+import { ModulesTab } from './tabs/ModulesTab';
+import { DomainsTab } from './tabs/DomainsTab';
+import { SettingsTab } from './tabs/SettingsTab';
 
-interface CustomizerConfig {
-  themeColor: string;
-  heroTitle: string;
-  heroSubtitle: string;
-  aboutText: string;
-  contactEmail: string;
-  contactPhone: string;
-  contactAddress: string;
-}
+const ADMIN_TABS = [
+  'overview', 'profile', 'pages', 'design', 'navigation', 'content', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'modules', 'domains', 'settings',
+] as const;
+type TabId = (typeof ADMIN_TABS)[number];
 
-// Named swatches map to the hex values actually persisted by the backend
-// (Institution.themeColor is a strict #RRGGBB/#RGB string, not a color name).
-const THEME_SWATCHES: Record<
-  string,
-  { hex: string; bg: string; text: string; border: string; btn: string; banner: string }
-> = {
-  indigo: { hex: '#4f46e5', bg: 'bg-indigo-600', text: 'text-indigo-400', border: 'border-indigo-500', btn: 'bg-indigo-600 hover:bg-indigo-700', banner: 'from-indigo-600 to-indigo-900' },
-  emerald: { hex: '#059669', bg: 'bg-emerald-600', text: 'text-emerald-400', border: 'border-emerald-500', btn: 'bg-emerald-600 hover:bg-emerald-700', banner: 'from-emerald-600 to-emerald-900' },
-  blue: { hex: '#2563eb', bg: 'bg-blue-600', text: 'text-blue-400', border: 'border-blue-500', btn: 'bg-blue-600 hover:bg-blue-700', banner: 'from-blue-600 to-blue-900' },
-  rose: { hex: '#e11d48', bg: 'bg-rose-600', text: 'text-rose-400', border: 'border-rose-500', btn: 'bg-rose-600 hover:bg-rose-700', banner: 'from-rose-600 to-rose-900' },
-  amber: { hex: '#d97706', bg: 'bg-amber-600', text: 'text-amber-400', border: 'border-amber-500', btn: 'bg-amber-600 hover:bg-amber-700', banner: 'from-amber-600 to-amber-900' },
-};
-
-const DEFAULT_CONFIG: CustomizerConfig = {
-  themeColor: THEME_SWATCHES.indigo.hex,
-  heroTitle: 'Empowering Next-Gen Leaders',
-  heroSubtitle: 'Welcome to PeopleIT School, where academic excellence meets innovative character building and core skill development.',
-  aboutText: 'Established in 2012, PeopleIT School has been a pioneer in student-first educational paradigms. We provide top-tier facilities, dedicated educational mentors, and a robust learning environment suited for the digital age.',
-  contactEmail: 'admissions@peopleit-school.edu',
-  contactPhone: '+880 2-9876543',
-  contactAddress: 'Plot 42, Road 11, Banani, Dhaka, Bangladesh',
-};
-
+/**
+ * Website builder (Sites) — /website-builder.
+ * Admins get every tab; teachers only get the Blog tab (the API lets them
+ * create and edit posts, nothing else).
+ */
 export default function WebsiteBuilder() {
-  const [config, setConfig] = useState<CustomizerConfig>(DEFAULT_CONFIG);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const res = await apiClient.get('/institution/website');
-        const data = res.data?.data;
-        if (data) {
-          setConfig((prev) => ({
-            ...prev,
-            themeColor: data.themeColor || prev.themeColor,
-            heroTitle: data.heroTitle ?? prev.heroTitle,
-            heroSubtitle: data.heroSubtitle ?? prev.heroSubtitle,
-            aboutText: data.aboutText ?? prev.aboutText,
-            contactEmail: data.contactEmail ?? prev.contactEmail,
-            contactPhone: data.contactPhone ?? prev.contactPhone,
-            // contactAddress isn't part of the website-config API/schema yet —
-            // kept as local preview-only state until that field exists.
-          }));
-        }
-      } catch (err) {
-        console.error('Failed to load website configuration', err);
-        toast.error('Failed to load saved landing page configuration');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchConfig();
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await apiClient.put('/institution/website', {
-        themeColor: config.themeColor,
-        heroTitle: config.heroTitle,
-        heroSubtitle: config.heroSubtitle,
-        aboutText: config.aboutText,
-        contactEmail: config.contactEmail || null,
-        contactPhone: config.contactPhone || null,
-      });
-      toast.success('Landing page visual configuration published successfully!');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to publish changes');
-    } finally {
-      setSaving(false);
-    }
+  const t = useT();
+  const { canManage } = useSiteRole();
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab') as TabId | null;
+  const tab: TabId = canManage ? (requested && ADMIN_TABS.includes(requested) ? requested : 'overview') : 'blog';
+  const setTab = (id: string, extra?: Record<string, string>) => {
+    const next = new URLSearchParams(params);
+    next.set('tab', id);
+    if (extra) for (const [k, v] of Object.entries(extra)) next.set(k, v);
+    setParams(next, { replace: true });
   };
 
-  const selectedTheme =
-    Object.values(THEME_SWATCHES).find((t) => t.hex === config.themeColor) || THEME_SWATCHES.indigo;
+  const siteQuery = useSite(canManage);
 
-  if (loading) {
+  if (!canManage) {
     return (
-      <div className="flex items-center justify-center h-96 text-slate-500 dark:text-slate-400 text-sm">
-        Loading landing page configuration...
+      <div className="space-y-6">
+        <PageHeader
+          title={t('School news')}
+          description={t('Write news and blog posts for the school website. An administrator publishes the rest of the site.')}
+        />
+        <BlogTab />
       </div>
     );
   }
 
+  const tabs: TabItem[] = [
+    { id: 'overview', label: t('Overview'), icon: <LayoutDashboard /> },
+    { id: 'profile', label: t('Profile'), icon: <Contact /> },
+    { id: 'pages', label: t('Pages'), icon: <FileText />, count: siteQuery.data?.pages.length },
+    { id: 'design', label: t('Design'), icon: <Palette /> },
+    { id: 'navigation', label: t('Navigation'), icon: <MenuIcon /> },
+    { id: 'content', label: t('Content'), icon: <FolderKanban /> },
+    { id: 'shop', label: t('Shop'), icon: <ShoppingBag /> },
+    { id: 'courses', label: t('Courses'), icon: <GraduationCap /> },
+    { id: 'media', label: t('Media'), icon: <ImageIcon /> },
+    { id: 'blog', label: t('Blog'), icon: <Newspaper /> },
+    { id: 'forms', label: t('Forms'), icon: <ClipboardList /> },
+    { id: 'code', label: t('Code'), icon: <Code2 /> },
+    { id: 'modules', label: t('Modules'), icon: <Blocks /> },
+    { id: 'domains', label: t('Domains'), icon: <Globe />, count: siteQuery.data?.domains.length },
+    { id: 'settings', label: t('Settings'), icon: <SettingsIcon /> },
+  ];
+
+  const site = siteQuery.data;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Layout className="w-7 h-7 text-primary-500 dark:text-primary-400" />
-            Landing Page Customizer
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Configure the public-facing landing page of your institution and preview edits instantly.
-          </p>
+    <div className="space-y-6 min-w-0">
+      <PageHeader
+        title={t('Website Builder')}
+        description={t('Build and publish your school’s public website: pages, design, menus, news, forms and your own domain.')}
+        actions={
+          site ? (
+            <Badge variant={site.site.status === 'PUBLISHED' ? 'success' : 'neutral'} dot>
+              {site.site.status === 'PUBLISHED' ? t('Published') : t('Draft — not public yet')}
+            </Badge>
+          ) : undefined
+        }
+      />
+
+      <Tabs tabs={tabs} value={tab} onChange={setTab} label={t('Website builder sections')} idPrefix="site-tab" />
+
+      {siteQuery.isLoading ? (
+        <div className="space-y-4" aria-busy="true">
+          <SkeletonStatGrid />
+          <Skeleton className="h-48 rounded-2xl" />
         </div>
-        <Button variant="gradient" onClick={handleSave} isLoading={saving} className="px-4 py-2.5 text-sm self-start sm:self-auto">
-          {!saving && <Save className="w-4 h-4" />}
-          {saving ? 'Publishing...' : 'Publish Changes'}
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        {/* Left Side: Inputs visual configuration */}
-        <div className="xl:col-span-5 space-y-6">
-          <div className="glass-card p-6 rounded-2xl space-y-4">
-            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Palette className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
-              Theme &amp; Brand Styling
-            </h3>
-
-            <div>
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Theme Color Accent</label>
-              <div className="flex gap-2">
-                {Object.entries(THEME_SWATCHES).map(([colorName, swatch]) => (
-                  <button
-                    key={colorName}
-                    type="button"
-                    onClick={() => setConfig((prev) => ({ ...prev, themeColor: swatch.hex }))}
-                    className={`w-8 h-8 rounded-full border-2 transition-all relative ${
-                      config.themeColor === swatch.hex
-                        ? 'border-slate-800 dark:border-white scale-110 shadow-lg'
-                        : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: swatch.hex }}
-                    title={`Theme color ${colorName}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-card p-6 rounded-2xl space-y-4">
-            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Type className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
-              Hero Section Text
-            </h3>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">Hero Main Title</label>
-                <input
-                  type="text"
-                  value={config.heroTitle}
-                  onChange={e => setConfig(prev => ({ ...prev, heroTitle: e.target.value }))}
-                  className="input-field"
-                  placeholder="E.g. Building Tomorrow's Leaders"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">Hero Subtitle</label>
-                <textarea
-                  rows={3}
-                  value={config.heroSubtitle}
-                  onChange={e => setConfig(prev => ({ ...prev, heroSubtitle: e.target.value }))}
-                  className="input-field resize-none"
-                  placeholder="Enter a brief tag description"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-card p-6 rounded-2xl space-y-4">
-            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Info className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
-              About Institution Section
-            </h3>
-
-            <div>
-              <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1 block">About Us Body Text</label>
-              <textarea
-                rows={4}
-                value={config.aboutText}
-                onChange={e => setConfig(prev => ({ ...prev, aboutText: e.target.value }))}
-                className="input-field resize-none"
-                placeholder="Institutional profile information"
-              />
-            </div>
-          </div>
-
-          <div className="glass-card p-6 rounded-2xl space-y-4">
-            <h3 className="text-md font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Phone className="w-4.5 h-4.5 text-primary-600 dark:text-primary-400" />
-              Contact Information
-            </h3>
-
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Official Email Address</label>
-                <input
-                  type="email"
-                  value={config.contactEmail}
-                  onChange={e => setConfig(prev => ({ ...prev, contactEmail: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">Contact Hotline</label>
-                <input
-                  type="text"
-                  value={config.contactPhone}
-                  onChange={e => setConfig(prev => ({ ...prev, contactPhone: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1.5 block">
-                  Campus Address <span className="text-slate-400 dark:text-slate-500 font-normal">(preview only — not yet saved)</span>
-                </label>
-                <input
-                  type="text"
-                  value={config.contactAddress}
-                  onChange={e => setConfig(prev => ({ ...prev, contactAddress: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Responsive Desktop Preview Mock */}
-        <div className="xl:col-span-7 space-y-2">
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase px-1">Live Web Preview (Desktop Mock)</span>
-
-          <div className="bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm flex flex-col h-[680px]">
-            {/* Desktop window controls bar */}
-            <div className="bg-slate-100 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center gap-2">
-              <div className="flex gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-red-500/40 block" />
-                <span className="w-3 h-3 rounded-full bg-yellow-500/40 block" />
-                <span className="w-3 h-3 rounded-full bg-green-500/40 block" />
-              </div>
-              <div className="bg-white dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-lg text-[10px] text-slate-600 dark:text-slate-500 px-3 py-1 flex items-center gap-1.5 w-64 mx-auto truncate select-none">
-                <Globe className="w-3 h-3 text-slate-400 dark:text-slate-600 flex-shrink-0" />
-                <span>https://www.peopleit-school.edu</span>
-              </div>
-            </div>
-
-            {/* Desktop page body wrapper */}
-            <div className="flex-1 overflow-y-auto bg-slate-950 text-slate-800 selection:bg-slate-200">
-
-              {/* Site Header */}
-              <nav className="bg-white px-6 py-4 flex items-center justify-between shadow-xs sticky top-0 z-10">
-                <div className="flex items-center gap-2">
-                  <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${selectedTheme.bg}`}>
-                    P
-                  </span>
-                  <span className="font-bold text-base text-slate-900">PeopleIT School</span>
-                </div>
-                <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
-                  <span className="text-slate-900 cursor-pointer">Home</span>
-                  <span className="hover:text-slate-900 cursor-pointer">Admissions</span>
-                  <span className="hover:text-slate-900 cursor-pointer">Curriculum</span>
-                  <span className="hover:text-slate-900 cursor-pointer">Contact</span>
-                  <button className={`text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold ${selectedTheme.bg} transition-colors`}>
-                    Portal Login
-                  </button>
-                </div>
-              </nav>
-
-              {/* Site Hero Banner */}
-              <div className="relative bg-slate-950 text-white py-16 px-8 overflow-hidden">
-                <div className="absolute inset-0 opacity-15 bg-grid-pattern pointer-events-none" />
-
-                {/* Visual gradient blob based on chosen theme */}
-                <div className={`absolute -right-16 -top-16 w-60 h-60 rounded-full blur-3xl opacity-30 ${selectedTheme.bg}`} />
-
-                <div className="max-w-xl relative z-10 space-y-4">
-                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full text-white ${selectedTheme.bg}`}>
-                    Admissions Open 2026-27
-                  </span>
-                  <h1 className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                    {config.heroTitle || 'Add title text...'}
-                  </h1>
-                  <p className="text-xs text-slate-300 leading-relaxed max-w-lg">
-                    {config.heroSubtitle || 'Add subtitle content...'}
-                  </p>
-                  <div className="flex gap-3 pt-2">
-                    <button className={`text-white font-semibold text-xs px-4 py-2 rounded-lg ${selectedTheme.bg}`}>
-                      Apply Online
-                    </button>
-                    <button className="bg-slate-900 hover:bg-slate-850 border border-slate-700 text-slate-200 font-semibold text-xs px-4 py-2 rounded-lg">
-                      Virtual Tour
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* About Us section */}
-              <div className="bg-white py-12 px-8">
-                <div className="max-w-2xl mx-auto space-y-3">
-                  <h2 className="text-lg font-bold text-slate-900 text-center flex items-center justify-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${selectedTheme.bg}`} />
-                    About Our Institution
-                  </h2>
-                  <p className="text-xs text-slate-600 leading-relaxed text-center font-normal">
-                    {config.aboutText || 'Add about body information...'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Contact section */}
-              <div className="bg-slate-50 border-t border-slate-200 py-10 px-8">
-                <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                  <div className="flex items-start gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${selectedTheme.bg}`}>
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">Email Address</h4>
-                      <p className="text-[11px] text-slate-500 break-all mt-0.5">{config.contactEmail || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${selectedTheme.bg}`}>
-                      <Phone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">Call Us</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{config.contactPhone || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0 ${selectedTheme.bg}`}>
-                      <MapPin className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900">Campus Location</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-tight">{config.contactAddress || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Site Footer */}
-              <footer className="bg-slate-900 text-slate-400 text-[10px] text-center py-4 border-t border-slate-800">
-                <p>&copy; 2026 PeopleIT School. All Rights Reserved. Custom Web Design Preview.</p>
-              </footer>
-
-            </div>
-          </div>
-        </div>
-      </div>
+      ) : siteQuery.isError || !site ? (
+        <ErrorState
+          title={t('Could not load your website')}
+          message={apiError(siteQuery.error, t('The website service did not respond. Check your connection and try again.'))}
+          onRetry={() => siteQuery.refetch()}
+        />
+      ) : (
+        <>
+          <TabPanel id="overview" value={tab} idPrefix="site-tab"><OverviewTab me={site} onNavigate={setTab} /></TabPanel>
+          <TabPanel id="profile" value={tab} idPrefix="site-tab"><ProfileTab /></TabPanel>
+          <TabPanel id="pages" value={tab} idPrefix="site-tab"><PagesTab me={site} /></TabPanel>
+          <TabPanel id="design" value={tab} idPrefix="site-tab"><DesignTab me={site} /></TabPanel>
+          <TabPanel id="navigation" value={tab} idPrefix="site-tab"><NavigationTab me={site} /></TabPanel>
+          <TabPanel id="content" value={tab} idPrefix="site-tab"><ContentTab /></TabPanel>
+          <TabPanel id="shop" value={tab} idPrefix="site-tab"><ShopTab me={site} /></TabPanel>
+          <TabPanel id="courses" value={tab} idPrefix="site-tab"><CoursesTab me={site} /></TabPanel>
+          <TabPanel id="media" value={tab} idPrefix="site-tab"><MediaTab /></TabPanel>
+          <TabPanel id="blog" value={tab} idPrefix="site-tab"><BlogTab /></TabPanel>
+          <TabPanel id="forms" value={tab} idPrefix="site-tab"><FormsTab /></TabPanel>
+          <TabPanel id="code" value={tab} idPrefix="site-tab"><CodeTab me={site} /></TabPanel>
+          <TabPanel id="modules" value={tab} idPrefix="site-tab">{tab === 'modules' && <ModulesTab me={site} />}</TabPanel>
+          <TabPanel id="domains" value={tab} idPrefix="site-tab"><DomainsTab me={site} /></TabPanel>
+          <TabPanel id="settings" value={tab} idPrefix="site-tab"><SettingsTab me={site} /></TabPanel>
+        </>
+      )}
     </div>
   );
 }

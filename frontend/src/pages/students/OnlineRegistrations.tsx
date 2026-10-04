@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, UserCheck, Copy, ShieldAlert } from 'lucide-react';
+import { Copy, ShieldAlert } from 'lucide-react';
 import apiClient from '../../api/client';
 import { studentApplicationApi } from '../../api/studentApplication.api';
 import toast from 'react-hot-toast';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { Input, Select } from '../../components/ui/Input';
+import { PageHeader } from '../../components/ui/Display';
+import { ErrorState } from '../../components/ui/Feedback';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { Badge } from '../../components/ui/Badge';
 
@@ -35,6 +38,7 @@ const OnlineRegistrations = () => {
   const [rows, setRows] = useState<PendingStudentRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -55,8 +59,12 @@ const OnlineRegistrations = () => {
     }
   };
 
+  // This queue only ever shows applications with status=PENDING — approving
+  // one flips it to ACTIVE (leaves the queue) and rejecting deletes it
+  // entirely, so there is no second status value to filter this list by.
   const fetchPending = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await apiClient.get('/students', {
         params: { status: 'PENDING', classId: classFilter || undefined, page, pageSize },
@@ -66,6 +74,7 @@ const OnlineRegistrations = () => {
     } catch (error) {
       console.error('Failed to fetch pending registrations', error);
       toast.error('Failed to load online registrations');
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -130,6 +139,7 @@ const OnlineRegistrations = () => {
       header: 'No.',
       sortable: false,
       width: '60px',
+      hideOnMobile: true,
       render: (row) => (
         <span className="text-slate-500 dark:text-slate-400">
           {rows.findIndex((r) => r.id === row.id) + 1 + (page - 1) * pageSize}
@@ -139,6 +149,8 @@ const OnlineRegistrations = () => {
     {
       key: 'student',
       header: 'Student',
+      primary: true,
+      exportValue: (r) => `${r.firstName} ${r.lastName}`,
       render: (row) => (
         <div className="flex items-center gap-3">
           {row.avatarUrl || row.user?.avatarUrl ? (
@@ -148,7 +160,7 @@ const OnlineRegistrations = () => {
               className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-white/10"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 flex items-center justify-center font-bold text-xs shrink-0">
               {row.firstName?.[0] || '?'}
             </div>
           )}
@@ -162,6 +174,7 @@ const OnlineRegistrations = () => {
     {
       key: 'dateOfBirth',
       header: 'Date of Birth',
+      exportValue: (r) => (r.dateOfBirth ? new Date(r.dateOfBirth).toLocaleDateString('en-GB') : ''),
       render: (row) => (row.dateOfBirth ? new Date(row.dateOfBirth).toLocaleDateString('en-GB').replace(/\//g, '-') : '—'),
     },
     {
@@ -172,16 +185,24 @@ const OnlineRegistrations = () => {
     {
       key: 'class',
       header: 'Class',
+      exportValue: (r) => r.class?.name || '',
       render: (row) => row.class?.name || '—',
     },
     {
       key: 'admissionDate',
       header: 'Admission Date',
+      hideOnMobile: true,
+      exportValue: (r) => (r.admissionDate ? new Date(r.admissionDate).toLocaleDateString('en-GB') : ''),
       render: (row) => (row.admissionDate ? new Date(row.admissionDate).toLocaleDateString('en-GB').replace(/\//g, '-') : '—'),
     },
     {
       key: 'guardian',
       header: 'Father/Guardian',
+      sortable: false,
+      exportValue: (r) => {
+        const g = r.guardians?.[0]?.guardian;
+        return g ? `${g.firstName} ${g.lastName}` : '';
+      },
       render: (row) => {
         const g = row.guardians?.[0]?.guardian;
         if (!g) return '—';
@@ -190,7 +211,7 @@ const OnlineRegistrations = () => {
             {g.avatarUrl ? (
               <img src={g.avatarUrl} alt="Guardian" className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-white/10" />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+              <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400 flex items-center justify-center font-bold text-[10px] shrink-0">
                 {g.firstName?.[0] || '?'}
               </div>
             )}
@@ -205,6 +226,8 @@ const OnlineRegistrations = () => {
     {
       key: 'status',
       header: 'Application Status',
+      sortable: false,
+      exportValue: () => 'Pending',
       render: () => <Badge variant="warning">Pending</Badge>,
     },
   ];
@@ -214,86 +237,68 @@ const OnlineRegistrations = () => {
     { label: 'Reject', icon: 'delete', onClick: (row) => setRejectTarget(row), variant: 'danger' },
   ];
 
+  const toolbar = (
+    <Select
+      aria-label="Filter by class"
+      value={classFilter}
+      onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
+      className="w-auto min-w-40"
+      placeholder="All Classes"
+      options={classes.map((c) => ({ value: c.id, label: c.name }))}
+    />
+  );
+
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-          <ClipboardList className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Online Registrations</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">
-            Review student applications submitted through the public Online Registration form.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Online Registrations"
+        description="Review student applications submitted through the public Online Registration form."
+      />
 
-      <div className="glass-card p-6 rounded-2xl max-w-xs">
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Class</label>
-        <select
-          value={classFilter}
-          onChange={(e) => { setClassFilter(e.target.value); setPage(1); }}
-          className="input-field"
-        >
-          <option value="">All Classes</option>
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="glass-card rounded-2xl overflow-hidden border border-slate-200/50 dark:border-white/10 shadow-xs">
-        <div className="p-4">
-          <DataTable
-            data={rows}
-            columns={columns}
-            actions={actions}
-            isLoading={loading}
-            serverPagination
-            totalCount={total}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            emptyTitle="No pending registrations"
-            emptyDescription="Applications submitted through the public Online Registration form will show up here."
-          />
-        </div>
-      </div>
+      {loadError ? (
+        <ErrorState message="Failed to load online registrations." onRetry={fetchPending} />
+      ) : (
+        <DataTable
+          data={rows}
+          columns={columns}
+          actions={actions}
+          isLoading={loading}
+          serverPagination
+          totalCount={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          toolbar={toolbar}
+          exportFileName="online-registrations"
+          emptyTitle="No pending registrations"
+          emptyDescription="Applications submitted through the public Online Registration form will show up here."
+        />
+      )}
 
       {/* Approve Modal */}
-      <Modal isOpen={!!approveTarget} onClose={() => setApproveTarget(null)} className="max-w-md space-y-5">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200 dark:border-white/5">
-          <div className="w-10 h-10 rounded-xl bg-accent-50 dark:bg-accent-500/10 text-accent-600 dark:text-accent-400 flex items-center justify-center flex-shrink-0">
-            <UserCheck className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">Approve Application</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-              {approveTarget?.firstName} {approveTarget?.lastName} · {approveTarget?.studentId}
-            </p>
-          </div>
-        </div>
-
+      <Modal
+        isOpen={!!approveTarget}
+        onClose={() => setApproveTarget(null)}
+        title="Approve Application"
+        description={approveTarget ? `${approveTarget.firstName} ${approveTarget.lastName} · ${approveTarget.studentId}` : undefined}
+        size="sm"
+      >
         {!approveResult ? (
           <form onSubmit={handleApprove} className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-400">Student Login Email</label>
-              <input
-                type="email"
-                required
-                value={approveEmail}
-                onChange={(e) => setApproveEmail(e.target.value)}
-                placeholder="student@school.edu"
-                className="input-field"
-              />
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                A login is created for the student on approval — a password is generated automatically and shown once.
-              </p>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setApproveTarget(null)}>Cancel</Button>
-              <Button type="submit" variant="gradient" isLoading={approving}>
+            <Input
+              label="Student Login Email"
+              type="email"
+              required
+              value={approveEmail}
+              onChange={(e) => setApproveEmail(e.target.value)}
+              placeholder="student@school.edu"
+              helperText="A login is created for the student on approval — a password is generated automatically and shown once."
+              data-autofocus
+            />
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setApproveTarget(null)}>Cancel</Button>
+              <Button type="submit" variant="primary" isLoading={approving}>
                 {approving ? 'Approving…' : 'Approve'}
               </Button>
             </div>
@@ -321,7 +326,7 @@ const OnlineRegistrations = () => {
                     type="button"
                     onClick={() => handleCopy(approveResult.password)}
                     title="Copy password"
-                    className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors flex-shrink-0"
+                    className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 hover:text-primary-600 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors shrink-0"
                   >
                     <Copy className="w-4 h-4" />
                   </button>
@@ -329,7 +334,7 @@ const OnlineRegistrations = () => {
               </div>
             </div>
             <div className="flex justify-end pt-2">
-              <Button type="button" variant="gradient" onClick={() => setApproveTarget(null)}>Done</Button>
+              <Button type="button" variant="primary" onClick={() => setApproveTarget(null)}>Done</Button>
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { computeGrade, gradeForPercentage } from '../src/utils/grading';
-import { CreateExamDto, CreateTimetableDto, SaveGradesDto } from '../src/modules/exams/exams.dto';
+import { CreateExamDto, CreateTimetableDto } from '../src/modules/exams/exams.dto';
 
 describe('grading', () => {
   it('uses the built-in scale when no bands are configured', () => {
@@ -51,12 +51,3 @@ describe('CreateTimetableDto', () => {
   });
 });
 
-describe('SaveGradesDto', () => {
-  it('rejects a band whose ending range is below its starting range', () => {
-    expect(SaveGradesDto.safeParse({ grades: [{ minPercent: 50, maxPercent: 40, grade: 'B' }] }).success).toBe(false);
-  });
-
-  it('rejects ranges outside 0-100', () => {
-    expect(SaveGradesDto.safeParse({ grades: [{ minPercent: 90, maxPercent: 110, grade: 'A+' }] }).success).toBe(false);
-  });
-});

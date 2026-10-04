@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import { drawLetterhead, type PdfInstitution } from '../../utils/pdfHeader';
-import { computeGrade, type GradeBand } from '../../utils/grading';
+import { computeGrade } from '../../utils/grading';
+import { gradeFor, lookupBand, type GradeBandInput } from '../grading/grading.core';
 
 interface ReportCardData {
   institution: PdfInstitution;
@@ -20,10 +21,13 @@ interface ReportCardData {
   totalObtained: number;
   totalMax: number;
   overallPercentage: number;
-  // Institution-configured bands (Exam > Exam Grade); empty = built-in scale.
-  gradeBands?: GradeBand[];
   attendance: { totalDays: number; present: number; absent: number; late: number; halfDay: number; rate: number } | null;
   classRank: { rank: number; totalStudents: number } | null;
+  /**
+   * The institution's default grading scale. Omitted → the fixed scale
+   * (legend, overall grade, colours and PASS banner exactly as before).
+   */
+  gradingBands?: GradeBandInput[];
 }
 
 const NAVY = '#1e3a8a';
@@ -39,6 +43,23 @@ function gradeColor(grade: string): string {
   if (grade === 'B' || grade === 'C') return '#d97706';
   return RED;
 }
+
+// Colour for a grade from a configured scale, mirroring gradeColor()'s
+// tiers: failing band red, top three bands green, lowest passing band red,
+// everything in between amber. For a scale seeded from the Bangladesh
+// standard this reproduces gradeColor() exactly.
+function scaleGradeColor(grade: string, bands: GradeBandInput[]): string {
+  const sorted = [...bands].sort((a, b) => b.minPercent - a.minPercent);
+  const idx = sorted.findIndex((b) => b.grade === grade);
+  if (idx === -1) return gradeColor(grade);
+  if (sorted[idx].gradePoint <= 0) return RED;
+  if (idx < 3) return GREEN;
+  const passing = sorted.filter((b) => b.gradePoint > 0);
+  if (passing.length > 0 && passing[passing.length - 1].grade === grade) return RED;
+  return '#d97706';
+}
+
+const trimNum = (n: number) => String(Math.round(n * 100) / 100);
 
 function drawLabelValue(doc: PDFKit.PDFDocument, label: string, value: string, x: number, y: number, width: number) {
   doc.font('Helvetica-Bold').fontSize(7.5).fillColor(MUTED).text(label.toUpperCase(), x, y, { width });
@@ -91,9 +112,27 @@ const GRADING_SCALE = [
 // subject + overall grade) — not an LLM call and not attributed to any
 // specific teacher, so it's labeled "Performance Summary" rather than
 // "Class Teacher's Remarks".
-function generatePerformanceSummary(firstName: string, results: ReportCardData['results'], overallGrade: string, overallPercentage: number): string {
+// Tier from a configured scale by band position (best two → excellently,
+// next two → well, failing → poorly, rest → adequately) — for a scale seeded
+// from the Bangladesh standard this matches the fixed letter mapping below.
+function scaleTier(grade: string, bands: GradeBandInput[]): string {
+  const sorted = [...bands].sort((a, b) => b.minPercent - a.minPercent);
+  const idx = sorted.findIndex((b) => b.grade === grade);
+  if (idx === -1 || sorted[idx].gradePoint <= 0) return 'poorly';
+  if (idx < 2) return 'excellently';
+  if (idx < 4) return 'well';
+  return 'adequately';
+}
+
+function generatePerformanceSummary(
+  firstName: string,
+  results: ReportCardData['results'],
+  overallGrade: string,
+  overallPercentage: number,
+  bands: GradeBandInput[] | null = null,
+): string {
   const core = results.filter((r) => r.isCore && r.maxMarks > 0);
-  const tier =
+  const tier = bands ? scaleTier(overallGrade, bands) :
     overallGrade === 'A+' || overallGrade === 'A' ? 'excellently' :
     overallGrade === 'A-' || overallGrade === 'B' ? 'well' :
     overallGrade === 'C' || overallGrade === 'D' ? 'adequately' : 'poorly';
@@ -114,13 +153,6 @@ function generatePerformanceSummary(firstName: string, results: ReportCardData['
  * Puppeteer/Chromium could not launch on the hosted Node environment).
  */
 export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer> {
-  // Institution-configured bands replace the built-in legend; they carry no
-  // descriptor, so that column is left blank for them.
-  const gradingScale = data.gradeBands && data.gradeBands.length > 0
-    ? [...data.gradeBands]
-        .sort((a, b) => b.minPercent - a.minPercent)
-        .map((b) => ({ range: `${b.minPercent} - ${b.maxPercent}`, grade: b.grade, descriptor: '' }))
-    : GRADING_SCALE;
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
   const chunks: Buffer[] = [];
   doc.on('data', (chunk) => chunks.push(chunk));
@@ -128,6 +160,14 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
   });
+
+  const bands = data.gradingBands && data.gradingBands.length > 0 ? data.gradingBands : null;
+  const colorFor = (grade: string) => (bands ? scaleGradeColor(grade, bands) : gradeColor(grade));
+  const scaleRows = bands
+    ? [...bands]
+        .sort((a, b) => b.minPercent - a.minPercent)
+        .map((b) => ({ range: `${trimNum(b.minPercent)} - ${trimNum(b.maxPercent)}`, grade: b.grade, descriptor: b.remark ?? '' }))
+    : GRADING_SCALE;
 
   const startX = doc.page.margins.left;
   const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
@@ -212,7 +252,7 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
       doc
         .font(col.key === 'grade' ? 'Helvetica-Bold' : 'Helvetica')
         .fontSize(9)
-        .fillColor(col.key === 'grade' ? gradeColor(r.grade) : INK)
+        .fillColor(col.key === 'grade' ? colorFor(r.grade) : INK)
         .text(cells[col.key], x + 8, cursorY + 6, { width: w - 12, align: col.align });
       x += w;
     }
@@ -256,19 +296,19 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   const scaleTop = twoColY + 16;
   const scaleRowH = 14;
   const scaleColW = [twoColWidth * 0.3, twoColWidth * 0.2, twoColWidth * 0.5];
-  doc.rect(startX, scaleTop, twoColWidth, scaleRowH * (gradingScale.length + 1)).lineWidth(1).strokeColor(BORDER).stroke();
+  doc.rect(startX, scaleTop, twoColWidth, scaleRowH * (scaleRows.length + 1)).lineWidth(1).strokeColor(BORDER).stroke();
   doc.rect(startX, scaleTop, twoColWidth, scaleRowH).fill('#f1f5f9');
   doc.font('Helvetica-Bold').fontSize(7).fillColor(MUTED);
   doc.text('RANGE', startX + 6, scaleTop + 4, { width: scaleColW[0] - 6 });
   doc.text('GRADE', startX + scaleColW[0], scaleTop + 4, { width: scaleColW[1] });
   doc.text('DESCRIPTOR', startX + scaleColW[0] + scaleColW[1], scaleTop + 4, { width: scaleColW[2] - 6 });
-  gradingScale.forEach((row, i) => {
+  scaleRows.forEach((row, i) => {
     const ry = scaleTop + scaleRowH * (i + 1);
     doc.font('Helvetica').fontSize(8).fillColor(INK).text(row.range, startX + 6, ry + 3, { width: scaleColW[0] - 6 });
     doc.font('Helvetica-Bold').fontSize(8).fillColor(NAVY).text(row.grade, startX + scaleColW[0], ry + 3, { width: scaleColW[1] });
     doc.font('Helvetica').fontSize(8).fillColor(INK).text(row.descriptor, startX + scaleColW[0] + scaleColW[1], ry + 3, { width: scaleColW[2] - 6 });
   });
-  const scaleBottom = scaleTop + scaleRowH * (gradingScale.length + 1);
+  const scaleBottom = scaleTop + scaleRowH * (scaleRows.length + 1);
 
   // Right: Attendance Record
   const attX = startX + twoColWidth + colGap;
@@ -305,8 +345,9 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   // "fits") looks worse than moving the whole block together, since it
   // strands a mostly-empty page. Measure the whole block up front and make
   // one page-break decision.
-  const overallGrade = computeGrade(data.overallPercentage, 100, data.gradeBands);
-  const summaryText = `"${generatePerformanceSummary(data.student.firstName, data.results, overallGrade, data.overallPercentage)}"`;
+  const overallGrade = bands ? gradeFor(data.overallPercentage, 100, bands) : computeGrade(data.overallPercentage, 100);
+  const overallFails = bands ? (lookupBand(data.overallPercentage, bands)?.gradePoint ?? 0) <= 0 : overallGrade === 'F';
+  const summaryText = `"${generatePerformanceSummary(data.student.firstName, data.results, overallGrade, data.overallPercentage, bands)}"`;
   const summaryPadding = 10;
   doc.font('Times-Italic').fontSize(10);
   const summaryHeight = doc.heightOfString(summaryText, { width: contentWidth - summaryPadding * 2 }) + summaryPadding * 2;
@@ -325,8 +366,8 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   doc.y += summaryHeight + 14;
 
   // ── Result Banner ───────────────────────────────────────────────────────
-  const resultLabel = overallGrade === 'F' ? 'NEEDS IMPROVEMENT' : 'PASS';
-  const pillBg = overallGrade === 'F' ? RED : GREEN;
+  const resultLabel = overallFails ? 'NEEDS IMPROVEMENT' : 'PASS';
+  const pillBg = overallFails ? RED : GREEN;
 
   const bannerY = doc.y;
   const pillWidth = 130;
@@ -336,7 +377,7 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
   const statCells: Array<[string, string, string?]> = [
     ['Total Marks', `${data.totalObtained} / ${data.totalMax}`],
     ['Percentage', `${data.overallPercentage}%`],
-    ['Overall Grade', overallGrade, gradeColor(overallGrade) === RED ? '#f0908a' : gradeColor(overallGrade) === GREEN ? '#7fe0b0' : '#f0c169'],
+    ['Overall Grade', overallGrade, colorFor(overallGrade) === RED ? '#f0908a' : colorFor(overallGrade) === GREEN ? '#7fe0b0' : '#f0c169'],
   ];
   if (data.classRank) {
     statCells.push(['Class Rank', `${data.classRank.rank} of ${data.classRank.totalStudents}`]);

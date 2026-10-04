@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { UserPlus } from 'lucide-react';
+import { User, Phone, Briefcase, ShieldCheck, Upload } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
-import { Button } from '../../components/ui/Button';
+import { Button, Card, CardHeader, Input, Checkbox, PageHeader, Alert } from '../../components/ui';
 
 const emptyFormData = () => ({
   firstName: '',
@@ -110,118 +110,172 @@ const AddNewTeacher = () => {
 
   return (
     <div className="space-y-6">
-      <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-        <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
-          <UserPlus className="w-5 h-5" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Add New Teacher</h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm">Register a new teacher account.</p>
-        </div>
-      </div>
+      <PageHeader title="Add New Teacher" description="Register a new teacher account." />
 
-      <div className="glass-card p-6 rounded-2xl">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Create Teacher</h3>
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-5xl">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl">
+        {/* Personal */}
+        <Card>
+          <CardHeader icon={<User className="w-4 h-4" />} title="Personal Information" description="Name, gender and date of birth." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="teacher-first-name"
+              name="firstName"
+              label="First Name"
+              required
+              value={formData.firstName}
+              onChange={handleChange}
+              placeholder="First Name"
+              error={errors.firstName}
+            />
+            <Input
+              id="teacher-last-name"
+              name="lastName"
+              label="Last Name"
+              required
+              value={formData.lastName}
+              onChange={handleChange}
+              placeholder="Last Name"
+              error={errors.lastName}
+            />
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name <span className="text-rose-500">*</span></label>
-              <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} placeholder="First Name"
-                className={`input-field ${errors.firstName ? 'border-rose-500' : ''}`} />
-              {errors.firstName && <p className="text-xs text-rose-600 mt-1">{errors.firstName}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name <span className="text-rose-500">*</span></label>
-              <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} placeholder="Last Name"
-                className={`input-field ${errors.lastName ? 'border-rose-500' : ''}`} />
-              {errors.lastName && <p className="text-xs text-rose-600 mt-1">{errors.lastName}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Gender <span className="text-rose-500">*</span></label>
+              <label className="field-label">Gender <span className="text-red-600 dark:text-red-400 ml-0.5" aria-hidden>*</span></label>
               <div className="flex items-center gap-6 h-10">
                 {(['MALE', 'FEMALE'] as const).map((g) => (
                   <label key={g} className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
-                    <input type="radio" checked={formData.gender === g} onChange={() => setFormData((p) => ({ ...p, gender: g }))}
-                      className="w-4 h-4 accent-primary-500 cursor-pointer" />
+                    <input
+                      type="radio"
+                      name="gender"
+                      checked={formData.gender === g}
+                      onChange={() => setFormData((p) => ({ ...p, gender: g }))}
+                      className="w-4 h-4 accent-primary-500 cursor-pointer"
+                    />
                     {g.charAt(0) + g.slice(1).toLowerCase()}
                   </label>
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email <span className="text-rose-500">*</span></label>
-              <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email"
-                className={`input-field ${errors.email ? 'border-rose-500' : ''}`} />
-              {errors.email && <p className="text-xs text-rose-600 mt-1">{errors.email}</p>}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Mobile</label>
-              <input type="text" name="phone" value={formData.phone} onChange={handleChange} placeholder="Mobile" className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Image</label>
+            <Input
+              id="teacher-dob"
+              name="dateOfBirth"
+              type="date"
+              label="Date of Birth"
+              value={formData.dateOfBirth}
+              onChange={handleChange}
+            />
+            <div className="sm:col-span-2">
+              <label className="field-label">Photo</label>
               <div className="flex gap-2">
-                <input type="text" readOnly value={photoFileName} placeholder="Image"
+                <input
+                  type="text"
+                  readOnly
+                  value={photoFileName}
+                  placeholder="No file chosen"
                   onClick={() => document.getElementById('teacher-photo-input')?.click()}
-                  className="input-field flex-1 cursor-pointer bg-slate-50 dark:bg-white/5" />
-                <button type="button" onClick={() => document.getElementById('teacher-photo-input')?.click()}
-                  className="px-5 rounded-xl bg-primary-700 hover:bg-primary-800 text-white text-sm font-semibold whitespace-nowrap">Upload</button>
+                  className="input-field flex-1 cursor-pointer bg-slate-50 dark:bg-white/5"
+                />
+                <Button type="button" variant="secondary" onClick={() => document.getElementById('teacher-photo-input')?.click()}>
+                  <Upload className="w-4 h-4" />
+                  Upload
+                </Button>
                 <input id="teacher-photo-input" type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Recommended image size: 120x120px (square)</p>
+              <p className="field-hint">Recommended image size: 120x120px (square)</p>
             </div>
           </div>
+        </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Date of Birth <span className="text-rose-500">*</span></label>
-              <input type="date" name="dateOfBirth" value={formData.dateOfBirth} onChange={handleChange} className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Qualification <span className="text-rose-500">*</span></label>
-              <input type="text" name="qualification" value={formData.qualification} onChange={handleChange} placeholder="Qualification" className="input-field" />
-            </div>
+        {/* Contact */}
+        <Card>
+          <CardHeader icon={<Phone className="w-4 h-4" />} title="Contact Information" description="How to reach this teacher." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="teacher-phone"
+              name="phone"
+              label="Mobile"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Mobile"
+            />
+            <div className="hidden sm:block" aria-hidden />
+            <Input
+              id="teacher-address"
+              name="address"
+              label="Current Address"
+              value={formData.address}
+              onChange={handleChange}
+              placeholder="Current Address"
+            />
+            <Input
+              id="teacher-permanent-address"
+              name="permanentAddress"
+              label="Permanent Address"
+              value={formData.permanentAddress}
+              onChange={handleChange}
+              placeholder="Permanent Address"
+            />
           </div>
+        </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Address <span className="text-rose-500">*</span></label>
-              <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="Current Address" className="input-field" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Permanent Address <span className="text-rose-500">*</span></label>
-              <input type="text" name="permanentAddress" value={formData.permanentAddress} onChange={handleChange} placeholder="Permanent Address" className="input-field" />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Login Password <span className="text-rose-500">*</span></label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} minLength={8} placeholder="••••••••"
-              className={`input-field max-w-md ${errors.password ? 'border-rose-500' : ''}`} />
-            {errors.password && <p className="text-xs text-rose-600 mt-1">{errors.password}</p>}
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer pt-2">
-            <input type="checkbox" checked={formData.canManageStudents}
+        {/* Professional */}
+        <Card>
+          <CardHeader icon={<Briefcase className="w-4 h-4" />} title="Professional Information" description="Qualification and permissions." />
+          <div className="space-y-4">
+            <Input
+              id="teacher-qualification"
+              name="qualification"
+              label="Qualification"
+              value={formData.qualification}
+              onChange={handleChange}
+              placeholder="Qualification"
+              containerClassName="sm:max-w-md"
+            />
+            <Checkbox
+              label="Grant permission to manage students and parents"
+              checked={formData.canManageStudents}
               onChange={(e) => setFormData((p) => ({ ...p, canManageStudents: e.target.checked }))}
-              className="w-4 h-4 rounded-sm accent-primary-500 cursor-pointer" />
-            Grant permission to manage students and parents
-          </label>
-          <p className="text-xs text-blue-600 dark:text-blue-400 -mt-2">
-            Note :- By giving the permission of manage student and parent to teacher, teacher can manage student's and parent's data.
-          </p>
-
-          <div className="pt-4">
-            <Button type="submit" variant="gradient" isLoading={submitting}>{submitting ? 'Adding...' : 'Submit'}</Button>
+            />
+            <Alert tone="info">
+              By giving the permission of manage student and parent to teacher, teacher can manage student's and parent's data.
+            </Alert>
           </div>
-        </form>
-      </div>
+        </Card>
+
+        {/* Account */}
+        <Card>
+          <CardHeader icon={<ShieldCheck className="w-4 h-4" />} title="Account" description="Login email and password." />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="teacher-email"
+              name="email"
+              type="email"
+              label="Email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Email"
+              error={errors.email}
+            />
+            <Input
+              id="teacher-password"
+              name="password"
+              type="password"
+              label="Login Password"
+              required
+              minLength={8}
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              error={errors.password}
+            />
+          </div>
+        </Card>
+
+        <div className="flex justify-end">
+          <Button type="submit" variant="gradient" isLoading={submitting} fullWidth className="sm:w-auto">
+            {submitting ? 'Adding...' : 'Submit'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

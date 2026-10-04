@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X, Users, ExternalLink, FileText, Video, Link2, Presentation, Image as ImageIcon } from 'lucide-react';
+import { Users, ExternalLink, FileText, Video, Link2, Presentation, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
+import { Modal } from '../../components/ui/Modal';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { EmptyState } from '../../components/common/EmptyState';
+import { useT } from '../../i18n';
 
 const RESOURCE_TYPES = [
   { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
@@ -49,93 +52,101 @@ interface AssignmentSubmissionsModalProps {
 }
 
 export default function AssignmentSubmissionsModal({ assignment, onClose }: AssignmentSubmissionsModalProps) {
+  const t = useT();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const fetchSubmissions = async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await apiClient.get('/assignments', {
+        params: { parentAssignmentId: assignment.id, pageSize: 100 },
+      });
+      setSubmissions(res.data.data || []);
+    } catch (error: any) {
+      setError(true);
+      toast.error(error.response?.data?.message || t('Failed to load submissions'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchSubmissions = async () => {
-      setLoading(true);
-      try {
-        const res = await apiClient.get('/assignments', {
-          params: { parentAssignmentId: assignment.id, pageSize: 100 },
-        });
-        setSubmissions(res.data.data || []);
-      } catch (error: any) {
-        toast.error(error.response?.data?.message || 'Failed to load submissions');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchSubmissions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment.id]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-xl shadow-sm overflow-hidden max-h-[85vh] flex flex-col">
-        <div className="flex items-start justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-          <div className="min-w-0">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-              Submissions
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{assignment.title}</p>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg flex-shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="text-center text-sm text-slate-500 py-6">Loading submissions...</div>
-          ) : submissions.length === 0 ? (
-            <EmptyState
-              title="No submissions yet"
-              description="No student has submitted their work for this assignment yet."
-              icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            />
-          ) : (
-            <div className="space-y-3">
-              {submissions.map((submission) => {
-                const meta = resourceMeta(submission.resourceType);
-                const Icon = meta.icon;
-                return (
-                  <div key={submission.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-white/10 bg-slate-50 dark:bg-slate-900/40">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                      {initials(submission.createdBy?.firstName, submission.createdBy?.lastName)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                          {submission.createdBy?.firstName} {submission.createdBy?.lastName}
-                        </span>
-                        <span className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(submission.createdAt)}</span>
-                      </div>
-                      {submission.instructions && (
-                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">{submission.instructions}</p>
-                      )}
-                      {submission.fileUrl && (
-                        <a
-                          href={submission.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border mt-2 ${meta.color}`}
-                        >
-                          <Icon className="w-3.5 h-3.5" /> Open submission <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+    <Modal
+      isOpen
+      onClose={onClose}
+      size="xl"
+      title={
+        <span className="flex items-center gap-2">
+          <Users className="w-4.5 h-4.5 text-blue-500 dark:text-blue-400" /> {t('Submissions')}
+        </span>
+      }
+      description={assignment.title}
+    >
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="p-3 rounded-xl border border-slate-200/50 dark:border-white/10">
+              <Skeleton className="h-4 w-1/3 mb-2" />
+              <Skeleton className="h-3 w-2/3" />
             </div>
-          )}
+          ))}
         </div>
-      </div>
-    </div>
+      ) : error ? (
+        <EmptyState
+          title={t('Failed to load submissions')}
+          description={t('Something went wrong while fetching submissions for this assignment.')}
+          icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+        />
+      ) : submissions.length === 0 ? (
+        <EmptyState
+          title={t('No submissions yet')}
+          description={t('No student has submitted their work for this assignment yet.')}
+          icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+        />
+      ) : (
+        <div className="space-y-3">
+          {submissions.map((submission) => {
+            const meta = resourceMeta(submission.resourceType);
+            const Icon = meta.icon;
+            return (
+              <div key={submission.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-white/10 bg-slate-50 dark:bg-slate-900/40">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                  {initials(submission.createdBy?.firstName, submission.createdBy?.lastName)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                      {submission.createdBy?.firstName} {submission.createdBy?.lastName}
+                    </span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{timeAgo(submission.createdAt)}</span>
+                  </div>
+                  {submission.instructions && (
+                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 whitespace-pre-wrap break-words">{submission.instructions}</p>
+                  )}
+                  {submission.fileUrl && (
+                    <a
+                      href={submission.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border mt-2 ${meta.color}`}
+                    >
+                      <Icon className="w-3.5 h-3.5" /> {t('Open submission')} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Modal>
   );
 }

@@ -1,123 +1,189 @@
-import React, { useState, useEffect } from 'react';
-import { Book, Search, Plus, Filter, Edit2, Trash2, ArrowRightLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Book, Plus, ArrowRightLeft, BarChart3, Settings2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useTableParams } from '../../hooks/useTableParams';
-import { Pagination } from '../../components/Pagination';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { DataTable, Column } from '../../components/DataTable/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { EmptyState } from '../../components/common/EmptyState';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Input';
+import { PageHeader, ErrorState, Tabs } from '../../components/ui';
+import { formatCurrency, formatDate } from '../../i18n';
+import { LibraryBookModal, BookFormValues } from './LibraryBookModal';
+import { IssueBookModal, IssueBookValues, BookOption } from './IssueBookModal';
+import { ReturnBookModal } from './ReturnBookModal';
+import { FineRuleModal } from './FineRuleModal';
+import { LibraryReports } from './LibraryReports';
 
 interface BookType {
   id: string;
   title: string;
   author: string;
-  isbn: string;
-  category: string;
-  status: string;
+  isbn: string | null;
+  publisher: string | null;
   totalCopies: number;
   availableCopies: number;
+  category?: string | null;
+  shelfLocation?: string | null;
 }
 
 interface IssueType {
   id: string;
-  bookTitle: string;
-  studentName: string;
+  bookId: string;
+  studentId: string;
   issueDate: string;
   dueDate: string;
+  returnDate: string | null;
   status: string;
-  book?: { title: string };
+  fineAmount: number | string;
+  book?: { title: string; author: string; isbn: string | null };
   student?: { firstName: string; lastName: string };
 }
 
+const ISSUE_STATUS_OPTIONS = [
+  { value: 'ISSUED', label: 'Issued' },
+  { value: 'RETURNED', label: 'Returned' },
+  { value: 'OVERDUE', label: 'Overdue' },
+];
+
+// A daily backend job now stores OVERDUE on ISSUED loans past their due
+// date (library.scheduler.ts). Until it runs, a loan can still be ISSUED and
+// past due, so both count as overdue here. The server's status filter
+// matches: status=OVERDUE returns stored OVERDUE + past-due ISSUED loans, and
+// status=ISSUED returns every loan still out (ISSUED + OVERDUE), so the
+// "Showing X-Y of Z" count is accurate for every filter.
+const isOverdue = (issue: IssueType) =>
+  issue.status === 'OVERDUE' || (issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0));
+// OVERDUE loans are still out and can be returned exactly like ISSUED ones.
+const isOut = (issue: IssueType) => issue.status === 'ISSUED' || issue.status === 'OVERDUE';
+
 export default function LibraryManagement() {
-  const [activeTab, setActiveTab] = useState<'catalog' | 'issues'>('catalog');
+  const [activeTab, setActiveTab] = useState<'books' | 'issues' | 'reports'>('books');
+  const [fineRuleOpen, setFineRuleOpen] = useState(false);
+
+  // ---- Books tab ----
+  const booksParams = useTableParams(10);
   const [books, setBooks] = useState<BookType[]>([]);
-  const [totalBooks, setTotalBooks] = useState(0);
-  const [issues, setIssues] = useState<IssueType[]>([]);
-  const [totalIssues, setTotalIssues] = useState(0);
-  const [loading, setLoading] = useState(false);
-  
-  const { params, debouncedSearch, setPage, setPageSize, setSearch, setFilter } = useTableParams();
-  const [isAddBookModalOpen, setIsAddBookModalOpen] = useState(false);
-  const [isIssueBookModalOpen, setIsIssueBookModalOpen] = useState(false);
-  const [newBook, setNewBook] = useState({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
-  const [issueData, setIssueData] = useState({ bookId: '', studentId: '', dueDate: '' });
-  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [booksTotal, setBooksTotal] = useState(0);
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [booksError, setBooksError] = useState(false);
+
+  // A larger, unpaginated-ish list of books for the Issue Book modal's
+  // book picker — kept separate from the paginated table above.
+  const [allBooks, setAllBooks] = useState<BookOption[]>([]);
+
+  const [bookModalOpen, setBookModalOpen] = useState(false);
+  const [editingBook, setEditingBook] = useState<BookType | null>(null);
+  const [savingBook, setSavingBook] = useState(false);
   const [bookToDelete, setBookToDelete] = useState<BookType | null>(null);
   const [deletingBook, setDeletingBook] = useState(false);
+
+  // ---- Issues tab ----
+  const issuesParams = useTableParams(10);
+  const [issueStatusFilter, setIssueStatusFilter] = useState('');
+  const [issues, setIssues] = useState<IssueType[]>([]);
+  const [issuesTotal, setIssuesTotal] = useState(0);
+  const [issuesLoading, setIssuesLoading] = useState(false);
+  const [issuesError, setIssuesError] = useState(false);
+
+  const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [issuingBook, setIssuingBook] = useState(false);
   const [issueToReturn, setIssueToReturn] = useState<IssueType | null>(null);
   const [returningBook, setReturningBook] = useState(false);
-  const [savingBook, setSavingBook] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab, params.page, params.pageSize, debouncedSearch]);
-
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchBooks = async () => {
+    setBooksLoading(true);
+    setBooksError(false);
     try {
-      const queryParams = new URLSearchParams({
-        page: params.page.toString(),
-        pageSize: params.pageSize.toString(),
+      const res = await apiClient.get('/library/books', {
+        params: { page: booksParams.params.page, pageSize: booksParams.params.pageSize, search: booksParams.debouncedSearch || undefined },
       });
-      if (debouncedSearch) {
-        queryParams.append('search', debouncedSearch);
-      }
-
-      if (activeTab === 'catalog') {
-        const booksRes = await apiClient.get(`/library/books?${queryParams.toString()}`);
-        setBooks(booksRes.data.data?.books || booksRes.data.data || []);
-        setTotalBooks(booksRes.data.data?.total || booksRes.data.meta?.total || 0);
-      } else {
-        const issuesRes = await apiClient.get(`/library/issues?${queryParams.toString()}`);
-        setIssues(issuesRes.data.data?.issues || issuesRes.data.data || []);
-        setTotalIssues(issuesRes.data.data?.total || issuesRes.data.meta?.total || 0);
-      }
-    } catch (error: any) {
-      console.error('Failed to fetch library data:', error);
-      toast.error(error.response?.data?.message || 'Failed to load library data');
+      setBooks(res.data.data?.books || res.data.data || []);
+      setBooksTotal(res.data.meta?.total || res.data.data?.total || 0);
+    } catch (err: any) {
+      console.error('Failed to fetch library books:', err);
+      setBooksError(true);
+      toast.error(err.response?.data?.message || 'Failed to load books');
     } finally {
-      setLoading(false);
+      setBooksLoading(false);
     }
   };
 
-  const handleAddBook = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const fetchAllBooksForIssuing = async () => {
+    try {
+      const res = await apiClient.get('/library/books', { params: { page: 1, pageSize: 200 } });
+      setAllBooks(res.data.data?.books || res.data.data || []);
+    } catch {
+      setAllBooks([]);
+    }
+  };
+
+  const fetchIssues = async () => {
+    setIssuesLoading(true);
+    setIssuesError(false);
+    try {
+      // The server resolves OVERDUE (stored + past-due ISSUED) itself.
+      const statusParam = issueStatusFilter || undefined;
+      const res = await apiClient.get('/library/issues', {
+        params: {
+          page: issuesParams.params.page,
+          pageSize: issuesParams.params.pageSize,
+          search: issuesParams.debouncedSearch || undefined,
+          status: statusParam,
+        },
+      });
+      const list: IssueType[] = res.data.data?.issues || res.data.data || [];
+      const total = res.data.meta?.total || res.data.data?.total || 0;
+      setIssues(list);
+      setIssuesTotal(total);
+    } catch (err: any) {
+      console.error('Failed to fetch library issues:', err);
+      setIssuesError(true);
+      toast.error(err.response?.data?.message || 'Failed to load issues');
+    } finally {
+      setIssuesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'books') fetchBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, booksParams.params.page, booksParams.params.pageSize, booksParams.debouncedSearch]);
+
+  useEffect(() => {
+    if (activeTab === 'issues') fetchIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, issuesParams.params.page, issuesParams.params.pageSize, issuesParams.debouncedSearch, issueStatusFilter]);
+
+  useEffect(() => {
+    fetchAllBooksForIssuing();
+  }, []);
+
+  // ---- Book CRUD ----
+  const openAddBook = () => { setEditingBook(null); setBookModalOpen(true); };
+  const openEditBook = (book: BookType) => { setEditingBook(book); setBookModalOpen(true); };
+
+  const handleSaveBook = async (values: BookFormValues) => {
     setSavingBook(true);
     try {
-      if (editingBookId) {
-        await apiClient.put(`/library/books/${editingBookId}`, newBook);
+      if (editingBook) {
+        await apiClient.put(`/library/books/${editingBook.id}`, values);
         toast.success('Book updated successfully');
       } else {
-        await apiClient.post('/library/books', newBook);
+        await apiClient.post('/library/books', values);
         toast.success('Book added successfully');
       }
-      setIsAddBookModalOpen(false);
-      setEditingBookId(null);
-      setNewBook({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || `Failed to ${editingBookId ? 'update' : 'add'} book`);
+      setBookModalOpen(false);
+      setEditingBook(null);
+      fetchBooks();
+      fetchAllBooksForIssuing();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || `Failed to ${editingBook ? 'update' : 'add'} book`);
     } finally {
       setSavingBook(false);
     }
-  };
-
-  const openEditBook = (book: BookType) => {
-    setEditingBookId(book.id);
-    setNewBook({ title: book.title, author: book.author, isbn: book.isbn, category: book.category, totalCopies: book.totalCopies });
-    setIsAddBookModalOpen(true);
-  };
-
-  const openAddBook = () => {
-    setEditingBookId(null);
-    setNewBook({ title: '', author: '', isbn: '', category: '', totalCopies: 1 });
-    setIsAddBookModalOpen(true);
   };
 
   const handleConfirmDeleteBook = async () => {
@@ -127,77 +193,134 @@ export default function LibraryManagement() {
       await apiClient.delete(`/library/books/${bookToDelete.id}`);
       toast.success('Book deleted successfully');
       setBookToDelete(null);
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete book');
+      fetchBooks();
+      fetchAllBooksForIssuing();
+    } catch (err: any) {
+      // 409 Conflict: book has active ISSUED loans.
+      toast.error(err.response?.data?.message || 'Failed to delete book');
     } finally {
       setDeletingBook(false);
     }
   };
 
-  const handleIssueBookSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // ---- Issue / return ----
+  const handleIssueBook = async (values: IssueBookValues) => {
+    setIssuingBook(true);
     try {
-      await apiClient.post('/library/issues', { ...issueData, issueDate: new Date().toISOString() });
+      await apiClient.post('/library/issues', values);
       toast.success('Book issued successfully');
-      setIsIssueBookModalOpen(false);
-      setIssueData({ bookId: '', studentId: '', dueDate: '' });
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to issue book');
+      setIssueModalOpen(false);
+      fetchIssues();
+      fetchAllBooksForIssuing();
+      if (activeTab === 'books') fetchBooks();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to issue book');
+    } finally {
+      setIssuingBook(false);
     }
   };
 
-  const handleConfirmReturnBook = async () => {
+  const handleReturnBook = async (fineAmount: number) => {
     if (!issueToReturn) return;
     setReturningBook(true);
     try {
-      await apiClient.put(`/library/issues/${issueToReturn.id}/return`);
+      await apiClient.put(`/library/issues/${issueToReturn.id}/return`, { fineAmount });
       toast.success('Book returned successfully');
       setIssueToReturn(null);
-      fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to return book');
+      fetchIssues();
+      fetchAllBooksForIssuing();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to return book');
     } finally {
       setReturningBook(false);
     }
   };
 
+  const bookColumns: Column<BookType>[] = [
+    { key: 'title', header: 'Title', accessor: 'title', primary: true },
+    { key: 'author', header: 'Author', accessor: 'author' },
+    { key: 'isbn', header: 'ISBN', render: (b) => b.isbn || '—', hideOnMobile: true },
+    { key: 'publisher', header: 'Publisher', render: (b) => b.publisher || '—', hideOnMobile: true },
+    { key: 'category', header: 'Category', render: (b) => b.category || '—', exportValue: (b) => b.category || '', hideOnMobile: true },
+    { key: 'shelfLocation', header: 'Shelf', render: (b) => b.shelfLocation || '—', exportValue: (b) => b.shelfLocation || '', hideOnMobile: true },
+    {
+      key: 'copies',
+      header: 'Copies',
+      align: 'right',
+      exportValue: (b) => `${b.availableCopies}/${b.totalCopies}`,
+      render: (b) => <span className="tabular-nums">{b.availableCopies} / {b.totalCopies}</span>,
+    },
+    {
+      key: 'availability',
+      header: 'Availability',
+      sortable: false,
+      exportValue: (b) => (b.availableCopies > 0 ? 'Available' : 'Not Available'),
+      render: (b) => <Badge variant={b.availableCopies > 0 ? 'success' : 'warning'}>{b.availableCopies > 0 ? 'Available' : 'Not Available'}</Badge>,
+    },
+  ];
+
   const issueColumns: Column<IssueType>[] = [
     {
       key: 'book',
       header: 'Book',
+      primary: true,
       sortable: false,
       render: (issue) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
+          <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
             <Book className="w-4 h-4" />
           </div>
-          <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.bookTitle || issue.book?.title}</span>
+          <span className="text-sm font-medium text-slate-900 dark:text-white">{issue.book?.title || '—'}</span>
         </div>
       ),
+      exportValue: (issue) => issue.book?.title || '',
     },
     {
       key: 'student',
       header: 'Student',
       sortable: false,
-      render: (issue) => issue.studentName || `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim(),
+      render: (issue) => `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim() || '—',
+      exportValue: (issue) => `${issue.student?.firstName || ''} ${issue.student?.lastName || ''}`.trim(),
     },
-    { key: 'issueDate', header: 'Issue Date', accessor: 'issueDate' },
-    { key: 'dueDate', header: 'Due Date', accessor: 'dueDate' },
+    { key: 'issueDate', header: 'Issue Date', render: (issue) => formatDate(issue.issueDate), exportValue: (issue) => issue.issueDate },
+    { key: 'dueDate', header: 'Due Date', render: (issue) => formatDate(issue.dueDate), exportValue: (issue) => issue.dueDate },
     {
       key: 'status',
       header: 'Status',
       sortable: false,
-      render: (issue) => <StatusBadge status={issue.status} />,
+      render: (issue) =>
+        isOverdue(issue) ? (
+          <span title="Overdue (past due date)">
+            <Badge variant="danger">Overdue (past due date)</Badge>
+          </span>
+        ) : (
+          <StatusBadge status={issue.status} />
+        ),
+      exportValue: (issue) => (isOverdue(issue) ? 'OVERDUE' : issue.status),
+    },
+    {
+      key: 'fineAmount',
+      header: 'Fine',
+      align: 'right',
+      exportValue: (issue) => Number(issue.fineAmount) || 0,
+      render: (issue) => {
+        const fine = Number(issue.fineAmount) || 0;
+        return fine > 0 ? <span className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(fine)}</span> : <span className="text-slate-400">—</span>;
+      },
     },
     {
       key: 'actions',
       header: 'Actions',
       sortable: false,
       render: (issue) =>
-        issue.status === 'Issued' ? (
-          <button onClick={() => setIssueToReturn(issue)} aria-label="Return book" className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors" title="Return Book">
+        isOut(issue) ? (
+          <button
+            type="button"
+            onClick={() => setIssueToReturn(issue)}
+            aria-label={`Return ${issue.book?.title || 'book'}`}
+            title="Return book"
+            className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
             <ArrowRightLeft className="w-4 h-4" />
           </button>
         ) : null,
@@ -206,228 +329,137 @@ export default function LibraryManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Library Management</h2>
-          <p className="text-slate-600 dark:text-slate-400 text-sm">Manage books, catalogs, and issuing.</p>
-        </div>
-        <Button variant="gradient" onClick={() => activeTab === 'catalog' ? openAddBook() : setIsIssueBookModalOpen(true)} className="px-4 py-2.5 text-sm">
-          <Plus className="w-4 h-4" />
-          {activeTab === 'catalog' ? 'Add Book' : 'Issue Book'}
-        </Button>
-      </div>
+      <PageHeader
+        title="Library Management"
+        description="Manage the book catalog and track issues and returns."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setFineRuleOpen(true)}>
+              <Settings2 className="w-4 h-4" /> Fine settings
+            </Button>
+            {activeTab === 'reports' ? (
+        <LibraryReports />
+      ) : activeTab === 'books' ? (
+              <Button variant="gradient" onClick={openAddBook}>
+                <Plus className="w-4 h-4" /> Add Book
+              </Button>
+            ) : activeTab === 'issues' ? (
+              <Button variant="gradient" onClick={() => setIssueModalOpen(true)}>
+                <Plus className="w-4 h-4" /> Issue Book
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1">
-        <button
-          onClick={() => { setActiveTab('catalog'); setSearch(''); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === 'catalog'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          Book Catalog
-        </button>
-        <button
-          onClick={() => { setActiveTab('issues'); setSearch(''); }}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === 'issues'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          Issue Tracking
-        </button>
-      </div>
+      <Tabs
+        variant="pills"
+        label="Library sections"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        tabs={[
+          { id: 'books', label: 'Books', icon: <Book className="w-4 h-4" /> },
+          { id: 'issues', label: 'Issues', icon: <ArrowRightLeft className="w-4 h-4" /> },
+          { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-4 h-4" /> },
+        ]}
+      />
 
-      {activeTab === 'catalog' && (
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search books by title, author, or ISBN..."
-              className="input-field pl-10"
-              value={params.search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <button className="px-4 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-white rounded-xl flex items-center gap-2 transition-colors font-medium text-sm">
-            <Filter className="w-4 h-4 text-slate-500" />
-            Filter
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center text-slate-500 py-10">Loading...</div>
-      ) : activeTab === 'catalog' ? (
-        <div className="space-y-4">
-          {books.length === 0 ? (
-            <div className="glass-card p-8">
-              <EmptyState
-                title="No books in the catalog yet"
-                description="Add a book to start building your library catalog."
-                icon={<Book className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-                action={
-                  <Button variant="gradient" onClick={openAddBook} className="px-4 py-2 text-sm">
-                    <Plus className="w-4 h-4" /> Add Book
-                  </Button>
-                }
-              />
-            </div>
-          ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {books.map((book) => (
-            <div key={book.id} className="glass-card p-5 rounded-2xl hover:border-primary-500/50 dark:hover:border-primary-500/50 transition-all group">
-              <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 bg-primary-50 dark:bg-primary-500/20 rounded-xl flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent group-hover:scale-110 transition-transform">
-                  <Book className="w-6 h-6" />
-                </div>
-                <div className="flex gap-2">
-                  <Badge variant={book.status === 'Available' ? 'success' : 'warning'}>{book.status}</Badge>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 line-clamp-1">{book.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{book.author}</p>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">Category</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold">{book.category}</p>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5">
-                  <p className="text-xs text-slate-500 mb-1">Copies</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold">{book.availableCopies} / {book.totalCopies}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
-                <span>ISBN: {book.isbn}</span>
-                <div className="flex gap-2">
-                   <button onClick={() => openEditBook(book)} aria-label={`Edit ${book.title}`} title="Edit book" className="p-1 text-slate-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"><Edit2 className="w-4 h-4" /></button>
-                   <button onClick={() => setBookToDelete(book)} aria-label={`Delete ${book.title}`} title="Delete book" className="p-1 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                </div>
-              </div>
-            </div>
-          ))}
-          </div>
-          )}
-          <Pagination
-            page={params.page}
-            pageSize={params.pageSize}
-            total={totalBooks}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      ) : (
-        <div className="glass-card rounded-2xl overflow-hidden p-4">
+      {activeTab === 'books' ? (
+        booksError && books.length === 0 ? (
+          <ErrorState onRetry={fetchBooks} message="Could not load the book catalog." />
+        ) : (
           <DataTable
-            data={issues}
-            columns={issueColumns}
-            isLoading={loading}
-            searchPlaceholder="Search issues by student or book..."
+            data={books}
+            columns={bookColumns}
+            isLoading={booksLoading}
             serverSearch
-            onSearch={setSearch}
+            onSearch={booksParams.setSearch}
+            searchPlaceholder="Search books by title, author, ISBN, category or shelf..."
             serverPagination
-            totalCount={totalIssues}
-            page={params.page}
-            pageSize={params.pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-            emptyTitle="No book issues found"
-            emptyDescription="Issue a book to a student to see it tracked here."
+            totalCount={booksTotal}
+            page={booksParams.params.page}
+            pageSize={booksParams.params.pageSize}
+            onPageChange={booksParams.setPage}
+            onPageSizeChange={booksParams.setPageSize}
+            exportFileName="library-books"
+            emptyTitle="No books in the catalog yet"
+            emptyDescription="Add a book to start building your library catalog."
+            emptyAction={<Button variant="gradient" size="sm" onClick={openAddBook}><Plus className="w-4 h-4" /> Add Book</Button>}
+            actions={[
+              { label: 'Edit', icon: 'edit', onClick: openEditBook },
+              { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (b) => setBookToDelete(b) },
+            ]}
           />
-        </div>
+        )
+      ) : issuesError && issues.length === 0 ? (
+        <ErrorState onRetry={fetchIssues} message="Could not load book issues." />
+      ) : (
+        <DataTable
+          data={issues}
+          columns={issueColumns}
+          isLoading={issuesLoading}
+          serverSearch
+          onSearch={issuesParams.setSearch}
+          searchPlaceholder="Search issues by student or book..."
+          serverPagination
+          totalCount={issuesTotal}
+          page={issuesParams.params.page}
+          pageSize={issuesParams.params.pageSize}
+          onPageChange={issuesParams.setPage}
+          onPageSizeChange={issuesParams.setPageSize}
+          exportFileName="library-issues"
+          toolbar={
+            <Select
+              value={issueStatusFilter}
+              onChange={(e) => { setIssueStatusFilter(e.target.value); issuesParams.setPage(1); }}
+              placeholder="All statuses"
+              options={ISSUE_STATUS_OPTIONS}
+              className="max-w-45"
+              aria-label="Filter issues by status"
+            />
+          }
+          emptyTitle="No book issues found"
+          emptyDescription="Issue a book to a student to see it tracked here."
+        />
       )}
 
-      {/* Add Book Modal */}
-      <Modal isOpen={isAddBookModalOpen} onClose={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }} className="max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editingBookId ? 'Edit Book' : 'Add New Book'}</h3>
-            </div>
-            <form onSubmit={handleAddBook} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                <input required type="text" value={newBook.title} onChange={e => setNewBook({...newBook, title: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Author</label>
-                <input required type="text" value={newBook.author} onChange={e => setNewBook({...newBook, author: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">ISBN</label>
-                <input required type="text" value={newBook.isbn} onChange={e => setNewBook({...newBook, isbn: e.target.value})} className="input-field" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                  <input required type="text" value={newBook.category} onChange={e => setNewBook({...newBook, category: e.target.value})} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Copies</label>
-                  <input required type="number" min="1" value={newBook.totalCopies} onChange={e => setNewBook({...newBook, totalCopies: parseInt(e.target.value)})} className="input-field" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <Button type="button" variant="secondary" onClick={() => { setIsAddBookModalOpen(false); setEditingBookId(null); }} className="px-4 py-2 text-sm">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="gradient" isLoading={savingBook} className="px-5 py-2 text-sm">
-                  {savingBook ? 'Saving...' : editingBookId ? 'Save Changes' : 'Add Book'}
-                </Button>
-              </div>
-            </form>
-      </Modal>
+      <LibraryBookModal
+        isOpen={bookModalOpen}
+        isEditing={!!editingBook}
+        isSaving={savingBook}
+        initialValues={editingBook ? { title: editingBook.title, author: editingBook.author, isbn: editingBook.isbn || '', publisher: editingBook.publisher || '', totalCopies: editingBook.totalCopies, category: editingBook.category || '', shelfLocation: editingBook.shelfLocation || '' } : null}
+        onClose={() => { setBookModalOpen(false); setEditingBook(null); }}
+        onSubmit={handleSaveBook}
+      />
 
-      {/* Issue Book Modal */}
-      <Modal isOpen={isIssueBookModalOpen} onClose={() => setIsIssueBookModalOpen(false)} className="max-w-md">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Issue Book</h3>
-            </div>
-            <form onSubmit={handleIssueBookSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Book ID</label>
-                <input required type="text" value={issueData.bookId} onChange={e => setIssueData({...issueData, bookId: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Student ID</label>
-                <input required type="text" value={issueData.studentId} onChange={e => setIssueData({...issueData, studentId: e.target.value})} className="input-field" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Due Date</label>
-                <input required type="date" value={issueData.dueDate} onChange={e => setIssueData({...issueData, dueDate: e.target.value})} className="input-field" />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <Button type="button" variant="secondary" onClick={() => setIsIssueBookModalOpen(false)} className="px-4 py-2 text-sm">
-                  Cancel
-                </Button>
-                <Button type="submit" variant="gradient" className="px-5 py-2 text-sm">Issue Book</Button>
-              </div>
-            </form>
-      </Modal>
+      <IssueBookModal
+        isOpen={issueModalOpen}
+        books={allBooks}
+        isSaving={issuingBook}
+        onClose={() => setIssueModalOpen(false)}
+        onSubmit={handleIssueBook}
+      />
+
+      <ReturnBookModal
+        isOpen={!!issueToReturn}
+        bookTitle={issueToReturn?.book?.title || 'this book'}
+        issueId={issueToReturn?.id ?? null}
+        isSaving={returningBook}
+        onClose={() => setIssueToReturn(null)}
+        onSubmit={handleReturnBook}
+      />
+
+      <FineRuleModal isOpen={fineRuleOpen} onClose={() => setFineRuleOpen(false)} />
 
       <ConfirmModal
         isOpen={!!bookToDelete}
         title="Delete book"
-        message={`Are you sure you want to delete "${bookToDelete?.title}"? This cannot be undone.`}
+        message={`Are you sure you want to delete "${bookToDelete?.title}"? This cannot be undone. Books with active loans cannot be deleted.`}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deletingBook}
         onConfirm={handleConfirmDeleteBook}
         onCancel={() => setBookToDelete(null)}
-      />
-
-      <ConfirmModal
-        isOpen={!!issueToReturn}
-        title="Return book"
-        message={`Mark "${issueToReturn?.bookTitle || issueToReturn?.book?.title}" as returned?`}
-        confirmLabel="Return Book"
-        variant="info"
-        isLoading={returningBook}
-        onConfirm={handleConfirmReturnBook}
-        onCancel={() => setIssueToReturn(null)}
       />
     </div>
   );

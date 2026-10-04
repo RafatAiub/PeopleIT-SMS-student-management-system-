@@ -16,8 +16,10 @@ import {
   ResetStudentPasswordDto,
   BulkAssignClassDto,
   ApproveStudentApplicationDto,
+  SelfUpdateStudentDto,
 } from './student.dto';
 import * as studentController from './student.controller';
+import { checkLimit } from '../saas/entitlements.middleware';
 
 const READ_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.ACCOUNTANT, UserRole.LIBRARIAN];
 const WRITE_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER];
@@ -31,6 +33,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 // GET    /api/v1/students
 // POST   /api/v1/students
 // GET    /api/v1/students/:id
+// PUT    /api/v1/students/me   (STUDENT — own safe fields only)
 // PUT    /api/v1/students/:id
 // DELETE /api/v1/students/:id
 // GET    /api/v1/students/:id/documents
@@ -46,6 +49,14 @@ router.get('/', requireRole(...READ_ROLES), validate({ query: StudentQueryDto })
 
 // Self-service — any authenticated role, scoped server-side to req.user.sub.
 router.get('/me', studentController.getMe);
+// STUDENT self-edit of safe fields only (see SelfUpdateStudentDto). Must stay
+// above PUT '/:id', which would otherwise capture "me" and 403 a student.
+router.put(
+  '/me',
+  requireRole(UserRole.STUDENT),
+  validate({ body: SelfUpdateStudentDto }),
+  studentController.updateMe,
+);
 
 router.get('/meta/classes', requireRole(...READ_ROLES), studentController.listClasses);
 router.get('/meta/sections', requireRole(...READ_ROLES), studentController.listSections);
@@ -54,6 +65,8 @@ router.post(
   '/',
   requireRole(...WRITE_ROLES),
   validate({ body: CreateStudentDto }),
+  // Plan limit on active students — no plan / no configured limit ⇒ no-op.
+  checkLimit('students'),
   studentController.createStudent,
 );
 
@@ -117,6 +130,8 @@ router.post(
   '/:id/approve',
   requireRole(...WRITE_ROLES),
   validate({ params: StudentIdParamDto, body: ApproveStudentApplicationDto }),
+  // Approval turns a PENDING application into an ACTIVE student.
+  checkLimit('students'),
   studentController.approveStudentApplication,
 );
 

@@ -127,9 +127,29 @@ export async function deliverNotification(data: NotificationJobData): Promise<vo
   });
 }
 
+/** Prisma P2003: the institution (or user) the job points at no longer exists. */
+function isMissingReference(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'P2003';
+}
+
 export const notificationWorker = new Worker<NotificationJobData>(
   'notifications',
-  async (job) => deliverNotification(job.data),
+  async (job) => {
+    try {
+      await deliverNotification(job.data);
+    } catch (error) {
+      // Retrying can never bring a deleted institution back, so drop the job
+      // instead of burning the retry budget and logging five errors.
+      if (isMissingReference(error)) {
+        logger.warn('Notification dropped — its institution or recipient no longer exists', {
+          jobId: job.id,
+          institutionId: job.data.institutionId,
+        });
+        return;
+      }
+      throw error;
+    }
+  },
   { connection: createBullWorkerConnection('notifications') },
 );
 

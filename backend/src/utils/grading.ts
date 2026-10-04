@@ -1,7 +1,7 @@
 // Standard grading bands. Server-computed so every report card is
 // consistent — grade is never trusted as client input (see results.service.ts).
-// An institution can override these via Exam > Exam Grade (ExamGrade rows);
-// callers pass those in as `bands`, and this built-in scale is the fallback.
+// An institution can override these with its default grading scale (grading
+// module); callers pass those in as `bands`, and this scale is the fallback.
 export type GradeBand = { minPercent: number; maxPercent: number; grade: string };
 
 export const DEFAULT_GRADE_BANDS: GradeBand[] = [

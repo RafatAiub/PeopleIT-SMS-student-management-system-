@@ -22,6 +22,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Button } from '../../components/ui/Button';
+import { PageHeader, Tabs } from '../../components/ui';
 import { IdCardPreview, IdCardTemplate, IdCardPreviewData } from './IdCardPreview';
 import { SAMPLE_STUDENT_DATA, SAMPLE_STAFF_DATA } from './IdCardTemplateBuilder';
 
@@ -371,52 +372,25 @@ export default function IdCardGenerate() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-          <IdCardIcon className="w-6 h-6 text-primary-500" />
-          ID Cards
-        </h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">
-          Generate ID cards from a saved template, then manage everything that's already been issued.
-        </p>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <IdCardIcon className="w-6 h-6 text-primary-500" />
+            ID Cards
+          </span>
+        }
+        description="Generate ID cards from a saved template, then manage everything that's already been issued."
+      />
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 dark:border-white/10 gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab('generate')}
-          className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === 'generate'
-              ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <PlusCircle className="w-4.5 h-4.5" />
-            Generate Cards
-          </div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('issued')}
-          className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
-            activeTab === 'issued'
-              ? 'border-primary-500 text-primary-600 dark:text-primary-400 font-bold'
-              : 'border-transparent text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <ListChecks className="w-4.5 h-4.5" />
-            Issued Cards
-            {cardListTotal > 0 && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400">
-                {cardListTotal}
-              </span>
-            )}
-          </div>
-        </button>
-      </div>
+      <Tabs
+        label="ID card sections"
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as typeof activeTab)}
+        tabs={[
+          { id: 'generate', label: 'Generate Cards', icon: <PlusCircle className="w-4 h-4" /> },
+          { id: 'issued', label: 'Issued Cards', icon: <ListChecks className="w-4 h-4" />, count: cardListTotal > 0 ? cardListTotal : undefined },
+        ]}
+      />
 
       {activeTab === 'generate' && (
         <>
@@ -446,8 +420,9 @@ export default function IdCardGenerate() {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2 space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Active Template</label>
+                    <label htmlFor="generate-active-template" className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Active Template</label>
                     <select
+                      id="generate-active-template"
                       value={selectedTemplateId}
                       onChange={(e) => {
                         setSelectedTemplateId(e.target.value);
@@ -529,17 +504,29 @@ export default function IdCardGenerate() {
                         <input
                           type="text"
                           placeholder="Search students..."
+                          aria-label="Search students"
                           value={studentParams.params.search}
                           onChange={(e) => studentParams.setSearch(e.target.value)}
                           className="input-field max-w-xs text-sm"
                         />
-                        <select value={classFilter} onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }} className="input-field max-w-[180px] text-sm">
+                        <select
+                          value={classFilter}
+                          onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }}
+                          aria-label="Filter students by class"
+                          className="input-field max-w-45 text-sm"
+                        >
                           <option value="">All classes</option>
                           {classes.map((c) => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                           ))}
                         </select>
-                        <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} disabled={!classFilter} className="input-field max-w-[180px] text-sm">
+                        <select
+                          value={sectionFilter}
+                          onChange={(e) => setSectionFilter(e.target.value)}
+                          disabled={!classFilter}
+                          aria-label="Filter students by section"
+                          className="input-field max-w-45 text-sm"
+                        >
                           <option value="">All sections</option>
                           {sections.map((s) => (
                             <option key={s.id} value={s.id}>{s.name}</option>
@@ -576,6 +563,7 @@ export default function IdCardGenerate() {
                                       type="checkbox"
                                       checked={selectedStudents.has(s.id)}
                                       onChange={() => toggleStudent(s)}
+                                      aria-label={`Select ${s.firstName} ${s.lastName}`}
                                       className="w-4 h-4 rounded-sm accent-primary-500 cursor-pointer"
                                     />
                                   </td>
@@ -602,6 +590,7 @@ export default function IdCardGenerate() {
                         <input
                           type="text"
                           placeholder="Search staff..."
+                          aria-label="Search staff"
                           value={staffParams.params.search}
                           onChange={(e) => staffParams.setSearch(e.target.value)}
                           className="input-field max-w-xs text-sm"
@@ -609,6 +598,7 @@ export default function IdCardGenerate() {
                         <input
                           type="text"
                           placeholder="Filter by department..."
+                          aria-label="Filter staff by department"
                           value={departmentFilter}
                           onChange={(e) => setDepartmentFilter(e.target.value)}
                           className="input-field max-w-xs text-sm"
@@ -644,6 +634,7 @@ export default function IdCardGenerate() {
                                       type="checkbox"
                                       checked={selectedStaff.has(s.id)}
                                       onChange={() => toggleStaff(s)}
+                                      aria-label={`Select ${s.name}`}
                                       className="w-4 h-4 rounded-sm accent-primary-500 cursor-pointer"
                                     />
                                   </td>
@@ -740,12 +731,22 @@ export default function IdCardGenerate() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Issued ID Cards</h3>
             <div className="flex flex-wrap gap-2">
-              <select value={userTypeFilter} onChange={(e) => { setUserTypeFilter(e.target.value); listParams.setPage(1); }} className="input-field text-sm py-1.5">
+              <select
+                value={userTypeFilter}
+                onChange={(e) => { setUserTypeFilter(e.target.value); listParams.setPage(1); }}
+                aria-label="Filter issued cards by holder type"
+                className="input-field text-sm py-1.5"
+              >
                 <option value="">All types</option>
                 <option value="STUDENT">Student</option>
                 <option value="STAFF">Staff</option>
               </select>
-              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); listParams.setPage(1); }} className="input-field text-sm py-1.5">
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); listParams.setPage(1); }}
+                aria-label="Filter issued cards by status"
+                className="input-field text-sm py-1.5"
+              >
                 <option value="">All statuses</option>
                 <option value="ACTIVE">Active</option>
                 <option value="REVOKED">Revoked</option>

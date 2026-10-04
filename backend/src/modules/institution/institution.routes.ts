@@ -7,6 +7,7 @@ import { requireRole } from '../../middleware/rbac.middleware';
 import { UserRole } from '@prisma/client';
 import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto, SetInstitutionStatusDto, StartSupportSessionDto, AdminUserActionDto } from './institution.dto';
 import * as institutionController from './institution.controller';
+import { UpdateInstitutionSettingsDto, getSettingsController, updateSettingsController } from './institution.settings';
 
 const router = Router();
 
@@ -126,5 +127,10 @@ const WRITE_ROLES = requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN);
 // display the school's name and contact details. Writes are Admin-only.
 router.get('/website', institutionController.getWebsiteConfig);
 router.put('/website', WRITE_ROLES, validate({ body: UpdateWebsiteConfigDto }), institutionController.updateWebsiteConfig);
+
+// Locale defaults (timezone, date format, numerals, currency, language).
+// Read by every role so the UI can apply them; writes are Admin-only.
+router.get('/settings', getSettingsController);
+router.put('/settings', WRITE_ROLES, validate({ body: UpdateInstitutionSettingsDto }), updateSettingsController);
 
 export default router;

@@ -1,24 +1,25 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { reportsService } from './reports.service';
+import { successResponse } from '../../utils/response';
 
 export class ReportsController {
-  async getDashboard(req: Request, res: Response) {
+  async getDashboard(req: Request, res: Response, next: NextFunction) {
     try {
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const stats = await reportsService.getDashboardStats(institutionId);
-      res.json({ success: true, data: stats });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, stats, 'Dashboard stats retrieved successfully');
+    } catch (error) {
+      next(error);
     }
   }
 
-  async getAdminOverview(req: Request, res: Response) {
+  async getAdminOverview(req: Request, res: Response, next: NextFunction) {
     try {
-      const institutionId = req.user!.institutionId || '';
+      const institutionId = req.tenantId || req.user!.institutionId || '';
       const overview = await reportsService.getAdminOverview(institutionId);
-      res.json({ success: true, data: overview });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+      return successResponse(res, overview, 'Admin overview retrieved successfully');
+    } catch (error) {
+      next(error);
     }
   }
 }

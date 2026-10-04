@@ -203,6 +203,53 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
   // Only trusted source of truth for whether the payment is genuinely valid.
   const validation = await SslCommerzClient.validateTransaction(valId);
 
+  // The client resolves { valid: false, raw: null } both on a genuine
+  // gateway "invalid" response's absence of detail AND on a network/parse
+  // failure (its catch blocks) — `raw === null` is the only signal that
+  // distinguishes "we couldn't ask the gateway" from "the gateway answered".
+  // A callback that arrives while the gateway is unreachable must never
+  // flip a PENDING/INITIATED payment to FAILED — leave it untouched so a
+  // later retry (IPN or a genuine redirect) can still credit it.
+  if (validation.raw === null) {
+    logger.error('SSLCommerz validation could not be completed — leaving payment status unchanged', {
+      paymentId: payment.id,
+      tranId: payment.gatewayTransactionId,
+      valId,
+    });
+    return;
+  }
+
+  // U2: the val_id must resolve to THIS payment's own tran_id. A val_id for
+  // an unrelated transaction (junk/mistyped on the public callback route, or
+  // a deliberate replay attempt) must not affect this payment's status at
+  // all — not even mark it FAILED, since it says nothing about this payment.
+  if (validation.tranId !== payment.gatewayTransactionId) {
+    logger.error('SSLCommerz val_id resolved to a different tran_id — rejecting without changing payment status', {
+      paymentId: payment.id,
+      expectedTranId: payment.gatewayTransactionId,
+      gotTranId: validation.tranId,
+      valId,
+    });
+    return;
+  }
+
+  // U2: a val_id already consumed by a different successful payment is a
+  // replay of a legitimate transaction against this one — reject without
+  // marking this payment FAILED (gatewayValId isn't a unique DB column, so
+  // this is enforced here rather than via a constraint).
+  const reusedBy = await prisma.subscriptionPayment.findFirst({
+    where: { gatewayValId: valId, status: 'SUCCESS', id: { not: payment.id } },
+    select: { id: true },
+  });
+  if (reusedBy) {
+    logger.error('SSLCommerz val_id already used by another successful payment — rejecting replay', {
+      paymentId: payment.id,
+      valId,
+      reusedByPaymentId: reusedBy.id,
+    });
+    return;
+  }
+
   const amountMatches =
     validation.valid && validation.amount !== undefined && Math.abs(validation.amount - Number(payment.amount)) < 0.01;
   const currencyMatches = !validation.currency || validation.currency === payment.currency;

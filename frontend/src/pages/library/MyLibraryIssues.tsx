@@ -3,14 +3,15 @@ import { BookOpen, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
-import { DataTable, Column } from '../../components/DataTable/DataTable';
-import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
+import { PageHeader, ErrorState, Tabs, Skeleton, SkeletonText } from '../../components/ui';
+import { Badge } from '../../components/ui/Badge';
+import { formatCurrency, formatDate } from '../../i18n';
 
 interface LibraryIssue {
   id: string;
   bookId: string;
-  book: { title: string; author: string; isbn: string };
+  book: { title: string; author: string; isbn: string | null };
   studentId: string;
   dueDate: string;
   returnDate: string | null;
@@ -30,11 +31,17 @@ interface ChildSummary {
 }
 
 const STATUS_TABS = [
-  { key: '', label: 'All' },
-  { key: 'ISSUED', label: 'Issued' },
-  { key: 'RETURNED', label: 'Returned' },
-  { key: 'OVERDUE', label: 'Overdue' },
+  { id: '', label: 'All' },
+  { id: 'ISSUED', label: 'Issued' },
+  { id: 'RETURNED', label: 'Returned' },
+  { id: 'OVERDUE', label: 'Overdue' },
 ];
+
+// OVERDUE is now stored by a daily backend job; until it runs, a past-due
+// ISSUED loan is overdue too.
+const isOverdue = (issue: LibraryIssue) =>
+  issue.status === 'OVERDUE' ||
+  (issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0));
 
 const MyLibraryIssues: React.FC = () => {
   const { user } = useAuthStore();
@@ -73,11 +80,14 @@ const MyLibraryIssues: React.FC = () => {
     setLoading(true);
     setError(false);
     try {
+      // The server resolves each filter: OVERDUE = stored OVERDUE + past-due
+      // ISSUED loans; ISSUED = every loan still out (ISSUED + OVERDUE).
       const params: Record<string, any> = { pageSize: 100 };
       if (statusFilter) params.status = statusFilter;
       if (isGuardian && selectedChildId) params.studentId = selectedChildId;
       const res = await apiClient.get('/library/me/issues', { params });
-      setIssues(res.data.data?.issues || res.data.data || []);
+      const list: LibraryIssue[] = res.data.data?.issues || res.data.data || [];
+      setIssues(list);
     } catch (err: any) {
       console.error('Failed to load library issues', err);
       setError(true);
@@ -97,95 +107,40 @@ const MyLibraryIssues: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, selectedChildId, childrenLoading]);
 
-  const isOverdue = (issue: LibraryIssue) =>
-    issue.status === 'ISSUED' && new Date(issue.dueDate).getTime() < new Date().setHours(0, 0, 0, 0);
-
-  const columns: Column<LibraryIssue>[] = [
-    {
-      key: 'book',
-      header: 'Book',
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent">
-            <BookOpen className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-slate-900 dark:text-white">{row.book?.title}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{row.book?.author}</p>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'isbn',
-      header: 'ISBN',
-      render: (row) => <span className="text-sm text-slate-500 dark:text-slate-400">{row.book?.isbn}</span>,
-    },
-    {
-      key: 'dueDate',
-      header: 'Due Date',
-      render: (row) => (
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          {row.dueDate ? new Date(row.dueDate).toLocaleDateString() : '-'}
-        </span>
-      ),
-    },
-    {
-      key: 'returnDate',
-      header: 'Return Date',
-      render: (row) => (
-        <span className="text-sm text-slate-500 dark:text-slate-400">
-          {row.returnDate ? new Date(row.returnDate).toLocaleDateString() : '-'}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (row) => <StatusBadge status={isOverdue(row) ? 'OVERDUE' : row.status} />,
-    },
-    {
-      key: 'fineAmount',
-      header: 'Fine',
-      render: (row) => {
-        const fine = Number(row.fineAmount) || 0;
-        return fine > 0 ? (
-          <span className="text-sm font-bold text-red-600 dark:text-red-400">৳{fine.toLocaleString()}</span>
-        ) : (
-          <span className="text-sm text-slate-500 dark:text-slate-400">-</span>
-        );
-      },
-    },
-  ];
-
   if (isGuardian && childrenLoading) {
-    return <div className="text-slate-500 dark:text-slate-400 p-8 text-center">Loading your dashboard...</div>;
+    return (
+      <div className="space-y-6">
+        <PageHeader title="My Library Issues" description="Track your issued and returned books." />
+        <SkeletonText lines={4} />
+      </div>
+    );
   }
 
   if (isGuardian && children.length === 0) {
     return (
-      <div className="glass-card p-8">
-        <EmptyState
-          title="No linked children found"
-          description="Contact your school administrator to link your account to your child's student profile."
-          icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-        />
+      <div className="space-y-6">
+        <PageHeader title="My Library Issues" description="Track your issued and returned books." />
+        <div className="glass-card p-8">
+          <EmptyState
+            title="No linked children found"
+            description="Contact your school administrator to link your account to your child's student profile."
+            icon={<Users className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+          />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Library Issues</h2>
-        <p className="text-slate-600 dark:text-slate-400 mt-1">Track your issued and returned books.</p>
-      </div>
+      <PageHeader title="My Library Issues" description="Track your issued and returned books." />
 
       {isGuardian && children.length > 1 && (
         <div className="flex gap-2 flex-wrap">
           {children.map((child) => (
             <button
               key={child.id}
+              type="button"
               onClick={() => setSelectedChildId(child.id)}
               className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 selectedChildId === child.id
@@ -199,47 +154,78 @@ const MyLibraryIssues: React.FC = () => {
         </div>
       )}
 
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setStatusFilter(tab.key)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              statusFilter === tab.key
-                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs border border-slate-200/50 dark:border-white/5'
-                : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs tabs={STATUS_TABS} value={statusFilter} onChange={setStatusFilter} variant="pills" label="Filter by status" idPrefix="library-issue-status" />
 
       {error ? (
+        <ErrorState message="Something went wrong while fetching your library issues." onRetry={fetchIssues} />
+      ) : loading ? (
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="glass-card p-4 space-y-2.5">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-3/5" />
+            </div>
+          ))}
+        </div>
+      ) : issues.length === 0 ? (
         <div className="glass-card p-8">
           <EmptyState
-            title="Failed to load library issues"
-            description="Something went wrong while fetching your library issues."
+            title="No library issues"
+            description="No book issues found for the selected filters."
             icon={<BookOpen className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            action={
-              <button
-                onClick={fetchIssues}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-xl text-sm font-semibold transition-all"
-              >
-                Retry
-              </button>
-            }
           />
         </div>
       ) : (
-        <DataTable
-          data={issues}
-          columns={columns}
-          isLoading={loading}
-          searchPlaceholder="Search by book title or ISBN..."
-          emptyTitle="No library issues"
-          emptyDescription="No book issues found for the selected filters."
-        />
+        <div className="flex flex-col gap-3">
+          {issues.map((issue) => {
+            const overdue = isOverdue(issue);
+            const fine = Number(issue.fineAmount) || 0;
+            return (
+              <div
+                key={issue.id}
+                className={`glass-card p-4 rounded-2xl border ${overdue ? 'border-red-200 dark:border-red-500/30' : 'border-slate-200/50 dark:border-white/10'}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary-50 dark:bg-primary-500/20 flex items-center justify-center text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-transparent shrink-0">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{issue.book?.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{issue.book?.author}{issue.book?.isbn ? ` · ISBN ${issue.book.isbn}` : ''}</p>
+                      </div>
+                      {overdue ? (
+                        <Badge variant="danger" className="shrink-0">Overdue (past due date)</Badge>
+                      ) : (
+                        <Badge variant={issue.status === 'RETURNED' ? 'success' : 'info'} className="shrink-0">
+                          {issue.status === 'RETURNED' ? 'Returned' : 'Issued'}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-slate-500 dark:text-slate-400">Due Date</p>
+                        <p className={`font-medium ${overdue ? 'text-red-600 dark:text-red-400' : 'text-slate-800 dark:text-slate-200'}`}>{formatDate(issue.dueDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 dark:text-slate-400">Return Date</p>
+                        <p className="font-medium text-slate-800 dark:text-slate-200">{issue.returnDate ? formatDate(issue.returnDate) : '—'}</p>
+                      </div>
+                      {fine > 0 && (
+                        <div className="col-span-2">
+                          <p className="text-slate-500 dark:text-slate-400">Fine</p>
+                          <p className="font-semibold text-red-600 dark:text-red-400">{formatCurrency(fine)}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

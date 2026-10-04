@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  GraduationCap, Plus, Search, X, FileText, Video, Link2, Presentation, Image as ImageIcon,
-  Edit2, Trash2, BookOpen, Eye, MessageSquare, Megaphone,
-  ClipboardList, Calendar, AlertCircle, Users,
+  GraduationCap, Plus, Search, Eye, Megaphone, ClipboardList,
+  Calendar, AlertCircle, Users, Edit2, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiClient from '../../api/client';
@@ -11,108 +10,26 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { Pagination } from '../../components/Pagination';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { EmptyState } from '../../components/common/EmptyState';
+import { Select } from '../../components/ui/Input';
+import { Tabs } from '../../components/ui/Tabs';
+import { Button } from '../../components/ui/Button';
+import { PageHeader } from '../../components/ui/Display';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { useT } from '../../i18n';
 import MaterialDetailModal from './MaterialDetailModal';
 import AssignmentSubmissionsModal from './AssignmentSubmissionsModal';
-import AttachmentField from './AttachmentField';
-
-const CLASSES = [
-  'KG', 'Nursery', 'Junior One',
-  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
-  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10',
-];
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-
-const RESOURCE_TYPES = [
-  { value: 'NOTE', label: 'Notes', icon: FileText, color: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/20' },
-  { value: 'SLIDE', label: 'Slides', icon: Presentation, color: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20' },
-  { value: 'VIDEO', label: 'Video', icon: Video, color: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20' },
-  { value: 'PDF', label: 'PDF', icon: FileText, color: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20' },
-  { value: 'LINK', label: 'Link', icon: Link2, color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20' },
-  { value: 'IMAGE', label: 'Image', icon: ImageIcon, color: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10 border-purple-200 dark:border-purple-500/20' },
-];
-
-const resourceMeta = (type: string) => RESOURCE_TYPES.find((r) => r.value === type) || RESOURCE_TYPES[0];
-
-const timeAgo = (iso: string) => {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
-};
-
-const initials = (firstName?: string, lastName?: string) =>
-  `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || '?';
-
-interface LectureMaterial {
-  id: string;
-  className: string;
-  sectionName: string;
-  subject: string;
-  title: string;
-  description?: string | null;
-  resourceType: string;
-  fileUrl: string;
-  createdAt: string;
-  uploadedBy: { id: string; firstName: string; lastName: string; role: string };
-  _count?: { comments: number };
-}
-
-interface Assignment {
-  id: string;
-  className: string;
-  sectionName: string;
-  subject: string;
-  title: string;
-  instructions?: string | null;
-  resourceType?: string | null;
-  fileUrl?: string | null;
-  dueDate?: string | null;
-  createdAt: string;
-  createdBy: { id: string; firstName: string; lastName: string; role: string };
-  _count?: { submissions: number };
-}
-
-const emptyForm = {
-  branchId: '',
-  className: 'Class 8',
-  sectionName: 'A',
-  subject: '',
-  title: '',
-  description: '',
-  resourceType: 'NOTE',
-  fileUrl: '',
-};
-
-const emptyAssignmentForm = {
-  branchId: '',
-  className: 'Class 8',
-  sectionName: 'A',
-  subject: '',
-  title: '',
-  instructions: '',
-  resourceType: '',
-  fileUrl: '',
-  dueDate: '',
-};
-
-// Only Teacher-assigned tasks have a due date — a Student's own submission
-// has none, so this returns null and the badge is simply not rendered.
-const dueDateStatus = (iso?: string | null) => {
-  if (!iso) return null;
-  const due = new Date(iso);
-  const now = new Date();
-  const diffDays = Math.ceil((due.setHours(23, 59, 59, 999) - now.getTime()) / 86400000);
-  if (diffDays < 0) return { label: 'Overdue', className: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20' };
-  if (diffDays === 0) return { label: 'Due today', className: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20' };
-  return { label: `Due ${new Date(iso).toLocaleDateString()}`, className: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10' };
-};
+import LectureMaterialFormModal, { type MaterialForm } from './LectureMaterialFormModal';
+import AssignmentFormModal, { type AssignmentForm } from './AssignmentFormModal';
+import MaterialCard from './MaterialCard';
+import { useClassSectionMeta } from '../../utils/classSections';
+import {
+  resourceMeta, dueDateStatus,
+  emptyMaterialForm, emptyAssignmentForm,
+  type LectureMaterial, type Assignment,
+} from './lectureShared';
 
 export default function Lacture() {
+  const t = useT();
   const { user } = useAuthStore();
   // Institution (Admin) is read-only here by design — only Teacher/Student may upload.
   const isReadOnly = user?.role === 'ADMIN';
@@ -123,14 +40,21 @@ export default function Lacture() {
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams(12);
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
+  // Real institution classes/sections (GET /students/meta/classes[+sections])
+  // for the browse filter and the two create/edit forms below.
+  const { classes: filterClasses, sections: filterSections } = useClassSectionMeta(classFilter);
 
   // Stream (LectureMaterial) state
   const [materials, setMaterials] = useState<LectureMaterial[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [materialsError, setMaterialsError] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<MaterialForm>(emptyMaterialForm);
+  const [formClassName, setFormClassName] = useState('');
+  const [formSectionName, setFormSectionName] = useState('');
+  const { classes: formClasses, sections: formSections } = useClassSectionMeta(formClassName);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<LectureMaterial | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -140,9 +64,11 @@ export default function Lacture() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [assignmentTotal, setAssignmentTotal] = useState(0);
   const [assignmentLoading, setAssignmentLoading] = useState(true);
+  const [assignmentsError, setAssignmentsError] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
-  const [assignmentForm, setAssignmentForm] = useState(emptyAssignmentForm);
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(emptyAssignmentForm);
+  const { classes: assignmentFormClasses, sections: assignmentFormSections } = useClassSectionMeta(assignmentForm.className);
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [assignmentToDelete, setAssignmentToDelete] = useState<Assignment | null>(null);
   const [deletingAssignment, setDeletingAssignment] = useState(false);
@@ -150,6 +76,7 @@ export default function Lacture() {
 
   const fetchMaterials = async () => {
     setLoading(true);
+    setMaterialsError(false);
     try {
       const queryParams = new URLSearchParams({
         page: params.page.toString(),
@@ -164,7 +91,8 @@ export default function Lacture() {
       setTotal(res.data.meta?.total || 0);
     } catch (error: any) {
       console.error('Failed to fetch lecture materials', error);
-      toast.error(error.response?.data?.message || 'Failed to load lecture materials');
+      setMaterialsError(true);
+      toast.error(error.response?.data?.message || t('Failed to load lecture materials'));
     } finally {
       setLoading(false);
     }
@@ -172,6 +100,7 @@ export default function Lacture() {
 
   const fetchAssignments = async () => {
     setAssignmentLoading(true);
+    setAssignmentsError(false);
     try {
       const queryParams = new URLSearchParams({
         page: params.page.toString(),
@@ -186,7 +115,8 @@ export default function Lacture() {
       setAssignmentTotal(res.data.meta?.total || 0);
     } catch (error: any) {
       console.error('Failed to fetch assignments', error);
-      toast.error(error.response?.data?.message || 'Failed to load classwork');
+      setAssignmentsError(true);
+      toast.error(error.response?.data?.message || t('Failed to load classwork'));
     } finally {
       setAssignmentLoading(false);
     }
@@ -209,24 +139,50 @@ export default function Lacture() {
       .catch(console.error);
   }, [isReadOnly]);
 
+  // Default the create-material form to the institution's first real
+  // class/section once loaded (openAdd() resets className/sectionName to '').
+  useEffect(() => {
+    if (!formClassName && formClasses.length > 0) setFormClassName(formClasses[0].name);
+  }, [formClasses, formClassName]);
+
+  useEffect(() => {
+    if (formSections.length > 0 && !formSections.some((s) => s.name === formSectionName)) {
+      setFormSectionName(formSections[0].name);
+    }
+  }, [formSections, formSectionName]);
+
+  // Same defaulting for the create-assignment form.
+  useEffect(() => {
+    if (!assignmentForm.className && assignmentFormClasses.length > 0) {
+      setAssignmentForm((prev) => ({ ...prev, className: assignmentFormClasses[0].name }));
+    }
+  }, [assignmentFormClasses, assignmentForm.className]);
+
+  useEffect(() => {
+    if (assignmentFormSections.length > 0 && !assignmentFormSections.some((s) => s.name === assignmentForm.sectionName)) {
+      setAssignmentForm((prev) => ({ ...prev, sectionName: assignmentFormSections[0].name }));
+    }
+  }, [assignmentFormSections, assignmentForm.sectionName]);
+
   const openAdd = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, branchId: branchId || '' });
+    setForm(emptyMaterialForm);
+    setFormClassName('');
+    setFormSectionName('');
     setIsModalOpen(true);
   };
 
   const openEdit = (material: LectureMaterial) => {
     setEditingId(material.id);
     setForm({
-      branchId: branchId || '',
-      className: material.className,
-      sectionName: material.sectionName,
       subject: material.subject,
       title: material.title,
       description: material.description || '',
       resourceType: material.resourceType,
       fileUrl: material.fileUrl,
     });
+    setFormClassName(material.className);
+    setFormSectionName(material.sectionName);
     setIsModalOpen(true);
   };
 
@@ -235,15 +191,15 @@ export default function Lacture() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!branchId) {
-      toast.error('Could not resolve your branch. Please refresh and try again.');
+      toast.error(t('Could not resolve your branch. Please refresh and try again.'));
       return;
     }
     setSaving(true);
     try {
       const payload = {
         branchId,
-        className: form.className,
-        sectionName: form.sectionName,
+        className: formClassName,
+        sectionName: formSectionName,
         subject: form.subject,
         title: form.title,
         description: form.description || undefined,
@@ -253,15 +209,15 @@ export default function Lacture() {
 
       if (editingId) {
         await apiClient.put(`/lectures/${editingId}`, payload);
-        toast.success('Lecture material updated');
+        toast.success(t('Lecture material updated'));
       } else {
         await apiClient.post('/lectures', payload);
-        toast.success('Lecture material added');
+        toast.success(t('Lecture material added'));
       }
       setIsModalOpen(false);
       fetchMaterials();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save lecture material');
+      toast.error(error.response?.data?.message || t('Failed to save lecture material'));
     } finally {
       setSaving(false);
     }
@@ -272,11 +228,11 @@ export default function Lacture() {
     setDeleting(true);
     try {
       await apiClient.delete(`/lectures/${toDelete.id}`);
-      toast.success('Lecture material deleted');
+      toast.success(t('Lecture material deleted'));
       setToDelete(null);
       fetchMaterials();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete lecture material');
+      toast.error(error.response?.data?.message || t('Failed to delete lecture material'));
     } finally {
       setDeleting(false);
     }
@@ -284,14 +240,13 @@ export default function Lacture() {
 
   const openAddAssignment = () => {
     setEditingAssignmentId(null);
-    setAssignmentForm({ ...emptyAssignmentForm, branchId: branchId || '' });
+    setAssignmentForm(emptyAssignmentForm);
     setIsAssignmentModalOpen(true);
   };
 
   const openEditAssignment = (assignment: Assignment) => {
     setEditingAssignmentId(assignment.id);
     setAssignmentForm({
-      branchId: branchId || '',
       className: assignment.className,
       sectionName: assignment.sectionName,
       subject: assignment.subject,
@@ -309,7 +264,7 @@ export default function Lacture() {
   const handleAssignmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!branchId) {
-      toast.error('Could not resolve your branch. Please refresh and try again.');
+      toast.error(t('Could not resolve your branch. Please refresh and try again.'));
       return;
     }
     setSavingAssignment(true);
@@ -328,15 +283,15 @@ export default function Lacture() {
 
       if (editingAssignmentId) {
         await apiClient.put(`/assignments/${editingAssignmentId}`, payload);
-        toast.success('Assignment updated');
+        toast.success(t('Assignment updated'));
       } else {
         await apiClient.post('/assignments', payload);
-        toast.success('Assignment created');
+        toast.success(t('Assignment created'));
       }
       setIsAssignmentModalOpen(false);
       fetchAssignments();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to save assignment');
+      toast.error(error.response?.data?.message || t('Failed to save assignment'));
     } finally {
       setSavingAssignment(false);
     }
@@ -347,223 +302,176 @@ export default function Lacture() {
     setDeletingAssignment(true);
     try {
       await apiClient.delete(`/assignments/${assignmentToDelete.id}`);
-      toast.success('Assignment deleted');
+      toast.success(t('Assignment deleted'));
       setAssignmentToDelete(null);
       fetchAssignments();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to delete assignment');
+      toast.error(error.response?.data?.message || t('Failed to delete assignment'));
     } finally {
       setDeletingAssignment(false);
     }
   };
 
+  const materialClassSectionPicker = (
+    <div className="grid grid-cols-2 gap-4">
+      <Select label={t('Class')} value={formClassName} onChange={(e) => { setFormClassName(e.target.value); setFormSectionName(''); }}>
+        {formClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </Select>
+      <Select label={t('Section')} value={formSectionName} onChange={(e) => setFormSectionName(e.target.value)}>
+        {formSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </Select>
+    </div>
+  );
+
+  const assignmentClassSectionPicker = (
+    <div className="grid grid-cols-2 gap-4">
+      <Select label={t('Class')} value={assignmentForm.className} onChange={(e) => setAssignmentForm({ ...assignmentForm, className: e.target.value, sectionName: '' })}>
+        {assignmentFormClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </Select>
+      <Select label={t('Section')} value={assignmentForm.sectionName} onChange={(e) => setAssignmentForm({ ...assignmentForm, sectionName: e.target.value })}>
+        {assignmentFormSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+      </Select>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-blue-500 dark:text-blue-400" />
-            Lecture Materials
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            {activeTab === 'stream'
-              ? (isReadOnly ? 'Browse the notes, slides, videos, and links teachers and students have shared.' : 'Share notes, slides, videos, and resource links with your class.')
-              : (isReadOnly ? 'Browse assignments and homework tasks.' : 'Assign homework and tasks to your class.')}
-          </p>
-        </div>
-        {isReadOnly ? (
-          <span className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-xl">
-            <Eye className="w-4 h-4" /> Read-only
+            {t('Lecture Materials')}
           </span>
-        ) : activeTab === 'stream' ? (
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            Add Material
-          </button>
-        ) : (
-          <button
-            onClick={openAddAssignment}
-            className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm text-sm font-semibold active:scale-[0.98]"
-          >
-            <Plus className="w-4 h-4" />
-            Add Assignment
-          </button>
-        )}
-      </div>
+        }
+        description={
+          activeTab === 'stream'
+            ? (isReadOnly ? t('Browse the notes, slides, videos, and links teachers and students have shared.') : t('Share notes, slides, videos, and resource links with your class.'))
+            : (isReadOnly ? t('Browse assignments and homework tasks.') : t('Assign homework and tasks to your class.'))
+        }
+        actions={
+          isReadOnly ? (
+            <span className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-3.5 py-2 rounded-xl">
+              <Eye className="w-4 h-4" /> {t('Read-only')}
+            </span>
+          ) : activeTab === 'stream' ? (
+            <Button onClick={openAdd} leftIcon={<Plus className="w-4 h-4" />}>{t('Add Material')}</Button>
+          ) : (
+            <Button onClick={openAddAssignment} leftIcon={<Plus className="w-4 h-4" />}>{t('Add Assignment')}</Button>
+          )
+        }
+      />
 
       {/* Stream / Classwork tabs — separate modules with separate data */}
-      <div className="glass-card rounded-2xl border border-slate-200/50 dark:border-white/10 flex overflow-hidden bg-slate-50 dark:bg-slate-900/30 p-1 gap-1">
-        <button
-          onClick={() => setActiveTab('stream')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'stream'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Megaphone className="w-4 h-4" /> Stream
-        </button>
-        <button
-          onClick={() => setActiveTab('classwork')}
-          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-            activeTab === 'classwork'
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200/50 dark:border-white/5'
-              : 'text-slate-400 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <ClipboardList className="w-4 h-4" /> Classwork
-        </button>
-      </div>
+      <Tabs
+        variant="pills"
+        label={t('Lecture materials view')}
+        tabs={[
+          { id: 'stream', label: t('Stream'), icon: <Megaphone className="w-4 h-4" /> },
+          { id: 'classwork', label: t('Classwork'), icon: <ClipboardList className="w-4 h-4" /> },
+        ]}
+        value={activeTab}
+        onChange={(id) => setActiveTab(id as 'stream' | 'classwork')}
+      />
 
-      {/* Filters */}
+      {/* Filters toolbar */}
       <div className="glass-card p-5 rounded-2xl flex flex-wrap items-center gap-4 border border-slate-200/50 dark:border-white/5 bg-slate-50 dark:bg-slate-900/30 shadow-sm">
         <div className="relative flex-1 min-w-[220px]">
           <Search className="w-4.5 h-4.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder={activeTab === 'stream' ? 'Search by title, subject, or description...' : 'Search by title, subject, or instructions...'}
+            placeholder={activeTab === 'stream' ? t('Search by title, subject, or description...') : t('Search by title, subject, or instructions...')}
             className="input-field pl-10"
             value={params.search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select value={classFilter} onChange={(e) => setClassFilter(e.target.value)} className="input-field w-auto min-w-[140px]">
-          <option value="">All Classes</option>
-          {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+        <select value={classFilter} onChange={(e) => { setClassFilter(e.target.value); setSectionFilter(''); }} className="input-field w-auto min-w-[140px]">
+          <option value="">{t('All Classes')}</option>
+          {filterClasses.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
-        <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="input-field w-auto min-w-[120px]">
-          <option value="">All Sections</option>
-          {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+        <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="input-field w-auto min-w-[120px]" disabled={!classFilter}>
+          <option value="">{t('All Sections')}</option>
+          {filterSections.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
         </select>
       </div>
 
       {activeTab === 'stream' ? (
         <div className="space-y-4">
-          {!isReadOnly && (
-            <button
-              onClick={openAdd}
-              className="w-full flex items-center gap-3 glass-card p-4 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-400 dark:hover:border-blue-500/50 transition-all text-left"
-            >
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                {initials(user?.firstName, user?.lastName)}
-              </div>
-              <span className="text-sm text-slate-400 dark:text-slate-500 flex-1">Share an announcement with your class...</span>
-              <Megaphone className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            </button>
-          )}
-
-          {loading ? (
-            <div className="text-center text-slate-500 py-10">Loading announcements...</div>
+          {materialsError ? (
+            <div className="glass-card p-8">
+              <EmptyState
+                title={t('Failed to load lecture materials')}
+                description={t('Something went wrong while fetching lecture materials.')}
+                icon={<Megaphone className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+                action={<Button onClick={fetchMaterials}>{t('Retry')}</Button>}
+              />
+            </div>
+          ) : loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="glass-card p-5 rounded-2xl space-y-3">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-4/5" />
+                </div>
+              ))}
+            </div>
           ) : materials.length === 0 ? (
             <div className="glass-card p-8">
               <EmptyState
-                title="No announcements yet"
-                description={isReadOnly ? 'No teacher or student has posted anything yet.' : 'Share a link, PDF, video, or image with your class.'}
+                title={t('No announcements yet')}
+                description={isReadOnly ? t('No teacher or student has posted anything yet.') : t('Share a link, PDF, video, or image with your class.')}
                 icon={<Megaphone className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-                action={
-                  !isReadOnly ? (
-                    <button
-                      onClick={openAdd}
-                      className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
-                    >
-                      <Plus className="w-4 h-4" /> New Announcement
-                    </button>
-                  ) : undefined
-                }
+                action={!isReadOnly ? <Button onClick={openAdd} leftIcon={<Plus className="w-4 h-4" />}>{t('New Announcement')}</Button> : undefined}
               />
             </div>
           ) : (
             <>
-              <div className="space-y-4">
-                {materials.map((material) => {
-                  const meta = resourceMeta(material.resourceType);
-                  const Icon = meta.icon;
-                  return (
-                    <div
-                      key={material.id}
-                      onClick={() => setViewingMaterial(material)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && setViewingMaterial(material)}
-                      className="glass-card p-5 rounded-2xl border border-slate-200/50 dark:border-white/10 bg-white dark:bg-transparent shadow-sm hover:border-blue-500/50 dark:hover:border-blue-500/50 transition-all group cursor-pointer"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-teal-400 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                          {initials(material.uploadedBy?.firstName, material.uploadedBy?.lastName)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 dark:text-slate-400">
-                            <span className="font-semibold text-slate-900 dark:text-white">{material.uploadedBy?.firstName} {material.uploadedBy?.lastName}</span>
-                            {material.uploadedBy?.role === 'STUDENT' && <span className="text-slate-400">(Student)</span>}
-                            <span>shared {meta.label.toLowerCase()}</span>
-                            <span>· {timeAgo(material.createdAt)}</span>
-                            <span className="ml-auto text-slate-400">{material.className} - {material.sectionName}</span>
-                          </div>
-                          <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1.5 line-clamp-1">{material.title}</h3>
-                          {material.description && (
-                            <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 line-clamp-2">{material.description}</p>
-                          )}
-                          <div className="flex items-center gap-3 mt-3 flex-wrap">
-                            <a
-                              href={material.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border ${meta.color}`}
-                            >
-                              <Icon className="w-3.5 h-3.5" /> Open {meta.label}
-                            </a>
-                            <span className="flex items-center gap-1 text-xs text-slate-400" title="Comments">
-                              <MessageSquare className="w-3.5 h-3.5" /> {material._count?.comments ?? 0} comment{material._count?.comments === 1 ? '' : 's'}
-                            </span>
-                            {canManage(material) && (
-                              <div className="flex items-center gap-1 ml-auto">
-                                <button onClick={(e) => { e.stopPropagation(); openEdit(material); }} aria-label={`Edit ${material.title}`} title="Edit" className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); setToDelete(material); }} aria-label={`Delete ${material.title}`} title="Delete" className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {materials.map((material) => (
+                  <MaterialCard
+                    key={material.id}
+                    material={material}
+                    onOpen={() => setViewingMaterial(material)}
+                    canManage={canManage(material)}
+                    onEdit={() => openEdit(material)}
+                    onDelete={() => setToDelete(material)}
+                    flagRole="STUDENT"
+                    showClassSection
+                  />
+                ))}
               </div>
-              <Pagination
-                page={params.page}
-                pageSize={params.pageSize}
-                total={total}
-                onPageChange={setPage}
-                onPageSizeChange={setPageSize}
-              />
+              <Pagination page={params.page} pageSize={params.pageSize} total={total} onPageChange={setPage} onPageSizeChange={setPageSize} />
             </>
           )}
         </div>
+      ) : assignmentsError ? (
+        <div className="glass-card p-8">
+          <EmptyState
+            title={t('Failed to load classwork')}
+            description={t('Something went wrong while fetching classwork.')}
+            icon={<ClipboardList className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
+            action={<Button onClick={fetchAssignments}>{t('Retry')}</Button>}
+          />
+        </div>
       ) : assignmentLoading ? (
-        <div className="text-center text-slate-500 py-10">Loading classwork...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="glass-card p-5 rounded-2xl space-y-3">
+              <Skeleton className="h-12 w-12 rounded-xl" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          ))}
+        </div>
       ) : assignments.length === 0 ? (
         <div className="glass-card p-8">
           <EmptyState
-            title="No classwork yet"
-            description={isReadOnly ? 'No assignments have been posted yet.' : 'Assign homework or a task to your class.'}
+            title={t('No classwork yet')}
+            description={isReadOnly ? t('No assignments have been posted yet.') : t('Assign homework or a task to your class.')}
             icon={<ClipboardList className="w-10 h-10 text-slate-400 dark:text-slate-500" />}
-            action={
-              !isReadOnly ? (
-                <button
-                  onClick={openAddAssignment}
-                  className="flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl transition-all text-sm font-semibold"
-                >
-                  <Plus className="w-4 h-4" /> Add Assignment
-                </button>
-              ) : undefined
-            }
+            action={!isReadOnly ? <Button onClick={openAddAssignment} leftIcon={<Plus className="w-4 h-4" />}>{t('Add Assignment')}</Button> : undefined}
           />
         </div>
       ) : (
@@ -590,7 +498,7 @@ export default function Lacture() {
                       </span>
                     ) : (
                       <span className="px-2.5 py-1 rounded-full text-xs font-semibold border text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20">
-                        Submission
+                        {t('Submission')}
                       </span>
                     )}
                   </div>
@@ -601,11 +509,11 @@ export default function Lacture() {
 
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5">
-                      <p className="text-xs text-slate-500 mb-1">Subject</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('Subject')}</p>
                       <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold truncate">{assignment.subject}</p>
                     </div>
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/50 dark:border-white/5">
-                      <p className="text-xs text-slate-500 mb-1">Class</p>
+                      <p className="text-xs text-slate-500 mb-1">{t('Class')}</p>
                       <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold truncate">{assignment.className} - {assignment.sectionName}</p>
                     </div>
                   </div>
@@ -613,7 +521,7 @@ export default function Lacture() {
                   <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100 dark:border-white/10">
                     <span className="truncate max-w-[40%]" title={`${assignment.createdBy?.firstName || ''} ${assignment.createdBy?.lastName || ''}`}>
                       {assignment.createdBy?.firstName} {assignment.createdBy?.lastName}
-                      {assignment.createdBy?.role === 'STUDENT' && <span className="ml-1 text-slate-400">(Student)</span>}
+                      {assignment.createdBy?.role === 'STUDENT' && <span className="ml-1 text-slate-400">({t('Student')})</span>}
                     </span>
                     <div className="flex items-center gap-1">
                       {assignment.fileUrl && meta && Icon && (
@@ -622,7 +530,7 @@ export default function Lacture() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`Open ${assignment.title} attachment`}
-                          title="Open attachment"
+                          title={t('Open attachment')}
                           className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                         >
                           <Icon className="w-4 h-4" />
@@ -630,10 +538,10 @@ export default function Lacture() {
                       )}
                       {canManageAssignment(assignment) && (
                         <>
-                          <button onClick={() => openEditAssignment(assignment)} aria-label={`Edit ${assignment.title}`} title="Edit assignment" className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                          <button onClick={() => openEditAssignment(assignment)} aria-label={`Edit ${assignment.title}`} title={t('Edit assignment')} className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => setAssignmentToDelete(assignment)} aria-label={`Delete ${assignment.title}`} title="Delete assignment" className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
+                          <button onClick={() => setAssignmentToDelete(assignment)} aria-label={`Delete ${assignment.title}`} title={t('Delete assignment')} className="p-1.5 text-slate-500 hover:text-rose-600 dark:hover:text-red-400 transition-colors">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
@@ -643,214 +551,56 @@ export default function Lacture() {
 
                   {/* View Submissions — scoped to this one assignment only, via parentAssignmentId */}
                   <div className="mt-3 pt-3 border-t border-slate-100 dark:border-white/10">
-                    <button
+                    <Button
+                      variant="secondary"
+                      fullWidth
                       onClick={() => setViewingSubmissionsFor(assignment)}
                       aria-label={`View submissions for ${assignment.title}`}
-                      className="w-full flex items-center justify-center gap-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-xl transition-all text-sm font-semibold active:scale-[0.98]"
+                      leftIcon={<Users className="w-4 h-4" />}
                     >
-                      <Users className="w-4 h-4" />
-                      View Submissions
+                      {t('View Submissions')}
                       <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-primary-600 text-white text-xs font-bold">
                         {assignment._count?.submissions ?? 0}
                       </span>
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
             })}
           </div>
-          <Pagination
-            page={params.page}
-            pageSize={params.pageSize}
-            total={assignmentTotal}
-            onPageChange={setPage}
-            onPageSizeChange={setPageSize}
-          />
+          <Pagination page={params.page} pageSize={params.pageSize} total={assignmentTotal} onPageChange={setPage} onPageSizeChange={setPageSize} />
         </div>
       )}
 
-      {/* Add/Edit Lecture Material Modal (Stream) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                {editingId ? 'Edit Lecture Material' : 'Add Lecture Material'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <LectureMaterialFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        isEdit={!!editingId}
+        form={form}
+        onChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+        onSubmit={handleSubmit}
+        saving={saving}
+        disabled={!branchId}
+        classSectionPicker={materialClassSectionPicker}
+      />
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Class</label>
-                  <select value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} className="input-field">
-                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Section</label>
-                  <select value={form.sectionName} onChange={(e) => setForm({ ...form, sectionName: e.target.value })} className="input-field">
-                    {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-                <input required type="text" placeholder="e.g. Mathematics" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Title</label>
-                <input required type="text" placeholder="e.g. Chapter 4 - Algebra Basics" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Description (optional)</label>
-                <textarea rows={2} placeholder="Short summary of this material" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Type</label>
-                <select value={form.resourceType} onChange={(e) => setForm({ ...form, resourceType: e.target.value })} className="input-field">
-                  {RESOURCE_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-
-              <AttachmentField
-                resourceType={form.resourceType}
-                value={form.fileUrl}
-                onChange={(url) => setForm({ ...form, fileUrl: url })}
-                required
-                label="Resource"
-              />
-
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving || !branchId}
-                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
-                >
-                  {saving ? 'Saving...' : editingId ? 'Save Changes' : 'Add Material'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add/Edit Assignment Modal (Classwork) */}
-      {isAssignmentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-2xl w-full max-w-lg shadow-sm overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ClipboardList className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                {editingAssignmentId ? 'Edit Assignment' : 'Add Assignment'}
-              </h3>
-              <button
-                onClick={() => setIsAssignmentModalOpen(false)}
-                aria-label="Close"
-                className="text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAssignmentSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Class</label>
-                  <select value={assignmentForm.className} onChange={(e) => setAssignmentForm({ ...assignmentForm, className: e.target.value })} className="input-field">
-                    {CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Section</label>
-                  <select value={assignmentForm.sectionName} onChange={(e) => setAssignmentForm({ ...assignmentForm, sectionName: e.target.value })} className="input-field">
-                    {SECTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Subject</label>
-                <input required type="text" placeholder="e.g. Mathematics" value={assignmentForm.subject} onChange={(e) => setAssignmentForm({ ...assignmentForm, subject: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Title</label>
-                <input required type="text" placeholder="e.g. Worksheet 3 - Fractions" value={assignmentForm.title} onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Instructions (optional)</label>
-                <textarea rows={3} placeholder="What should students do for this assignment?" value={assignmentForm.instructions} onChange={(e) => setAssignmentForm({ ...assignmentForm, instructions: e.target.value })} className="input-field placeholder:text-slate-400 dark:placeholder:text-slate-600 resize-none" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Due Date</label>
-                <input required type="date" value={assignmentForm.dueDate} onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })} className="input-field" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Attachment Type (optional)</label>
-                <select value={assignmentForm.resourceType} onChange={(e) => setAssignmentForm({ ...assignmentForm, resourceType: e.target.value })} className="input-field">
-                  <option value="">No attachment</option>
-                  {RESOURCE_TYPES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-
-              {assignmentForm.resourceType && (
-                <AttachmentField
-                  resourceType={assignmentForm.resourceType}
-                  value={assignmentForm.fileUrl}
-                  onChange={(url) => setAssignmentForm({ ...assignmentForm, fileUrl: url })}
-                  label="Attachment"
-                />
-              )}
-
-              <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setIsAssignmentModalOpen(false)}
-                  className="px-5 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/5 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingAssignment || !branchId}
-                  className="bg-primary-600 hover:bg-primary-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm disabled:opacity-50 active:scale-[0.98]"
-                >
-                  {savingAssignment ? 'Saving...' : editingAssignmentId ? 'Save Changes' : 'Add Assignment'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AssignmentFormModal
+        isOpen={isAssignmentModalOpen}
+        onClose={() => setIsAssignmentModalOpen(false)}
+        isEdit={!!editingAssignmentId}
+        form={assignmentForm}
+        onChange={(patch) => setAssignmentForm((prev) => ({ ...prev, ...patch }))}
+        onSubmit={handleAssignmentSubmit}
+        saving={savingAssignment}
+        disabled={!branchId}
+        classSectionPicker={assignmentClassSectionPicker}
+      />
 
       <ConfirmModal
         isOpen={!!toDelete}
-        title="Delete lecture material"
-        message={`Are you sure you want to delete "${toDelete?.title}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('Delete lecture material')}
+        message={t('Are you sure you want to delete "{title}"? This cannot be undone.', { title: toDelete?.title || '' })}
+        confirmLabel={t('Delete')}
         variant="danger"
         isLoading={deleting}
         onConfirm={handleConfirmDelete}
@@ -859,9 +609,9 @@ export default function Lacture() {
 
       <ConfirmModal
         isOpen={!!assignmentToDelete}
-        title="Delete assignment"
-        message={`Are you sure you want to delete "${assignmentToDelete?.title}"? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('Delete assignment')}
+        message={t('Are you sure you want to delete "{title}"? This cannot be undone.', { title: assignmentToDelete?.title || '' })}
+        confirmLabel={t('Delete')}
         variant="danger"
         isLoading={deletingAssignment}
         onConfirm={handleConfirmDeleteAssignment}

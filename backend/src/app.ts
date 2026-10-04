@@ -23,6 +23,9 @@ import assignmentRouter from './modules/assignments/assignment.routes';
 import transportRouter from './modules/transport/transport.routes';
 import hrRouter from './modules/hr/hr.routes';
 import leaveRouter from './modules/leave/leave.routes';
+import holidayRouter from './modules/holidays/holiday.routes';
+import sessionYearRouter from './modules/session-years/session-year.routes';
+import eventRouter from './modules/events/event.routes';
 import aiRouter from './modules/ai/ai.routes';
 import institutionRouter from './modules/institution/institution.routes';
 import institutionApplicationRouter from './modules/institution-application/institution-application.routes';
@@ -32,13 +35,47 @@ import messagesRouter from './modules/messages/messages.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import curriculumRouter from './modules/curriculum/curriculum.routes';
 import academicsRouter from './modules/academics/academics.routes';
+import staffManagementRouter from './modules/staff/staff.routes';
+import feeSetupRouter from './modules/fee-setup/fee-setup.routes';
+import systemRouter from './modules/system/system.routes';
 import examsRouter from './modules/exams/exams.routes';
 import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
 import { tenantBillingRouter, superAdminBillingRouter, gatewayBillingRouter } from './modules/billing/billing.routes';
+import { feeGatewayRouter } from './modules/fees/online/feeGateway.routes';
+import { campaignsRouter, messageGroupsRouter } from './modules/campaigns/campaigns.routes';
+import { enquiriesRouter, admissionsPublicRouter } from './modules/enquiries/enquiries.routes';
+import customFieldsRouter from './modules/custom-fields/customFields.routes';
+import gradingRouter from './modules/grading/grading.routes';
+import promotionRouter from './modules/promotion/promotion.routes';
+import staffAttendanceRouter from './modules/staff-attendance/staff-attendance.routes';
+import subjectAttendanceRouter from './modules/subject-attendance/subject-attendance.routes';
+import qrCheckinRouter from './modules/qr-checkin/qr.routes';
+import payrollComponentsRouter from './modules/payroll-components/payroll-components.routes';
+import inventoryRouter from './modules/inventory/inventory.routes';
+import saasRouter from './modules/saas/saas.routes';
+import branchRouter from './modules/branches/branch.routes';
+import { apiKeysRouter, publicApiRouter } from './modules/api-keys/apiKeys.routes';
+import webhooksRouter from './modules/webhooks/webhooks.routes';
+import supportRouter from './modules/support/support.routes';
+import dataExportRouter from './modules/data-export/dataExport.routes';
+import usageRouter from './modules/usage/usage.routes';
+import { sitesRouter, publicSitesRouter } from './modules/sites/sites.routes';
+import emailPublicRouter from './modules/email/email.public.routes';
+import emailAdminRouter from './modules/email/email.admin.routes';
+import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
+
+// Opt-in: behind a reverse proxy / tunnel every request arrives from the proxy's
+// IP, so all users would share one rate-limit bucket. TRUST_PROXY (e.g.
+// "loopback", "1", or a CIDR list) makes req.ip the real client address.
+// Unset = unchanged behaviour.
+if (process.env.TRUST_PROXY) {
+  const tp = process.env.TRUST_PROXY;
+  app.set('trust proxy', /^\d+$/.test(tp) ? Number(tp) : tp === 'true' ? true : tp);
+}
 
 // Apply security headers with relaxed cross-origin policies for frontend integration
 app.use(
@@ -53,6 +90,8 @@ app.use(
 const allowedOrigins = [
   env.FRONTEND_URL,
   'https://peopleitsms.vercel.app',
+  'https://people-it-sms-student-management-sy.vercel.app',
+  'https://people-it-sms-student-management-system-git-dev-saimon7.vercel.app',
   'http://localhost:5173',
   'http://localhost:3000',
   ...(env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
@@ -66,7 +105,22 @@ app.use(
     // Origin header (e.g. sandbox.sslcommerz.com) by design and must not be
     // subject to the frontend origin allow-list, or every payment callback
     // gets silently blocked before it reaches the controller.
-    if (req.path.startsWith('/api/v1/billing/gateway/')) {
+    if (req.path.startsWith('/api/v1/billing/gateway/') || req.path.startsWith('/api/v1/fees/gateway/')) {
+      callback(null, { origin: true, credentials: false });
+      return;
+    }
+
+    // Brevo's webhook server and mail-client one-click unsubscribe POSTs are
+    // not our frontend and carry no credentials — same treatment as the
+    // payment gateway callbacks above.
+    if (req.path.startsWith('/api/v1/email/webhooks/') || req.path.startsWith('/api/v1/email/unsubscribe')) {
+      callback(null, { origin: true, credentials: false });
+      return;
+    }
+
+    // Public school websites are served from any custom domain; these routes
+    // are read-only (plus rate-limited form submit) and never use credentials.
+    if (req.path.startsWith('/api/v1/public/sites/')) {
       callback(null, { origin: true, credentials: false });
       return;
     }
@@ -101,7 +155,15 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests from this IP, please try again after a minute' },
-  skip: () => env.NODE_ENV === 'test',
+  // Payment gateway callbacks come from a few gateway IPs in bursts; they are
+  // verified with the gateway before crediting, so they skip the IP limiter.
+  skip: (req) =>
+    env.NODE_ENV === 'test' ||
+    req.originalUrl.startsWith('/api/v1/billing/gateway/') ||
+    req.originalUrl.startsWith('/api/v1/fees/gateway/') ||
+    req.originalUrl.startsWith('/api/v1/public/sites/pay/') ||
+    req.originalUrl.startsWith('/api/v1/email/webhooks/') ||
+    req.originalUrl.startsWith('/api/v1/email/unsubscribe'),
 });
 app.use('/api/', globalLimiter);
 
@@ -220,22 +282,54 @@ app.use('/api/v1/student-applications/apply', studentApplicationLimiter);
 app.use('/api/', enforceReadOnly);
 
 // Mount API routes
+// Public (unauthenticated) email endpoints — Brevo webhook + one-click/simple
+// unsubscribe. Mounted before the authenticated routers per the same
+// convention as feeGatewayRouter above.
+app.use('/api/v1/email', emailPublicRouter);
+app.use('/api/v1/email/admin', emailAdminRouter);
+
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/students', studentRouter);
 app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
+// Public fee-gateway callbacks must be mounted before the authenticated fee router.
+app.use('/api/v1/fees/gateway', feeGatewayRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/attendance', attendanceRouter);
 app.use('/api/v1/results', resultsRouter);
 app.use('/api/v1/timetables', timetablesRouter);
 app.use('/api/v1/notices', noticesRouter);
+app.use('/api/v1/campaigns', campaignsRouter);
+app.use('/api/v1/message-groups', messageGroupsRouter);
+app.use('/api/v1/enquiries', enquiriesRouter);
+app.use('/api/v1/admissions-public', admissionsPublicRouter);
+app.use('/api/v1/custom-fields', customFieldsRouter);
+app.use('/api/v1/grading', gradingRouter);
+app.use('/api/v1/promotion', promotionRouter);
+app.use('/api/v1/subject-attendance', subjectAttendanceRouter);
+app.use('/api/v1/qr', qrCheckinRouter);
+app.use('/api/v1/payroll-components', payrollComponentsRouter);
+app.use('/api/v1/inventory', inventoryRouter);
+app.use('/api/v1/saas', saasRouter);
+app.use('/api/v1/branches', branchRouter);
+app.use('/api/v1/api-keys', apiKeysRouter);
+app.use('/api/v1/public-api', publicApiRouter);
+app.use('/api/v1/webhooks', webhooksRouter);
+app.use('/api/v1/support', supportRouter);
+app.use('/api/v1/data-export', dataExportRouter);
+app.use('/api/v1/usage', usageRouter);
+app.use('/api/v1/public/sites', publicSitesRouter);
+app.use('/api/v1/sites', sitesRouter);
 app.use('/api/v1/library', libraryRouter);
 app.use('/api/v1/lectures', lectureRouter);
 app.use('/api/v1/assignments', assignmentRouter);
 app.use('/api/v1/transport', transportRouter);
 app.use('/api/v1/hr', hrRouter);
 app.use('/api/v1/leave', leaveRouter);
+app.use('/api/v1/holidays', holidayRouter);
+app.use('/api/v1/session-years', sessionYearRouter);
+app.use('/api/v1/events', eventRouter);
 app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
@@ -245,6 +339,10 @@ app.use('/api/v1/messages', messagesRouter);
 app.use('/api/v1/reports', reportsRouter);
 app.use('/api/v1/curriculum', curriculumRouter);
 app.use('/api/v1/academics', academicsRouter);
+app.use('/api/v1/staff-management', staffManagementRouter);
+app.use('/api/v1/staff-attendance', staffAttendanceRouter);
+app.use('/api/v1/fee-setup', feeSetupRouter);
+app.use('/api/v1/system', systemRouter);
 app.use('/api/v1/exams', examsRouter);
 app.use('/api/v1/notifications', notificationsRouter);
 // Public verification route mounted BEFORE the authenticated id-cards router
@@ -265,6 +363,8 @@ app.get('/health', (_req, res) => {
 });
 
 // Error handling middleware (must be registered last)
+// Optional Sentry reporting — a no-op unless SENTRY_DSN is set (see docs/redesign/OPERATIONS.md).
+app.use(errorTrackingHandler);
 app.use(globalErrorHandler);
 
 export default app;

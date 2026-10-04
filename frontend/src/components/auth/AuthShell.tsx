@@ -1,6 +1,7 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check, Languages } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
+import { useLocaleStore } from '@/i18n';
 
 // =============================================================================
 // Shared frame for every unauthenticated page
@@ -23,10 +24,12 @@ interface AuthShellProps {
 
 export function AuthShell({ children, liveMessage }: AuthShellProps) {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-100 dark:bg-surface-950 p-4 sm:p-6 lg:p-10 transition-colors duration-300">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-slate-100 dark:bg-surface-950 p-4 sm:p-6 lg:p-10 transition-colors duration-300">
       <div role="alert" aria-live="assertive" className="sr-only">
         {liveMessage}
       </div>
+
+      <LanguageSwitcher />
 
       {/* One bounded, centered card — not a full-bleed 50/50 split — so it
           stays visually balanced instead of floating in a sea of empty space
@@ -50,6 +53,24 @@ export function AuthShell({ children, liveMessage }: AuthShellProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** EN / বাংলা toggle, available before signing in on every auth screen. */
+function LanguageSwitcher() {
+  const { lang, setLang } = useLocaleStore();
+  const next = lang === 'en' ? 'bn' : 'en';
+  return (
+    <button
+      type="button"
+      onClick={() => setLang(next)}
+      className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-surface-900/80 backdrop-blur px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-sm hover:border-slate-300 dark:hover:border-white/20 transition-colors"
+      aria-label={`Language: ${lang === 'en' ? 'English' : 'বাংলা'}`}
+      title="Change language"
+    >
+      <Languages className="w-3.5 h-3.5" />
+      {lang === 'en' ? 'বাংলা' : 'EN'}
+    </button>
   );
 }
 

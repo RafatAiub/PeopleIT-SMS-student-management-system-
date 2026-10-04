@@ -1,4 +1,5 @@
 import { prisma } from '../../config/prisma';
+import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export class FeeRepository {
@@ -80,6 +81,13 @@ export class FeeRepository {
     });
   }
 
+  static async findCategoriesByIds(tenantId: string, ids: string[]) {
+    return prisma.feeCategory.findMany({
+      where: { id: { in: ids }, institutionId: tenantId },
+      select: { id: true },
+    });
+  }
+
   static async deleteCategory(tenantId: string, id: string) {
     return prisma.feeCategory.delete({
       where: { id, institutionId: tenantId },
@@ -102,41 +110,60 @@ export class FeeRepository {
       discount: number;
     }[]
   ) {
-    return prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.create({
-        data: {
-          institutionId: tenantId,
-          studentId: data.studentId,
-          invoiceNo: data.invoiceNo,
-          totalAmount: new Decimal(data.totalAmount),
-          dueAmount: new Decimal(data.totalAmount),
-          paidAmount: new Decimal(0),
-          dueDate: data.dueDate,
-          status: 'UNPAID',
-          notes: data.notes,
-        },
-      });
+    return prisma.$transaction((tx) => FeeRepository.createInvoiceTx(tx, tenantId, data, items));
+  }
 
-      const invoiceItemsData = items.map((item) => {
-        const net = item.amount - item.discount;
-        return {
-          invoiceId: invoice.id,
-          feeCategoryId: item.feeCategoryId,
-          description: item.description,
-          amount: new Decimal(item.amount),
-          discount: new Decimal(item.discount),
-          netAmount: new Decimal(net),
-        };
-      });
+  /** Invoice + items creation inside a caller-owned transaction (used by bulk invoicing). */
+  static async createInvoiceTx(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    data: {
+      studentId: string;
+      invoiceNo: string;
+      totalAmount: number;
+      dueDate: Date;
+      notes?: string;
+    },
+    items: {
+      feeCategoryId: string;
+      description: string;
+      amount: number;
+      discount: number;
+    }[]
+  ) {
+    const invoice = await tx.invoice.create({
+      data: {
+        institutionId: tenantId,
+        studentId: data.studentId,
+        invoiceNo: data.invoiceNo,
+        totalAmount: new Decimal(data.totalAmount),
+        dueAmount: new Decimal(data.totalAmount),
+        paidAmount: new Decimal(0),
+        dueDate: data.dueDate,
+        status: 'UNPAID',
+        notes: data.notes,
+      },
+    });
 
-      await tx.invoiceItem.createMany({
-        data: invoiceItemsData,
-      });
+    const invoiceItemsData = items.map((item) => {
+      const net = Math.round((item.amount - item.discount) * 100) / 100;
+      return {
+        invoiceId: invoice.id,
+        feeCategoryId: item.feeCategoryId,
+        description: item.description,
+        amount: new Decimal(item.amount),
+        discount: new Decimal(item.discount),
+        netAmount: new Decimal(net),
+      };
+    });
 
-      return tx.invoice.findUnique({
-        where: { id: invoice.id },
-        include: { items: true },
-      });
+    await tx.invoiceItem.createMany({
+      data: invoiceItemsData,
+    });
+
+    return tx.invoice.findUnique({
+      where: { id: invoice.id },
+      include: { items: true },
     });
   }
 
@@ -273,6 +300,7 @@ export class FeeRepository {
       transactionRef?: string;
       notes?: string;
       recordedBy: string;
+      receiptNo?: string;
     }
   ) {
     return prisma.$transaction(async (tx) => {
@@ -293,29 +321,48 @@ export class FeeRepository {
           notes: paymentData.notes,
           recordedBy: paymentData.recordedBy,
           status: 'COMPLETED',
+          ...(paymentData.receiptNo ? { receiptNo: paymentData.receiptNo } : {}),
         },
       });
 
-      const newPaidAmount = Decimal.add(invoice.paidAmount, paymentData.amount);
-      const newDueAmount = Decimal.sub(invoice.totalAmount, newPaidAmount);
-
-      let newStatus = 'UNPAID';
-      if (newDueAmount.lte(0)) {
-        newStatus = 'PAID';
-      } else if (newPaidAmount.gt(0)) {
-        newStatus = 'PARTIAL';
-      }
-
-      await tx.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          paidAmount: newPaidAmount,
-          dueAmount: newDueAmount.lt(0) ? new Decimal(0) : newDueAmount,
-          status: newStatus,
-        },
-      });
+      await FeeRepository.applyPaymentToInvoice(tx, invoiceId, paymentData.amount);
 
       return payment;
+    });
+  }
+
+  /**
+   * Applies a payment amount to an invoice inside an existing transaction and
+   * recomputes dueAmount/status. Shared by offline payments and gateway
+   * credits so both follow exactly the same rules.
+   */
+  static async applyPaymentToInvoice(tx: Prisma.TransactionClient, invoiceId: string, amount: number) {
+    // F9: apply the payment via an atomic increment rather than
+    // read-modify-write on a previously fetched value — two concurrent
+    // payments against the same invoice must never both compute their
+    // newPaidAmount off the same stale paidAmount and silently lose one
+    // payment's contribution.
+    const updatedInvoice = await tx.invoice.update({
+      where: { id: invoiceId },
+      data: { paidAmount: { increment: amount } },
+    });
+
+    const newDueAmountRaw = Decimal.sub(updatedInvoice.totalAmount, updatedInvoice.paidAmount);
+    const newDueAmount = newDueAmountRaw.lt(0) ? new Decimal(0) : newDueAmountRaw;
+
+    let newStatus = 'UNPAID';
+    if (newDueAmount.lte(0)) {
+      newStatus = 'PAID';
+    } else if (updatedInvoice.paidAmount.gt(0)) {
+      newStatus = 'PARTIAL';
+    }
+
+    return tx.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        dueAmount: newDueAmount,
+        status: newStatus,
+      },
     });
   }
 }

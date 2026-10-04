@@ -1,13 +1,14 @@
 import React from 'react';
-import { motion, type HTMLMotionProps } from 'framer-motion';
 import { cn } from '../../lib/cn';
 
-type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
+export type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary' | 'accent';
 
-interface BadgeProps extends Omit<HTMLMotionProps<'span'>, 'children'> {
+interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
-  /** Animate in/out when the badge's key changes (e.g. status transitions). Pass a stable key via `motionKey`. */
+  /** Re-plays a subtle fade when the key changes (e.g. status transitions). */
   motionKey?: string;
+  /** Show a leading status dot. */
+  dot?: boolean;
   children?: React.ReactNode;
 }
 
@@ -17,20 +18,27 @@ const VARIANT_CLASSES: Record<BadgeVariant, string> = {
   danger: 'badge-danger',
   info: 'badge-info',
   neutral: 'badge-neutral',
+  primary: 'badge-primary',
+  accent: 'badge-accent',
 };
 
-export const Badge: React.FC<BadgeProps> = ({ variant = 'neutral', motionKey, className, children, ...props }) => {
-  return (
-    <motion.span
-      key={motionKey}
-      layout
-      initial={motionKey ? { opacity: 0, scale: 0.9 } : undefined}
-      animate={motionKey ? { opacity: 1, scale: 1 } : undefined}
-      transition={{ duration: 0.15 }}
-      className={cn(VARIANT_CLASSES[variant], className)}
-      {...props}
-    >
-      {children}
-    </motion.span>
-  );
+const DOT_CLASSES: Record<BadgeVariant, string> = {
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger: 'bg-red-500',
+  info: 'bg-blue-500',
+  neutral: 'bg-slate-400',
+  primary: 'bg-primary-500',
+  accent: 'bg-accent-500',
 };
+
+export const Badge: React.FC<BadgeProps> = ({ variant = 'neutral', motionKey, dot, className, children, ...props }) => (
+  <span
+    key={motionKey}
+    className={cn(VARIANT_CLASSES[variant], motionKey && 'animate-fadeIn', className)}
+    {...props}
+  >
+    {dot && <span aria-hidden className={cn('w-1.5 h-1.5 rounded-full', DOT_CLASSES[variant])} />}
+    {children}
+  </span>
+);

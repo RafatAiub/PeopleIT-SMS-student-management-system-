@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Brand mark: three ascending bars (growth/data + a nod to a campus skyline)
- * inside a rounded Violet Pulse gradient badge, with a small "pulse" dot
+ * inside a rounded brand-orange gradient badge, with a small "pulse" dot
  * above the tallest bar. Self-contained (own background), so it reads
  * cleanly on both dark and light surfaces down to ~20px.
  */
@@ -15,8 +15,8 @@ export const LogoMark: React.FC<{ className?: string }> = ({ className = 'w-8 h-
     <svg viewBox="0 0 32 32" fill="none" className={className} role="img" aria-label="PeopleNIT SMS">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#1F4759" />
-          <stop offset="1" stopColor="#10B981" />
+          <stop offset="0" stopColor="#F57722" />
+          <stop offset="1" stopColor="#A3460B" />
         </linearGradient>
       </defs>
       <rect width="32" height="32" rx="9" fill={`url(#${gradientId})`} />

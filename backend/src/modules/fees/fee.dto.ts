@@ -21,6 +21,8 @@ export const CreateInvoiceSchema = z.object({
   dueDate: z.string().datetime('Invalid due date format'),
   notes: z.string().optional(),
   items: z.array(CreateInvoiceItemSchema).min(1, 'At least one item is required'),
+  // Wave C: apply the student's active concessions as line discounts (default on).
+  applyConcessions: z.boolean().optional(),
 });
 
 export const RecordPaymentSchema = z.object({
@@ -29,3 +31,18 @@ export const RecordPaymentSchema = z.object({
   transactionRef: z.string().optional(),
   notes: z.string().optional(),
 });
+
+// Wave C — online payments. `method` and `callbackUrl` are the original
+// fields; `amount` (partial payment, defaults to the full due) is new.
+export const InitiateOnlinePaymentSchema = z.object({
+  method: z.enum(['BKASH', 'NAGAD', 'SSLCOMMERZ']),
+  callbackUrl: z.string().max(2000).optional(),
+  amount: z.number().positive().optional(),
+});
+
+export const DemoConfirmSchema = z.object({
+  outcome: z.enum(['success', 'failure']),
+});
+
+export const TxnIdParamSchema = z.object({ txnId: z.string().min(1) });
+export const PaymentIdParamSchema = z.object({ paymentId: z.string().min(1) });
