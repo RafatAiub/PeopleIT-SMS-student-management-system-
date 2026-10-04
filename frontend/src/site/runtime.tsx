@@ -13,6 +13,8 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type { NavItem, PublicInstitution, PublicPageRef, PublicProfile, SiteLang, SiteNavigation, SiteSettings, SiteTheme } from './types';
 import { DEFAULT_SETTINGS, DEFAULT_THEME } from './theme';
 import { buildSiteTokens, fillTokens, tidyFilled, type TokenMap } from './tokens';
+import { scopeTokens } from './binding';
+import { ScopeContext } from './scopeContext';
 import { siteString } from './strings';
 import { createSiteApi, siteApi, type SiteApi } from './api';
 
@@ -136,19 +138,22 @@ export function useIsEditing(): boolean {
  */
 export function useSiteText() {
   const rt = useContext(SiteRuntimeContext);
+  const scope = useContext(ScopeContext);
+  // Site tokens + data-scope tokens ({{item.x}}, {{parent.x}}, {{page.x}}, {{url.q}}).
+  const tokens = useMemo<TokenMap>(() => ({ ...rt.tokens, ...scopeTokens(scope) }), [rt.tokens, scope]);
   // Missing token values render empty everywhere (editor included) — never literal braces.
   const keepMissing = false;
   const tx = useCallback(
     (en: unknown, bn?: unknown): string => {
       const pick = rt.lang === 'bn' && typeof bn === 'string' && bn.trim() ? bn : typeof en === 'string' ? en : '';
       if (pick.indexOf('{{') === -1) return pick;
-      return tidyFilled(fillTokens(pick, rt.tokens, { keepMissing }));
+      return tidyFilled(fillTokens(pick, tokens, { keepMissing, lang: rt.lang }));
     },
-    [rt.lang, rt.tokens, keepMissing],
+    [rt.lang, tokens, keepMissing],
   );
   const s = useCallback((key: string, vars?: Record<string, string | number>) => siteString(rt.lang, key, vars), [rt.lang]);
   const navLabel = useCallback((item: NavItem) => tx(item.label, item.labelBn), [tx]);
-  return { tx, s, navLabel, lang: rt.lang, tokens: rt.tokens, keepMissing };
+  return { tx, s, navLabel, lang: rt.lang, tokens, keepMissing };
 }
 
 /** Internal link → path under the site base (keeps preview token). External links untouched. */

@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, FileText, Palette, Menu as MenuIcon, Image as ImageIcon, Newspaper, ClipboardList, Globe, Settings as SettingsIcon,
-  ShoppingBag, GraduationCap, Code2, Contact, FolderKanban,
+  ShoppingBag, GraduationCap, Code2, Contact, FolderKanban, Blocks,
 } from 'lucide-react';
 import { PageHeader, Tabs, TabPanel, Skeleton, SkeletonStatGrid, ErrorState, Badge } from '@/components/ui';
 import type { TabItem } from '@/components/ui';
@@ -20,11 +20,12 @@ import { MediaTab } from './tabs/MediaTab';
 import { BlogTab } from './tabs/BlogTab';
 import { FormsTab } from './tabs/FormsTab';
 import { CodeTab } from './tabs/CodeTab';
+import { ModulesTab } from './tabs/ModulesTab';
 import { DomainsTab } from './tabs/DomainsTab';
 import { SettingsTab } from './tabs/SettingsTab';
 
 const ADMIN_TABS = [
-  'overview', 'profile', 'pages', 'design', 'navigation', 'content', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'domains', 'settings',
+  'overview', 'profile', 'pages', 'design', 'navigation', 'content', 'shop', 'courses', 'media', 'blog', 'forms', 'code', 'modules', 'domains', 'settings',
 ] as const;
 type TabId = (typeof ADMIN_TABS)[number];
 
@@ -73,6 +74,7 @@ export default function WebsiteBuilder() {
     { id: 'blog', label: t('Blog'), icon: <Newspaper /> },
     { id: 'forms', label: t('Forms'), icon: <ClipboardList /> },
     { id: 'code', label: t('Code'), icon: <Code2 /> },
+    { id: 'modules', label: t('Modules'), icon: <Blocks /> },
     { id: 'domains', label: t('Domains'), icon: <Globe />, count: siteQuery.data?.domains.length },
     { id: 'settings', label: t('Settings'), icon: <SettingsIcon /> },
   ];
@@ -120,6 +122,7 @@ export default function WebsiteBuilder() {
           <TabPanel id="blog" value={tab} idPrefix="site-tab"><BlogTab /></TabPanel>
           <TabPanel id="forms" value={tab} idPrefix="site-tab"><FormsTab /></TabPanel>
           <TabPanel id="code" value={tab} idPrefix="site-tab"><CodeTab me={site} /></TabPanel>
+          <TabPanel id="modules" value={tab} idPrefix="site-tab">{tab === 'modules' && <ModulesTab me={site} />}</TabPanel>
           <TabPanel id="domains" value={tab} idPrefix="site-tab"><DomainsTab me={site} /></TabPanel>
           <TabPanel id="settings" value={tab} idPrefix="site-tab"><SettingsTab me={site} /></TabPanel>
         </>

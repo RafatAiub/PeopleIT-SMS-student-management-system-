@@ -7,7 +7,7 @@ How PeopleNIT's school website builder works, and how to make your own blocks ("
 | A school admin or tester building a site | §1–§4 |
 | A web designer who knows HTML/CSS/JS | §5 (Custom Code blocks and code pages, **available now**) |
 | A developer on this codebase | §6 (add a new block to the palette, **available now**) |
-| Anyone planning reusable coded modules | §7 (Liquid custom modules, **planned, not built yet**) |
+| Anyone building reusable coded modules | §7 (Liquid custom modules, **available** 🧪) |
 
 Status markers used below:
 - **✅ Live:** in `main`.
@@ -63,6 +63,7 @@ Website Builder (dashboard: /website-builder)
 | Shop & courses | Product grid, Featured product, Cart button, Course grid, Featured course, Account button |
 | Portal & DSHE data | Data list, Notice board, News ticker, Staff directory, Committee, Downloads, Albums, Admission circulars, Result summary, Exam routine, Class stats, Fee chart, Holidays, Library, Transport, Branches, Profile facts, Info box grid, Sidebar layout, Sidebar card, Head's message, Hotlines, Facebook page, Video gallery, Audio player, Image slider, Important links, E-services, Data table |
 | Custom code | **Custom Code (HTML/CSS/JS)** |
+| My modules 🧪 | **Custom module** (pick any module), plus one entry per published module of your school (§7) |
 
 ## 4. Dynamic pages: bind blocks to school data 🧪
 
@@ -197,19 +198,24 @@ function AchievementBannerView(p: Record<string, any>) {
 - Respect lite mode and `prefers-reduced-motion` for animation; check the block works at 360 px wide; give images alt text.
 - Add a test to `frontend/src/site/__tests__/site-logic.test.ts` for any pure logic.
 
-## 7. Custom modules with a template language 🗓 Planned (FEATURES_V4_PLAN §1b)
+## 7. Custom modules with a template language 🧪 Available (FEATURES_V4_PLAN §1b, W13–W17)
 
-The goal is that a school or a developer writes a **reusable module** in the browser. It then appears in the palette, and **non-technical staff just fill in a form and drag it onto pages**, like HubSpot modules or Shopify sections.
+A school or a developer writes a **reusable module** in the browser. It then appears in the palette, and **non-technical staff just fill in a form and drag it onto pages**, like HubSpot modules or Shopify sections.
 
-### 7.1 How it will work
-1. **Website Builder → Modules → New module.**
-2. **Fields tab:** define the form. Types: text, rich text, number, yes/no, select, colour, image, link, date, **repeater** (a list of grouped fields), and **collection** (pick teachers, notices… with filter, sort and limit).
-3. **HTML tab:** write the template in **Liquid**. Shopify uses it, and it cannot run arbitrary code, so it is safe for school-written templates.
-4. **CSS tab:** styles are automatically scoped to the module. **JS tab** is optional; a module with JS runs in the sandbox (§5.1).
-5. **Preview** with sample data, then **Publish**. The module appears in the palette under **My modules**.
-6. Editors **drag it onto any page** and fill in the auto-generated form. Changing the module's code later updates every page that uses it; old versions are kept.
+### 7.1 How it works
+1. **Website Builder → Modules → New module** (or **Import** a `.json` file, or **Install** a starter from the library on the same tab).
+2. **Fields tab:** define the form, visually or with **Edit as JSON**. Types: text, long text (`textarea`), rich text (`richtext`), number, yes/no (`boolean`), select, colour (`color`), image, link, date, **repeater** (a list of grouped fields) and **collection** (pick teachers, notices… with filter, sort and limit). Up to 50 fields.
+3. **HTML (Liquid) tab:** write the template in **Liquid**. Shopify uses it, and it cannot run arbitrary code, so it is safe for school-written templates. Problems are listed under the editor with their **line numbers** as you type.
+4. **CSS tab:** styles are automatically scoped to each copy of the module. **JS tab** is optional; a module with JS runs in the sandbox (§5.1) with the `SITE` bridge.
+5. **Live preview** (right side) uses sample values and your site's **real data**, in English or Bangla. Then **Save draft** and **Publish**. Each publish is a numbered version; **Versions** restores an old one into the draft.
+6. In the page editor the module appears under **My modules**. Editors **drag it onto any page** (also inside a **Collection List** item or on a **profile page**) and fill in the auto-generated form. Changing and re-publishing the module updates every page that uses it. (Optional: *Pin to version* in the block settings keeps one copy on a fixed version.)
+7. **Export** downloads the module as JSON, to share it with another school (**Import** gives it a new key if that key is taken). **Delete** warns you when pages still use the module.
+
+Each module has at most 100 KB each of HTML, CSS and JS. Only **admins** (and users listed as website developers, see §7.5) can edit module code; editors only fill in fields.
 
 ### 7.2 Example module: "Teacher spotlight"
+This is also the first module in the **starter library**.
+
 Fields (JSON):
 ```json
 [
@@ -240,29 +246,81 @@ CSS:
 .spotlight .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .spotlight .card { border-radius: var(--site-radius); padding: 12px; background: var(--site-surface); text-decoration: none; }
 ```
+The editor form gets *Heading*, *Heading (বাংলা)*, a *Teachers* picker (collection, sort, how many, filters) and *Show subject* (Yes/No).
 
-### 7.3 Template reference (planned)
+### 7.3 Template reference
 - **Variables:**
-  - `module.*`: field values; collection fields arrive as lists of items.
-  - `site.*`, `institution.*`, `page.*`.
-  - `item.*`: inside profile pages and collection lists.
-  - `lang` and `url.query`.
-- **Filters:**
-  - `t`: picks Bangla or English.
-  - `bn_digits`, `date`, `money` (৳).
-  - `img: <width>`: an optimised image URL.
-  - `markdown`, and `escape`, which is on by default.
-- **Tags:** `{% collection "notices" limit:5 sort:"-date" as notices %}` queries data directly.
+  - `module.*`: field values.
+    - A text field with `"bn": true` holds the **visitor's language** (the Bangla twin when it is filled, otherwise the English text). Both are also available as `module.<key>_en` and `module.<key>_bn`.
+    - Collection fields arrive as **lists of items**, fetched with their configured collection, filters, sort and limit.
+    - A repeater is a list of items with the repeater's own fields.
+    - Empty text is `nil`, so `{% if module.x %}` works as expected.
+  - `site.name`, `site.tagline`, `site.id`; `institution.name`, `.phone`, `.email`, `.address`, `.eiin`, `.logo`…; `head.name`, `head.designation`; `year`.
+  - `item.*` inside profile (template) pages and Collection List items; `parent.*` is the enclosing list's item; `page.*` is the profile page's record.
+  - `lang` (`"en"` or `"bn"`), `url.query.<param>` (e.g. `url.query.q`) and `url.path`.
+  - Every item (collection fields, `{% collection %}`, `item`) also gets two shortcuts: `url`, the link to its profile page, and `photo`, its first image (`photoUrl`, `imageUrl`, `coverUrl` or `images[0]`).
+- **Filters** (plus every standard Liquid filter, such as `default`, `upcase`, `split`, `size`, `round`):
+  - `t`: picks Bangla or English. `{{ module.heading | t }}`. A plain string is translated from the built-in phrase book (`{{ 'No teachers yet' | t }}`), or you give the Bangla yourself: `{{ 'Apply now' | t: 'আবেদন করুন' }}`. An `{ "en": …, "bn": … }` value picks by language.
+  - `date`: `{{ d | date }}` (long, e.g. *12 March 2026* or *১২ মার্চ ২০২৬*). Presets: `'short'`, `'day'`, `'month'`, `'weekday'`, `'time'`, `'datetime'`. A `%` format such as `'%d %b %Y'` uses standard Liquid strftime.
+  - `money`: `{{ 1500 | money }}` gives ৳1,500 (Bangladeshi grouping, e.g. ৳12,34,567; Bangla digits on the Bangla site).
+  - `num`: `{{ 1234567 | num }}` gives 12,34,567; `{{ 98.456 | num: 1 }}` gives 98.5 (at most 1 decimal).
+  - `bn_digits`: `{{ '2026' | bn_digits }}` gives ২০২৬.
+  - `img: <width>`: an optimised image URL (Cloudinary resize).
+  - `markdown`: simple Markdown (bold, italic, links, lists, headings), escape-safe.
+  - `days_until`: whole days until a date (negative when past).
+  - `escape` is **on by default**. Use `{{ x | raw }}` for trusted HTML such as rich-text fields; the result is still sanitised.
+- **Tags:** `{% collection "notices" limit:5 sort:"-publishedAt" as notices %}` queries data directly.
+  - Options: `limit` (1–50), `sort` (`"field"` or `"-field"`), `q` (search), `page`, `include` (relations), `filter.<field>` (equals) and `filter.<field>.<op>`, where `<op>` is `eq ne in contains gt gte lt lte has`.
+  - Values are `"text"`, numbers, or a variable such as `item.department` or `url.query.q`. An empty value drops that filter.
+  - `as <name>` is optional; it defaults to the collection key.
+  - At most 8 queries per module. Fields and ops are the ones in FEATURES_V4_PLAN §8.6.
+  - Example: `{% assign today = 'now' | date: '%Y-%m-%d' %}{% collection "events" limit:6 sort:"startDate" filter.startDate.gte:today as events %}`.
+  - Not available: `include`, `render` and `layout` (modules have no files).
+- **CSS:** each copy of a module is wrapped in `<div data-module="…">`, and every selector is prefixed with it.
+  - `:root`, `html` and `body` mean the module itself.
+  - `@media`, `@supports` and `@container` work as usual.
+  - `@import` is removed.
+  - The theme variables from §6 are available.
 - **Safety:**
-  - Output passes through the HTML sanitiser, with a render time and size cap.
-  - Data comes only from the public, whitelisted collections, so **no student data** and the same privacy rules apply.
-  - Only admins (and a new *Website developer* permission) can edit module code; editors can only fill in fields.
-- **Sharing:** **export/import** a module as a JSON file, to share between schools. Planned later: a module marketplace, and "AI, write a module for me".
+  - Output passes through the HTML sanitiser (no scripts, forms or `<style>`; iframes only from the embed allow-list), with a 15-second render limit and a 256 KB output cap.
+  - Data comes only from the public, whitelisted collections, so **no student data**, and the same privacy rules apply.
+- **JavaScript:** with JS the rendered HTML, CSS and JS run in the sandboxed frame (§5.1). `SITE.lang`, `SITE.data()` and `SITE.navigate()` are available. The *Admission banner* starter is an example (a live countdown).
 
-### 7.4 Until custom modules ship
-- **Coded but not reusable:** use a **Custom Code block** (§5.1) with `SITE.data()`.
-- **Reusable, with a form for editors:** a developer adds a **block in code** (§6).
-- **Data-driven without code:** use **Collection List + ⚡ bindings** (§4).
+### 7.4 Starter library
+**Modules → Starter library → Install** adds an editable draft. Publish it to use it.
+
+| Starter | What it shows |
+|---|---|
+| Teacher spotlight | §7.2 |
+| Notice ticker | Scrolling latest notices (pauses on hover; still for reduced motion) |
+| Event calendar strip | Next upcoming events as date cards (uses `{% collection %}`) |
+| Result highlights | Pass rate / GPA 5 per class for the latest exams (small classes hidden) |
+| Admission banner | Banner with a live countdown to the deadline and an apply button (JS, sandboxed) |
+| FAQ accordion | Questions and answers (repeater, Markdown answers, no JS) |
+| Pricing / fee cards | ৳ fee or package cards with feature lists and a highlighted card (repeater) |
+
+### 7.5 For developers
+- **Page data:** `{ "type": "CustomModule", "props": { "moduleKey": "teacher-spotlight", "version": null, "values": { "heading": "…", "headingBn": "…" } } }`.
+  - Bangla twins are stored as `<key>Bn`.
+  - A collection field's value is an optional override: `{ collection, limit, sort, filters }`.
+  - The palette's per-module entries (`CustomModule__<key>`) exist only inside the editor; pages are always saved as `CustomModule`.
+- **API:**
+  - Admin, under `/api/v1/sites/modules`:
+    - `GET`/`POST` the list.
+    - `GET`/`PUT`/`DELETE /:id` (`?force=true` deletes a module that is in use).
+    - `POST /:id/publish`.
+    - `GET /:id/versions`, `POST /:id/versions/:versionId/restore`.
+    - `GET /:id/export`, `POST /import`, `POST /validate`.
+  - Public:
+    - `GET /api/v1/public/sites/:siteId/modules` returns published snapshots only; drafts need a preview token plus `?drafts=1`.
+    - `GET …/modules/:key/versions/:n` returns one pinned version.
+- **Website developer permission (hook):** besides ADMIN/SUPER_ADMIN, any user whose id is in the site's `settings.websiteDeveloperUserIds` can edit modules. A UI for this comes with the planned "Website developer" role.
+- **Export format:** `{ "format": "peoplenit-site-module", "formatVersion": 1, "module": { key, name, nameBn, description, category, icon, fields, template, css, js } }`.
+- **Code:**
+  - Renderer: `frontend/src/site/modules/*` (`engine.ts` Liquid, `cssScope.ts`, `puckFields.ts`, `CustomModule.tsx`, `starters.ts`).
+  - Admin screens: `frontend/src/pages/website/modules/*` and `tabs/ModulesTab.tsx`.
+  - Backend: `backend/src/modules/sites/sites.modules.*`.
+  - Tests: `frontend/src/site/__tests__/modules-logic.test.ts` and `backend/tests/sites-modules.test.ts`.
 
 ## 8. Troubleshooting
 | Problem | Fix |
@@ -272,6 +330,8 @@ CSS:
 | Toppers list is empty | Turn on **Show toppers** in Settings, and record student public consent. |
 | Hotlines or links not showing | Fixed on `Habib` (admin screen saved `phone`/`url`, blocks read `number`/`href`). Deploy the latest build. |
 | A Custom Code block shows nothing | Check the browser console inside the block. Only the sources listed in §5.1 are allowed in `SITE.data()`. |
+| A custom module shows nothing on the live site | Publish the module (Modules tab). In the page editor the block shows the Liquid error and its line; the public site shows nothing instead of an error. |
+| A module is missing from **My modules** | Only published modules are listed. Publish it, then reopen the page editor. |
 
 ## 9. Where the code lives
 | Area | Path |
@@ -281,6 +341,7 @@ CSS:
 | Binding and visibility | `frontend/src/site/bindable.tsx`, `binding.ts`, `scopeContext.tsx`, `editor/*` |
 | Public renderer, routes | `frontend/src/site/render.tsx`, `PublicSite.tsx`, `routes.ts`, `public/*` |
 | Sandbox and SITE bridge | `frontend/src/site/code/SandboxFrame.tsx`, `codePage.ts` |
+| Custom modules (Liquid) | `frontend/src/site/modules/*`, `frontend/src/pages/website/modules/*`, `backend/src/modules/sites/sites.modules.*` |
 | Templates | `frontend/src/site/templates/*` |
 | Admin screens | `frontend/src/pages/website/**` |
 | Backend (admin + public API, collections) | `backend/src/modules/sites/**` |

@@ -253,7 +253,11 @@ export function usePage(id: string | undefined) {
 export interface CreatePagePayload {
   title: string;
   titleBn?: string;
-  slug: string;
+  /** Required for `PAGE`; optional for `TEMPLATE` (the backend defaults it to `template-<collectionKey>`). */
+  slug?: string;
+  /** `TEMPLATE` pages are collection profile pages and need `collectionKey` (unique per site: a second one is a 409). */
+  kind?: 'PAGE' | 'TEMPLATE';
+  collectionKey?: string;
   /** Initial draft content (Puck data). */
   data?: PuckData;
   seo?: PageSeo;

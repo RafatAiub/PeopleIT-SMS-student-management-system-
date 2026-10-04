@@ -31,6 +31,8 @@ import {
   PageQueryDto,
   PostQueryDto,
   PublicFormParamDto,
+  PublicCollectionItemParamDto,
+  PublicCollectionParamDto,
   PublicPageParamDto,
   PublicPostParamDto,
   PublicPostQueryDto,
@@ -52,6 +54,21 @@ import {
 import * as cc from './sites.commerce.controller';
 import * as lc from './sites.lms.controller';
 import * as pc from './sites.portal.controller';
+import * as colc from './sites.collections.controller';
+import * as modc from './sites.modules.controller';
+import {
+  CreateModuleDto,
+  DeleteModuleQueryDto,
+  ImportModuleDto,
+  ModuleQueryDto,
+  ModuleVersionParamDto,
+  ModuleVersionsQueryDto,
+  PublicModuleVersionParamDto,
+  PublicModulesQueryDto,
+  PublishModuleDto,
+  UpdateModuleDto,
+  ValidateModuleDto,
+} from './sites.modules.dto';
 import {
   CreateOrderDto,
   CreateProductDto,
@@ -229,6 +246,25 @@ sitesRouter.put('/admissions/:id', MANAGE, validate({ params: IdParamDto, body: 
 sitesRouter.delete('/admissions/:id', MANAGE, validate({ params: IdParamDto }), pc.deleteAdmission);
 
 // =============================================================================
+// Website custom modules (W13, FEATURES_V4_PLAN §1b). Guard: SUPER_ADMIN/ADMIN
+// or a user listed in site.settings.websiteDeveloperUserIds (hook for the
+// planned "Website developer" role). /import and /validate before /:id.
+// =============================================================================
+
+const MODULE_DEV = modc.requireModuleDeveloper;
+sitesRouter.get('/modules', MODULE_DEV, validate({ query: ModuleQueryDto }), modc.list);
+sitesRouter.post('/modules', MODULE_DEV, validate({ body: CreateModuleDto }), modc.create);
+sitesRouter.post('/modules/import', MODULE_DEV, validate({ body: ImportModuleDto }), modc.importOne);
+sitesRouter.post('/modules/validate', MODULE_DEV, validate({ body: ValidateModuleDto }), modc.validateOne);
+sitesRouter.get('/modules/:id', MODULE_DEV, validate({ params: IdParamDto }), modc.get);
+sitesRouter.put('/modules/:id', MODULE_DEV, validate({ params: IdParamDto, body: UpdateModuleDto }), modc.update);
+sitesRouter.delete('/modules/:id', MODULE_DEV, validate({ params: IdParamDto, query: DeleteModuleQueryDto }), modc.remove);
+sitesRouter.post('/modules/:id/publish', MODULE_DEV, validate({ params: IdParamDto, body: PublishModuleDto }), modc.publish);
+sitesRouter.get('/modules/:id/versions', MODULE_DEV, validate({ params: IdParamDto, query: ModuleVersionsQueryDto }), modc.versions);
+sitesRouter.post('/modules/:id/versions/:versionId/restore', MODULE_DEV, validate({ params: ModuleVersionParamDto }), modc.restore);
+sitesRouter.get('/modules/:id/export', MODULE_DEV, validate({ params: IdParamDto }), modc.exportOne);
+
+// =============================================================================
 // Website Builder v2 — Shop (commerce) and Courses (LMS), admin side.
 // =============================================================================
 
@@ -379,6 +415,20 @@ publicSitesRouter.get(
   pc.dataAdmissionDetail,
 );
 publicSitesRouter.get('/:siteId/data/notices/:id', validate({ params: DataNoticeParamDto, query: PublicPreviewQueryDto }), pc.dataNoticeDetail);
+
+// =============================================================================
+// Website collections (W1) — generic, whitelisted query API. The query string
+// is parsed against the registry in the service (unknown field/op => 400), so
+// only the path params are validated here. Contract: FEATURES_V4_PLAN.md §8.
+// =============================================================================
+
+publicSitesRouter.get('/:siteId/collections', validate({ params: PublicSiteParamDto }), colc.collectionsSchema);
+publicSitesRouter.get('/:siteId/collections/:key', validate({ params: PublicCollectionParamDto }), colc.collectionList);
+publicSitesRouter.get('/:siteId/collections/:key/items/:slug', validate({ params: PublicCollectionItemParamDto }), colc.collectionItem);
+
+// Website custom modules: published definitions only (drafts need a preview token + ?drafts=1).
+publicSitesRouter.get('/:siteId/modules', validate({ params: PublicSiteParamDto, query: PublicModulesQueryDto }), modc.publicList);
+publicSitesRouter.get('/:siteId/modules/:key/versions/:version', validate({ params: PublicModuleVersionParamDto, query: PublicPreviewQueryDto }), modc.publicVersion);
 
 // =============================================================================
 // Website Builder v2 — Shop (commerce) and Courses (LMS), public side.

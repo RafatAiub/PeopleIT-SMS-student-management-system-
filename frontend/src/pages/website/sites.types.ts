@@ -154,6 +154,9 @@ export interface SitePageSummary {
   isSystem: boolean;
   publishedAt: string | null;
   scheduledPublishAt?: string | null;
+  /** `TEMPLATE` pages are the profile-page design of one collection (`/teachers/:slug`); absent = `PAGE`. */
+  kind?: 'PAGE' | 'TEMPLATE';
+  collectionKey?: string | null;
   createdAt: string;
   updatedAt: string;
 }

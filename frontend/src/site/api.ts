@@ -64,6 +64,8 @@ import type {
   SitePageData,
 } from './types';
 import { normaliseNavigation, normaliseSettings, normaliseTheme } from './theme';
+import type { CollectionFieldMeta, CollectionItem, CollectionItemResult, CollectionMeta, CollectionPage, CollectionParams, CollectionRelationMeta, TemplateRoute } from './collections';
+import { toModuleDef, type ModuleDef } from './modules/types';
 
 const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}) as Record<string, string | undefined>;
 
@@ -508,6 +510,36 @@ function normaliseField(f: Obj): PublicFormField {
   };
 }
 
+function normaliseCollectionMeta(c: Obj): CollectionMeta {
+  const fields: CollectionFieldMeta[] = arr(c.fields).map((f) => ({
+    key: String(f.key ?? ''),
+    label: String(f.label ?? f.key ?? ''),
+    type: (['text', 'rich', 'image', 'date', 'number', 'bool', 'url', 'list'] as const).includes(f.type) ? f.type : 'text',
+    filter: Array.isArray(f.filter) ? f.filter.map(String) : [],
+    sortable: f.sortable === true,
+    searchable: f.searchable === true,
+    detailOnly: f.detailOnly === true,
+    options: Array.isArray(f.options) ? f.options.map(String) : null,
+  })).filter((f) => f.key) as CollectionFieldMeta[];
+  const relations: CollectionRelationMeta[] = arr(c.relations).map((r) => ({
+    key: String(r.key ?? ''), label: String(r.label ?? r.key ?? ''), collection: str(r.collection) ?? null, many: r.many !== false,
+  })).filter((r) => r.key);
+  return {
+    key: String(c.key ?? ''),
+    label: String(c.label ?? c.key ?? ''),
+    labelPlural: String(c.labelPlural ?? c.label ?? c.key ?? ''),
+    available: c.available !== false,
+    unavailableReason: str(c.unavailableReason) ?? null,
+    slugSource: str(c.slugSource),
+    titleField: String(c.titleField ?? 'title'),
+    routeBase: str(c.routeBase) ?? null,
+    defaultSort: String(c.defaultSort ?? ''),
+    maxPageSize: num(c.maxPageSize) ?? 50,
+    fields,
+    relations,
+  };
+}
+
 /* ── Customer-token storage (per site, tried/caught: private mode, storage full) ── */
 
 export interface StoredSiteCustomer {
@@ -598,7 +630,48 @@ export function createSiteApi(previewToken?: string | null) {
         site,
         institution: normaliseInstitution(raw.institution, obj(obj(raw.site).settings)),
         pages: arr(raw.pages).map((p) => ({ slug: String(p.slug ?? ''), title: String(p.title ?? ''), titleBn: str(p.titleBn), noindex: p.noindex === true })),
+        templateRoutes: arr(raw.templateRoutes)
+          .map((r): TemplateRoute => ({ collection: String(r.collection ?? ''), base: String(r.base ?? ''), pageSlug: String(r.pageSlug ?? '') }))
+          .filter((r) => r.collection && r.base && r.pageSlug),
       };
+    },
+
+    /** `GET /:siteId/collections` — the registry (fields, filter ops, relations, route bases). */
+    async collections(siteId: string): Promise<CollectionMeta[]> {
+      const raw = await get<Obj>(`${sid(siteId)}/collections`);
+      return arr(raw.collections ?? raw).map(normaliseCollectionMeta).filter((c) => c.key);
+    },
+
+    /** `GET /:siteId/collections/:key` — filter / sort / search / paginate / include (see collections.ts `buildCollectionQuery`). */
+    async collectionItems(siteId: string, key: string, params: CollectionParams = {}): Promise<CollectionPage> {
+      const raw = await get<unknown>(`${sid(siteId)}/collections/${encodeURIComponent(key)}`, params);
+      const o = obj(raw);
+      const items = arr(raw).filter((i) => i && typeof i === 'object').map((i) => ({ ...i, slug: String(i.slug ?? '') })) as CollectionItem[];
+      const pageSize = num(o.pageSize) ?? num(params.pageSize) ?? Math.max(items.length, 1);
+      const total = num(o.total) ?? items.length;
+      const page = num(o.page) ?? num(params.page) ?? 1;
+      const totalPages = num(o.totalPages) ?? Math.max(1, Math.ceil(total / pageSize));
+      return { items, total, page, pageSize, totalPages, hasNext: o.hasNext === true || page < totalPages, hasPrev: o.hasPrev === true || page > 1 };
+    },
+
+    /** `GET /:siteId/collections/:key/items/:slug` — one item with detail-only fields, requested relations and derived SEO. */
+    async collectionItem(siteId: string, key: string, slug: string, opts: { include?: string[] } = {}): Promise<CollectionItemResult> {
+      const raw = await get<Obj>(`${sid(siteId)}/collections/${encodeURIComponent(key)}/items/${encodeURIComponent(slug)}`, opts.include?.length ? { include: opts.include.join(',') } : undefined);
+      const item = obj(raw.item);
+      const seo = obj(raw.seo);
+      return { item: { ...item, slug: String(item.slug ?? slug) }, seo: { title: str(seo.title) ?? null, description: str(seo.description) ?? null, image: str(seo.image) ?? null } };
+    },
+
+    /** `GET /:siteId/modules` — published custom-module definitions (drafts too with a preview token + `drafts`). */
+    async modules(siteId: string, opts: { drafts?: boolean } = {}): Promise<ModuleDef[]> {
+      const raw = await get<Obj>(`${sid(siteId)}/modules`, opts.drafts ? { drafts: '1' } : undefined);
+      return arr(raw.modules ?? raw).map(toModuleDef).filter((m): m is ModuleDef => m !== null);
+    },
+
+    /** `GET /:siteId/modules/:key/versions/:version` — one pinned published version. */
+    async moduleVersion(siteId: string, key: string, version: number): Promise<ModuleDef | null> {
+      const raw = await get<Obj>(`${sid(siteId)}/modules/${encodeURIComponent(key)}/versions/${encodeURIComponent(String(version))}`);
+      return toModuleDef(raw.module);
     },
 
     /** `GET /:siteId/pages/:slug` (home = `_home`). Draft when the preview token is valid. */
@@ -613,6 +686,8 @@ export function createSiteApi(previewToken?: string | null) {
         seo: obj(p.seo),
         publishedAt: str(p.publishedAt),
         isPreview: raw.preview === true,
+        kind: p.kind === 'TEMPLATE' ? 'TEMPLATE' : 'PAGE',
+        collectionKey: str(p.collectionKey) ?? null,
       };
     },
 

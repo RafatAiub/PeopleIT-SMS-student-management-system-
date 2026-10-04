@@ -178,17 +178,35 @@ export const GenerateSiteDto = z.object({
 
 export const PageQueryDto = z.object({ ...pagination, pageSize: z.coerce.number().int().positive().max(100).default(100) });
 
-export const CreatePageDto = z.object({
-  slug: pageSlug.refine((v) => v !== '', { message: 'Slug is required (the home page already exists)' }),
-  title: z.string().trim().min(1).max(150),
-  titleBn: optionalText(150),
-  seo: SeoDto.optional(),
-  data: z.unknown().optional(),
-});
+// Website collections (W5): a TEMPLATE page is the profile-page design for one
+// collection. Membership of the key in the registry is checked in the service.
+const collectionKeyDto = z.string().trim().toLowerCase().min(1).max(40).regex(/^[a-z][a-z0-9_]*$/, 'Invalid collection key');
+
+export const CreatePageDto = z
+  .object({
+    kind: z.enum(['PAGE', 'TEMPLATE']).default('PAGE'),
+    collectionKey: collectionKeyDto.nullable().optional(),
+    // Required for PAGE; for TEMPLATE it defaults to template-<collectionKey>.
+    slug: pageSlug.refine((v) => v !== '', { message: 'Slug is required (the home page already exists)' }).optional(),
+    title: z.string().trim().min(1).max(150),
+    titleBn: optionalText(150),
+    seo: SeoDto.optional(),
+    data: z.unknown().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind === 'TEMPLATE') {
+      if (!v.collectionKey) ctx.addIssue({ code: 'custom', path: ['collectionKey'], message: 'collectionKey is required for a template page' });
+    } else {
+      if (v.collectionKey) ctx.addIssue({ code: 'custom', path: ['collectionKey'], message: 'collectionKey is only for template pages' });
+      if (!v.slug) ctx.addIssue({ code: 'custom', path: ['slug'], message: 'Slug is required (the home page already exists)' });
+    }
+  });
 
 export const UpdatePageDto = z
   .object({
     slug: pageSlug.optional(),
+    // Only meaningful on TEMPLATE pages; `kind` itself cannot change.
+    collectionKey: collectionKeyDto.optional(),
     title: z.string().trim().min(1).max(150).optional(),
     titleBn: optionalText(150),
     seo: SeoDto.optional(),
@@ -317,6 +335,8 @@ export const PublicPageParamDto = z.object({ siteId: id, slug: z.string().trim()
 export const PublicPostParamDto = z.object({ siteId: id, slug: z.string().trim().max(100) });
 export const PublicFormParamDto = z.object({ siteId: id, formId: id });
 export const PublicPreviewQueryDto = z.object({ preview: z.string().max(2000).optional() });
+export const PublicCollectionParamDto = z.object({ siteId: id, key: z.string().trim().toLowerCase().max(40) });
+export const PublicCollectionItemParamDto = z.object({ siteId: id, key: z.string().trim().toLowerCase().max(40), slug: z.string().trim().min(1).max(160) });
 
 export const PublicPostQueryDto = z.object({
   page: z.coerce.number().int().positive().max(1000).default(1),

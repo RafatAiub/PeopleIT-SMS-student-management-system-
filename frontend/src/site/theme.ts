@@ -328,12 +328,21 @@ function normaliseCourses(v: unknown): SiteSettings['courses'] {
 }
 
 /** `settings.hotlines` (whitelisted — §7.6): school-wide emergency numbers, editable once and shown by the `HotlineList` block on every page. */
+// The admin settings screen saves hotlines as `{ phone }` and links as
+// `{ url }`; blocks read `number` / `href`. Accept both spellings here so
+// whatever the school saved shows up on the public site.
+const firstString = (o: Record<string, unknown>, ...keys: string[]): string | undefined => {
+  for (const k of keys) if (typeof o[k] === 'string' && (o[k] as string).trim()) return (o[k] as string).trim();
+  return undefined;
+};
+const isObj = (i: unknown): i is Record<string, unknown> => Boolean(i) && typeof i === 'object';
+
 function normaliseHotlines(v: unknown): SiteSettings['hotlines'] {
   if (!Array.isArray(v)) return undefined;
   const out = v
-    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).number === 'string')
+    .filter(isObj)
     .slice(0, 12)
-    .map((i) => ({ number: String(i.number).trim(), label: typeof i.label === 'string' ? i.label : undefined, labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined }))
+    .map((i) => ({ number: firstString(i, 'number', 'phone') ?? '', label: typeof i.label === 'string' ? i.label : undefined, labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined }))
     .filter((i) => i.number);
   return out.length ? out : undefined;
 }
@@ -342,9 +351,10 @@ function normaliseHotlines(v: unknown): SiteSettings['hotlines'] {
 function normaliseLinkList(v: unknown): Array<{ label: string; labelBn?: string; href: string }> | undefined {
   if (!Array.isArray(v)) return undefined;
   const out = v
-    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).label === 'string' && typeof (i as Record<string, unknown>).href === 'string')
+    .filter(isObj)
     .slice(0, 20)
-    .map((i) => ({ label: i.label as string, labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined, href: i.href as string }));
+    .map((i) => ({ label: firstString(i, 'label') ?? '', labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined, href: firstString(i, 'href', 'url') ?? '' }))
+    .filter((i) => i.label && i.href);
   return out.length ? out : undefined;
 }
 
@@ -352,14 +362,15 @@ function normaliseLinkList(v: unknown): Array<{ label: string; labelBn?: string;
 function normaliseEServices(v: unknown): SiteSettings['eServices'] {
   if (!Array.isArray(v)) return undefined;
   const out = v
-    .filter((i): i is Record<string, unknown> => Boolean(i) && typeof i === 'object' && typeof (i as Record<string, unknown>).label === 'string' && typeof (i as Record<string, unknown>).href === 'string')
+    .filter(isObj)
     .slice(0, 20)
     .map((i) => ({
-      label: i.label as string,
+      label: firstString(i, 'label') ?? '',
       labelBn: typeof i.labelBn === 'string' ? i.labelBn : undefined,
-      href: i.href as string,
+      href: firstString(i, 'href', 'url') ?? '',
       icon: typeof i.icon === 'string' ? i.icon : undefined,
-    }));
+    }))
+    .filter((i) => i.label && i.href);
   return out.length ? out : undefined;
 }
 

@@ -18,6 +18,8 @@ export const PAGE_LIST_SELECT = {
   seo: true,
   sortOrder: true,
   isSystem: true,
+  kind: true,
+  collectionKey: true,
   publishedAt: true,
   scheduledPublishAt: true,
   createdAt: true,

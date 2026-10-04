@@ -28,6 +28,13 @@ import { isReservedSlug, parseSitePath } from '../routes';
 import { fetchSiteData, isSiteDataSource, SITE_DATA_SOURCES } from '../dataSources';
 import { fetchListSource, toItems } from '../blocks/portal-data';
 import type { SiteApi } from '../api';
+import { applyBindings, evalRule, evalVisibility, getPath, hasVisibility, hideClasses, scopeTokens, setPath, withBinding, type VisRule } from '../binding';
+import { toBanglaDigits } from '../format';
+import { buildCollectionQuery, detectIncludes, itemPath, matchTemplateRoute, paramsKey, publicCollections, templateCollections } from '../collections';
+import { dataListColumns } from '../blocks/portal-data';
+import { DEFAULT_TEMPLATE_COLLECTIONS, defaultTemplatePage } from '../templates/collectionDefaults';
+import { resolveTemplateSeo } from '../public/templateSeo';
+import { findComponent } from '../tree';
 
 let passed = 0;
 const failures: string[] = [];
@@ -649,7 +656,193 @@ test('isReservedSlug', () => {
   ok(!isReservedSlug(''));
 });
 
+/* ── Data binding, scopes, visibility, collections (Website Builder W2–W6) ── */
+
+test('getPath / setPath handle dots, indexes and block prototype keys', () => {
+  const o = { a: { b: [{ c: 'x' }] } };
+  eq(getPath(o, 'a.b[0].c'), 'x');
+  eq(getPath(o, 'a.b.0.c'), 'x');
+  eq(getPath(o, '__proto__.x'), undefined);
+  eq(setPath({ items: [{ t: 'a' }] }, 'items[0].t', 'z'), { items: [{ t: 'z' }] });
+  eq(setPath({}, 'a.b', 1), { a: { b: 1 } });
+});
+
+test('applyBindings: item/parent/page/site, fmt, fallback, missing scope keeps literal', () => {
+  const scope = { item: { name: 'Rahim', date: '2026-03-12', fee: 1500, empty: '' }, parent: { name: 'Class 8' }, page: { slug: 'p' }, site: { 'institution.name': 'Green Valley' } };
+  const props = {
+    heading: 'literal', sub: 'literal', when: 'literal', price: 'literal', blank: 'literal', cls: 'literal', who: 'literal', up: 'literal',
+    _bind: {
+      heading: { src: 'item', path: 'name' }, sub: { src: 'parent', path: 'name' }, when: { src: 'item', path: 'date', fmt: 'date:long' },
+      price: { src: 'item', path: 'fee', fmt: 'money' }, blank: { src: 'item', path: 'empty', fallback: 'n/a' }, cls: { src: 'item', path: 'nope' },
+      who: { src: 'site', path: 'institution.name' }, up: { src: 'item', path: 'name', fmt: 'upper' },
+    },
+  };
+  const out = applyBindings(props, scope) as Record<string, unknown>;
+  eq(out.heading, 'Rahim');
+  eq(out.sub, 'Class 8');
+  eq(out.when, '12 March 2026');
+  eq(out.price, '৳1,500');
+  eq(out.blank, 'n/a');
+  eq(out.cls, '', 'scope present but field missing gives empty, never stale placeholder');
+  eq(out.who, 'Green Valley');
+  eq(out.up, 'RAHIM');
+  eq((applyBindings({ a: 'lit', _bind: { a: { src: 'item', path: 'name' } } }, {}) as Record<string, unknown>).a, 'lit');
+  eq((applyBindings({ list: [{ t: 'x' }], _bind: { 'list[0].t': { src: 'item', path: 'name' } } }, scope) as { list: { t: string }[] }).list[0].t, 'Rahim');
+  eq(toBanglaDigits('2026'), '২০২৬');
+});
+
+test('withBinding adds, replaces and removes entries', () => {
+  const a = withBinding(undefined, 'text', { src: 'item', path: 'name' });
+  eq(Object.keys(a ?? {}), ['text']);
+  const b = withBinding(a, 'href', { src: 'item', path: '_url' });
+  eq(Object.keys(b ?? {}).sort(), ['href', 'text']);
+  eq(withBinding(b, 'href', null), { text: { src: 'item', path: 'name' } });
+  eq(withBinding(a, 'text', null), undefined);
+});
+
+test('scope tokens: item / parent / url with |fmt, escaping, kept for templates', () => {
+  const scope = { item: { title: 'Open Day', when: '2026-03-12', tags: ['a', 'b'], nested: { deep: 'ok' } }, parent: { name: 'Class 8' }, url: { q: 'physics' } };
+  const t = { ...tokens, ...scopeTokens(scope) };
+  eq(fillTokens('{{item.title}} / {{parent.name}} / {{url.q}} / {{item.nested.deep}} / {{item.tags}}', t), 'Open Day / Class 8 / physics / ok / a, b');
+  eq(fillTokens('{{item.when|date:long}}', t, { lang: 'en' }), '12 March 2026');
+  eq(fillTokens('{{ item.title | upper }}', t), 'OPEN DAY');
+  eq(fillTokens('{{item.missing}}', t), '');
+  eq(fillTokens('<b>{{item.title}}</b>', { 'item.title': '<i>' }, { escape: true }), '<b>&lt;i&gt;</b>');
+  eq(fillTokens('{{item.title}} {{year}}', tokens, { keepScopeTokens: true }), '{{item.title}} 2026');
+  eq(fillTokensDeep({ a: '{{item.x}} {{institution.name}}' }, tokens, { keepScopeTokens: true }), { a: '{{item.x}} Green Valley School' });
+});
+
+test('visibility: operators, match all/any, device classes', () => {
+  const scope = { item: { name: 'A', n: 5, d: '2026-03-12', tags: ['x', 'y'], e: '', closed: false }, url: { dept: 'Science' } };
+  const r = (rule: VisRule) => evalRule(rule, scope);
+  ok(r({ src: 'item', path: 'e', op: 'empty' }));
+  ok(r({ src: 'item', path: 'name', op: 'notEmpty' }));
+  ok(r({ src: 'item', path: 'name', op: 'eq', value: 'a' }), 'case-insensitive');
+  ok(r({ src: 'item', path: 'name', op: 'neq', value: 'b' }));
+  ok(r({ src: 'item', path: 'n', op: 'gt', value: '4' }));
+  ok(!r({ src: 'item', path: 'n', op: 'lt', value: '4' }));
+  ok(r({ src: 'item', path: 'd', op: 'gt', value: '2026-01-01' }), 'dates');
+  ok(r({ src: 'item', path: 'tags', op: 'contains', value: 'y' }));
+  ok(!r({ src: 'item', path: 'name', op: 'contains', value: '' }));
+  ok(r({ src: 'url', path: 'dept', op: 'eq', value: 'science' }));
+  ok(r({ src: 'item', path: 'closed', op: 'neq', value: 'true' }));
+  const yes: VisRule = { src: 'item', path: 'name', op: 'notEmpty' };
+  const no: VisRule = { src: 'item', path: 'e', op: 'notEmpty' };
+  ok(evalVisibility({ match: 'all', when: [yes, yes] }, scope));
+  ok(!evalVisibility({ match: 'all', when: [yes, no] }, scope));
+  ok(evalVisibility({ match: 'any', when: [yes, no] }, scope));
+  ok(evalVisibility(undefined, scope) && evalVisibility({ when: [] }, scope), 'no rules means visible');
+  eq(hideClasses({ hideOn: ['sm', 'lg', 'sm'] }), 'site-hide-sm site-hide-lg');
+  ok(hasVisibility({ hideOn: ['md'] }) && !hasVisibility({ when: [], hideOn: [] }) && !hasVisibility(undefined));
+});
+
+test('every block (and the designer blocks) carries _visible; CollectionList is registered', () => {
+  for (const k of ['Text', 'Picture', 'LinkButton', 'Badge', 'Stack', 'Grid', 'CollectionList', 'Heading', 'DataList']) {
+    ok(k in SITE_COMPONENTS, `missing ${k}`);
+    ok('_visible' in ((SITE_COMPONENTS as Record<string, { fields?: object }>)[k].fields ?? {}), `${k} lacks _visible`);
+  }
+});
+
+test('DataList columns setting is honoured (was ignored)', () => {
+  eq(dataListColumns('2'), { sm: 1, md: 2, lg: 2 });
+  eq(dataListColumns('3'), { sm: 1, md: 2, lg: 3 });
+  eq(dataListColumns('4'), { sm: 1, md: 2, lg: 4 });
+  eq(dataListColumns(undefined), { sm: 1, md: 2, lg: 3 });
+});
+
+test('collection query building: filters from literal/url/item, skipping empties, sort, search, paging', () => {
+  const scope = { item: { dept: 'Arts', level: 8 }, url: { dept: 'Science', q: 'phys' } };
+  const q = buildCollectionQuery({
+    filters: [
+      { field: 'department', op: 'eq', source: 'url', value: 'dept' },
+      { field: 'level', op: 'gte', source: 'item', value: 'level' },
+      { field: 'subject', op: 'contains', source: 'literal', value: '{{url.q}}' },
+      { field: 'name', op: 'eq', source: 'url', value: 'missing' },
+      { field: 'department', op: 'eq', source: 'literal', value: 'dup' },
+      { field: 'x', op: 'bogus' as never, source: 'literal', value: '1' },
+    ],
+    sortField: 'name', sortDir: 'desc', search: '{{url.q}}', limit: 100, paginate: 'pages', include: ['classes', 'classes'],
+  }, scope, { page: 3 });
+  eq(q, { 'filter[department][eq]': 'Science', 'filter[level][gte]': '8', 'filter[subject][contains]': 'phys', sort: '-name', q: 'phys', pageSize: 50, page: 3, include: 'classes' });
+  eq(buildCollectionQuery({ limit: 6 }, {}), { pageSize: 6, page: 1 });
+  eq(buildCollectionQuery({ paginate: 'more' }, {}).pageSize, 12);
+  eq(buildCollectionQuery({}, {}).pageSize, 50);
+  eq(paramsKey({ b: 1, a: 2 }), 'a=2&b=1');
+});
+
+test('detectIncludes finds relations read by bindings, tokens and nested lists', () => {
+  const content = [
+    { type: 'Text', props: { id: 'a', _bind: { text: { src: 'item', path: 'classes[0].name' } } } },
+    { type: 'Text', props: { id: 'b', text: '{{item.subjects}}' } },
+    { type: 'CollectionList', props: { id: 'c', sourceKind: 'relation', relation: 'routine', item: [] } },
+    { type: 'Text', props: { id: 'd', text: 'classesroom {{item.className}}' } },
+  ];
+  eq(detectIncludes(content, ['classes', 'subjects', 'routine', 'photos', 'class']), ['classes', 'subjects', 'routine']);
+  eq(detectIncludes(content, []), []);
+});
+
+test('template routes: match base/:slug only, decode, list page stays a page', () => {
+  const routes = [{ collection: 'teachers', base: '/teachers', pageSlug: 'template-teachers' }, { collection: 'albums', base: '/gallery', pageSlug: 'template-albums' }];
+  eq(matchTemplateRoute('teachers/rahim-k3f9a2', routes)?.slug, 'rahim-k3f9a2');
+  eq(matchTemplateRoute('/gallery/abc/', routes)?.route.collection, 'albums');
+  eq(matchTemplateRoute('teachers', routes), null);
+  eq(matchTemplateRoute('teachers/a/b', routes), null);
+  eq(matchTemplateRoute('classes/x', routes), null);
+  eq(matchTemplateRoute('teachers/x', undefined), null);
+  eq(matchTemplateRoute('teachers/a%20b', routes)?.slug, 'a b');
+  eq(itemPath({ routeBase: '/teachers' }, 'rahim'), '/teachers/rahim');
+  eq(itemPath({ routeBase: null }, 'x'), null);
+});
+
+test('privacy: no students collection is ever offered', () => {
+  const mk = (key: string, route: string | null) => ({ key, label: key, labelPlural: key, available: true, unavailableReason: null, titleField: 'name', routeBase: route, defaultSort: '', maxPageSize: 50, fields: [], relations: [] });
+  const list = [mk('teachers', '/teachers'), mk('students', '/students'), mk('guardians', null), mk('classes', '/classes'), mk('downloads', null)];
+  eq(publicCollections(list).map((c) => c.key), ['teachers', 'classes', 'downloads']);
+  eq(templateCollections(list).map((c) => c.key), ['teachers', 'classes']);
+});
+
+test('default template pages: valid page data, unique ids, SEO tokens', () => {
+  eq([...DEFAULT_TEMPLATE_COLLECTIONS].sort(), ['admissions', 'albums', 'classes', 'events', 'notices', 'teachers']);
+  for (const key of DEFAULT_TEMPLATE_COLLECTIONS) {
+    const d = defaultTemplatePage(key)!;
+    ok(isValidPageData(d.data), `${key} template is valid page data`);
+    const json = JSON.stringify(d.data);
+    const ids = [...json.matchAll(/"id":"([^"]+)"/g)].map((m) => m[1]);
+    eq(new Set(ids).size, ids.length, `${key} block ids are unique`);
+    ok(String(d.seo.title).includes('{{item.'), 'SEO title uses item tokens');
+  }
+  ok(defaultTemplatePage('students') === null);
+});
+
+test('template SEO: tokens filled from the item; falls back to API seo, then title field', () => {
+  const base = { item: { name: 'Rahim Uddin', slug: 's' }, titleField: 'name', siteName: 'Green Valley', siteTokens: tokens, lang: 'en' as const, itemSeo: { title: 'API title', description: 'API desc', image: 'https://x/i.png' } };
+  eq(resolveTemplateSeo({ ...base, pageSeo: { title: '{{item.name}} - Faculty | {{site.name}}', description: '' } }).title, 'Rahim Uddin - Faculty | Green Valley School');
+  const fb = resolveTemplateSeo({ ...base, pageSeo: {} });
+  eq(fb.title, 'API title | Green Valley');
+  eq(fb.description, 'API desc');
+  eq(fb.ogImage, 'https://x/i.png');
+  eq(resolveTemplateSeo({ ...base, itemSeo: undefined, pageSeo: {} }).title, 'Rahim Uddin | Green Valley');
+});
+
+test('findComponent locates blocks inside slots', () => {
+  const data = { content: [{ type: 'Stack', props: { id: 's', content: [{ type: 'CollectionList', props: { id: 'L', item: [{ type: 'Text', props: { id: 't' } }] } }] } }] };
+  eq(findComponent(data, 'L')?.type, 'CollectionList');
+  eq(findComponent(data, 't')?.type, 'Text');
+  eq(findComponent(data, 'zz'), null);
+});
+
 /* ── Report ─────────────────────────────────────────────────────────────── */
+
+test('settings accept the admin screen spellings (phone/url) for hotlines and links', () => {
+  const s = normaliseSettings({
+    hotlines: [{ phone: '999', label: 'Emergency' }, { number: '109' }, { label: 'no number' }],
+    importantLinks: [{ label: 'Board', url: 'https://dhakaeducationboard.gov.bd' }, { label: 'Old', href: '/old' }],
+    eServices: [{ label: 'Pay fees', url: '/fees', icon: 'card' }],
+  });
+  eq(s.hotlines?.map((h) => h.number), ['999', '109']);
+  eq(s.importantLinks?.map((l) => l.href), ['https://dhakaeducationboard.gov.bd', '/old']);
+  eq(s.eServices?.[0]?.href, '/fees');
+});
 
 if (failures.length) {
   console.error(failures.join('\n'));

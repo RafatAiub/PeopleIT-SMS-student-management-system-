@@ -4,9 +4,15 @@
  * the institution's real data at render time, so a template never states a
  * fact about a school that the school didn't provide.
  */
+import { applyFmt } from './format';
 import type { PublicInstitution, PublicProfile, SiteLang, SiteSettings } from './types';
 
-export const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_.]*)\s*\}\}/g;
+/**
+ * `{{key}}` or `{{key|fmt}}` (fmt: date:long | upper | bn-digits | money).
+ * Besides the site tokens below, the renderer adds data-scope tokens:
+ * `{{item.x}}`, `{{parent.x}}`, `{{page.x}}` and `{{url.q}}` (see binding.ts).
+ */
+export const TOKEN_RE = /\{\{\s*([a-zA-Z][a-zA-Z0-9_.]*)(?:\s*\|\s*([a-z][a-z:-]*))?\s*\}\}/g;
 
 /** Tokens the editor can offer in a "insert token" helper. */
 export const SITE_TOKENS: Array<{ token: string; label: string }> = [
@@ -73,7 +79,13 @@ export interface FillOptions {
   escape?: boolean;
   /** Leave unknown/empty tokens in place (editor) instead of removing them (public). */
   keepMissing?: boolean;
+  /** Language for `|date:long` style formats (default en). */
+  lang?: SiteLang;
+  /** Keep `{{item.x}}` / `{{parent.x}}` / `{{page.x}}` / `{{url.x}}` untouched (they fill at render time, per item). */
+  keepScopeTokens?: boolean;
 }
+
+export const SCOPE_TOKEN_RE = /^(item|parent|page|url)\./;
 
 export function hasTokens(text: string): boolean {
   TOKEN_RE.lastIndex = 0;
@@ -85,9 +97,11 @@ export function hasTokens(text: string): boolean {
 /** Replace every `{{token}}` in `text`. Missing values become '' unless `keepMissing`. */
 export function fillTokens(text: string, tokens: TokenMap, opts: FillOptions = {}): string {
   if (!text || text.indexOf('{{') === -1) return text;
-  return text.replace(TOKEN_RE, (match, key: string) => {
-    const v = tokens[key];
-    if (v == null || v === '') return opts.keepMissing ? match : '';
+  return text.replace(TOKEN_RE, (match, key: string, fmt?: string) => {
+    if (opts.keepScopeTokens && SCOPE_TOKEN_RE.test(key)) return match;
+    const raw = tokens[key];
+    if (raw == null || raw === '') return opts.keepMissing ? match : '';
+    const v = fmt ? applyFmt(raw, fmt, opts.lang) : raw;
     return opts.escape ? escapeHtml(v) : v;
   });
 }

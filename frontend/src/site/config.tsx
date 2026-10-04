@@ -29,9 +29,13 @@ import {
   AudioPlayer, DataTable, EServices, FacebookPage, HeadMessage, HotlineList, ImageSlider, ImportantLinks, InfoBoxGrid,
   SidebarCard, SidebarLayout, VideoGallery,
 } from './blocks/portal-static';
+import { Badge, Grid, LinkButton, Picture, Stack, Text } from './blocks/designer';
+import { CollectionList } from './blocks/collection-list';
+import { CustomModule } from './modules/CustomModule';
 import type { SiteBlock } from './blocks/shared';
+import { makeBindable } from './bindable';
 
-export const SITE_COMPONENTS = {
+const RAW_COMPONENTS = {
   // Layout
   Section, Columns, Spacer, Divider,
   // Content
@@ -53,12 +57,21 @@ export const SITE_COMPONENTS = {
   ResultSummary, ExamRoutine, ClassStats, FeeChart, HolidayList, LibraryCatalogue, TransportRoutes, Branches, ProfileFacts,
   InfoBoxGrid, SidebarLayout, SidebarCard, HeadMessage, HotlineList, FacebookPage, VideoGallery, AudioPlayer, ImageSlider,
   ImportantLinks, EServices, DataTable,
+  // Data-driven design (collections + free-form building blocks)
+  CollectionList, Stack, Grid, Text, Picture, LinkButton, Badge,
+  // Custom modules (Liquid, W13–W17): one generic block; the editor adds one palette entry per published module
+  CustomModule,
 } satisfies Record<string, SiteBlock>;
 
-export type SiteBlockType = keyof typeof SITE_COMPONENTS;
+export type SiteBlockType = keyof typeof RAW_COMPONENTS;
+
+/** Every block wrapped once: reserved `_bind` / `_visible` props (see bindable.tsx). */
+export const SITE_COMPONENTS = Object.fromEntries(
+  Object.entries(RAW_COMPONENTS).map(([k, def]) => [k, makeBindable(def)]),
+) as Record<SiteBlockType, SiteBlock>;
 
 export interface BlockCategory {
-  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code' | 'portal';
+  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code' | 'portal' | 'designer' | 'modules';
   title: string;
   titleBn: string;
   components: SiteBlockType[];
@@ -67,6 +80,10 @@ export interface BlockCategory {
 /** Palette grouping for the editor (also passed to Puck as `categories`). */
 export const BLOCK_CATEGORIES: BlockCategory[] = [
   { key: 'layout', title: 'Layout', titleBn: 'লেআউট', components: ['Section', 'Columns', 'Spacer', 'Divider'] },
+  {
+    key: 'designer', title: 'Data & free-form design', titleBn: 'ডেটা ও ফ্রি-ফর্ম ডিজাইন',
+    components: ['CollectionList', 'Stack', 'Grid', 'Text', 'Picture', 'LinkButton', 'Badge'],
+  },
   {
     key: 'content', title: 'Content', titleBn: 'কনটেন্ট',
     components: ['Hero', 'Heading', 'RichText', 'ButtonGroup', 'Cards', 'StatsCounter', 'Testimonials', 'FAQ', 'CallToAction', 'ContactInfo', 'Timeline', 'PrincipalMessage'],
@@ -85,6 +102,8 @@ export const BLOCK_CATEGORIES: BlockCategory[] = [
     components: ['ProductGrid', 'FeaturedProduct', 'CartButton', 'CourseGrid', 'FeaturedCourse', 'AccountButton'],
   },
   { key: 'code', title: 'Custom code', titleBn: 'কাস্টম কোড', components: ['CustomCode'] },
+  // The editor appends one entry per published module (PuckEditor.tsx).
+  { key: 'modules', title: 'My modules', titleBn: 'আমার মডিউল', components: ['CustomModule'] },
   {
     key: 'portal', title: 'Portal & DSHE data', titleBn: 'পোর্টাল ও তথ্য',
     components: [

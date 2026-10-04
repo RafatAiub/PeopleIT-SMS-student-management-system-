@@ -191,6 +191,8 @@ export interface ResolvedSite {
   site: PublicSiteInfo;
   institution: PublicInstitution;
   pages: PublicPageRef[];
+  /** Published collection template pages (`/teachers/:slug` …); empty when the site has none. */
+  templateRoutes: Array<{ collection: string; base: string; pageSlug: string }>;
 }
 
 export interface PublicPage {
@@ -202,6 +204,9 @@ export interface PublicPage {
   publishedAt?: string;
   /** True when the backend served the draft through a preview token. */
   isPreview?: boolean;
+  /** `TEMPLATE` pages render once per collection item (§8.8); everything else is a normal page. */
+  kind?: 'PAGE' | 'TEMPLATE';
+  collectionKey?: string | null;
 }
 
 export interface PublicPost {
