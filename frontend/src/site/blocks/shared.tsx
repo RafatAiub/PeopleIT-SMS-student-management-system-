@@ -7,7 +7,7 @@
 import { isValidElement, type CSSProperties, type ReactNode } from 'react';
 import { Link, useInRouterContext } from 'react-router-dom';
 import type { ComponentConfig, Field } from '@puckeditor/core';
-import { useIsEditing, useSiteHref, useSiteRuntime, useSiteText } from '../runtime';
+import { useIsEditing, useSiteHref, useSiteText } from '../runtime';
 import { isExternalHref, safeHref } from '../embed';
 import { sanitizeRichText } from '../sanitize';
 import { fillTokens } from '../tokens';
@@ -197,10 +197,10 @@ export function useRichPick() {
 }
 
 export function RichHtml({ value, className = '' }: { value: unknown; className?: string }) {
-  const { tokens } = useSiteRuntime();
+  const { tokens, lang } = useSiteText();
   if (isRichEmpty(value)) return null;
   if (typeof value === 'string') {
-    const html = sanitizeRichText(fillTokens(value, tokens, { escape: true }));
+    const html = sanitizeRichText(fillTokens(value, tokens, { escape: true, lang }));
     return <div className={`site-prose ${className}`} dangerouslySetInnerHTML={{ __html: html }} />;
   }
   return <div className={`site-prose ${className}`}>{value as ReactNode}</div>;

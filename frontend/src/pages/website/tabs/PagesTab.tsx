@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, Blocks, Code2, ExternalLink, FilePlus2, FileText, GripVertical, Home, Pencil, Rocket, Send, Settings2, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Blocks, Code2, ExternalLink, FilePlus2, FileText, GripVertical, Home, LayoutTemplate, Pencil, Rocket, Send, Settings2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Card, CardHeader, Button, Badge, Modal, Input } from '@/components/ui';
 import { EmptyState } from '@/components/common/EmptyState';
@@ -9,6 +9,8 @@ import { useT, formatDate } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { emptyCodePageData } from '@/site/code/codePage';
 import { ImportWebsiteButton } from '../import/ImportWizard';
+import { useCollectionRegistry } from '../siteCollections';
+import { TemplatePageModal } from './TemplatePageModal';
 import { useCreatePage, useDeletePage, usePublishPage, useReorderPages, useUpdatePage } from '../sites.queries';
 import { EMPTY_PAGE, SLUG_RE, joinUrl, pagePath, pageState, slugify } from '../siteUtils';
 import type { PuckData, SiteMeResponse, SitePageSummary } from '../sites.types';
@@ -44,6 +46,7 @@ const PageDetailsModal: React.FC<{
   const [kind, setKind] = React.useState<NewPageKind>('visual');
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const isHome = !!page && page.slug === '';
+  const isTemplate = page?.kind === 'TEMPLATE';
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -65,7 +68,7 @@ const PageDetailsModal: React.FC<{
     e.preventDefault();
     const errs: Record<string, string> = {};
     if (!title.trim()) errs.title = t('Enter a page title.');
-    if (!isHome) {
+    if (!isHome && !isTemplate) {
       if (!slug) errs.slug = t('Enter the page address.');
       else if (!SLUG_RE.test(slug)) errs.slug = t('Use lowercase letters, numbers and hyphens only.');
       else if (existingSlugs.includes(slug) && slug !== page?.slug) errs.slug = t('Another page already uses this address.');
@@ -76,7 +79,7 @@ const PageDetailsModal: React.FC<{
 
     if (page) {
       update.mutate(
-        { id: page.id, data: { title: title.trim(), titleBn: titleBn.trim() || null, ...(isHome ? {} : { slug }) } },
+        { id: page.id, data: { title: title.trim(), titleBn: titleBn.trim() || null, ...(isHome || isTemplate ? {} : { slug }) } },
         { onSuccess: () => { toast.success(t('Page details saved.')); onClose(); } }
       );
     } else {
@@ -151,6 +154,8 @@ const PageDetailsModal: React.FC<{
         <Input id="site-page-titleBn" label={t('Title (Bangla)')} lang="bn" value={titleBn} onChange={(e) => setTitleBn(e.target.value)} />
         {isHome ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('The home page always lives at “/”.')}</p>
+        ) : isTemplate ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t('A template page has no address of its own: it shows every item of its collection (for example /teachers/rahim-uddin).')}</p>
         ) : (
           <Input
             id="site-page-slug"
@@ -181,6 +186,7 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
   const [order, setOrder] = React.useState(sorted);
   const [details, setDetails] = React.useState<{ open: boolean; page: SitePageSummary | null }>({ open: false, page: null });
   const [toDelete, setToDelete] = React.useState<SitePageSummary | null>(null);
+  const [templateOpen, setTemplateOpen] = React.useState(false);
   const [dragFrom, setDragFrom] = React.useState<number | null>(null);
   const [dragOver, setDragOver] = React.useState<number | null>(null);
   const [grab, setGrab] = React.useState<number | null>(null);
@@ -200,7 +206,11 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
     commit(next);
   };
 
-  const previewFor = (p: SitePageSummary) => (me.previewUrl ? joinUrl(me.previewUrl, pagePath(p.slug)) : null);
+  const registry = useCollectionRegistry(me.site?.id, me.previewToken);
+  const isTemplate = (p: SitePageSummary) => p.kind === 'TEMPLATE';
+  const collectionOf = (p: SitePageSummary) => registry.data?.find((c) => c.key === p.collectionKey);
+  // Template pages have no address of their own (they show once per item), so no direct preview link.
+  const previewFor = (p: SitePageSummary) => (me.previewUrl && !isTemplate(p) ? joinUrl(me.previewUrl, pagePath(p.slug)) : null);
 
   return (
     <Card>
@@ -211,6 +221,7 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
         actions={
           <div className="flex flex-wrap gap-2">
             <ImportWebsiteButton me={me} variant="secondary" />
+            <Button variant="secondary" leftIcon={<LayoutTemplate className="w-4 h-4" />} onClick={() => setTemplateOpen(true)}>{t('New template page')}</Button>
             <Button leftIcon={<FilePlus2 className="w-4 h-4" />} onClick={() => setDetails({ open: true, page: null })}>{t('Add page')}</Button>
           </div>
         }
@@ -273,9 +284,10 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
                       </button>
                       <PageStateBadge page={p} />
                       {p.isSystem && <Badge variant="info">{t('Home')}</Badge>}
+                      {isTemplate(p) && <Badge variant="info">{t('Template: {name}', { name: collectionOf(p)?.labelPlural ?? p.collectionKey ?? '' })}</Badge>}
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                      <span className="font-mono">{pagePath(p.slug)}</span>
+                      <span className="font-mono">{isTemplate(p) ? `${collectionOf(p)?.routeBase ?? `/${p.collectionKey}`}/:name` : pagePath(p.slug)}</span>
                       {' · '}
                       {p.publishedAt ? t('Published {when}', { when: formatDate(p.publishedAt, true) }) : t('Never published')}
                       {p.scheduledPublishAt && ` · ${t('Scheduled {when}', { when: formatDate(p.scheduledPublishAt, true) })}`}
@@ -315,6 +327,7 @@ export const PagesTab: React.FC<{ me: SiteMeResponse }> = ({ me }) => {
         </ul>
       )}
 
+      <TemplatePageModal isOpen={templateOpen} me={me} onClose={() => setTemplateOpen(false)} />
       <PageDetailsModal isOpen={details.open} page={details.page} existingSlugs={me.pages.map((p) => p.slug)} onClose={() => setDetails({ open: false, page: null })} />
       <ConfirmModal
         isOpen={!!toDelete}

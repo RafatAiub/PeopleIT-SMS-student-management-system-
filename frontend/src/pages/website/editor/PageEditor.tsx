@@ -142,7 +142,8 @@ export default function PageEditor() {
   const pages = React.useMemo(() => (me?.pages ?? []).map((p) => ({ slug: p.slug, title: p.title, titleBn: p.titleBn ?? undefined })), [me?.pages]);
   const previewToken = tokenQ.data?.token ?? me?.previewToken ?? null;
   const previewBase = tokenQ.data?.previewUrl ?? me?.previewUrl ?? null;
-  const previewHref = previewBase && page ? joinUrl(previewBase, pagePath(page.slug)) : null;
+  const isTemplate = page?.kind === 'TEMPLATE';
+  const previewHref = previewBase && page && !isTemplate ? joinUrl(previewBase, pagePath(page.slug)) : null;
   const saving = update.isPending;
   /** Code pages (`root.props.mode === 'code'`, WEBSITE_V2_BRIEF.md §2) get the HTML/CSS/JS editor instead of Puck's block canvas. */
   const isCode = React.useMemo(() => (initial ? isCodePage(initial) : false), [initial]);
@@ -208,7 +209,7 @@ export default function PageEditor() {
       <div className="flex items-center gap-2 px-3 h-11 border-b border-slate-200 dark:border-white/10 shrink-0">
         <Button size="sm" variant="ghost" leftIcon={<ArrowLeft className="w-4 h-4" />} onClick={goBack}>{t('Pages')}</Button>
         <span className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">{page?.title ?? '…'}</span>
-        {page && <span className="text-xs font-mono text-slate-500 hidden sm:inline">{pagePath(page.slug)}</span>}
+        {page && <span className="text-xs font-mono text-slate-500 hidden sm:inline">{isTemplate ? t('Template: one page per {collection} item', { collection: page.collectionKey ?? '' }) : pagePath(page.slug)}</span>}
         <span className="ml-auto flex items-center gap-2">
           {dirty ? <Badge variant="warning" dot>{t('Unsaved changes')}</Badge> : page ? <Badge variant="success" dot>{t('Saved')}</Badge> : null}
           <Languages className="w-4 h-4 text-slate-400 hidden sm:block" aria-hidden />
@@ -257,11 +258,11 @@ export default function PageEditor() {
               </div>
             ) : (
               <React.Suspense fallback={<EditorSkeleton />}>
-                <PuckEditor key={editorKey} data={initial} onChange={onChange} headerTitle={lang === 'bn' && page.titleBn ? page.titleBn : page.title} actions={actions} />
+                <PuckEditor key={editorKey} data={initial} onChange={onChange} headerTitle={lang === 'bn' && page.titleBn ? page.titleBn : page.title} actions={actions} collectionKey={isTemplate ? page.collectionKey : null} />
               </React.Suspense>
             )}
           </SiteRuntimeProvider>
-          <SeoDrawer page={page} isOpen={seoOpen} onClose={() => setSeoOpen(false)} />
+          <SeoDrawer page={page} siteId={me.site.id} previewToken={previewToken} isOpen={seoOpen} onClose={() => setSeoOpen(false)} />
           <VersionHistoryDrawer
             page={page}
             isOpen={historyOpen}

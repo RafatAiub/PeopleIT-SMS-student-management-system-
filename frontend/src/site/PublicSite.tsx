@@ -26,6 +26,9 @@ import { PreviewBar, SiteFooter, SiteHeader, SitePageFrame } from './public/Chro
 import { BlogListView, BlogPostView, SitePageView } from './public/Pages';
 import { AdmissionDetailView, AlbumDetailView, NoticeDetailView } from './public/PortalDetail';
 import { AccountView } from './public/Account';
+import { TemplatePageView } from './public/TemplatePage';
+import { UrlScope } from './scopeContext';
+import { matchTemplateRoute } from './collections';
 import { CartView } from './public/Cart';
 import { CheckoutView, OrderLookupView, OrderStatusView } from './public/Checkout';
 import { CourseDetailView, CoursesListView } from './public/Courses';
@@ -117,7 +120,15 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
 
   const clean = path.replace(/^\/+|\/+$/g, '');
   const route = parseSitePath(clean);
-  const isPlainPage = route.kind === 'page';
+  // A school's template page for a collection (`/teachers/:slug`) wins over the built-in detail views.
+  const tpl = matchTemplateRoute(clean, q.data?.templateRoutes);
+  const isPlainPage = route.kind === 'page' && !tpl;
+  // Query-string values for `{{url.q}}` / `src: url` rules — never the preview token.
+  const urlParams = useMemo(() => {
+    const out: Record<string, string> = {};
+    params.forEach((v, k) => { if (k !== 'preview') out[k] = v; });
+    return out;
+  }, [params]);
 
   // A code-mode page (`root.props.mode === 'code'`) renders full-width and may hide the
   // header/footer (`chrome: 'none'`); pre-fetch it here so that decision can be made before
@@ -170,6 +181,8 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       />
     );
     content = suppressChrome ? frame : <div className="site-container site-pad-md">{frame}</div>;
+  } else if (tpl) {
+    content = <TemplatePageView key={`${tpl.route.collection}:${tpl.slug}`} route={tpl.route} itemSlug={tpl.slug} />;
   } else {
     switch (route.kind) {
       case 'blog-list': content = <BlogListView />; break;
@@ -212,6 +225,7 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       previewToken={previewToken}
       poweredBy={site.poweredBy !== false}
     >
+      <UrlScope params={urlParams}>
       <SiteCustomCode hostMode={hostMode} />
       {suppressChrome ? (
         <SiteRoot className="min-h-screen">{content}</SiteRoot>
@@ -226,6 +240,7 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
           </SitePageFrame>
         </SiteRoot>
       )}
+      </UrlScope>
     </SiteRuntimeProvider>
   );
 }

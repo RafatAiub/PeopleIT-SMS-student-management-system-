@@ -1,0 +1,48 @@
+/**
+ * Bangla for short phrases module templates commonly pass through `| t`
+ * (e.g. `{{ 'No teachers yet' | t }}`). Unknown phrases fall back to the site
+ * strings (strings.ts) and then to the English text itself. A template can
+ * always give its own Bangla inline: `{{ 'Apply now' | t: 'আবেদন করুন' }}`.
+ */
+export const MODULE_PHRASES_BN: Record<string, string> = {
+  'No teachers yet': 'এখনো কোনো শিক্ষক নেই',
+  'Our teachers': 'আমাদের শিক্ষকগণ',
+  'Meet our teachers': 'আমাদের শিক্ষকদের সাথে পরিচিত হোন',
+  'View profile': 'প্রোফাইল দেখুন',
+  'View all': 'সব দেখুন',
+  'Read more': 'আরও পড়ুন',
+  'Learn more': 'আরও জানুন',
+  'Apply now': 'এখনই আবেদন করুন',
+  'Admissions open': 'ভর্তি চলছে',
+  'Admission deadline': 'ভর্তির শেষ তারিখ',
+  'days left': 'দিন বাকি',
+  'day left': 'দিন বাকি',
+  'Days': 'দিন',
+  'Hours': 'ঘণ্টা',
+  'Minutes': 'মিনিট',
+  'Seconds': 'সেকেন্ড',
+  'Closed': 'বন্ধ',
+  'Deadline passed': 'সময়সীমা শেষ',
+  'Notice': 'নোটিশ',
+  'Notices': 'নোটিশ',
+  'Latest notices': 'সর্বশেষ নোটিশ',
+  'No notices yet': 'এখনো কোনো নোটিশ নেই',
+  'Upcoming events': 'আসন্ন অনুষ্ঠান',
+  'No upcoming events': 'কোনো আসন্ন অনুষ্ঠান নেই',
+  'Results': 'ফলাফল',
+  'Result highlights': 'ফলাফলের হাইলাইট',
+  'Pass rate': 'পাসের হার',
+  'GPA 5': 'জিপিএ ৫',
+  'Appeared': 'পরীক্ষার্থী',
+  'Passed': 'উত্তীর্ণ',
+  'Frequently asked questions': 'সচরাচর জিজ্ঞাসা',
+  'Fees': 'ফি',
+  'per month': 'প্রতি মাসে',
+  'per year': 'প্রতি বছরে',
+  'one time': 'এককালীন',
+  'Most popular': 'সবচেয়ে জনপ্রিয়',
+  'Contact us': 'যোগাযোগ করুন',
+  'Subject': 'বিষয়',
+  'Venue': 'স্থান',
+  'Today': 'আজ',
+};

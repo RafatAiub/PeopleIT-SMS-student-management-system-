@@ -20,6 +20,8 @@ import {
   subdomainFromSlug,
   uniqueSlug,
 } from './sites.logic';
+import { TEMPLATE_PAGE_PREFIX, templatePageSlug } from './sites.collections.logic';
+import { getCollection } from './sites.collections';
 import { liveBaseUrl, pathPreviewUrl, platformSiteDomain } from './sites.config';
 import { PREVIEW_TOKEN_TTL_SECONDS, signPreviewToken } from './sites.preview';
 import { resolveDomainProvider } from './domains/provider';
@@ -280,7 +282,8 @@ export async function applyTemplate(ctx: SitesCtx, data: ApplyTemplateDtoType) {
 
       if (data.mode === 'replace') {
         const keep = new Set(slugs);
-        const stale = existing.filter((p) => !p.isSystem && !keep.has(p.slug)).map((p) => p.id);
+        // Template (profile) pages belong to collections, not to the applied template.
+        const stale = existing.filter((p) => !p.isSystem && p.kind !== 'TEMPLATE' && !keep.has(p.slug)).map((p) => p.id);
         if (stale.length) {
           await tx.sitePage.deleteMany({ where: { id: { in: stale }, siteId: site.id } });
           result.removed = stale.length;
@@ -356,17 +359,37 @@ export function getPage(ctx: SitesCtx, id: string) {
   return pageOrThrow(ctx, id);
 }
 
+/** A TEMPLATE page needs a real collection that has profile pages (a routeBase). */
+function assertTemplateCollection(key: string) {
+  const def = getCollection(key);
+  if (!def?.routeBase) throw new ValidationError(`"${key}" is not a collection with profile pages`);
+}
+
 export async function createPage(ctx: SitesCtx, data: CreatePageDtoType) {
   const site = await getOrCreateSite(ctx.institutionId);
-  assertPageSlug(data.slug);
-  const clash = await prisma.sitePage.findUnique({ where: { siteId_slug: { siteId: site.id, slug: data.slug } }, select: { id: true } });
-  if (clash) throw new ConflictError(`A page with slug "${data.slug}" already exists`);
+  const kind = data.kind ?? 'PAGE';
+  let collectionKey: string | null = null;
+  let slug = data.slug ?? '';
+  if (kind === 'TEMPLATE') {
+    collectionKey = data.collectionKey as string;
+    assertTemplateCollection(collectionKey);
+    slug = data.slug ?? templatePageSlug(collectionKey);
+    const taken = await prisma.sitePage.findFirst({ where: { siteId: site.id, institutionId: ctx.institutionId, collectionKey }, select: { id: true } });
+    if (taken) throw new ConflictError(`A template page for "${collectionKey}" already exists`);
+  } else if (slug.startsWith(TEMPLATE_PAGE_PREFIX)) {
+    throw new ValidationError(`Slugs starting with "${TEMPLATE_PAGE_PREFIX}" are reserved for template pages`);
+  }
+  assertPageSlug(slug);
+  const clash = await prisma.sitePage.findUnique({ where: { siteId_slug: { siteId: site.id, slug } }, select: { id: true } });
+  if (clash) throw new ConflictError(`A page with slug "${slug}" already exists`);
   const last = await prisma.sitePage.aggregate({ where: { siteId: site.id }, _max: { sortOrder: true } });
   return prisma.sitePage.create({
     data: {
       siteId: site.id,
       institutionId: ctx.institutionId,
-      slug: data.slug,
+      slug,
+      kind,
+      collectionKey,
       title: data.title,
       titleBn: data.titleBn ?? null,
       seo: json(cleanJson(data.seo ?? {})),
@@ -387,6 +410,16 @@ export async function updatePage(ctx: SitesCtx, id: string, data: UpdatePageDtoT
     const clash = await prisma.sitePage.findUnique({ where: { siteId_slug: { siteId: page.siteId, slug: data.slug } }, select: { id: true } });
     if (clash) throw new ConflictError(`A page with slug "${data.slug}" already exists`);
     patch.slug = data.slug;
+  }
+  if (data.collectionKey !== undefined && data.collectionKey !== page.collectionKey) {
+    if (page.kind !== 'TEMPLATE') throw new ValidationError('collectionKey can only be set on a template page');
+    assertTemplateCollection(data.collectionKey);
+    const taken = await prisma.sitePage.findFirst({
+      where: { siteId: page.siteId, institutionId: ctx.institutionId, collectionKey: data.collectionKey, id: { not: page.id } },
+      select: { id: true },
+    });
+    if (taken) throw new ConflictError(`A template page for "${data.collectionKey}" already exists`);
+    patch.collectionKey = data.collectionKey;
   }
   if (data.title !== undefined) patch.title = data.title;
   if (data.titleBn !== undefined) patch.titleBn = data.titleBn;

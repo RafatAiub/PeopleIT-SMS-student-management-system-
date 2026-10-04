@@ -136,7 +136,13 @@ function dataListFields(sourceOptions: Array<[string, string]> = LIST_SOURCES) {
   };
 }
 
-function ItemsView({ items, layout, showImage, showDate, showDescription, lang }: { items: DataListItem[]; layout: DataListLayout; showImage: boolean; showDate: boolean; showDescription: boolean; lang: 'en' | 'bn' }) {
+/** The `columns` setting ('2' | '3' | '4') → phone 1 / tablet 2 / desktop N (used to be ignored). */
+export function dataListColumns(columns: unknown): { sm: number; md: number; lg: number } {
+  const n = Math.min(4, Math.max(1, Math.round(Number(columns)) || 3));
+  return { sm: 1, md: Math.min(2, n), lg: n };
+}
+
+function ItemsView({ items, layout, showImage, showDate, showDescription, lang, columns }: { items: DataListItem[]; layout: DataListLayout; showImage: boolean; showDate: boolean; showDescription: boolean; lang: 'en' | 'bn'; columns?: unknown }) {
   if (layout === 'table') {
     return (
       <div className="site-table-wrap">
@@ -192,7 +198,8 @@ function ItemsView({ items, layout, showImage, showDate, showDescription, lang }
     );
   }
   if (layout === 'grid' || layout === 'cards') {
-    return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{items.map((it) => <ItemCard key={it.id} it={it} showImage={showImage} showDate={showDate} showDescription={showDescription} lang={lang} />)}</div>;
+    const c = dataListColumns(columns);
+    return <div className="site-cols" style={{ ['--c-sm' as string]: c.sm, ['--c-md' as string]: c.md, ['--c-lg' as string]: c.lg }}>{items.map((it) => <ItemCard key={it.id} it={it} showImage={showImage} showDate={showDate} showDescription={showDescription} lang={lang} />)}</div>;
   }
   // list
   return (
@@ -260,7 +267,7 @@ function DataListView(p: Record<string, any>) {
       {!q.connected ? <NotConnected /> : q.isLoading ? <SkeletonRows /> : q.isError ? <ErrorBlock onRetry={() => void q.refetch()} /> : !items.length ? (
         <EmptyBlock icon={<EmptyIcon size={28} />} title={s(empty.title)} hint={empty.hint ? s(empty.hint) : undefined} />
       ) : (
-        <ItemsView items={items} layout={layout} showImage={p.showImage !== false} showDate={p.showDate !== false} showDescription={p.showDescription !== false} lang={lang} />
+        <ItemsView items={items} layout={layout} showImage={p.showImage !== false} showDate={p.showDate !== false} showDescription={p.showDescription !== false} lang={lang} columns={p.columns} />
       )}
       {p.viewAllHref && items.length > 0 && <div className="mt-5"><SiteLink href={p.viewAllHref} className="site-btn site-btn-outline site-btn-sm">{s('View all')}</SiteLink></div>}
     </BlockSection>

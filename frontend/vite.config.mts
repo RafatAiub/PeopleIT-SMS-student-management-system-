@@ -20,7 +20,16 @@ export default defineConfig({
         // Per-page lazy chunks are cached on first visit via runtimeCaching
         // below — precaching all ~300 of them made every first load download
         // ~1.4 MB of pages the user may never open.
-        globPatterns: ['index.html', 'assets/index-*.{js,css}', 'assets/vendor-*.js', '*.{svg,png,ico}'],
+        // Attendance entry and the QR kiosk must open offline even on a device
+        // that never visited them online, so their chunks are precached too.
+        globPatterns: [
+          'index.html',
+          'assets/index-*.{js,css}',
+          'assets/vendor-*.js',
+          '*.{svg,png,ico}',
+          'assets/AttendanceEntry-*.js',
+          'assets/QrKioskPage-*.js',
+        ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,

@@ -5,6 +5,7 @@ import { useT } from '@/i18n';
 import { useUpdatePage } from '../sites.queries';
 import type { SitePage } from '../sites.types';
 import { MediaField } from '../media/MediaPicker';
+import { useCollectionRegistry } from '../siteCollections';
 
 const toLocalInput = (iso?: string | null) => {
   if (!iso) return '';
@@ -15,8 +16,11 @@ const toLocalInput = (iso?: string | null) => {
 };
 
 /** Page title, SEO fields and scheduled publishing. */
-export const SeoDrawer: React.FC<{ page: SitePage; isOpen: boolean; onClose: () => void }> = ({ page, isOpen, onClose }) => {
+export const SeoDrawer: React.FC<{ page: SitePage; isOpen: boolean; onClose: () => void; siteId?: string; previewToken?: string | null }> = ({ page, isOpen, onClose, siteId, previewToken }) => {
   const t = useT();
+  const isTemplate = page.kind === 'TEMPLATE';
+  const registry = useCollectionRegistry(isTemplate ? siteId : undefined, previewToken);
+  const fieldKeys = (registry.data?.find((c) => c.key === page.collectionKey)?.fields ?? []).filter((f) => f.type === 'text' || f.type === 'number' || f.type === 'date').map((f) => f.key);
   const update = useUpdatePage();
   const [title, setTitle] = React.useState(page.title);
   const [titleBn, setTitleBn] = React.useState(page.titleBn ?? '');
@@ -79,6 +83,20 @@ export const SeoDrawer: React.FC<{ page: SitePage; isOpen: boolean; onClose: () 
         <Input id="seo-page-title" label={t('Page title')} required value={title} onChange={(e) => setTitle(e.target.value)} error={errors.title} />
         <Input id="seo-page-titleBn" label={t('Page title (Bangla)')} lang="bn" value={titleBn} onChange={(e) => setTitleBn(e.target.value)} />
         <hr className="border-slate-100 dark:border-white/6" />
+        {isTemplate && (
+          <Alert tone="info">
+            {t('Template page: use fields of the item in the search title and description, for example {{item.name}}. Leave them empty to use the item’s own title and summary.')}
+            {fieldKeys.length > 0 && (
+              <span className="mt-2 flex flex-wrap gap-1">
+                {fieldKeys.map((k) => (
+                  <button key={k} type="button" className="rounded border border-slate-300 px-1.5 py-0.5 font-mono text-xs" onClick={() => setSeoTitle((v) => `${v}{{item.${k}}}`)}>
+                    {`{{item.${k}}}`}
+                  </button>
+                ))}
+              </span>
+            )}
+          </Alert>
+        )}
         <Input
           id="seo-title"
           label={t('Search title')}

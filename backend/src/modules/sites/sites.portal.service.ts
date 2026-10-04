@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { Prisma, UserRole } from '@prisma/client';
+import { ensureUserSlugs } from './sites.collections';
 import { prisma } from '../../config/prisma';
 import { NotFoundError, ValidationError } from '../../utils/AppError';
 import { sanitizeHtml } from './sites.logic';
@@ -145,6 +146,14 @@ export async function setStaffVisibility(ctx: SitesCtx, data: ToggleStaffVisibil
     where: { id: { in: data.userIds }, institutionId: ctx.institutionId },
     data: { showOnWebsite: data.showOnWebsite },
   });
+  if (data.showOnWebsite) {
+    // Website collections: opted-in staff get their opaque public URL slug now.
+    const unslugged = await prisma.user.findMany({
+      where: { id: { in: data.userIds }, institutionId: ctx.institutionId, publicSlug: null },
+      select: { id: true, firstName: true, lastName: true, publicSlug: true },
+    });
+    await ensureUserSlugs(ctx.institutionId, unslugged);
+  }
   return { updated: result.count };
 }
 

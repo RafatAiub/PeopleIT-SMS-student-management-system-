@@ -30,6 +30,7 @@ import { verifyPreviewToken } from './sites.preview';
 import { normalizeHostname, wwwAlternate } from './domains/hostname';
 import { primaryActiveHost } from './sites.repository';
 import { isFeatureEnabled } from '../saas/entitlements.service';
+import { templateRoutes, templateSitemapPaths } from './sites.collections.templates';
 
 const NOT_FOUND = 'Site not found';
 
@@ -70,13 +71,14 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
   const preview = verifyPreviewToken(q.preview, site.id);
   if (!preview && site.status !== 'PUBLISHED') throw new NotFoundError(NOT_FOUND);
 
-  const [institution, pages, primaryHost, brandingFeature] = await Promise.all([
+  const [institution, pages, primaryHost, brandingFeature, templates] = await Promise.all([
     prisma.institution.findUniqueOrThrow({
       where: { id: site.institutionId },
       select: { name: true, slug: true, logoUrl: true, address: true, contactEmail: true, contactPhone: true, email: true, phone: true },
     }),
     prisma.sitePage.findMany({
-      where: { siteId: site.id, ...(preview ? {} : { published: { not: Prisma.DbNull } }) },
+      // TEMPLATE pages are collection profile designs, not navigable pages: see templateRoutes.
+      where: { siteId: site.id, kind: 'PAGE', ...(preview ? {} : { published: { not: Prisma.DbNull } }) },
       select: { slug: true, title: true, titleBn: true, seo: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
@@ -85,6 +87,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
     // carries this feature — resolved server-side so a crafted request
     // can never remove the credit on its own.
     isFeatureEnabled(site.institutionId, 'website_remove_branding'),
+    templateRoutes(site, preview),
   ]);
   const rawSettings = (site.settings && typeof site.settings === 'object' ? (site.settings as Record<string, unknown>) : {}) as Record<string, unknown>;
 
@@ -125,6 +128,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
       titleBn: p.titleBn,
       noindex: Boolean((p.seo as Record<string, unknown> | null)?.noindex),
     })),
+    templateRoutes: templates,
   };
 }
 
@@ -141,6 +145,8 @@ export async function getPublicPage(siteId: string, slugParam: string, previewTo
       slug: page.slug,
       title: page.title,
       titleBn: page.titleBn,
+      kind: page.kind,
+      collectionKey: page.collectionKey,
       seo: page.seo,
       data,
       publishedAt: page.publishedAt,
@@ -319,11 +325,16 @@ async function notifyStaff(
 
 // ── Sitemap / robots / caddy ────────────────────────────────────────────────
 
+function dedupePaths<T extends { path: string }>(entries: T[]): T[] {
+  const seen = new Set<string>();
+  return entries.filter((e) => (seen.has(e.path) ? false : (seen.add(e.path), true)));
+}
+
 export async function sitemap(siteId: string) {
   const { site } = await visibleSite(siteId, null);
-  const [pages, posts, albums, admissions, notices, primaryHost] = await Promise.all([
+  const [pages, posts, albums, admissions, notices, primaryHost, templatePaths] = await Promise.all([
     prisma.sitePage.findMany({
-      where: { siteId: site.id, published: { not: Prisma.DbNull } },
+      where: { siteId: site.id, kind: 'PAGE', published: { not: Prisma.DbNull } },
       select: { slug: true, seo: true, publishedAt: true },
       orderBy: { sortOrder: 'asc' },
     }),
@@ -351,9 +362,11 @@ export async function sitemap(siteId: string) {
       take: 200,
     }),
     primaryActiveHost(site.id),
+    // W5: every item URL of each collection that has a published template page.
+    templateSitemapPaths(site),
   ]);
   const base = liveBaseUrl(site.subdomain, primaryHost);
-  const entries = [
+  const entries = dedupePaths([
     ...pages
       .filter((p) => !(p.seo as Record<string, unknown> | null)?.noindex)
       .map((p) => ({ path: p.slug ? `/${p.slug}` : '/', lastmod: p.publishedAt })),
@@ -361,7 +374,8 @@ export async function sitemap(siteId: string) {
     ...albums.map((a) => ({ path: `/gallery/${a.id}`, lastmod: a.updatedAt })),
     ...admissions.map((a) => ({ path: `/admissions/${a.id}`, lastmod: a.updatedAt })),
     ...notices.map((n) => ({ path: `/notices/${n.id}`, lastmod: n.publishedAt })),
-  ];
+    ...templatePaths,
+  ]);
   return buildSitemap(base, entries);
 }
 

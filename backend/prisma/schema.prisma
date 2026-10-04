@@ -402,6 +402,8 @@ model Class {
   branch         Branch            @relation(fields: [branchId], references: [id])
   name           String // e.g. "Grade 5"
   level          Int               @default(1)
+  // Website collections (W1): opaque public URL slug, generated lazily.
+  publicSlug     String?           @unique
   sections       Section[]
   students       Student[]
   mediumId       String?
@@ -632,6 +634,10 @@ model User {
   // StaffProfile row (or a staff member without a Teacher row) still has
   // a single, unambiguous place to opt in.
   showOnWebsite            Boolean                  @default(false)
+  // Website collections (W1): opaque public URL slug (kebab name + random
+  // suffix), generated when showOnWebsite turns on. Globally unique, so unique
+  // per institution too. Null until generated.
+  publicSlug               String?                  @unique
   lastLoginAt              DateTime?
   failedLoginAttempts      Int                      @default(0)
   lockedUntil              DateTime?
@@ -813,6 +819,9 @@ model Student {
   weight               String? // deliberately free-text, not numeric
   hobbies              String? // comma-separated free text, e.g. "Reading,Singing"
   avatarUrl            String?
+  // Website collections (W7): guardian consent to appear on the public toppers
+  // list. Off by default; toppers also need settings.showToppers.
+  publicConsent        Boolean               @default(false)
   admissionDate        DateTime              @default(now())
   status               String                @default("ACTIVE") // ACTIVE, INACTIVE, GRADUATED, TRANSFERRED
   createdAt            DateTime              @default(now())
@@ -1249,6 +1258,7 @@ model Assignment {
   parentAssignmentId String?
   parentAssignment   Assignment?  @relation("AssignmentSubmissions", fields: [parentAssignmentId], references: [id], onDelete: Cascade)
   submissions        Assignment[] @relation("AssignmentSubmissions")
+
 
   @@unique([parentAssignmentId, createdByUserId])
   @@index([institutionId])
@@ -2808,6 +2818,9 @@ model Site {
   albums             SiteAlbum[]
   downloads          SiteDownload[]
   admissionCirculars SiteAdmissionCircular[]
+
+  // Website custom modules (Track MOD)
+  modules            SiteModule[]
 }
 
 model SitePage {
@@ -2829,11 +2842,17 @@ model SitePage {
   // The home page is a system page and cannot be deleted.
   isSystem           Boolean           @default(false)
   scheduledPublishAt DateTime?
+  // Website collections (W5): PAGE = ordinary page, TEMPLATE = the profile
+  // page design for one collection (/teachers/:slug ...).
+  kind               SitePageKind      @default(PAGE)
+  collectionKey      String?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   versions           SitePageVersion[]
 
   @@unique([siteId, slug])
+  // One template page per collection per site (NULLs do not collide).
+  @@unique([siteId, collectionKey])
   @@index([institutionId])
   @@index([scheduledPublishAt])
 }
@@ -3407,3 +3426,79 @@ model NotificationBroadcast {
 }
 
 
+
+// =============================================================================
+// FEATURES v4 (docs/plans/FEATURES_V4_PLAN.md). Each track adds its models
+// directly below its own marker only, so parallel work never collides.
+// =============================================================================
+
+// === TRACK AI: lesson builder (TeachingResource …) ===
+
+// === TRACK WEB: website collections ===
+
+enum SitePageKind {
+  PAGE
+  TEMPLATE
+}
+
+// === TRACK ATT: attendance devices & consent ===
+
+// === TRACK MOD: website custom modules (SiteModule …) ===
+// Website Builder W13 (FEATURES_V4_PLAN §1b): a school's own reusable block —
+// a fields schema (the editor form), a Liquid template, CSS and optional JS.
+// The draft lives on SiteModule; every publish snapshots it into
+// SiteModuleVersion and pages render the published snapshot only.
+enum SiteModuleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model SiteModule {
+  id               String              @id @default(cuid())
+  siteId           String
+  site             Site                @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  institutionId    String
+  // Stable key referenced by page data ({ type: "CustomModule", props: { moduleKey } }).
+  key              String
+  name             String
+  nameBn           String?
+  description      String?
+  category         String              @default("general")
+  icon             String?
+  // Field definitions (see sites.modules.logic.ts ModuleFieldsSchema).
+  fields           Json
+  template         String              @db.Text
+  css              String              @default("") @db.Text
+  js               String              @default("") @db.Text
+  status           SiteModuleStatus    @default(DRAFT)
+  // Highest version number snapshotted so far (0 = never published).
+  version          Int                 @default(0)
+  publishedVersion Int?
+  publishedAt      DateTime?
+  // The draft differs from the published snapshot.
+  hasDraftChanges  Boolean             @default(true)
+  createdByUserId  String?
+  updatedByUserId  String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  versions         SiteModuleVersion[]
+
+  @@unique([siteId, key])
+  @@index([institutionId])
+  @@index([siteId, status])
+}
+
+model SiteModuleVersion {
+  id              String     @id @default(cuid())
+  moduleId        String
+  module          SiteModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  version         Int
+  // { name, nameBn, description, category, icon, fields, template, css, js }
+  snapshot        Json
+  note            String?
+  createdByUserId String
+  createdAt       DateTime   @default(now())
+
+  @@unique([moduleId, version])
+  @@index([moduleId, createdAt])
+}

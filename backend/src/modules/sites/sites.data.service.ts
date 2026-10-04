@@ -140,7 +140,8 @@ export async function toppers(siteId: string, q: { examId?: string; limit: numbe
 
   const [rows, bands] = await Promise.all([
     prisma.examResult.findMany({
-      where: { institutionId: site.institutionId, examId: exam.id, student: { status: 'ACTIVE' } },
+      // W7: a student appears in the toppers list only with guardian consent (publicConsent).
+      where: { institutionId: site.institutionId, examId: exam.id, student: { status: 'ACTIVE', publicConsent: true } },
       select: {
         studentId: true,
         subject: true,
@@ -257,7 +258,7 @@ export async function routine(siteId: string, q: { class?: string; section?: str
     where: { institutionId: site.institutionId, className: q.class, ...(q.section ? { sectionName: q.section } : {}) },
     select: {
       dayOfWeek: true, startTime: true, endTime: true, className: true, sectionName: true, subject: true, roomNumber: true,
-      teacher: { select: { user: { select: { firstName: true, lastName: true } } } },
+      teacher: { select: { user: { select: { firstName: true, lastName: true, institutionId: true, showOnWebsite: true, isActive: true, status: true } } } },
     },
     orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
     take: 500,
@@ -266,7 +267,11 @@ export async function routine(siteId: string, q: { class?: string; section?: str
     classes: [],
     slots: slots.map(({ teacher, ...s }) => ({
       ...s,
-      teacherName: teacher ? `${teacher.user.firstName} ${teacher.user.lastName}`.trim() : null,
+      // W7: the teacher's name is public only if that teacher opted in (showOnWebsite).
+      teacherName:
+        teacher && teacher.user.showOnWebsite && teacher.user.isActive && teacher.user.status === 'ACTIVE' && teacher.user.institutionId === site.institutionId
+          ? `${teacher.user.firstName} ${teacher.user.lastName}`.trim()
+          : null,
     })),
   };
 }

@@ -83,5 +83,5 @@ export function templateApplyPayload(t: SiteTemplate, mode: 'replace' | 'merge')
 
 /** A copy of the template's pages with every token filled from `tokens`. */
 export function fillTemplateTokens(pages: TemplatePage[], tokens: TokenMap): TemplatePage[] {
-  return fillTokensDeep(pages, tokens, { skipKeys: ['id', 'type', 'slug', 'href'] });
+  return fillTokensDeep(pages, tokens, { skipKeys: ['id', 'type', 'slug', 'href'], keepScopeTokens: true });
 }

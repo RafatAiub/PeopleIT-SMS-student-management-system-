@@ -1,9 +1,13 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load env file from current CWD or subfolder fallback
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+// Load env file from current CWD or subfolder fallback. SKIP_DOTENV=true makes
+// the process use only its own environment — scripts/dev-local.cmd sets it so
+// a local dev server can never pick up production values from backend/.env.
+if (process.env.SKIP_DOTENV !== 'true') {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
+}
 
 import { z } from 'zod';
 
@@ -101,6 +105,13 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('false'),
+  // Schedulers (overdue marking, report emails, domain checks …) and the
+  // BullMQ queue workers. On by default; set BACKGROUND_JOBS=false for a
+  // light local dev server that only answers API requests.
+  BACKGROUND_JOBS: z
+    .string()
+    .transform((v) => v !== 'false')
+    .default('true'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
