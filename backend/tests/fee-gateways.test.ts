@@ -114,6 +114,16 @@ describe('Nagad crypto helpers', () => {
     expect(nagadDecrypt(cipher, bare(pem(merchant.privateKey, 'pkcs8')))).toBe(plain);
   });
 
+  it('rejects a block that is not PKCS#1 v1.5 padded', () => {
+    // A raw RSA block of the right size, encrypted with NO padding, whose
+    // first two bytes are not 0x00 0x02 — must fail loudly, not return junk.
+    const block = Buffer.alloc(256, 0x41);
+    const cipher = crypto
+      .publicEncrypt({ key: pem(merchant.publicKey, 'spki'), padding: crypto.constants.RSA_NO_PADDING }, block)
+      .toString('base64');
+    expect(() => nagadDecrypt(cipher, pem(merchant.privateKey, 'pkcs8'))).toThrow('invalid PKCS#1 v1.5 padding');
+  });
+
   it('sign/verify round-trips and rejects tampering or the wrong key', () => {
     const plain = '{"a":1}';
     const sig = nagadSign(plain, pem(merchant.privateKey, 'pkcs8'));
