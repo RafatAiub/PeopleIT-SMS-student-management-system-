@@ -19,7 +19,7 @@
     "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
+    "concurrently": "^10.0.5",
     "playwright": "^1.61.1"
   },
   "engines": {
