@@ -41,7 +41,7 @@ jobs:
     outputs:
       prefix: ${{ steps.prefix.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Image prefix (GHCR needs lowercase)
         id: prefix
@@ -126,7 +126,7 @@ jobs:
       MIGRATE: ${{ (github.event_name == 'workflow_dispatch' && inputs.migrate) || (github.event_name == 'push' && vars.AUTO_MIGRATE == 'true') }}
       DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/peoplenit' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: SSH key
         run: |
