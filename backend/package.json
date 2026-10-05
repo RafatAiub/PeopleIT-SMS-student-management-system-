@@ -18,7 +18,7 @@
     "@anthropic-ai/sdk": "^0.128.0",
     "@prisma/client": "^5.14.0",
     "@types/archiver": "^6.0.4",
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
