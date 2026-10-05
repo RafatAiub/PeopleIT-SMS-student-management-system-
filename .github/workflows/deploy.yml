@@ -1,6 +1,9 @@
 name: Deploy to VPS
 
 # Push to main → CI → build images → (approval) → deploy to the Contabo VPS.
+# Only runs when the repository variable DEPLOY_TARGET=vps is set. Production
+# currently runs on Render (backend, from main) and Vercel (frontend), which
+# deploy on their own. CI still runs on every push to main.
 # Migrations run only when asked: the "migrate" input on a manual run, or the
 # repository variable AUTO_MIGRATE=true for pushes. Back up the database first.
 on:
@@ -33,7 +36,7 @@ jobs:
   images:
     name: Build and push images
     needs: ci
-    if: ${{ !inputs.tag }}
+    if: ${{ vars.DEPLOY_TARGET == 'vps' && !inputs.tag }}
     runs-on: ubuntu-latest
     outputs:
       prefix: ${{ steps.prefix.outputs.value }}
@@ -86,6 +89,7 @@ jobs:
   # after the images have already been built and pushed.
   preflight:
     name: Check deploy settings
+    if: ${{ vars.DEPLOY_TARGET == 'vps' }}
     runs-on: ubuntu-latest
     steps:
       - name: Required secrets and variables
@@ -110,7 +114,7 @@ jobs:
     name: Deploy
     needs: [preflight, images]
     # Runs after a build, or on its own for a rollback (tag given).
-    if: ${{ always() && (needs.images.result == 'success' || inputs.tag) }}
+    if: ${{ vars.DEPLOY_TARGET == 'vps' && always() && (needs.images.result == 'success' || inputs.tag) }}
     runs-on: ubuntu-latest
     # Add required reviewers to this environment in GitHub settings to get an
     # approval step before production changes.
