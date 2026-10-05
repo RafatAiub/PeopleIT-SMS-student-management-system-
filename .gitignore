@@ -54,3 +54,6 @@ backend/uploads/
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Local-only secrets for scripts/dev-local.cmd (e.g. Brevo SMTP) — never commit.
+scripts/dev-local.secrets.cmd
