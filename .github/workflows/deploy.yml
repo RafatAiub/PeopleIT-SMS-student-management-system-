@@ -82,9 +82,33 @@ jobs:
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
 
+  # Fails in seconds with the exact missing setting, instead of an SSH error
+  # after the images have already been built and pushed.
+  preflight:
+    name: Check deploy settings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Required secrets and variables
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+        run: |
+          missing=()
+          for name in VPS_HOST VPS_USER VPS_SSH_KEY VPS_KNOWN_HOSTS APP_DOMAIN; do
+            [ -z "${!name}" ] && missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Deploy is not configured. Add these in GitHub → Settings → Secrets and variables → Actions: ${missing[*]}"
+            exit 1
+          fi
+          echo "All deploy settings are present."
+
   deploy:
     name: Deploy
-    needs: [images]
+    needs: [preflight, images]
     # Runs after a build, or on its own for a rollback (tag given).
     if: ${{ always() && (needs.images.result == 'success' || inputs.tag) }}
     runs-on: ubuntu-latest

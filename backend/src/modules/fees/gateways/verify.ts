@@ -118,11 +118,27 @@ export function nagadEncrypt(plain: string, nagadPublicKey: string): string {
     .toString('base64');
 }
 
-/** RSA PKCS#1 v1.5 decrypt with the merchant private key. */
+/**
+ * RSA PKCS#1 v1.5 decrypt with the merchant private key.
+ *
+ * Node >= 18.19.1 / 20.11.1 throws "RSA_PKCS1_PADDING is no longer supported
+ * for private decryption" (CVE-2023-46809, the Marvin timing attack), but
+ * Nagad's protocol mandates v1.5. So decrypt raw (RSA_NO_PADDING is still
+ * allowed) and strip the v1.5 padding here. The timing-oracle risk does not
+ * apply: the ciphertext only ever comes from Nagad's API response over TLS,
+ * never from an attacker-chosen input.
+ */
 export function nagadDecrypt(cipherB64: string, merchantPrivateKey: string): string {
-  return crypto
-    .privateDecrypt({ key: toPem(merchantPrivateKey, 'PRIVATE'), padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(cipherB64, 'base64'))
-    .toString('utf8');
+  const block = crypto.privateDecrypt(
+    { key: toPem(merchantPrivateKey, 'PRIVATE'), padding: crypto.constants.RSA_NO_PADDING },
+    Buffer.from(cipherB64, 'base64'),
+  );
+  // EM = 0x00 || 0x02 || PS (>= 8 non-zero bytes) || 0x00 || M
+  const separator = block.indexOf(0x00, 2);
+  if (block[0] !== 0x00 || block[1] !== 0x02 || separator < 10) {
+    throw new Error('Nagad decrypt: invalid PKCS#1 v1.5 padding');
+  }
+  return block.subarray(separator + 1).toString('utf8');
 }
 
 /** SHA256withRSA signature by the merchant private key → base64. */
