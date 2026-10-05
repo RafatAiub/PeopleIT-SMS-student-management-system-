@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "playwright": "^1.61.1"
+    "playwright": "^1.63.0"
   },
   "engines": {
     "node": ">=20.0.0",
