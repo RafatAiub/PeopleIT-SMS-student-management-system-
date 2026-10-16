@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
-import { AppError, ValidationError, LockedError, AuthRequirementError } from '../utils/AppError';
+import { AppError, ValidationError, LockedError, AuthRequirementError, ModuleDisabledError } from '../utils/AppError';
 import { errorResponse } from '../utils/response';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
@@ -59,6 +59,18 @@ export function globalErrorHandler(
       return errorResponse(res, err.message, err.statusCode, {
         code: err.code,
         ...(err.details ?? {}),
+      });
+    }
+
+    // A switched-off module: top-level `code` (the T0 contract) plus the
+    // usual `errors` slot, so both `body.code` and `body.errors.code` work.
+    if (err instanceof ModuleDisabledError) {
+      return res.status(err.statusCode).json({
+        success: false,
+        message: err.message,
+        code: err.code,
+        module: err.module,
+        errors: { code: err.code, module: err.module },
       });
     }
 

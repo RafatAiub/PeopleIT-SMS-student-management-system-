@@ -1,4 +1,5 @@
 import React from 'react';
+import DonationsWidget from '../donations/DonationsWidget';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { CircleDollarSign, Receipt, TrendingUp, FileBarChart, Users } from 'lucide-react';
@@ -79,6 +80,9 @@ export const AccountantDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* T1 donations widget (renders nothing while the module is off) */}
+      <DonationsWidget />
     </div>
   );
 };

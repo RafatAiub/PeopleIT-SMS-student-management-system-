@@ -66,6 +66,8 @@ export const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> =
   PAYSLIP_ISSUED: ['IN_APP', 'EMAIL'],
   // Tenant data export — the admin who requested it.
   DATA_EXPORT_READY: ['IN_APP', 'EMAIL'],
+  // T1 donations: monthly pledge reminder (donor linked to a portal user).
+  DONATION_REMINDER: ['IN_APP', 'EMAIL', 'SMS'],
 };
 
 /**

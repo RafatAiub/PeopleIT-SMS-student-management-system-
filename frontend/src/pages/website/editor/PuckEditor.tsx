@@ -2,7 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Puck, createUsePuck, useGetPuck, type ComponentData, type Config, type Data, type Field } from '@puckeditor/core';
 import '@puckeditor/core/puck.css';
-import { siteConfig, BLOCK_CATEGORIES, SITE_COMPONENTS } from '@/site/config';
+import { siteConfig, availableCategories, SITE_COMPONENTS } from '@/site/config';
 import { modulePaletteComponents } from '@/site/modules/CustomModule';
 import { normaliseModuleTypes, setEditorModules } from '@/site/modules/registry';
 import { moduleAliasType, type ModuleDef } from '@/site/modules/types';
@@ -32,13 +32,14 @@ interface Env {
  * dashboard language, plus one "My modules" entry per published custom module
  * (alias types, normalised to CustomModule on change — see modules/registry.ts).
  */
-function editorConfigFor(lang: string, sampleField: Field | null, modules: ModuleDef[]): Config {
+function editorConfigFor(lang: string, sampleField: Field | null, modules: ModuleDef[], enabledSwitches: string[] | null): Config {
   const moduleEntries = modulePaletteComponents(modules, SITE_COMPONENTS.CustomModule, lang === 'bn' ? 'bn' : 'en');
   return {
     ...siteConfig,
     components: { ...siteConfig.components, ...moduleEntries },
     categories: Object.fromEntries(
-      BLOCK_CATEGORIES.map((c) => [
+      // T0: blocks bound to a switched-off module are left out of the palette.
+      availableCategories(enabledSwitches).map((c) => [
         c.key,
         {
           title: lang === 'bn' ? c.titleBn : c.title,
@@ -231,7 +232,8 @@ function PuckEditorInner({ data, headerTitle, onChange, actions, collectionKey, 
     } as Field;
   }, [api, siteId, collectionKey]);
 
-  const config = React.useMemo(() => editorConfigFor(lang, sampleField, modules), [lang, sampleField, modules]);
+  const enabledSwitches = useSiteRuntime().modules;
+  const config = React.useMemo(() => editorConfigFor(lang, sampleField, modules, enabledSwitches), [lang, sampleField, modules, enabledSwitches]);
   return (
     <ActionsContext.Provider value={actions}>
       <EnvContext.Provider value={env}>

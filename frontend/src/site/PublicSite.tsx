@@ -31,6 +31,7 @@ import { UrlScope } from './scopeContext';
 import { matchTemplateRoute } from './collections';
 import { CartView } from './public/Cart';
 import { CheckoutView, OrderLookupView, OrderStatusView } from './public/Checkout';
+import { DonationStatusView } from './public/DonationStatus';
 import { CourseDetailView, CoursesListView } from './public/Courses';
 import { LearnIndexView, LearnPlayerView } from './public/Learn';
 import { ShopListView, ShopProductView } from './public/Shop';
@@ -193,6 +194,7 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       case 'checkout': content = <CheckoutView />; break;
       case 'order-lookup': content = <OrderLookupView />; break;
       case 'order-status': content = <OrderStatusView orderNo={route.orderNo} />; break;
+      case 'donation-status': content = <DonationStatusView reference={route.reference} />; break;
       case 'courses-list': content = <CoursesListView />; break;
       case 'course-detail': content = <CourseDetailView slug={route.slug} />; break;
       case 'learn-index': content = <LearnIndexView />; break;
@@ -224,6 +226,7 @@ function SiteShell({ target, basePath, path }: { target: Target; basePath: strin
       basePath={basePath}
       previewToken={previewToken}
       poweredBy={site.poweredBy !== false}
+      modules={site.modules ?? []}
     >
       <UrlScope params={urlParams}>
       <SiteCustomCode hostMode={hostMode} />

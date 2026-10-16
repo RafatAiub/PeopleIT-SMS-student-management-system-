@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Users, Receipt, UserCheck, FileText, Download, Megaphone, Bus, Library,
-  Phone, Mail, CheckCircle2, AlertTriangle, Bell,
+  Phone, Mail, CheckCircle2, AlertTriangle, Bell, HandHeart,
 } from 'lucide-react';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ import { useAuthStore } from '../../store/authStore';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ErrorState, Button } from '../../components/ui';
+import { ModuleGate } from '../../components/common/ModuleGate';
 import { AttendanceHeatmap, type HeatmapDay } from '../../components/Charts/AttendanceHeatmap';
 import { formatCurrency, formatDate } from '../../i18n';
 
@@ -222,6 +223,20 @@ const GuardianDashboard: React.FC = () => {
           <StatTile label="New Notices" value={`${notices.length}`} status="info" helpText="From the school" />
         </div>
       )}
+
+      {/* T1: "My donations" shortcut — only while the school has Donations switched on */}
+      <ModuleGate module="islamic.donations">
+        <Link to="/donations/mine" className="glass-card p-5 flex items-center justify-between gap-4 hover:border-primary-300 dark:hover:border-primary-500/30 transition-colors">
+          <span className="flex items-center gap-3">
+            <HandHeart className="w-6 h-6 text-primary-700 dark:text-primary-400" aria-hidden />
+            <span>
+              <span className="block font-bold text-slate-900 dark:text-white">My donations</span>
+              <span className="block text-sm text-slate-600 dark:text-slate-400">Your donations to the school and their receipts</span>
+            </span>
+          </span>
+          <span className="text-sm font-semibold text-primary-700 dark:text-primary-400">Open</span>
+        </Link>
+      </ModuleGate>
 
       {noticesQuery.isError ? (
         <ErrorState compact onRetry={() => noticesQuery.refetch()} message="Could not load announcements." />

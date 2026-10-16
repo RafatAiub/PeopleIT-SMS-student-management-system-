@@ -39,6 +39,8 @@ export const NOTIFICATION_TYPES = [
   'PAYSLIP_ISSUED',
   // Tenant data export
   'DATA_EXPORT_READY',
+  // T1 donations: monthly pledge reminder to a donor who has a portal account
+  'DONATION_REMINDER',
 ] as const;
 
 // Subset that concerns platform subscription billing — used by the frontend

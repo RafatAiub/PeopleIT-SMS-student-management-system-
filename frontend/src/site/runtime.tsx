@@ -52,6 +52,13 @@ export interface SiteRuntime {
    * `settings` on the client; defaults to `true` (show the credit).
    */
   poweredBy: boolean;
+  /**
+   * T0 module-switch keys that are ON for this school (`resolve`'s
+   * `site.modules`; the editor passes the dashboard's own switches). A block
+   * bound to a module (config.tsx BLOCK_MODULES) renders nothing unless its
+   * key is listed. `null` = unknown, treated as "none on".
+   */
+  modules: string[] | null;
   /** `GET /data/profile` (Track B §7.3), fetched lazily so tokens like `{{institution.eiin}}` can fill in once it loads; `null` until fetched or on a design preview with no siteId. */
   profile?: PublicProfile | null;
 }
@@ -67,6 +74,7 @@ const DEFAULT_RUNTIME: SiteRuntime = {
   tokens: buildSiteTokens({}),
   liteMode: false,
   poweredBy: true,
+  modules: null,
   profile: null,
   api: siteApi,
 };
@@ -89,13 +97,15 @@ export interface SiteRuntimeProviderProps {
   previewToken?: string | null;
   /** Server-computed footer-credit gate (`resolve`'s `site.poweredBy`); defaults to `true`. */
   poweredBy?: boolean;
+  /** T0: enabled module keys (see SiteRuntime.modules). */
+  modules?: string[] | null;
   children: ReactNode;
 }
 
 export function SiteRuntimeProvider(props: SiteRuntimeProviderProps) {
   const {
     siteId, lang = 'en', setLang, mode = 'public', institution = null, settings = DEFAULT_SETTINGS,
-    theme = DEFAULT_THEME, navigation, pages, subdomain, canonicalUrl, basePath = '', previewToken, poweredBy = true, children,
+    theme = DEFAULT_THEME, navigation, pages, subdomain, canonicalUrl, basePath = '', previewToken, poweredBy = true, modules = null, children,
   } = props;
   const api = useMemo(() => (previewToken ? createSiteApi(previewToken) : siteApi), [previewToken]);
   // Fetched lazily (not part of `resolve`) so the profile-only tokens
@@ -117,9 +127,10 @@ export function SiteRuntimeProvider(props: SiteRuntimeProviderProps) {
       tokens: buildSiteTokens({ institution, settings, lang, profile: profileQ.data }),
       liteMode: settings.liteMode === true,
       poweredBy,
+      modules,
       profile: profileQ.data ?? null,
     }),
-    [siteId, lang, setLang, mode, institution, settings, theme, navigation, pages, subdomain, canonicalUrl, basePath, previewToken, api, poweredBy, profileQ.data],
+    [siteId, lang, setLang, mode, institution, settings, theme, navigation, pages, subdomain, canonicalUrl, basePath, previewToken, api, poweredBy, modules, profileQ.data],
   );
   return <SiteRuntimeContext.Provider value={value}>{children}</SiteRuntimeContext.Provider>;
 }

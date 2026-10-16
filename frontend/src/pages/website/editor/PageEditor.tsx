@@ -6,6 +6,7 @@ import type { Data } from '@puckeditor/core';
 import { Button, Badge, ErrorState, Skeleton, Alert, Tooltip } from '@/components/ui';
 import { useT } from '@/i18n';
 import { SiteRuntimeProvider } from '@/site/runtime';
+import { useModules } from '@/hooks/useModules';
 import { normaliseNavigation, normaliseSettings, normaliseTheme } from '@/site/theme';
 import { isCodePage } from '@/site/code/codePage';
 import type { PublicInstitution, SiteLang } from '@/site/types';
@@ -35,6 +36,12 @@ const EditorSkeleton: React.FC = () => (
  * first, then copies the draft to the live page.
  */
 export default function PageEditor() {
+  // T0: the dashboard's own module switches drive which blocks the editor offers.
+  const modulesQ = useModules();
+  const enabledModuleKeys = React.useMemo(
+    () => (modulesQ.data ? modulesQ.data.modules.filter((m) => m.enabled).map((m) => m.key as string) : null),
+    [modulesQ.data],
+  );
   const t = useT();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -244,6 +251,7 @@ export default function PageEditor() {
             subdomain={me.site.subdomain}
             basePath={`/s/${me.site.subdomain}`}
             previewToken={previewToken}
+            modules={enabledModuleKeys}
           >
             {isCode ? (
               <div className="h-full flex flex-col min-h-0">

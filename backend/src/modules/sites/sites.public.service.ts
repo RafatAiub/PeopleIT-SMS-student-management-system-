@@ -31,6 +31,7 @@ import { normalizeHostname, wwwAlternate } from './domains/hostname';
 import { primaryActiveHost } from './sites.repository';
 import { isFeatureEnabled } from '../saas/entitlements.service';
 import { templateRoutes, templateSitemapPaths } from './sites.collections.templates';
+import { getModules } from '../institution/modules.service';
 
 const NOT_FOUND = 'Site not found';
 
@@ -71,7 +72,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
   const preview = verifyPreviewToken(q.preview, site.id);
   if (!preview && site.status !== 'PUBLISHED') throw new NotFoundError(NOT_FOUND);
 
-  const [institution, pages, primaryHost, brandingFeature, templates] = await Promise.all([
+  const [institution, pages, primaryHost, brandingFeature, templates, modules] = await Promise.all([
     prisma.institution.findUniqueOrThrow({
       where: { id: site.institutionId },
       select: { name: true, slug: true, logoUrl: true, address: true, contactEmail: true, contactPhone: true, email: true, phone: true },
@@ -88,6 +89,9 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
     // can never remove the credit on its own.
     isFeatureEnabled(site.institutionId, 'website_remove_branding'),
     templateRoutes(site, preview),
+    // T0: switched-on modules, so module-bound blocks (e.g. Donate) render
+    // nothing when the school has the module off.
+    getModules(site.institutionId),
   ]);
   const rawSettings = (site.settings && typeof site.settings === 'object' ? (site.settings as Record<string, unknown>) : {}) as Record<string, unknown>;
 
@@ -109,6 +113,7 @@ export async function resolveSite(q: { host?: string; slug?: string; preview?: s
       ),
       publishedAt: site.publishedAt,
       canonicalUrl: liveBaseUrl(site.subdomain, primaryHost),
+      modules: modules.filter((m) => m.enabled).map((m) => m.key),
     },
     institution: {
       name: institution.name,

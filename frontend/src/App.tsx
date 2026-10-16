@@ -13,6 +13,7 @@ import { SubscriptionBanner } from './components/common/SubscriptionBanner';
 import { CommandPalette } from './components/Layout/CommandPalette';
 import { useMySubscription } from './hooks/useBilling';
 import apiClient from './api/client';
+import { ModuleGate } from './components/common/ModuleGate';
 
 // Helper wrapper for React.lazy to auto-recover when deployment chunk filenames change
 const lazyWithRetry = (importFn: () => Promise<any>) =>
@@ -151,6 +152,10 @@ const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'))
 const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/SubscriptionOverview'));
 const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
 const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceipt'));
+// T1 donations (module islamic.donations)
+const DonationsPage = lazyWithRetry(() => import('./pages/donations/DonationsPage'));
+const DonationReceipt = lazyWithRetry(() => import('./pages/donations/DonationReceipt'));
+const MyDonations = lazyWithRetry(() => import('./pages/donations/MyDonations'));
 const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
 const Medium = lazyWithRetry(() => import('./pages/academics/Medium'));
 const Stream = lazyWithRetry(() => import('./pages/academics/Stream'));
@@ -163,7 +168,9 @@ const AssignClassTeacher = lazyWithRetry(() => import('./pages/academics/AssignC
 const AssignStudentClass = lazyWithRetry(() => import('./pages/academics/AssignStudentClass'));
 
 // Protected Route Wrapper
-const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
+// `module` (T0): a module-switch key (lib/modules.ts); while the school has it
+// switched off the route redirects to the dashboard.
+const ProtectedRoute = ({ children, allowedRoles, module }: { children: React.ReactNode, allowedRoles?: string[], module?: string }) => {
   const { isAuthenticated, user, hasHydrated, supportSession } = useAuthStore();
   const location = useLocation();
   // Called unconditionally at the top, before any of this component's early
@@ -223,6 +230,10 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   const BILLING_ALLOWED_PATHS = ['/billing', '/billing/checkout-result'];
   if (user?.role === 'ADMIN' && subscription?.isPaywalled && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
     return <Navigate to="/billing" replace />;
+  }
+
+  if (module) {
+    return <ModuleGate module={module} redirectTo="/">{children}</ModuleGate>;
   }
 
   return <>{children}</>;
@@ -1387,6 +1398,28 @@ const App = () => {
             <DashboardLayout>
               <DesignSystem />
             </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* T1 donations — every route redirects to the dashboard while the module is off */}
+        <Route path="/donations" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']} module="islamic.donations">
+            <DashboardLayout><DonationsPage /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/donations/receipt/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']} module="islamic.donations">
+            <DashboardLayout><DonationReceipt /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/donations/mine" element={
+          <ProtectedRoute module="islamic.donations">
+            <DashboardLayout><MyDonations /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/donations/mine/:id/receipt" element={
+          <ProtectedRoute module="islamic.donations">
+            <DashboardLayout><DonationReceipt mine /></DashboardLayout>
           </ProtectedRoute>
         } />
 

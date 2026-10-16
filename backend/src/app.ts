@@ -64,6 +64,7 @@ import usageRouter from './modules/usage/usage.routes';
 import { sitesRouter, publicSitesRouter } from './modules/sites/sites.routes';
 import emailPublicRouter from './modules/email/email.public.routes';
 import emailAdminRouter from './modules/email/email.admin.routes';
+import { donationsRouter } from './modules/donations/donations.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -332,6 +333,8 @@ app.use('/api/v1/session-years', sessionYearRouter);
 app.use('/api/v1/events', eventRouter);
 app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
+// T1 donations, Zakat & Sadaqah — gated by requireModule('islamic.donations').
+app.use('/api/v1/donations', donationsRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/authorized-emails', authorizedEmailRouter);
 app.use('/api/v1/leads', leadRouter);

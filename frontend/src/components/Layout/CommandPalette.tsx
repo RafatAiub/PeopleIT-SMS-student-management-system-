@@ -7,6 +7,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocaleStore, useT } from '@/i18n';
 import { getNavTargets } from './Sidebar';
+import { useModules } from '@/hooks/useModules';
 import { useDialogBehaviour } from '@/components/ui/Modal';
 import { Modal } from '@/components/ui/Modal';
 import { Kbd } from '@/components/ui/Display';
@@ -58,6 +59,7 @@ export const CommandPalette: React.FC = () => {
   const navigate = useNavigate();
   const t = useT();
   const { user } = useAuthStore();
+  const { data: modulesData } = useModules();
   const { setTheme } = useUiStore();
   const { lang, setLang } = useLocaleStore();
   const { logout } = useAuth();
@@ -92,7 +94,7 @@ export const CommandPalette: React.FC = () => {
   }, [open]);
 
   const commands = React.useMemo<Command[]>(() => {
-    const pages: Command[] = getNavTargets(user?.role).map((n) => ({
+    const pages: Command[] = getNavTargets(user?.role, modulesData?.enabled).map((n) => ({
       id: `nav:${n.to}`,
       label: t(n.label),
       group: t('Pages'),
@@ -122,7 +124,7 @@ export const CommandPalette: React.FC = () => {
       },
     ];
     return [...pages, ...actions];
-  }, [user?.role, t, navigate, setTheme, lang, setLang, logout]);
+  }, [user?.role, modulesData?.enabled, t, navigate, setTheme, lang, setLang, logout]);
 
   const q = query.trim().toLowerCase();
   const results = React.useMemo(() => {

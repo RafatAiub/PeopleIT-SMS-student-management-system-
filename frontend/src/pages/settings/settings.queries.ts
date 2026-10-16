@@ -198,6 +198,10 @@ export const NOTIFICATION_TYPE_GROUPS: NotificationTypeGroup[] = [
       { type: 'DATA_EXPORT_READY', label: 'Data export ready' },
     ],
   },
+  {
+    label: 'Donations',
+    types: [{ type: 'DONATION_REMINDER', label: 'Monthly donation reminder' }],
+  },
 ];
 
 export interface NotificationPreferenceRow {

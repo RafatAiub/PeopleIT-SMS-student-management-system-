@@ -544,6 +544,14 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
     const staffProfiles = await tx.staffProfile.findMany({ where: { institutionId }, select: { id: true } });
     const staffIds = staffProfiles.map((s: any) => s.id);
 
+    // T1 donations — children before funds (fund FKs are RESTRICT).
+    await tx.donation.deleteMany({ where: { institutionId } });
+    await tx.recurringDonation.deleteMany({ where: { institutionId } });
+    await tx.donationDisbursement.deleteMany({ where: { institutionId } });
+    await tx.donationCampaign.deleteMany({ where: { institutionId } });
+    await tx.donor.deleteMany({ where: { institutionId } });
+    await tx.donationFund.deleteMany({ where: { institutionId } });
+
     // Billing & Subscription
     await tx.subscriptionPayment.deleteMany({ where: { institutionId } });
     await tx.subscription.deleteMany({ where: { institutionId } });

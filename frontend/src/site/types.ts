@@ -178,6 +178,8 @@ export interface PublicSiteInfo {
    * field is missing (older/undecided backend responses).
    */
   poweredBy?: boolean;
+  /** T0: module-switch keys the school has on (blocks bound to other modules render nothing). */
+  modules?: string[];
 }
 
 export interface PublicPageRef {

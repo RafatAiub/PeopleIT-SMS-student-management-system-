@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2, Mail } from 'lucide-react';
+import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2, Mail, Puzzle } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { SettingsTabNav, type SettingsNavItem } from './tabs/SettingsTabNav';
@@ -15,8 +15,9 @@ import SecuritySettings from './SecuritySettings';
 import GradingTab from './tabs/GradingTab';
 import PlanUsageTab from './tabs/PlanUsageTab';
 import BranchesTab from './tabs/BranchesTab';
+import ModulesTab from './tabs/ModulesTab';
 
-type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'email-templates' | 'locale' | 'plan' | 'branches';
+type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'email-templates' | 'locale' | 'plan' | 'branches' | 'modules';
 
 const Settings = () => {
   const { user } = useAuthStore();
@@ -37,6 +38,7 @@ const Settings = () => {
         ...(hasTenant
           ? [
               { id: 'branches', label: 'Branches', icon: <Building2 className="w-5 h-5" /> },
+              { id: 'modules', label: 'Modules', icon: <Puzzle className="w-5 h-5" /> },
               { id: 'plan', label: 'Plan & usage', icon: <Gauge className="w-5 h-5" /> },
             ]
           : []),
@@ -83,6 +85,7 @@ const Settings = () => {
             {activeTab === 'locale' && <LanguageRegionTab />}
             {activeTab === 'branches' && hasTenant && <BranchesTab />}
             {activeTab === 'plan' && hasTenant && <PlanUsageTab />}
+            {activeTab === 'modules' && hasTenant && <ModulesTab />}
           </div>
         </div>
       </div>

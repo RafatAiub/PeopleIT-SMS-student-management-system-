@@ -189,6 +189,14 @@ export async function isFeatureEnabled(institutionId: string, key: string): Prom
   return resolveFeature(key, ctx.input);
 }
 
+/** Several feature keys resolved from ONE plan-context load (module switches use this). */
+export async function areFeaturesEnabled(institutionId: string, keys: readonly string[]): Promise<Record<string, boolean>> {
+  const ctx = await loadPlanContext(institutionId);
+  const out: Record<string, boolean> = {};
+  for (const key of keys) out[key] = resolveFeature(key, ctx.input).enabled;
+  return out;
+}
+
 export async function evaluateResourceLimit(
   institutionId: string,
   resource: string,

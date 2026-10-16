@@ -32,6 +32,7 @@ import {
 import { Badge, Grid, LinkButton, Picture, Stack, Text } from './blocks/designer';
 import { CollectionList } from './blocks/collection-list';
 import { CustomModule } from './modules/CustomModule';
+import { CampaignProgress, Donate } from './blocks/donations';
 import type { SiteBlock } from './blocks/shared';
 import { makeBindable } from './bindable';
 
@@ -61,17 +62,41 @@ const RAW_COMPONENTS = {
   CollectionList, Stack, Grid, Text, Picture, LinkButton, Badge,
   // Custom modules (Liquid, W13–W17): one generic block; the editor adds one palette entry per published module
   CustomModule,
+  // T1 donations (module islamic.donations — see BLOCK_MODULES)
+  Donate, CampaignProgress,
 } satisfies Record<string, SiteBlock>;
 
 export type SiteBlockType = keyof typeof RAW_COMPONENTS;
 
+/**
+ * T0 module switches: a block that belongs to a switchable feature declares
+ * its module key here (lib/modules.ts). While the school has that module off
+ * the block is left out of the editor palette and renders nothing publicly.
+ * Blocks not listed are unaffected.
+ */
+export const BLOCK_MODULES: Partial<Record<SiteBlockType, string>> = {
+  Donate: 'islamic.donations',
+  CampaignProgress: 'islamic.donations',
+};
+
+/** May this block be offered / rendered, given the enabled module keys? */
+export function isBlockAvailable(type: string, enabledModules: readonly string[] | null | undefined): boolean {
+  const key = (BLOCK_MODULES as Record<string, string | undefined>)[type];
+  return !key || (enabledModules ?? []).includes(key);
+}
+
+/** BLOCK_CATEGORIES with module-bound blocks the school has switched off removed. */
+export function availableCategories(enabledModules: readonly string[] | null | undefined): BlockCategory[] {
+  return BLOCK_CATEGORIES.map((c) => ({ ...c, components: c.components.filter((b) => isBlockAvailable(b, enabledModules)) }));
+}
+
 /** Every block wrapped once: reserved `_bind` / `_visible` props (see bindable.tsx). */
 export const SITE_COMPONENTS = Object.fromEntries(
-  Object.entries(RAW_COMPONENTS).map(([k, def]) => [k, makeBindable(def)]),
+  Object.entries(RAW_COMPONENTS).map(([k, def]) => [k, makeBindable(def, (BLOCK_MODULES as Record<string, string | undefined>)[k])]),
 ) as Record<SiteBlockType, SiteBlock>;
 
 export interface BlockCategory {
-  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code' | 'portal' | 'designer' | 'modules';
+  key: 'layout' | 'content' | 'media' | 'live' | 'design' | 'commerce' | 'code' | 'portal' | 'designer' | 'modules' | 'giving';
   title: string;
   titleBn: string;
   components: SiteBlockType[];
@@ -101,6 +126,8 @@ export const BLOCK_CATEGORIES: BlockCategory[] = [
     key: 'commerce', title: 'Shop & courses', titleBn: 'দোকান ও কোর্স',
     components: ['ProductGrid', 'FeaturedProduct', 'CartButton', 'CourseGrid', 'FeaturedCourse', 'AccountButton'],
   },
+  // T1: shown only while the school has Donations switched on (availableCategories drops them otherwise).
+  { key: 'giving', title: 'Donations', titleBn: 'দান', components: ['Donate', 'CampaignProgress'] },
   { key: 'code', title: 'Custom code', titleBn: 'কাস্টম কোড', components: ['CustomCode'] },
   // The editor appends one entry per published module (PuckEditor.tsx).
   { key: 'modules', title: 'My modules', titleBn: 'আমার মডিউল', components: ['CustomModule'] },

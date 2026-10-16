@@ -550,6 +550,31 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '{{institutionName}}',
     ].join('\n'),
   },
+
+  // ── DONATION_REMINDER (T1) ──────────────────────────────────────────────
+  'DONATION_REMINDER:IN_APP': {
+    subject: 'Monthly donation reminder',
+    body: 'Your monthly pledge of Tk {{amount}} to {{fundName}} is due on {{dueDate}}. JazakAllahu khairan.',
+  },
+  'DONATION_REMINDER:EMAIL': {
+    subject: 'Monthly donation reminder — {{institutionName}}',
+    body: [
+      'Dear {{donorName}},',
+      '',
+      'This is a gentle reminder of your monthly pledge.',
+      '',
+      '  Fund   : {{fundName}}',
+      '  Amount : Tk {{amount}}',
+      '  Due    : {{dueDate}}',
+      '',
+      'If you have already given this month, please ignore this message. May Allah reward you.',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
+  'DONATION_REMINDER:SMS': {
+    body: 'Reminder: your monthly donation of Tk {{amount}} ({{fundName}}) is due {{dueDate}}. JazakAllah khair. - {{institutionName}}',
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

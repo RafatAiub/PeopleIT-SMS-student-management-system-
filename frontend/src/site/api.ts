@@ -66,6 +66,14 @@ import type {
 import { normaliseNavigation, normaliseSettings, normaliseTheme } from './theme';
 import type { CollectionFieldMeta, CollectionItem, CollectionItemResult, CollectionMeta, CollectionPage, CollectionParams, CollectionRelationMeta, TemplateRoute } from './collections';
 import { toModuleDef, type ModuleDef } from './modules/types';
+import {
+  normaliseDonationOptions,
+  normalisePublicDonation,
+  type CreateDonationInput,
+  type CreateDonationResult,
+  type DonationOptions,
+  type PublicDonation,
+} from './donations';
 
 const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}) as Record<string, string | undefined>;
 
@@ -162,6 +170,7 @@ function normaliseSite(v: unknown): PublicSiteInfo {
     // plan-feature gate (§7.6) and always sends the field; `undefined`/anything but
     // `false` reads as "show the credit", which is the safe default before the field exists.
     poweredBy: o.poweredBy !== false,
+    modules: Array.isArray(o.modules) ? (o.modules as unknown[]).filter((m): m is string => typeof m === 'string') : [],
   };
 }
 
@@ -1027,6 +1036,27 @@ export function createSiteApi(previewToken?: string | null) {
     async demoPay(siteId: string, orderNo: string, body: { email: string; outcome: 'success' | 'fail' }): Promise<PublicOrder> {
       const raw = obj(await post<Obj>(`${sid(siteId)}/orders/${encodeURIComponent(orderNo)}/demo-pay`, body));
       return normaliseOrder(obj(raw.order ?? raw));
+    },
+
+    /* ── T1 donations (404 when the school has the module off) ────────────── */
+
+    async donationOptions(siteId: string): Promise<DonationOptions> {
+      return normaliseDonationOptions(await get(`${sid(siteId)}/donations/options`));
+    },
+
+    async createDonation(siteId: string, body: CreateDonationInput): Promise<CreateDonationResult> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/donations`, body));
+      return { donation: normalisePublicDonation(raw.donation), paymentUrl: str(raw.paymentUrl), demo: raw.demo === true };
+    },
+
+    async getDonation(siteId: string, reference: string): Promise<PublicDonation> {
+      const raw = obj(await get<Obj>(`${sid(siteId)}/donations/${encodeURIComponent(reference)}`));
+      return normalisePublicDonation(raw.donation ?? raw);
+    },
+
+    async demoPayDonation(siteId: string, reference: string, outcome: 'success' | 'fail'): Promise<PublicDonation> {
+      const raw = obj(await post<Obj>(`${sid(siteId)}/donations/${encodeURIComponent(reference)}/demo-pay`, { outcome }));
+      return normalisePublicDonation(raw.donation ?? raw);
     },
 
     /* ── Learning (Bearer required, enrolment ACTIVE) ───────────────────────── */

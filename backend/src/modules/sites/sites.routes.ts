@@ -9,6 +9,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { auditLog } from '../../middleware/audit.middleware';
 import { requireRole } from '../../middleware/rbac.middleware';
 import * as c from './sites.controller';
+import { donationsPublicRouter } from '../donations/donations.routes';
 import {
   ApplyTemplateDto,
   CaddyAskQueryDto,
@@ -465,5 +466,8 @@ publicSitesRouter.post('/:siteId/courses/:slug/enroll', validate({ params: Publi
 publicSitesRouter.get('/:siteId/learn/:courseSlug', validate({ params: LearnParamDto }), lc.learnCourse);
 publicSitesRouter.post('/:siteId/learn/:courseSlug/lessons/:lessonId/complete', validate({ params: LearnLessonParamDto }), lc.completeLesson);
 publicSitesRouter.delete('/:siteId/learn/:courseSlug/lessons/:lessonId/complete', validate({ params: LearnLessonParamDto }), lc.uncompleteLesson);
+
+// T1 donations: /:siteId/donations/... and /pay/donation/:gateway/:kind (404 when the module is off).
+publicSitesRouter.use(donationsPublicRouter);
 
 export default sitesRouter;

@@ -14,6 +14,7 @@ import {
   siteOrderConfirmedEmail,
 } from './site-customer.templates';
 import { formSubmittedAckEmail } from './site-form.templates';
+import { donationReceiptEmail, donationReminderEmail } from './donation.templates';
 import { DEFAULT_TEMPLATES, defaultTemplateKey } from '../../notifications/templates.defaults';
 import { interpolate } from '../../notifications/renderer';
 import { renderPlainBodyToHtml } from '../components';
@@ -148,6 +149,30 @@ export const EMAIL_TEMPLATE_REGISTRY: RegisteredTemplate[] = [
     description: 'Order receipt for the school-website shop.',
     render: () =>
       siteOrderConfirmedEmail({ name: 'Tanvir', institutionName: SAMPLE_INSTITUTION.name, orderNo: 'SO-260929-7K3F', total: 'BDT 1,250.00', orderUrl: 'https://greenvalley.peoplenit.com/account/orders/SO-260929-7K3F', institution: SAMPLE_INSTITUTION }),
+  },
+  {
+    key: 'donation.receipt',
+    description: 'T1 donations: receipt to the donor (EN + Bangla amount in words) when a donation is recorded or paid online.',
+    render: () =>
+      donationReceiptEmail({
+        donorName: 'Abdul Karim',
+        institutionName: SAMPLE_INSTITUTION.name,
+        receiptNo: 'DON-2026-000042',
+        fundName: 'Zakat Fund',
+        fundNameBn: 'যাকাত ফান্ড',
+        amount: 'BDT 5,000.00',
+        amountInWordsEn: 'Five Thousand Taka Only',
+        amountInWordsBn: 'পাঁচ হাজার টাকা মাত্র',
+        paidAt: '16 Oct 2026',
+        method: 'bKash',
+        institution: SAMPLE_INSTITUTION,
+      }),
+  },
+  {
+    key: 'donation.reminder',
+    description: 'T1 donations: monthly pledge reminder to a donor without a portal account.',
+    render: () =>
+      donationReminderEmail({ donorName: 'Abdul Karim', institutionName: SAMPLE_INSTITUTION.name, fundName: 'Sadaqah Fund', amount: 'BDT 1,000.00', dueDate: '5 Nov 2026', institution: SAMPLE_INSTITUTION }),
   },
   {
     key: 'sites.form-submitted-ack',

@@ -76,6 +76,22 @@ export class AuthRequirementError extends AppError {
   }
 }
 
+/**
+ * 403 for a feature whose module the school has switched off (Settings →
+ * Modules) or whose plan doesn't include it. Serialised with a top-level
+ * `code: 'MODULE_DISABLED'` so the UI can hide the feature instead of
+ * showing a generic "access denied".
+ */
+export class ModuleDisabledError extends AppError {
+  public readonly code = 'MODULE_DISABLED' as const;
+  public readonly module: string;
+
+  constructor(module: string, message = 'This feature is switched off for your school.') {
+    super(message, 403);
+    this.module = module;
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(message = 'Resource already exists') {
     super(message, 409);

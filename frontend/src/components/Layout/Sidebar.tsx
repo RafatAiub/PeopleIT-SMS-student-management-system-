@@ -7,7 +7,7 @@ import {
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
   Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, CalendarRange, PartyPopper,
   FileSignature, UsersRound, UserCog, ClipboardCheck, FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe,
-  Settings, CloudDownload,
+  Settings, CloudDownload, HandHeart,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -16,6 +16,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/cn';
 import { Avatar } from '@/components/ui/Display';
+import { useModules } from '@/hooks/useModules';
+import { filterNavEntries } from '@/lib/modules';
 
 type Role = User['role'];
 
@@ -27,6 +29,8 @@ interface NavLeaf {
   label: string;
   /** Roles allowed to see this item. Omit to allow every role. */
   roles?: Role[];
+  /** T0 module switch key (lib/modules.ts) — hidden while that module is off. */
+  module?: string;
 }
 
 /** A top-level entry that is just a link — no children to expand. */
@@ -40,6 +44,8 @@ interface NavLinkEntry extends NavLeaf {
  *  dot-bulleted sub-items indented underneath). */
 interface NavCategoryEntry {
   kind: 'category';
+  /** Hides the whole category while this module is off. */
+  module?: string;
   label: string;
   icon: React.ReactNode;
   children: NavLeaf[];
@@ -235,6 +241,18 @@ const NAV_ENTRIES: NavEntry[] = [
     ],
   },
   {
+    // T1: whole category hidden while the school has Donations switched off.
+    kind: 'category',
+    label: 'Donations',
+    module: 'islamic.donations',
+    icon: <HandHeart className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/donations', label: 'Donations & Zakat', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      { to: '/donations?tab=pledges', label: 'Monthly pledges', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      { to: '/donations/mine', label: 'My donations', roles: ['GUARDIAN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+    ],
+  },
+  {
     kind: 'category',
     label: 'Reports',
     icon: <FileBarChart className="w-4.5 h-4.5" />,
@@ -367,8 +385,8 @@ export const getPageLabel = (pathname: string, role?: Role): string => {
  *  sidebar — used by the command palette so it never offers a page the
  *  sidebar (and route guards) would not. Duplicate routes are collapsed. */
 export interface NavTarget { to: string; label: string; group: string }
-export const getNavTargets = (role?: Role): NavTarget[] => {
-  const entries = role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+export const getNavTargets = (role?: Role, enabledModules?: Record<string, boolean>): NavTarget[] => {
+  const entries = filterNavEntries(role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES, enabledModules);
   const out: NavTarget[] = [];
   const seen = new Set<string>();
   for (const entry of entries) {
@@ -411,7 +429,12 @@ export const Sidebar: React.FC<{ isMobile?: boolean }> = ({ isMobile = false }) 
   const [navFilter, setNavFilter] = React.useState('');
   const [openCategory, setOpenCategory] = React.useState<string | null>(null);
 
-  const entries = user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES;
+  // T0: items bound to a switched-off module are dropped (empty categories too).
+  const { data: modulesData } = useModules();
+  const entries = React.useMemo(
+    () => filterNavEntries(user?.role === 'SUPER_ADMIN' ? SUPER_ADMIN_NAV_ENTRIES : NAV_ENTRIES, modulesData?.enabled),
+    [user?.role, modulesData?.enabled],
+  );
 
   // Several entries open the same page on different tabs (e.g.
   // /website-builder?tab=pages). NavLink matches on pathname only, so a link

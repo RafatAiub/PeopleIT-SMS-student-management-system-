@@ -42,6 +42,16 @@ export const FEATURE_CATALOG = {
   // every other feature; see sites.portal.logic.ts resolvePoweredBy() for
   // how the Sites module combines it with settings.hidePoweredBy.
   website_remove_branding: 'Remove "Powered by" footer credit',
+  // T0 module switches (institution/modules.registry.ts): each switchable
+  // module is also a plan feature, so a plan can leave it out. Unconfigured
+  // resolves to enabled, like every other feature — the school's own switch
+  // (Settings → Modules) then decides.
+  'islamic.donations': 'Donations, Zakat & Sadaqah',
+  'islamic.character': 'Character (Akhlaq) scoring',
+  'islamic.hifz': "Qur'an / Hifz tracker",
+  tutor_payouts: 'Tutor sessions & payouts',
+  appointments: 'Parent–teacher appointments',
+  mailbox: 'Shared school mailbox',
 } as const;
 
 export const LIMIT_CATALOG = {

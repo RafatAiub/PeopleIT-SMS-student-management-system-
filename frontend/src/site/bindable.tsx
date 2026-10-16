@@ -19,7 +19,7 @@ const visibilityField: CustomField<VisibleSpec | undefined> = { type: 'custom', 
 
 type AnyProps = Record<string, unknown>;
 
-function BoundBlock({ Inner, props }: { Inner: ComponentType<AnyProps>; props: AnyProps }): ReactNode {
+function BoundBlock({ Inner, props, moduleKey }: { Inner: ComponentType<AnyProps>; props: AnyProps; moduleKey?: string }): ReactNode {
   const rt = useSiteRuntime();
   const ambient = useScope();
   const editing = rt.mode === 'editor';
@@ -28,6 +28,15 @@ function BoundBlock({ Inner, props }: { Inner: ComponentType<AnyProps>; props: A
   const vis = props._visible as VisibleSpec | undefined;
   const ruled = hasVisibility(vis);
   const show = ruled ? evalVisibility(vis, scope) : true;
+  // T0: a block bound to a switched-off module renders nothing publicly; the
+  // editor keeps a visible stub so an existing page doesn't silently lose it.
+  if (moduleKey && !(rt.modules ?? []).includes(moduleKey)) {
+    return editing ? (
+      <div style={{ padding: 12, border: '1px dashed #94a3b8', borderRadius: 8, color: '#475569', fontSize: 13 }} data-site-module-off={moduleKey}>
+        This block is hidden: its module is switched off in Settings → Modules.
+      </div>
+    ) : null;
+  }
   const el = <Inner {...bound} />;
   if (!ruled) return el;
   if (editing) {
@@ -41,11 +50,12 @@ function BoundBlock({ Inner, props }: { Inner: ComponentType<AnyProps>; props: A
   return cls ? <div className={cls}>{el}</div> : el;
 }
 
-export function makeBindable(def: SiteBlock): SiteBlock {
+/** `moduleKey` (T0): the module switch this block belongs to (config.tsx BLOCK_MODULES). */
+export function makeBindable(def: SiteBlock, moduleKey?: string): SiteBlock {
   const Inner = def.render as unknown as ComponentType<AnyProps>;
   return {
     ...def,
     fields: { ...(def.fields ?? {}), _visible: visibilityField as Field },
-    render: ((props: AnyProps) => <BoundBlock Inner={Inner} props={props} />) as unknown as SiteBlock['render'],
+    render: ((props: AnyProps) => <BoundBlock Inner={Inner} props={props} moduleKey={moduleKey} />) as unknown as SiteBlock['render'],
   };
 }

@@ -798,7 +798,8 @@ async function toPublicOrder(order: {
   };
 }
 
-async function resolveOrderReturnUrl(site: { id: string; institutionId: string; subdomain: string }, raw: string | undefined): Promise<string> {
+/** Exported for the T1 donate flow (same allowed-host rules as shop orders). */
+export async function resolveOrderReturnUrl(site: { id: string; institutionId: string; subdomain: string }, raw: string | undefined): Promise<string> {
   const domains = await repo.listDomains(site.institutionId, site.id);
   const activeHosts = domains.filter((d) => d.status === 'ACTIVE').map((d) => d.hostname);
   const root = platformSiteDomain();

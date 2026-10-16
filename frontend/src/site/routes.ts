@@ -21,6 +21,8 @@ export type SiteRoute =
   | { kind: 'notice-detail'; id: string }
   | { kind: 'album-detail'; id: string }
   | { kind: 'admission-detail'; id: string }
+  /** T1: `donation/<reference>` — the online donation status / thank-you page (two segments, not reserved). */
+  | { kind: 'donation-status'; reference: string }
   | { kind: 'page'; slug: string };
 
 /** First path segments reserved for built-in routes — pages cannot use these slugs (see backend §2). */
@@ -64,6 +66,7 @@ export function parseSitePath(path: string): SiteRoute {
     const sub = second === 'login' || second === 'register' || second === 'orders' || second === 'forgot' || second === 'reset-password' ? second : undefined;
     return { kind: 'account', sub };
   }
+  if (first === 'donation' && second && !third) return { kind: 'donation-status', reference: second };
   if (first && second && !third && first in DETAIL_LIST_SLUGS) {
     return { kind: DETAIL_LIST_SLUGS[first as keyof typeof DETAIL_LIST_SLUGS], id: second };
   }

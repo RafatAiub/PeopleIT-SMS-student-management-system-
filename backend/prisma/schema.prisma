@@ -129,6 +129,20 @@ model Institution {
   site      Site?
   siteMedia SiteMedia[]
 
+  // ── T0: per-school module switches (Settings → Modules) ─────────────
+  // { "<module key>": true|false } — explicit choices only. A key that is
+  // absent falls back to its registry default (src/modules/institution/
+  // modules.registry.ts), so adding a module never needs a backfill.
+  modules Json?
+
+  // ── T1: Donations, Zakat & Sadaqah (module islamic.donations) ───────
+  donationFunds         DonationFund[]
+  donors                Donor[]
+  donations             Donation[]
+  donationCampaigns     DonationCampaign[]
+  recurringDonations    RecurringDonation[]
+  donationDisbursements DonationDisbursement[]
+
   // ── Website v3 — DSHE profile fields (Track B1) ─────────────────────
   // Additive nullable columns directly on Institution rather than a new
   // SiteProfile model: these are singular (one-per-institution) facts,
@@ -692,6 +706,8 @@ model User {
   createdKnowledgeDocuments       KnowledgeDocument[]
   savedReportViews                SavedReportView[]
   createdReportSchedules          ReportSchedule[]
+  // T1: donor profiles linked to this user (e.g. a guardian who also gives)
+  donorProfiles                   Donor[]
 
   @@index([institutionId])
   @@index([branchId])
@@ -3501,4 +3517,216 @@ model SiteModuleVersion {
 
   @@unique([moduleId, version])
   @@index([moduleId, createdAt])
+}
+
+// =============================================================================
+// === TRACK T1: Donations, Zakat & Sadaqah (module islamic.donations) ===
+// Funds (Zakat, Sadaqah, Waqf, Lillah, building, general), donors, one-off
+// and monthly giving, receipts, campaigns, and disbursements so each fund's
+// balance (especially Zakat) is visible. Every row is tenant-scoped by
+// institutionId; the whole feature is gated by requireModule('islamic.donations').
+// Online gifts reuse the fee/shop gateway adapters (bKash, Nagad, SSLCommerz).
+// =============================================================================
+
+enum DonationFundType {
+  ZAKAT
+  SADAQAH
+  WAQF
+  LILLAH
+  BUILDING
+  GENERAL
+  OTHER
+}
+
+enum DonationMethod {
+  CASH
+  BANK
+  BKASH
+  NAGAD
+  SSLCOMMERZ
+  OTHER
+}
+
+enum DonationStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum RecurringDonationStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+model DonationFund {
+  id            String                 @id @default(cuid())
+  institutionId String
+  institution   Institution            @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  nameBn        String?
+  type          DonationFundType       @default(GENERAL)
+  description   String?                @db.Text
+  goalAmount    Decimal?               @db.Decimal(12, 2)
+  active        Boolean                @default(true)
+  // Listed on the public website's donate block / page.
+  showOnWebsite Boolean                @default(false)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  donations     Donation[]
+  campaigns     DonationCampaign[]
+  recurring     RecurringDonation[]
+  disbursements DonationDisbursement[]
+
+  @@index([institutionId, active])
+}
+
+model Donor {
+  id            String              @id @default(cuid())
+  institutionId String
+  institution   Institution         @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  phone         String?
+  email         String?
+  address       String?
+  // Hide the name on public lists.
+  anonymous     Boolean             @default(false)
+  notes         String?             @db.Text
+  // Optional link to a portal user (e.g. a guardian) — powers "My donations".
+  userId        String?
+  user          User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  donations     Donation[]
+  recurring     RecurringDonation[]
+
+  @@index([institutionId])
+  @@index([institutionId, phone])
+  @@index([institutionId, email])
+  @@index([userId])
+}
+
+model DonationCampaign {
+  id            String           @id @default(cuid())
+  institutionId String
+  institution   Institution      @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  fundId        String
+  fund          DonationFund     @relation(fields: [fundId], references: [id], onDelete: Restrict)
+  title         String
+  titleBn       String?
+  description   String?          @db.Text
+  goalAmount    Decimal?         @db.Decimal(12, 2)
+  startDate     DateTime?
+  endDate       DateTime?
+  coverImageUrl String?
+  // Shown on the public website (donate page, campaign progress block).
+  isPublic      Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  donations     Donation[]
+
+  @@index([institutionId])
+  @@index([fundId])
+}
+
+model Donation {
+  id               String             @id @default(cuid())
+  institutionId    String
+  institution      Institution        @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  fundId           String
+  fund             DonationFund       @relation(fields: [fundId], references: [id], onDelete: Restrict)
+  campaignId       String?
+  campaign         DonationCampaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  donorId          String?
+  donor            Donor?             @relation(fields: [donorId], references: [id], onDelete: SetNull)
+  recurringId      String?
+  recurring        RecurringDonation? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+  // Public, unguessable reference (e.g. DN-261016-7K3FQ2XA) — used on the
+  // online return page before a receipt number exists.
+  reference        String             @unique
+  // Snapshot of who gave, for receipts (donor rows can change later).
+  donorName        String?
+  donorPhone       String?
+  donorEmail       String?
+  anonymous        Boolean            @default(false)
+  amount           Decimal            @db.Decimal(12, 2)
+  currency         String             @default("BDT")
+  method           DonationMethod
+  status           DonationStatus     @default(PENDING)
+  // DON-<YEAR>-<6 digits>, assigned when the donation becomes PAID.
+  receiptNo        String?
+  paidAt           DateTime?
+  note             String?
+  // ADMIN = recorded at the office; ONLINE = public donate page.
+  source           String             @default("ADMIN")
+  recordedById     String?
+  siteId           String?
+  // Gateway correlation (internal; never exposed publicly).
+  gatewayTranId    String?            @unique
+  gatewayPaymentId String?
+  gatewayRef       String?            @unique
+  isDemo           Boolean            @default(false)
+  returnUrl        String?
+  refundedAt       DateTime?
+  refundReason     String?
+  refundedById     String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([institutionId, receiptNo])
+  @@index([institutionId, status, paidAt])
+  @@index([institutionId, fundId])
+  @@index([donorId])
+  @@index([campaignId])
+  @@index([recurringId])
+}
+
+model RecurringDonation {
+  id             String                  @id @default(cuid())
+  institutionId  String
+  institution    Institution             @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  donorId        String
+  donor          Donor                   @relation(fields: [donorId], references: [id], onDelete: Cascade)
+  fundId         String
+  fund           DonationFund            @relation(fields: [fundId], references: [id], onDelete: Restrict)
+  amount         Decimal                 @db.Decimal(12, 2)
+  // 1–28, so every month has the day.
+  dayOfMonth     Int
+  status         RecurringDonationStatus @default(ACTIVE)
+  startDate      DateTime
+  nextDueDate    DateTime
+  lastPaidAt     DateTime?
+  lastReminderAt DateTime?
+  remindEmail    Boolean                 @default(true)
+  remindSms      Boolean                 @default(false)
+  note           String?
+  createdById    String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  donations      Donation[]
+
+  @@index([institutionId, status, nextDueDate])
+  @@index([donorId])
+}
+
+// Money paid OUT of a fund (e.g. Zakat distributed to the needy), so each
+// fund's balance = paid donations − disbursements.
+model DonationDisbursement {
+  id            String       @id @default(cuid())
+  institutionId String
+  institution   Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  fundId        String
+  fund          DonationFund @relation(fields: [fundId], references: [id], onDelete: Restrict)
+  amount        Decimal      @db.Decimal(12, 2)
+  paidTo        String
+  purpose       String?
+  date          DateTime
+  note          String?
+  recordedById  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([institutionId, fundId])
+  @@index([institutionId, date])
 }

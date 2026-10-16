@@ -8,6 +8,7 @@ import { UserRole } from '@prisma/client';
 import { CreateInstitutionDto, UpdateWebsiteConfigDto, UpdateInstitutionAdminDto, SetInstitutionStatusDto, StartSupportSessionDto, AdminUserActionDto } from './institution.dto';
 import * as institutionController from './institution.controller';
 import { UpdateInstitutionSettingsDto, getSettingsController, updateSettingsController } from './institution.settings';
+import { UpdateModulesDto, getModulesController, updateModulesController } from './modules.controller';
 
 const router = Router();
 
@@ -132,5 +133,11 @@ router.put('/website', WRITE_ROLES, validate({ body: UpdateWebsiteConfigDto }), 
 // Read by every role so the UI can apply them; writes are Admin-only.
 router.get('/settings', getSettingsController);
 router.put('/settings', WRITE_ROLES, validate({ body: UpdateInstitutionSettingsDto }), updateSettingsController);
+
+// T0 module switches. Read by every role (the UI hides switched-off
+// features); writes are Admin-only, validated against the registry and the
+// school's plan (a super admin may override the plan).
+router.get('/modules', getModulesController);
+router.put('/modules', WRITE_ROLES, validate({ body: UpdateModulesDto }), updateModulesController);
 
 export default router;
