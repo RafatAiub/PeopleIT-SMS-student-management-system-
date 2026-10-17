@@ -65,6 +65,8 @@ import { sitesRouter, publicSitesRouter } from './modules/sites/sites.routes';
 import emailPublicRouter from './modules/email/email.public.routes';
 import emailAdminRouter from './modules/email/email.admin.routes';
 import { donationsRouter } from './modules/donations/donations.routes';
+import { characterRouter } from './modules/character/character.routes';
+import { familiesRouter, familyGatewayRouter } from './modules/families/families.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -294,6 +296,8 @@ app.use('/api/v1/students', studentRouter);
 app.use('/api/v1/student-applications', studentPublicRouter);
 app.use('/api/v1/guardians', guardianRouter);
 // Public fee-gateway callbacks must be mounted before the authenticated fee router.
+// T3 family pay-all gateway callbacks — before the fee gateway router (more specific path).
+app.use('/api/v1/fees/gateway/family', familyGatewayRouter);
 app.use('/api/v1/fees/gateway', feeGatewayRouter);
 app.use('/api/v1/fees', feeRouter);
 app.use('/api/v1/users', userRouter);
@@ -335,6 +339,10 @@ app.use('/api/v1/ai', aiRouter);
 app.use('/api/v1/institution', institutionRouter);
 // T1 donations, Zakat & Sadaqah — gated by requireModule('islamic.donations').
 app.use('/api/v1/donations', donationsRouter);
+// T2 character (Akhlaq) scoring & badges — gated by requireModule('islamic.character').
+app.use('/api/v1/character', characterRouter);
+// T3 family profile (every school).
+app.use('/api/v1/families', familiesRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/authorized-emails', authorizedEmailRouter);
 app.use('/api/v1/leads', leadRouter);

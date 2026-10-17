@@ -28,6 +28,69 @@ interface ReportCardData {
    * (legend, overall grade, colours and PASS banner exactly as before).
    */
   gradingBands?: GradeBandInput[];
+  /** T2 character (Akhlaq) summary; omitted/null → no section. */
+  character?: ReportCardCharacter | null;
+}
+
+export interface ReportCardCharacter {
+  periodName: string;
+  overall: number | null;
+  band: { en: string; bn: string } | null;
+  traits: Array<{ name: string; nameBn: string | null; score: number; max: number }>;
+  badges: string[];
+  points: number;
+  comment: string | null;
+}
+
+/**
+ * The PDF uses the built-in Helvetica/Times fonts, which have no Bengali
+ * glyphs, so Bangla text would print as boxes. Text is printed only when it
+ * is plain Latin; otherwise the reader is pointed to the portal.
+ */
+export function pdfSafeText(text: string | null | undefined): string | null {
+  if (!text) return null;
+  return /^[\x20-\x7E\u00A0-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\n\r\t]*$/.test(text) ? text : null;
+}
+
+/** Draws the "CHARACTER (AKHLAQ)" section; returns nothing, advances doc.y. */
+function drawCharacterSection(doc: PDFKit.PDFDocument, ch: ReportCardCharacter, startX: number, contentWidth: number, pageBottom: number) {
+  const rowH = 14;
+  const cols = 2;
+  const rows = Math.ceil(ch.traits.length / cols);
+  const comment = pdfSafeText(ch.comment);
+  const needed = 20 + 22 + rows * rowH + 16 + (ch.badges.length ? 14 : 0) + (ch.comment ? 16 : 0);
+  if (doc.y + needed > pageBottom) {
+    doc.addPage();
+    doc.y = doc.page.margins.top;
+  }
+  const top = doc.y;
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text(`CHARACTER (AKHLAQ) - ${ch.periodName.toUpperCase()}`, startX, top, { width: contentWidth * 0.7 });
+  const overallText = ch.overall != null ? `${ch.overall}%${ch.band ? ` - ${ch.band.en}` : ''}` : '-';
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(INK).text(`Overall: ${overallText}   Points: ${ch.points}`, startX, top, { width: contentWidth, align: 'right' });
+  const gridTop = top + 16;
+  const colW = contentWidth / cols;
+  doc.rect(startX, gridTop, contentWidth, rows * rowH).lineWidth(1).strokeColor(BORDER).stroke();
+  ch.traits.forEach((t, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = startX + col * colW;
+    const y = gridTop + row * rowH;
+    if (row > 0 && col === 0) doc.moveTo(startX, y).lineTo(startX + contentWidth, y).lineWidth(0.5).strokeColor(BORDER).stroke();
+    doc.font('Helvetica').fontSize(8.5).fillColor(INK).text(pdfSafeText(t.name) ?? 'Trait', x + 8, y + 3, { width: colW * 0.65 });
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text(`${t.score} / ${t.max}`, x + colW * 0.65, y + 3, { width: colW * 0.35 - 10, align: 'right' });
+  });
+  if (cols > 1) doc.moveTo(startX + colW, gridTop).lineTo(startX + colW, gridTop + rows * rowH).lineWidth(0.5).strokeColor(BORDER).stroke();
+  let y = gridTop + rows * rowH + 5;
+  if (ch.badges.length) {
+    const badges = ch.badges.map((b) => pdfSafeText(b) ?? 'Badge').join(', ');
+    doc.font('Helvetica').fontSize(8.5).fillColor(INK).text(`Badges: ${badges}`, startX, y, { width: contentWidth });
+    y = doc.y + 2;
+  }
+  if (ch.comment) {
+    doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(MUTED).text(comment ? `Teacher's note: ${comment}` : "Teacher's note: see the student's character page in the portal.", startX, y, { width: contentWidth });
+    y = doc.y + 2;
+  }
+  doc.y = y + 8;
 }
 
 const NAVY = '#1e3a8a';
@@ -280,6 +343,11 @@ export async function renderReportCardPdf(data: ReportCardData): Promise<Buffer>
     doc.moveDown(0.6);
   } else {
     doc.moveDown(0.3);
+  }
+
+  // ── Character (T2, optional) ───────────────────────────────────────────
+  if (data.character && data.character.traits.length > 0) {
+    drawCharacterSection(doc, data.character, startX, contentWidth, pageBottom);
   }
 
   // ── Grading Scale + Attendance (two columns) ───────────────────────────

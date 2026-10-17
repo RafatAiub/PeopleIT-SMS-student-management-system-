@@ -6,6 +6,7 @@ import { notifySafe } from '../notifications/notifications.service';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
 import { renderReportCardPdf } from './reportCard.pdf';
+import { reportCardCharacter } from '../character/character.service';
 import { getDefaultBands } from '../grading/grading.resolver';
 import { gradeFor, gradePointFor, type GradeBandInput } from '../grading/grading.core';
 import { UserRole, StudentGroup } from '@prisma/client';
@@ -477,6 +478,10 @@ export async function generateReportCard(
     logger.warn('Failed to compute class rank for report card', { studentId, examId, error: (err as Error).message });
   }
 
+  // T2: character (Akhlaq) summary — null when the module is off or nothing
+  // is scored; never blocks report card generation.
+  const character = await reportCardCharacter(institutionId, studentId, exam.endDate);
+
   const pdf = await renderReportCardPdf({
     institution: {
       name: institution?.name ?? '',
@@ -513,6 +518,7 @@ export async function generateReportCard(
     attendance,
     classRank,
     ...(bands ? { gradingBands: bands } : {}),
+    character,
   });
 
   logger.info('Report card generated', { institutionId, studentId, examId });

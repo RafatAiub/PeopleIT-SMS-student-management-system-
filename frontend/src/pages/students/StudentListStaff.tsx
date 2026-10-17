@@ -13,6 +13,7 @@ import { Badge } from '../../components/ui/Badge';
 import { ErrorState } from '../../components/ui/Feedback';
 import { StudentEditDrawer } from './StudentEditDrawer';
 import { ClassMeta } from './studentFormUtils';
+import { useOpenFamily } from '../families/useOpenFamily';
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Active' },
@@ -25,6 +26,9 @@ const StudentListStaff = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const canAdmit = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  // T3: family lookup is open to staff that can read families (teachers: own sections, server-checked).
+  const canOpenFamily = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER'].includes(user?.role ?? '');
+  const openFamily = useOpenFamily();
 
   const [students, setStudents] = useState<any[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
@@ -162,6 +166,8 @@ const StudentListStaff = () => {
 
   const studentActions: RowAction<any>[] = [
     { label: 'View profile', icon: 'view', onClick: (student) => navigate(`/students/${student.id}`) },
+    // T3: open the student's family (siblings, guardians, combined fees)
+    ...(canOpenFamily ? [{ label: 'Family', icon: 'view' as const, onClick: (student: { id: string }) => { void openFamily({ studentId: student.id }); } }] : []),
     { label: 'Edit student', icon: 'edit', onClick: handleOpenEdit },
     { label: 'Delete student', icon: 'delete', variant: 'danger', onClick: (student) => setStudentToDelete(student) },
   ];

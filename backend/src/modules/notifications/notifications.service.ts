@@ -68,6 +68,9 @@ export const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> =
   DATA_EXPORT_READY: ['IN_APP', 'EMAIL'],
   // T1 donations: monthly pledge reminder (donor linked to a portal user).
   DONATION_REMINDER: ['IN_APP', 'EMAIL', 'SMS'],
+  // T2 character: badge awarded (guardians + student). No SMS: awards can be
+  // bulk (a whole class) and are good news, not urgent.
+  BADGE_AWARDED: ['IN_APP', 'EMAIL'],
 };
 
 /**

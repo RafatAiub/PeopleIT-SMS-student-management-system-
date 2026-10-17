@@ -7,7 +7,7 @@ import {
   LogOut, Receipt, ShieldCheck, Library, Briefcase, X, Search,
   Building2, CreditCard, LifeBuoy, GraduationCap, Presentation, CalendarClock, CalendarHeart, CalendarRange, PartyPopper,
   FileSignature, UsersRound, UserCog, ClipboardCheck, FileBarChart, BellRing, Megaphone, GalleryHorizontal, Images, Globe,
-  Settings, CloudDownload, HandHeart,
+  Settings, CloudDownload, HandHeart, Star,
 } from 'lucide-react';
 import { LogoMark } from '../common/LogoMark';
 import { useAuthStore, User } from '@/store/authStore';
@@ -126,6 +126,8 @@ const NAV_ENTRIES: NavEntry[] = [
       // Student Profiles: Admin Full, Teacher R/W, Accountant/Librarian Read, Student Own Only.
       // (STUDENT role sees "My Profile" via getPageLabel's isStudentProfile special-case.)
       { to: '/students', label: 'Student Details', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'STUDENT'] },
+      // T3: one page per household — siblings, guardians, combined fees, notes.
+      { to: '/families', label: 'Families', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT'] },
       { to: '/id-cards/generate', label: 'Generate Id Card', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/generate-result', label: 'Generate Result', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
       { to: '/students/reset-password', label: 'Students Reset Password', roles: ['SUPER_ADMIN', 'ADMIN'] },
@@ -143,6 +145,8 @@ const NAV_ENTRIES: NavEntry[] = [
     ],
   },
   { kind: 'link', to: '/parents', icon: <UsersRound className="w-4.5 h-4.5" />, label: 'Parents', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  // T3: guardian portal — all my children, fees, "Pay all".
+  { kind: 'link', to: '/family/mine', icon: <UsersRound className="w-4.5 h-4.5" />, label: 'My family', roles: ['GUARDIAN'] },
   {
     kind: 'category',
     label: 'Staff Management',
@@ -250,6 +254,18 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/donations', label: 'Donations & Zakat', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
       { to: '/donations?tab=pledges', label: 'Monthly pledges', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
       { to: '/donations/mine', label: 'My donations', roles: ['GUARDIAN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'MANAGEMENT'] },
+    ],
+  },
+  {
+    // T2: whole category hidden while the school has Character switched off.
+    kind: 'category',
+    label: 'Character',
+    module: 'islamic.character',
+    icon: <Star className="w-4.5 h-4.5" />,
+    children: [
+      { to: '/character', label: 'Character (Akhlaq)', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGEMENT', 'TEACHER'] },
+      { to: '/character?tab=awards', label: 'Badges & points', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGEMENT', 'TEACHER'] },
+      { to: '/character/mine', label: 'My character', roles: ['STUDENT', 'GUARDIAN'] },
     ],
   },
   {

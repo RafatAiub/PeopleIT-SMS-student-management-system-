@@ -18,6 +18,9 @@ import { AttendanceHeatmap, HeatmapDay } from '../../../components/Charts/Attend
 import { formatCurrency, formatDate, useT } from '../../../i18n';
 import { ProfileExtras, type StudentExtras } from './ProfileExtras';
 import ProgressReport from '../../results/ProgressReport';
+import { useModuleEnabled } from '../../../hooks/useModules';
+import StudentCharacterTab from '../../character/StudentCharacterTab';
+import { OpenFamilyButton } from '../../families/useOpenFamily';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types (only the fields this page actually reads — the real payload has
@@ -58,7 +61,7 @@ interface StudentDetail extends StudentExtras {
   }[];
 }
 
-type TabId = 'overview' | 'academics' | 'attendance' | 'fees' | 'documents' | 'guardian' | 'transport' | 'library' | 'timeline';
+type TabId = 'overview' | 'academics' | 'attendance' | 'fees' | 'documents' | 'guardian' | 'character' | 'transport' | 'library' | 'timeline';
 
 const StudentProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -77,6 +80,9 @@ const StudentProfile: React.FC = () => {
   const canViewFees = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'ACCOUNTANT';
   const canViewTransport = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'TRANSPORT_OFFICER';
   const canViewLibrary = role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'LIBRARIAN';
+  // T2: Character tab while the module is on (server re-checks section access for teachers).
+  const characterOn = useModuleEnabled('islamic.character');
+  const canViewCharacter = characterOn && (role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'MANAGEMENT' || role === 'TEACHER' || role === 'ACCOUNTANT');
 
   const fetchStudent = async () => {
     if (!id) return;
@@ -107,11 +113,12 @@ const StudentProfile: React.FC = () => {
     if (canViewFees) list.push({ id: 'fees', label: t('Fees') });
     list.push({ id: 'documents', label: t('Documents') });
     list.push({ id: 'guardian', label: t('Guardian') });
+    if (canViewCharacter) list.push({ id: 'character', label: t('Character') });
     if (canViewTransport) list.push({ id: 'transport', label: t('Transport') });
     if (canViewLibrary) list.push({ id: 'library', label: t('Library') });
     list.push({ id: 'timeline', label: t('Timeline') });
     return list;
-  }, [canViewFees, canViewTransport, canViewLibrary, t]);
+  }, [canViewFees, canViewTransport, canViewLibrary, canViewCharacter, t]);
 
   // Ensure the active tab stays valid if the role can't see it (e.g. deep link)
   useEffect(() => {
@@ -153,6 +160,8 @@ const StudentProfile: React.FC = () => {
                 Reset password
               </Button>
             )}
+            {/* T3: siblings, guardians and combined fees */}
+            {role !== 'LIBRARIAN' && <OpenFamilyButton studentId={student.id} variant="outline" />}
             <Button
               variant="outline"
               size="sm"
@@ -208,6 +217,11 @@ const StudentProfile: React.FC = () => {
       <TabPanel id="guardian" value={tab} idPrefix="student-profile">
         <GuardianTab guardians={student.guardians || []} />
       </TabPanel>
+      {canViewCharacter && (
+        <TabPanel id="character" value={tab} idPrefix="student-profile">
+          {tab === 'character' && <StudentCharacterTab studentId={student.id} />}
+        </TabPanel>
+      )}
       {canViewTransport && (
         <TabPanel id="transport" value={tab} idPrefix="student-profile">
           <TransportTab studentId={student.id} />

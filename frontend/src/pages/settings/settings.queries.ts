@@ -202,6 +202,10 @@ export const NOTIFICATION_TYPE_GROUPS: NotificationTypeGroup[] = [
     label: 'Donations',
     types: [{ type: 'DONATION_REMINDER', label: 'Monthly donation reminder' }],
   },
+  {
+    label: 'Character & badges',
+    types: [{ type: 'BADGE_AWARDED', label: 'Badge awarded' }],
+  },
 ];
 
 export interface NotificationPreferenceRow {

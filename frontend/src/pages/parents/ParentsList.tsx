@@ -6,6 +6,7 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
+import { useOpenFamily } from '../families/useOpenFamily';
 
 interface ParentRow {
   id: string;
@@ -174,7 +175,12 @@ const ParentsList = () => {
     { key: 'occupation', header: 'Occupation', render: (row) => row.occupation || '—' },
   ];
 
-  const actions: RowAction<ParentRow>[] = [{ label: 'Edit', icon: 'edit', onClick: openEdit }];
+  const openFamily = useOpenFamily();
+  const actions: RowAction<ParentRow>[] = [
+    { label: 'Edit', icon: 'edit', onClick: openEdit },
+    // T3: the guardian's household (children, combined fees, notes)
+    { label: 'Family', icon: 'view', onClick: (row) => { void openFamily({ guardianId: row.id }); } },
+  ];
 
   return (
     <div className="space-y-6">

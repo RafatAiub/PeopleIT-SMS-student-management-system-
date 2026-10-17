@@ -1,13 +1,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, CornerDownLeft, ArrowRight, Sun, Moon, Monitor, Languages, LogOut, Keyboard } from 'lucide-react';
+import { Search, CornerDownLeft, ArrowRight, Sun, Moon, Monitor, Languages, LogOut, Keyboard, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocaleStore, useT } from '@/i18n';
 import { getNavTargets } from './Sidebar';
 import { useModules } from '@/hooks/useModules';
+import { useFamilySearch } from '@/pages/families/families.api';
 import { useDialogBehaviour } from '@/components/ui/Modal';
 import { Modal } from '@/components/ui/Modal';
 import { Kbd } from '@/components/ui/Display';
@@ -126,8 +127,28 @@ export const CommandPalette: React.FC = () => {
     return [...pages, ...actions];
   }, [user?.role, modulesData?.enabled, t, navigate, setTheme, lang, setLang, logout]);
 
+  // T3: staff can jump straight to a family (guardian, phone, child or family name).
+  const canSearchFamilies = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT'].includes(user?.role ?? '') && Boolean(user?.institutionId);
+  const [familyTerm, setFamilyTerm] = React.useState('');
+  React.useEffect(() => {
+    const h = setTimeout(() => setFamilyTerm(query.trim()), 250);
+    return () => clearTimeout(h);
+  }, [query]);
+  const familyHits = useFamilySearch(familyTerm, open && canSearchFamilies);
+  const familyCommands = React.useMemo<Command[]>(
+    () =>
+      (familyHits.data ?? []).map((f) => ({
+        id: `family:${f.id}`,
+        label: `${f.name} — ${[...f.guardians, ...f.children].slice(0, 4).join(', ')}`,
+        group: t('Families'),
+        icon: <Users className="w-4 h-4" />,
+        run: () => navigate(`/families/${f.id}`),
+      })),
+    [familyHits.data, t, navigate],
+  );
+
   const q = query.trim().toLowerCase();
-  const results = React.useMemo(() => {
+  const pageResults = React.useMemo(() => {
     if (!q) return commands;
     return commands
       .map((c) => { const k = score(c.keywords ?? '', q); return { c, s: Math.max(score(c.label, q), k >= 1 ? k * 0.8 : 0) }; })
@@ -135,6 +156,8 @@ export const CommandPalette: React.FC = () => {
       .sort((a, b) => b.s - a.s)
       .map((x) => x.c);
   }, [commands, q]);
+
+  const results = React.useMemo(() => (q.length >= 2 ? [...pageResults, ...familyCommands] : pageResults), [q, pageResults, familyCommands]);
 
   React.useEffect(() => setActive(0), [q]);
   React.useEffect(() => {

@@ -41,6 +41,8 @@ export const NOTIFICATION_TYPES = [
   'DATA_EXPORT_READY',
   // T1 donations: monthly pledge reminder to a donor who has a portal account
   'DONATION_REMINDER',
+  // T2 character: a badge was awarded to a student (guardians + the student)
+  'BADGE_AWARDED',
 ] as const;
 
 // Subset that concerns platform subscription billing — used by the frontend

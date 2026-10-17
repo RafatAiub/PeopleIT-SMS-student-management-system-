@@ -156,6 +156,14 @@ const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceip
 const DonationsPage = lazyWithRetry(() => import('./pages/donations/DonationsPage'));
 const DonationReceipt = lazyWithRetry(() => import('./pages/donations/DonationReceipt'));
 const MyDonations = lazyWithRetry(() => import('./pages/donations/MyDonations'));
+// T2 character (module islamic.character)
+const CharacterPage = lazyWithRetry(() => import('./pages/character/CharacterPage'));
+const MyCharacter = lazyWithRetry(() => import('./pages/character/MyCharacter'));
+// T3 family profile (all schools)
+const FamilyPage = lazyWithRetry(() => import('./pages/families/FamilyPages').then((m) => ({ default: m.FamilyPage })));
+const FamiliesList = lazyWithRetry(() => import('./pages/families/FamilyPages').then((m) => ({ default: m.FamiliesList })));
+const MyFamily = lazyWithRetry(() => import('./pages/families/FamilyPages').then((m) => ({ default: m.MyFamily })));
+const FamilyDemoCheckout = lazyWithRetry(() => import('./pages/families/FamilyPages').then((m) => ({ default: m.FamilyDemoCheckout })));
 const SubscriptionBillingPortal = lazyWithRetry(() => import('./pages/superadmin/SubscriptionBillingPortal'));
 const Medium = lazyWithRetry(() => import('./pages/academics/Medium'));
 const Stream = lazyWithRetry(() => import('./pages/academics/Stream'));
@@ -1420,6 +1428,40 @@ const App = () => {
         <Route path="/donations/mine/:id/receipt" element={
           <ProtectedRoute module="islamic.donations">
             <DashboardLayout><DonationReceipt mine /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* T2 character — every route redirects to the dashboard while the module is off */}
+        <Route path="/character" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGEMENT', 'TEACHER']} module="islamic.character">
+            <DashboardLayout><CharacterPage /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/character/mine" element={
+          <ProtectedRoute allowedRoles={['STUDENT', 'GUARDIAN']} module="islamic.character">
+            <DashboardLayout><MyCharacter /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* T3 family profile */}
+        <Route path="/families" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT']}>
+            <DashboardLayout><FamiliesList /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/families/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT', 'TEACHER', 'GUARDIAN']}>
+            <DashboardLayout><FamilyPage /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/family/mine" element={
+          <ProtectedRoute allowedRoles={['GUARDIAN']}>
+            <DashboardLayout><MyFamily /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/family/pay/demo" element={
+          <ProtectedRoute allowedRoles={['GUARDIAN']}>
+            <DashboardLayout><FamilyDemoCheckout /></DashboardLayout>
           </ProtectedRoute>
         } />
 

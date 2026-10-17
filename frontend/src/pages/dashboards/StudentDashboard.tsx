@@ -12,6 +12,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PageHeader, StatCard, ErrorState } from '../../components/ui';
 import { AttendanceHeatmap, type HeatmapDay } from '../../components/Charts/AttendanceHeatmap';
 import { formatCurrency, formatDate } from '../../i18n';
+import { CharacterDashboardCard } from '../character/shared';
 
 function statusToRate(status: string): number {
   if (status === 'PRESENT') return 100;
@@ -120,6 +121,9 @@ const StudentDashboard: React.FC = () => {
           to="/library"
         />
       </div>
+
+      {/* T2: my character score, badges and points (module islamic.character) */}
+      <CharacterDashboardCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Attendance */}

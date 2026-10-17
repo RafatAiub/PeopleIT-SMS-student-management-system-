@@ -552,6 +552,23 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
     await tx.donor.deleteMany({ where: { institutionId } });
     await tx.donationFund.deleteMany({ where: { institutionId } });
 
+    // T2 character — ledger and awards before badges/traits/periods.
+    await tx.characterPointEntry.deleteMany({ where: { institutionId } });
+    await tx.characterAward.deleteMany({ where: { institutionId } });
+    await tx.characterScore.deleteMany({ where: { institutionId } });
+    await tx.characterComment.deleteMany({ where: { institutionId } });
+    await tx.characterBadge.deleteMany({ where: { institutionId } });
+    await tx.characterTrait.deleteMany({ where: { institutionId } });
+    await tx.characterPeriod.deleteMany({ where: { institutionId } });
+    await tx.characterSettings.deleteMany({ where: { institutionId } });
+
+    // T3 families — allocations cascade from FamilyPayment; members/notes from Family.
+    await tx.familyPayment.deleteMany({ where: { institutionId } });
+    await tx.familyNote.deleteMany({ where: { institutionId } });
+    await tx.familyStudent.deleteMany({ where: { institutionId } });
+    await tx.familyGuardian.deleteMany({ where: { institutionId } });
+    await tx.family.deleteMany({ where: { institutionId } });
+
     // Billing & Subscription
     await tx.subscriptionPayment.deleteMany({ where: { institutionId } });
     await tx.subscription.deleteMany({ where: { institutionId } });

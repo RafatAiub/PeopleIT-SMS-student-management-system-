@@ -575,6 +575,33 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
   'DONATION_REMINDER:SMS': {
     body: 'Reminder: your monthly donation of Tk {{amount}} ({{fundName}}) is due {{dueDate}}. JazakAllah khair. - {{institutionName}}',
   },
+  // ── BADGE_AWARDED (T2) — bilingual (English, then Bangla) ───────────────
+  'BADGE_AWARDED:IN_APP': {
+    subject: 'Badge awarded: {{badgeName}} / ব্যাজ: {{badgeNameBn}}',
+    body: '{{studentName}} earned the "{{badgeName}}" badge (+{{points}} points). {{studentName}} "{{badgeNameBn}}" ব্যাজ পেয়েছে (+{{points}} পয়েন্ট)।',
+  },
+  'BADGE_AWARDED:EMAIL': {
+    subject: '{{studentName}} earned a badge / ব্যাজ অর্জন — {{institutionName}}',
+    body: [
+      'Assalamu alaikum,',
+      '',
+      '{{studentName}} has been awarded the "{{badgeName}}" badge.',
+      '',
+      '  Points : +{{points}}',
+      '  Reason : {{reason}}',
+      '',
+      'আসসালামু আলাইকুম,',
+      '',
+      '{{studentName}} "{{badgeNameBn}}" ব্যাজ অর্জন করেছে।',
+      '',
+      '  পয়েন্ট : +{{points}}',
+      '  কারণ   : {{reason}}',
+      '',
+      'Sign in to the portal to see all badges. / সব ব্যাজ দেখতে পোর্টালে লগইন করুন।',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

@@ -12,8 +12,9 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ErrorState, Button } from '../../components/ui';
 import { ModuleGate } from '../../components/common/ModuleGate';
+import { CharacterDashboardCard } from '../character/shared';
 import { AttendanceHeatmap, type HeatmapDay } from '../../components/Charts/AttendanceHeatmap';
-import { formatCurrency, formatDate } from '../../i18n';
+import { formatCurrency, formatDate, useT } from '../../i18n';
 
 interface ChildSummary {
   id: string;
@@ -70,6 +71,7 @@ function statusToRate(status: string): number {
 }
 
 const GuardianDashboard: React.FC = () => {
+  const t = useT();
   const { user } = useAuthStore();
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
@@ -237,6 +239,21 @@ const GuardianDashboard: React.FC = () => {
           <span className="text-sm font-semibold text-primary-700 dark:text-primary-400">Open</span>
         </Link>
       </ModuleGate>
+
+      {/* T3: the household page — every child, combined fees, "Pay all" */}
+      <Link to="/family/mine" className="glass-card p-5 flex items-center justify-between gap-4 hover:border-primary-300 dark:hover:border-primary-500/30 transition-colors">
+        <span className="flex items-center gap-3">
+          <Users className="w-6 h-6 text-primary-700 dark:text-primary-400" aria-hidden />
+          <span>
+            <span className="block font-bold text-slate-900 dark:text-white">{t('My family')}</span>
+            <span className="block text-sm text-slate-600 dark:text-slate-400">{t('All your children, their attendance and fees — pay everything at once.')}</span>
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-primary-700 dark:text-primary-400">{t('Open')}</span>
+      </Link>
+
+      {/* T2: each child's character score, badges and points (module islamic.character) */}
+      <CharacterDashboardCard />
 
       {noticesQuery.isError ? (
         <ErrorState compact onRetry={() => noticesQuery.refetch()} message="Could not load announcements." />
