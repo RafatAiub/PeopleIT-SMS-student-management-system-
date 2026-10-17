@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { moveToTrash } from '../trash/trash.service';
 import { UserRepository } from './user.repository';
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from '../../utils/AppError';
 import { EmailPriority, UserRole } from '@prisma/client';
@@ -336,64 +337,19 @@ export class UserService {
     await UserRepository.updatePassword(tenantId, userId, passwordHash);
   }
 
-  static async deleteUser(tenantId: string, id: string) {
-    const { prisma } = require('../../config/prisma');
+  /**
+   * T5: moves the account to the trash instead of deleting it. The login is
+   * switched off at once (email/phone freed for a new account), a student's
+   * or guardian's profile goes to the trash with it, and everything comes
+   * back on restore. The permanent delete (trash purge, after 30 days or by
+   * an admin) runs the old cascade — but refuses while fee or payroll records
+   * exist, so money history is never destroyed.
+   */
+  static async deleteUser(tenantId: string, id: string, actor: { userId?: string | null; role?: string } = {}) {
+    if (!tenantId) throw new BadRequestError('Select an institution first');
     const user = await UserRepository.getUserById(tenantId, id);
     if (!user) throw new NotFoundError('User not found');
-
-    if (user.role === 'STUDENT') {
-      const student = await prisma.student.findFirst({ where: { userId: id } });
-      if (student) {
-        await prisma.attendance.deleteMany({ where: { studentId: student.id } });
-        await prisma.examResult.deleteMany({ where: { studentId: student.id } });
-        await prisma.invoiceItem.deleteMany({ where: { invoice: { studentId: student.id } } });
-        await prisma.payment.deleteMany({ where: { invoice: { studentId: student.id } } });
-        await prisma.invoice.deleteMany({ where: { studentId: student.id } });
-        await prisma.studentDocument.deleteMany({ where: { studentId: student.id } });
-        await prisma.guardianStudent.deleteMany({ where: { studentId: student.id } });
-        await prisma.libraryIssue.deleteMany({ where: { studentId: student.id } });
-        await prisma.transportAssignment.deleteMany({ where: { studentId: student.id } });
-        await prisma.student.delete({ where: { id: student.id } });
-      }
-    }
-
-    if (user.role === 'TEACHER') {
-      const teacher = await prisma.teacher.findFirst({ where: { userId: id } });
-      if (teacher) {
-        await prisma.section.updateMany({
-          where: { classTeacherId: teacher.id },
-          data: { classTeacherId: null }
-        });
-        await prisma.timetableSlot.updateMany({
-          where: { teacherId: teacher.id },
-          data: { teacherId: null }
-        });
-        await prisma.teacher.delete({ where: { id: teacher.id } });
-      }
-    }
-
-    if (user.role === 'GUARDIAN') {
-      const guardian = await prisma.guardian.findFirst({ where: { userId: id } });
-      if (guardian) {
-        await prisma.guardianStudent.deleteMany({ where: { guardianId: guardian.id } });
-        await prisma.guardian.delete({ where: { id: guardian.id } });
-      }
-    }
-
-    // HR staff (Admin/Accountant/Librarian/Transport Officer/Management) profile
-    const staff = await prisma.staffProfile.findFirst({ where: { userId: id } });
-    if (staff) {
-      await prisma.payrollRecord.deleteMany({ where: { staffId: staff.id } });
-      await prisma.staffProfile.delete({ where: { id: staff.id } });
-    }
-
-    // Records that reference the user account directly - would otherwise block
-    // deletion with a foreign key constraint regardless of role
-    await prisma.refreshToken.deleteMany({ where: { userId: id } });
-    await prisma.auditLog.deleteMany({ where: { userId: id } });
-    await prisma.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
-
-    return UserRepository.deleteUser(tenantId, id);
+    return moveToTrash({ institutionId: tenantId, userId: actor.userId ?? null, role: actor.role }, 'USER', id);
   }
 }
 

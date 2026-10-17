@@ -50,6 +50,8 @@ import type {
   MediaKind,
   PostStatus,
 } from './sites.types';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 // =============================================================================
 // Website builder data layer — /api/v1/sites (admin API, Engineer A).
@@ -300,9 +302,9 @@ export function useDeletePage() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/sites/pages/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: SITE_KEY });
-      toast.success('Page deleted.');
+      showUndoToast(translate('Page moved to trash'), res, () => qc.invalidateQueries({ queryKey: SITE_KEY }));
     },
     onError: (e) => toast.error(apiError(e, 'Could not delete the page.')),
   });
@@ -435,9 +437,9 @@ export function useDeletePost() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/sites/posts/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: [SITE_POSTS_KEY] });
-      toast.success('Post deleted.');
+      showUndoToast(translate('Post moved to trash'), res, () => qc.invalidateQueries({ queryKey: [SITE_POSTS_KEY] }));
     },
     onError: (e) => toast.error(apiError(e, 'Could not delete the post.')),
   });

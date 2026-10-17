@@ -4,6 +4,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { moveToTrash } from '../trash/trash.service';
 import { AppError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import * as repo from './sites.repository';
@@ -445,8 +446,9 @@ export async function updatePage(ctx: SitesCtx, id: string, data: UpdatePageDtoT
 export async function deletePage(ctx: SitesCtx, id: string) {
   const page = await pageOrThrow(ctx, id);
   if (page.isSystem) throw new ForbiddenError('The home page cannot be deleted');
-  await prisma.sitePage.delete({ where: { id: page.id } });
-  return { id: page.id };
+  // T5: to the trash; its link is freed (slug renamed) until it is restored.
+  const trash = await moveToTrash(ctx, 'SITE_PAGE', page.id);
+  return { id: page.id, trash };
 }
 
 export async function publishPage(ctx: SitesCtx, id: string, note?: string | null) {

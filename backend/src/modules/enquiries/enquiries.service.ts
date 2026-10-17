@@ -5,6 +5,17 @@ import { ConflictError, NotFoundError, ValidationError } from '../../utils/AppEr
 import { logger } from '../../utils/logger';
 import * as repo from './enquiries.repository';
 import { appendNote, computeFunnel, phonesMatch, publicApplicationState } from './enquiries.logic';
+import {
+  getStage,
+  listStages,
+  logActivity,
+  stageChangeMetadata,
+  stageTransitionPatch,
+  type Actor,
+  type StageRow,
+} from '../crm/crm.stages';
+import { stageForStatus } from '../crm/crm.logic';
+import { moveToTrash } from '../trash/trash.service';
 import type {
   ApplicationStatusQueryDtoType,
   BoardQueryDtoType,
@@ -37,8 +48,8 @@ async function getOrThrow(institutionId: string, id: string) {
   return enquiry;
 }
 
-export function listEnquiries(institutionId: string, query: EnquiryQueryDtoType) {
-  return repo.list(institutionId, query);
+export function listEnquiries(institutionId: string, query: EnquiryQueryDtoType, actor?: Actor) {
+  return repo.list(institutionId, { ...query, ownerUserId: query.mine === 'true' ? actor?.userId ?? undefined : undefined });
 }
 
 export async function getBoard(institutionId: string, query: BoardQueryDtoType) {
@@ -54,27 +65,74 @@ export function getEnquiry(institutionId: string, id: string) {
   return getOrThrow(institutionId, id);
 }
 
-export async function createEnquiry(institutionId: string, data: CreateEnquiryDtoType) {
-  await assertAssignee(institutionId, data.assignedToUserId);
-  const enquiry = await repo.create({
-    institutionId,
-    studentName: data.studentName,
-    guardianName: data.guardianName ?? null,
-    phone: data.phone,
-    email: data.email ?? null,
-    classInterested: data.classInterested ?? null,
-    source: data.source ?? 'WALK_IN',
-    status: data.status,
-    notes: data.notes ?? null,
-    assignedToUserId: data.assignedToUserId ?? null,
-    followUpAt: data.followUpAt ?? null,
-  });
-  logger.info('Admission enquiry created', { enquiryId: enquiry.id, institutionId });
-  return enquiry;
+/** Resolves the stage a create/update lands in: an explicit stageId wins, else the stage for the (new) status. */
+async function resolveStage(
+  institutionId: string,
+  input: { stageId?: string | null; status?: string },
+  current?: { stageId: string | null; status: string },
+): Promise<StageRow | null> {
+  if (input.stageId) return getStage(institutionId, input.stageId);
+  if (input.status && (!current || input.status !== current.status || !current.stageId)) {
+    return stageForStatus(await listStages(institutionId), input.status, current?.stageId) ?? null;
+  }
+  return null;
 }
 
-export async function updateEnquiry(institutionId: string, id: string, data: UpdateEnquiryDtoType) {
-  await getOrThrow(institutionId, id);
+export async function createEnquiry(institutionId: string, data: CreateEnquiryDtoType, actor?: Actor) {
+  await assertAssignee(institutionId, data.assignedToUserId);
+  const stage = await resolveStage(institutionId, { stageId: data.stageId, status: data.status });
+  const stagePatch = stage ? stageTransitionPatch({ stageId: null, wonAt: null }, stage, { lostReason: data.lostReason ?? null }) : {};
+  const enquiry = await prisma.$transaction(async (tx) => {
+    const created = await tx.admissionEnquiry.create({
+      data: {
+        institutionId,
+        studentName: data.studentName,
+        guardianName: data.guardianName ?? null,
+        phone: data.phone,
+        email: data.email ?? null,
+        classInterested: data.classInterested ?? null,
+        source: data.source ?? 'WALK_IN',
+        status: data.status,
+        notes: data.notes ?? null,
+        assignedToUserId: data.assignedToUserId ?? null,
+        followUpAt: data.followUpAt ?? null,
+        nextStep: data.nextStep ?? null,
+        priority: data.priority ?? 'NORMAL',
+        lostReason: data.lostReason ?? null,
+        ...(stagePatch as Record<string, never>),
+      },
+      select: { id: true },
+    });
+    await logActivity(tx, {
+      institutionId,
+      enquiryId: created.id,
+      type: 'CREATED',
+      body: stage ? `Created in "${stage.name}"` : 'Created',
+      metadata: stage ? { toStageId: stage.id, toName: stage.name } : undefined,
+      actor,
+    });
+    return created;
+  });
+  logger.info('Admission enquiry created', { enquiryId: enquiry.id, institutionId });
+  return getOrThrow(institutionId, enquiry.id);
+}
+
+const EDIT_LABELS: Record<string, string> = {
+  studentName: 'student name',
+  guardianName: 'guardian',
+  phone: 'phone',
+  email: 'email',
+  classInterested: 'class',
+  source: 'source',
+  notes: 'notes',
+  priority: 'priority',
+};
+
+const sameTime = (a: Date | string | null | undefined, b: Date | string | null | undefined) =>
+  (a ? new Date(a).getTime() : null) === (b ? new Date(b).getTime() : null);
+
+export async function updateEnquiry(institutionId: string, id: string, data: UpdateEnquiryDtoType, actor?: Actor) {
+  const existing = await getOrThrow(institutionId, id);
   await assertAssignee(institutionId, data.assignedToUserId);
 
   const patch: Prisma.AdmissionEnquiryUncheckedUpdateManyInput = {};
@@ -89,27 +147,125 @@ export async function updateEnquiry(institutionId: string, id: string, data: Upd
     'notes',
     'assignedToUserId',
     'followUpAt',
+    'nextStep',
+    'priority',
+    'lostReason',
   ] as const;
   for (const key of keys) {
     if (data[key] !== undefined) (patch as Record<string, unknown>)[key] = data[key];
   }
-  const updated = await repo.update(institutionId, id, patch);
-  if (!updated) throw new NotFoundError('Enquiry not found');
-  return updated;
+
+  const stage = await resolveStage(institutionId, { stageId: data.stageId, status: data.status }, existing);
+  const stageMoved = !!stage && stage.id !== existing.stageId;
+  if (stage) Object.assign(patch, stageTransitionPatch(existing, stage, { lostReason: data.lostReason }));
+
+  await prisma.$transaction(async (tx) => {
+    const res = await tx.admissionEnquiry.updateMany({ where: { id, institutionId }, data: patch });
+    if (res.count === 0) throw new NotFoundError('Enquiry not found');
+    if (stage && stageMoved) {
+      await logActivity(tx, {
+        institutionId,
+        enquiryId: id,
+        type: 'STAGE_CHANGE',
+        body: `${existing.stage?.name ?? existing.status} → ${stage.name}${stage.isLost && data.lostReason ? ` (${data.lostReason})` : ''}`,
+        metadata: stageChangeMetadata(existing.stage as StageRow | null, stage),
+        actor,
+      });
+    }
+    if (data.assignedToUserId !== undefined && (data.assignedToUserId ?? null) !== existing.assignedToUserId) {
+      await logActivity(tx, {
+        institutionId,
+        enquiryId: id,
+        type: 'ASSIGNED',
+        body: data.assignedToUserId ? 'Owner changed' : 'Owner removed',
+        metadata: { fromUserId: existing.assignedToUserId, toUserId: data.assignedToUserId ?? null },
+        actor,
+      });
+    }
+    const nextStepChanged = data.nextStep !== undefined && (data.nextStep ?? null) !== (existing.nextStep ?? null);
+    const dueChanged = data.followUpAt !== undefined && !sameTime(data.followUpAt, existing.followUpAt);
+    if (nextStepChanged || dueChanged) {
+      const step = data.nextStep !== undefined ? data.nextStep : existing.nextStep;
+      const due = data.followUpAt !== undefined ? data.followUpAt : existing.followUpAt;
+      await logActivity(tx, {
+        institutionId,
+        enquiryId: id,
+        type: 'NEXT_STEP',
+        body: step || due ? `Next step: ${step || '—'}` : 'Next step cleared',
+        metadata: { nextStep: step ?? null, dueAt: due ? new Date(due).toISOString() : null },
+        actor,
+      });
+    }
+    const changed = Object.keys(EDIT_LABELS).filter((k) => {
+      const v = (data as Record<string, unknown>)[k];
+      return v !== undefined && (v ?? null) !== ((existing as Record<string, unknown>)[k] ?? null);
+    });
+    if (changed.length) {
+      await logActivity(tx, { institutionId, enquiryId: id, type: 'UPDATED', body: `Edited ${changed.map((k) => EDIT_LABELS[k]).join(', ')}`, actor });
+    }
+  });
+  return getOrThrow(institutionId, id);
 }
 
-export async function updateStatus(institutionId: string, id: string, status: string, note?: string) {
+/** Legacy status change (kept for old clients): moves to the stage that counts as `status`. */
+export async function updateStatus(institutionId: string, id: string, status: string, note?: string, actor?: Actor) {
   const existing = await getOrThrow(institutionId, id);
-  const patch: Prisma.AdmissionEnquiryUncheckedUpdateManyInput = { status: status as never };
+  const stage = stageForStatus(await listStages(institutionId), status, existing.stageId);
+  const patch: Prisma.AdmissionEnquiryUncheckedUpdateManyInput = stage ? stageTransitionPatch(existing, stage) : { status: status as never };
   if (note) patch.notes = appendNote(existing.notes, `${existing.status} → ${status}: ${note}`);
-  const updated = await repo.update(institutionId, id, patch);
-  if (!updated) throw new NotFoundError('Enquiry not found');
-  return updated;
+  await prisma.$transaction(async (tx) => {
+    const res = await tx.admissionEnquiry.updateMany({ where: { id, institutionId }, data: patch });
+    if (res.count === 0) throw new NotFoundError('Enquiry not found');
+    if (stage && stage.id !== existing.stageId) {
+      await logActivity(tx, {
+        institutionId,
+        enquiryId: id,
+        type: 'STAGE_CHANGE',
+        body: `${existing.stage?.name ?? existing.status} → ${stage.name}${note ? `: ${note}` : ''}`,
+        metadata: stageChangeMetadata(existing.stage as StageRow | null, stage),
+        actor,
+      });
+    } else if (note) {
+      await logActivity(tx, { institutionId, enquiryId: id, type: 'NOTE', body: note, actor });
+    }
+  });
+  return getOrThrow(institutionId, id);
 }
 
-export async function deleteEnquiry(institutionId: string, id: string) {
+/** T4 board move: put the enquiry in `stageId` (status follows), with an optional lost reason and note. */
+export async function moveToStage(
+  institutionId: string,
+  id: string,
+  input: { stageId: string; lostReason?: string | null; note?: string | null },
+  actor?: Actor,
+) {
+  const existing = await getOrThrow(institutionId, id);
+  const stage = await getStage(institutionId, input.stageId);
+  const same = stage.id === existing.stageId;
+  if (same && input.lostReason === undefined && !input.note) return existing;
+  const patch = stageTransitionPatch(existing, stage, { lostReason: input.lostReason });
+  await prisma.$transaction(async (tx) => {
+    const res = await tx.admissionEnquiry.updateMany({ where: { id, institutionId }, data: patch });
+    if (res.count === 0) throw new NotFoundError('Enquiry not found');
+    const reason = stage.isLost && input.lostReason ? ` (${input.lostReason})` : '';
+    await logActivity(tx, {
+      institutionId,
+      enquiryId: id,
+      type: same ? 'NOTE' : 'STAGE_CHANGE',
+      body: same
+        ? input.note || `Lost reason: ${input.lostReason ?? '—'}`
+        : `${existing.stage?.name ?? existing.status} → ${stage.name}${reason}${input.note ? `: ${input.note}` : ''}`,
+      metadata: same ? undefined : stageChangeMetadata(existing.stage as StageRow | null, stage),
+      actor,
+    });
+  });
+  return getOrThrow(institutionId, id);
+}
+
+export async function deleteEnquiry(institutionId: string, id: string, actor?: Actor & { role?: string }) {
   await getOrThrow(institutionId, id);
-  await repo.remove(institutionId, id);
+  // T5: to the trash (restorable for 30 days); the timeline and tasks stay with it.
+  return moveToTrash({ institutionId, userId: actor?.userId ?? null, role: actor?.role }, 'ENQUIRY', id);
 }
 
 export async function listAssignees(institutionId: string) {
@@ -149,11 +305,12 @@ async function generateApplicationStudentId(tx: Prisma.TransactionClient, instit
  * appears on the Online Registrations review screen. The enquiry moves to
  * APPLIED and remembers the application it produced.
  */
-export async function convertToApplication(institutionId: string, id: string, data: ConvertEnquiryDtoType) {
+export async function convertToApplication(institutionId: string, id: string, data: ConvertEnquiryDtoType, actor?: Actor) {
   const enquiry = await getOrThrow(institutionId, id);
   if (enquiry.convertedStudentId) {
     throw new ConflictError('This enquiry has already been converted to an application');
   }
+  const appliedStage = stageForStatus(await listStages(institutionId), 'APPLIED', enquiry.stageId) ?? null;
   if (data.classId) {
     const cls = await prisma.class.findFirst({
       where: { id: data.classId, branch: { institutionId } },
@@ -190,15 +347,30 @@ export async function convertToApplication(institutionId: string, id: string, da
       select: { id: true, studentId: true, status: true },
     });
     // Guarded on convertedStudentId: null so a double-click cannot convert twice.
+    // T4: the enquiry moves to the stage that counts as APPLIED (unless it is
+    // already in one, e.g. a custom "Interview" stage mapped to APPLIED).
     const linked = await tx.admissionEnquiry.updateMany({
       where: { id, institutionId, convertedStudentId: null },
       data: {
         convertedStudentId: created.id,
         status: 'APPLIED',
         notes: appendNote(enquiry.notes, `Converted to online application ${created.studentId}`),
+        ...(appliedStage ? stageTransitionPatch(enquiry, appliedStage) : {}),
       },
     });
     if (linked.count === 0) throw new ConflictError('This enquiry has already been converted to an application');
+    await logActivity(tx, {
+      institutionId,
+      enquiryId: id,
+      type: 'CONVERTED',
+      body: `Converted to online application ${created.studentId}`,
+      metadata: {
+        studentId: created.id,
+        reference: created.studentId,
+        ...(appliedStage && appliedStage.id !== enquiry.stageId ? { fromStageId: enquiry.stageId, toStageId: appliedStage.id, toName: appliedStage.name } : {}),
+      },
+      actor,
+    });
     return created;
   });
 
@@ -226,19 +398,31 @@ export async function capturePublicEnquiry(data: PublicEnquiryDtoType) {
   if (data.website) return { received: true };
 
   const institution = await resolveInstitution(data.institutionSlug);
-  const enquiry = await prisma.admissionEnquiry.create({
-    data: {
+  const newStage = stageForStatus(await listStages(institution.id), 'NEW') ?? null;
+  const enquiry = await prisma.$transaction(async (tx) => {
+    const created = await tx.admissionEnquiry.create({
+      data: {
+        institutionId: institution.id,
+        studentName: data.studentName,
+        guardianName: data.guardianName ?? null,
+        phone: data.phone,
+        email: data.email ?? null,
+        classInterested: data.classInterested ?? null,
+        source: 'WEBSITE',
+        status: 'NEW',
+        notes: data.message ? appendNote(null, `Website message: ${data.message}`) : null,
+        ...(newStage ? { stageId: newStage.id, stageChangedAt: new Date() } : {}),
+      },
+      select: { id: true },
+    });
+    await logActivity(tx, {
       institutionId: institution.id,
-      studentName: data.studentName,
-      guardianName: data.guardianName ?? null,
-      phone: data.phone,
-      email: data.email ?? null,
-      classInterested: data.classInterested ?? null,
-      source: 'WEBSITE',
-      status: 'NEW',
-      notes: data.message ? appendNote(null, `Website message: ${data.message}`) : null,
-    },
-    select: { id: true },
+      enquiryId: created.id,
+      type: 'CREATED',
+      body: data.message ? `Website enquiry: ${data.message}` : 'Website enquiry',
+      actor: { name: 'Website form' },
+    });
+    return created;
   });
 
   prisma.user

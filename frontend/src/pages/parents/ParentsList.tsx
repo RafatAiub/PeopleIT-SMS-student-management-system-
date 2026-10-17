@@ -7,6 +7,10 @@ import { DataTable, Column, RowAction } from '../../components/DataTable/DataTab
 import { Modal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
 import { useOpenFamily } from '../families/useOpenFamily';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { showUndoToast } from '../../components/common/undoToast';
+import { useAuthStore } from '../../store/authStore';
+import { useT } from '../../i18n';
 
 interface ParentRow {
   id: string;
@@ -59,6 +63,11 @@ const ParentsList = () => {
   const [loading, setLoading] = useState(true);
   const { params, debouncedSearch, setPage, setPageSize, setSearch } = useTableParams();
 
+  const t = useT();
+  const role = useAuthStore((st) => st.user?.role);
+  const canDelete = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const [deleteTarget, setDeleteTarget] = useState<ParentRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [editTarget, setEditTarget] = useState<ParentRow | null>(null);
   const [editData, setEditData] = useState(emptyEdit());
   const [saving, setSaving] = useState(false);
@@ -180,10 +189,37 @@ const ParentsList = () => {
     { label: 'Edit', icon: 'edit', onClick: openEdit },
     // T3: the guardian's household (children, combined fees, notes)
     { label: 'Family', icon: 'view', onClick: (row) => { void openFamily({ guardianId: row.id }); } },
+    // T5: delete = move to the trash (restorable for 30 days, with Undo).
+    ...(canDelete ? [{ label: t('Delete'), icon: 'delete' as const, variant: 'danger' as const, onClick: (row: ParentRow) => setDeleteTarget(row) }] : []),
   ];
+
+  const confirmDeleteGuardian = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await apiClient.delete(`/guardians/${deleteTarget.id}`);
+      showUndoToast(t('Guardian moved to trash'), res.data, () => fetchParents());
+      setDeleteTarget(null);
+      fetchParents();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || t('Could not delete'));
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title={t('Delete guardian')}
+        message={t('Move this guardian to the trash? Their portal login is paused; restore within 30 days to undo.')}
+        confirmLabel={t('Delete')}
+        variant="danger"
+        isLoading={deleting}
+        onConfirm={confirmDeleteGuardian}
+        onCancel={() => setDeleteTarget(null)}
+      />
       <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
         <div className="w-11 h-11 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 flex items-center justify-center flex-shrink-0">
           <UsersRound className="w-5 h-5" />

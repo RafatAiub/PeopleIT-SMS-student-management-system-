@@ -130,6 +130,13 @@ router.post(
   FeeController.createInvoice
 );
 
+// T5: delete an unpaid or cancelled invoice = move it to the trash.
+// Paid / part-paid invoices (or ones with payments in progress) refuse (409).
+router.delete(
+  '/invoices/:id',
+  requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT),
+  FeeController.deleteInvoice
+);
 router.get(
   '/invoices/:id',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.GUARDIAN, UserRole.STUDENT),

@@ -529,19 +529,19 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
   // (children before parents) inside one transaction before the institution
   // itself can be deleted.
   await prisma.$transaction(async (tx: any) => {
-    const students = await tx.student.findMany({ where: { institutionId }, select: { id: true } });
+    const students = await tx.student.findMany({ where: { institutionId, deletedAt: undefined }, select: { id: true } });
     const studentIds = students.map((s: any) => s.id);
-    const invoices = await tx.invoice.findMany({ where: { institutionId }, select: { id: true } });
+    const invoices = await tx.invoice.findMany({ where: { institutionId, deletedAt: undefined }, select: { id: true } });
     const invoiceIds = invoices.map((i: any) => i.id);
-    const guardians = await tx.guardian.findMany({ where: { institutionId }, select: { id: true } });
+    const guardians = await tx.guardian.findMany({ where: { institutionId, deletedAt: undefined }, select: { id: true } });
     const guardianIds = guardians.map((g: any) => g.id);
-    const users = await tx.user.findMany({ where: { institutionId }, select: { id: true } });
+    const users = await tx.user.findMany({ where: { institutionId, deletedAt: undefined }, select: { id: true } });
     const userIds = users.map((u: any) => u.id);
     const branches = await tx.branch.findMany({ where: { institutionId }, select: { id: true } });
     const branchIds = branches.map((b: any) => b.id);
     const classes = await tx.class.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } });
     const classIds = classes.map((c: any) => c.id);
-    const staffProfiles = await tx.staffProfile.findMany({ where: { institutionId }, select: { id: true } });
+    const staffProfiles = await tx.staffProfile.findMany({ where: { institutionId, user: { deletedAt: undefined } }, select: { id: true } });
     const staffIds = staffProfiles.map((s: any) => s.id);
 
     // T1 donations — children before funds (fund FKs are RESTRICT).
@@ -568,6 +568,13 @@ export async function deleteInstitution(institutionId: string, actorUserId: stri
     await tx.familyStudent.deleteMany({ where: { institutionId } });
     await tx.familyGuardian.deleteMany({ where: { institutionId } });
     await tx.family.deleteMany({ where: { institutionId } });
+
+    // T4 CRM — before enquiries/users/donors (they also cascade on institution).
+    await tx.crmActivity.deleteMany({ where: { institutionId } });
+    await tx.crmTask.deleteMany({ where: { institutionId } });
+    await tx.crmContact.deleteMany({ where: { institutionId } });
+    await tx.admissionEnquiry.updateMany({ where: { institutionId }, data: { stageId: null } });
+    await tx.crmStage.deleteMany({ where: { institutionId } });
 
     // Billing & Subscription
     await tx.subscriptionPayment.deleteMany({ where: { institutionId } });

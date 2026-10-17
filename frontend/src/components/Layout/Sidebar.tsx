@@ -120,6 +120,8 @@ const NAV_ENTRIES: NavEntry[] = [
     children: [
       { to: '/students/categories', label: 'Students Category', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/admissions/enquiries', label: 'Admission Enquiries', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // T4: follow-up tasks from the admissions CRM (any staff member can own one).
+      { to: '/admissions/tasks', label: 'My Admission Tasks', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'MANAGEMENT', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER'] },
       { to: '/students/admission', label: 'Students Admission', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/online-registrations', label: 'Online Registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/students/assign-roll-no', label: 'Assign Roll No.', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
@@ -361,6 +363,8 @@ const NAV_ENTRIES: NavEntry[] = [
       // User Accounts: backend (user.routes.ts) only permits SUPER_ADMIN/ADMIN.
       { to: '/users', label: 'Users', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/settings/custom-fields', label: 'Custom Fields', roles: ['SUPER_ADMIN', 'ADMIN'] },
+      // T5: deleted records for 30 days — restore or delete permanently.
+      { to: '/settings/trash', label: 'Trash', roles: ['SUPER_ADMIN', 'ADMIN'] },
       { to: '/onboarding/setup', label: 'Setup Wizard', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Platform subscription billing (SSLCommerz) — Admin only, distinct from the school's own student fees.
       { to: '/billing', label: 'Subscription', roles: ['ADMIN'] },

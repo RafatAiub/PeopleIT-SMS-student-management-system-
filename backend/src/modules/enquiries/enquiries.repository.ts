@@ -1,6 +1,7 @@
 import { EnquiryStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import type { EnquiryQueryDtoType } from './enquiries.dto';
+import { dhakaDayBounds } from '../crm/crm.logic';
 
 // =============================================================================
 // Admission Enquiry repository — every query takes institutionId.
@@ -23,6 +24,15 @@ export const enquirySelect = {
   convertedStudent: { select: { id: true, studentId: true, status: true } },
   createdAt: true,
   updatedAt: true,
+  // T4 CRM extras
+  stageId: true,
+  stage: { select: { id: true, name: true, nameBn: true, color: true, order: true, isWon: true, isLost: true } },
+  nextStep: true,
+  priority: true,
+  lostReason: true,
+  stageChangedAt: true,
+  wonAt: true,
+  _count: { select: { tasks: { where: { done: false } } } },
 } as const;
 
 function startOfTomorrow(): Date {
@@ -31,14 +41,21 @@ function startOfTomorrow(): Date {
   return d;
 }
 
+export type EnquiryFilters = Partial<EnquiryQueryDtoType> & { ownerUserId?: string };
+
 export function buildWhere(
   institutionId: string,
-  query: Partial<EnquiryQueryDtoType>,
+  query: EnquiryFilters,
 ): Prisma.AdmissionEnquiryWhereInput {
   const where: Prisma.AdmissionEnquiryWhereInput = {
     institutionId,
     ...(query.status ? { status: query.status } : {}),
     ...(query.assignedToUserId ? { assignedToUserId: query.assignedToUserId } : {}),
+    // T4 "mine" (resolved by the controller to the signed-in user).
+    ...(query.ownerUserId ? { assignedToUserId: query.ownerUserId } : {}),
+    ...(query.stageId ? { stageId: query.stageId } : {}),
+    ...(query.priority ? { priority: query.priority } : {}),
+    ...(query.classInterested ? { classInterested: { equals: query.classInterested, mode: 'insensitive' } } : {}),
     ...(query.source ? { source: { equals: query.source, mode: 'insensitive' } } : {}),
     ...(query.search
       ? {
@@ -56,16 +73,21 @@ export function buildWhere(
     where.status = query.status ?? { notIn: ['ENROLLED', 'LOST'] };
     where.followUpAt = query.followUp === 'due' ? { lt: startOfTomorrow() } : { gte: startOfTomorrow() };
   }
+  if (query.due) {
+    const { start, end } = dhakaDayBounds();
+    where.status = query.status ?? { notIn: ['ENROLLED', 'LOST'] };
+    where.followUpAt = query.due === 'overdue' ? { lt: start } : { gte: start, lt: end };
+  }
   return where;
 }
 
-export async function list(institutionId: string, query: EnquiryQueryDtoType) {
+export async function list(institutionId: string, query: EnquiryQueryDtoType & { ownerUserId?: string }) {
   const where = buildWhere(institutionId, query);
   const [items, total] = await prisma.$transaction([
     prisma.admissionEnquiry.findMany({
       where,
       select: enquirySelect,
-      orderBy: query.followUp ? { followUpAt: 'asc' } : { createdAt: 'desc' },
+      orderBy: query.followUp || query.due ? { followUpAt: 'asc' } : { createdAt: 'desc' },
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
     }),

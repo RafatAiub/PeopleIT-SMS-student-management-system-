@@ -49,8 +49,8 @@ export async function updateEvent(req: Request, res: Response, next: NextFunctio
 
 export async function deleteEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await eventService.deleteEvent(req.tenantId!, req.params.id);
-    successResponse(res, null, 'Event deleted successfully');
+    const trash = await eventService.deleteEvent(req.tenantId!, req.params.id, { userId: req.user?.sub, role: req.user?.role });
+    successResponse(res, { trash }, 'Event moved to trash');
   } catch (error) {
     next(error);
   }

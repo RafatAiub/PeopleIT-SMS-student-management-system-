@@ -704,7 +704,7 @@ export default function Events() {
       <ConfirmModal
         isOpen={!!deleteTarget}
         title="Delete event"
-        message={deleteTarget ? `Delete "${deleteTarget.title}" (${formatEventDates(deleteTarget)})? This cannot be undone.` : ''}
+        message={deleteTarget ? `Move "${deleteTarget.title}" (${formatEventDates(deleteTarget)}) to the trash? You can restore it within 30 days.` : ''}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}

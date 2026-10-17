@@ -11,6 +11,8 @@ import type {
   StudentOption,
   UserRow,
 } from './users.types';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 export const USERS_KEY = 'users';
 export const CLASSES_META_KEY = 'users-classes-meta';
@@ -83,9 +85,9 @@ export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/users/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: [USERS_KEY] });
-      toast.success('User deleted successfully');
+      showUndoToast(translate('User moved to trash'), res, () => qc.invalidateQueries({ queryKey: [USERS_KEY] }));
     },
     onError: (error: any) => toast.error(errorMessage(error, 'Failed to delete user')),
   });

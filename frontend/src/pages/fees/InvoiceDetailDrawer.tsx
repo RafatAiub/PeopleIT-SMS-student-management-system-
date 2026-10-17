@@ -1,9 +1,13 @@
 import React from 'react';
-import { DollarSign, Printer, Receipt } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
+import { DollarSign, Printer, Receipt, Trash2 } from 'lucide-react';
 import { Drawer, Button, Skeleton, SkeletonText, ErrorState, DescriptionList } from '../../components/ui';
 import { StatusBadge } from '../../components/common/StatusBadge';
-import { formatCurrency, formatDate } from '../../i18n';
-import { useInvoiceDetail } from './hooks';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { showUndoToast } from '../../components/common/undoToast';
+import { formatCurrency, formatDate, useT } from '../../i18n';
+import { FEES_INVOICES_KEY, canTrashInvoice, useDeleteInvoice, useInvoiceDetail } from './hooks';
 import type { InvoiceListItem, Payment } from './types';
 
 const METHOD_LABEL: Record<string, string> = {
@@ -32,6 +36,10 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
   onPrintReceipt,
 }) => {
   const { data: invoice, isLoading, isError, refetch } = useInvoiceDetail(invoiceId);
+  const t = useT();
+  const qc = useQueryClient();
+  const del = useDeleteInvoice();
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
 
   return (
     <Drawer isOpen={!!invoiceId} onClose={onClose} title={invoice ? `Invoice ${invoice.invoiceNo}` : 'Invoice'} width="lg">
@@ -129,7 +137,34 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
                 Record payment
               </Button>
             )}
+            {canRecordPayment && canTrashInvoice(invoice) && (
+              <Button variant="danger-soft" size="sm" leftIcon={<Trash2 className="w-3.5 h-3.5" />} onClick={() => setConfirmDelete(true)}>
+                {t('Delete')}
+              </Button>
+            )}
           </div>
+          <ConfirmModal
+            isOpen={confirmDelete}
+            title={t('Delete invoice')}
+            message={t('Move invoice {no} to the trash? Only unpaid invoices can be deleted; you can restore it for 30 days.', { no: invoice.invoiceNo })}
+            confirmLabel={t('Delete')}
+            variant="danger"
+            isLoading={del.isPending}
+            onConfirm={() =>
+              del.mutate(invoice.id, {
+                onSuccess: (res) => {
+                  setConfirmDelete(false);
+                  showUndoToast(t('Invoice moved to trash'), res, () => qc.invalidateQueries({ queryKey: [FEES_INVOICES_KEY] }));
+                  onClose();
+                },
+                onError: (e: any) => {
+                  setConfirmDelete(false);
+                  toast.error(e?.response?.data?.message || t('Could not delete the invoice'));
+                },
+              })
+            }
+            onCancel={() => setConfirmDelete(false)}
+          />
         </div>
       ) : null}
     </Drawer>

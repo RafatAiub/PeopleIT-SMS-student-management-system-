@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Input, Textarea, Select, Button } from '@/components/ui';
-import { useT } from '@/i18n';
+import { Modal, Input, Textarea, Select, Button, Alert } from '@/components/ui';
+import { useLocale, useT } from '@/i18n';
 import { useEnquiryAssignees } from './enquiries.queries';
+import { useDuplicateCheck, useStages } from './crm.api';
+import { stageLabel } from './crm.logic';
 import {
   EMPTY_ENQUIRY_FORM,
+  PRIORITY_OPTIONS,
   SOURCE_OPTIONS,
-  STATUS_OPTIONS,
   enquiryToFormValues,
   type Enquiry,
   type EnquiryFormValues,
+  type Priority,
 } from './enquiries.types';
 
 interface EnquiryFormModalProps {
@@ -18,6 +21,8 @@ interface EnquiryFormModalProps {
   enquiry: Enquiry | null;
   onSubmit: (values: EnquiryFormValues) => void;
   isSubmitting: boolean;
+  /** T4: open an existing enquiry flagged as a likely duplicate. */
+  onOpenExisting?: (id: string) => void;
 }
 
 type FormErrors = Partial<Record<'studentName' | 'phone' | 'email', string>>;
@@ -35,9 +40,12 @@ function validate(values: EnquiryFormValues): FormErrors {
   return errors;
 }
 
-export default function EnquiryFormModal({ isOpen, onClose, enquiry, onSubmit, isSubmitting }: EnquiryFormModalProps) {
+export default function EnquiryFormModal({ isOpen, onClose, enquiry, onSubmit, isSubmitting, onOpenExisting }: EnquiryFormModalProps) {
   const t = useT();
+  const { lang } = useLocale();
   const { data: assignees = [] } = useEnquiryAssignees();
+  const { data: stages = [] } = useStages();
+  const [probe, setProbe] = useState({ studentName: '', guardianName: '', phone: '', email: '' });
   const [values, setValues] = useState<EnquiryFormValues>(EMPTY_ENQUIRY_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -47,7 +55,19 @@ export default function EnquiryFormModal({ isOpen, onClose, enquiry, onSubmit, i
     setValues(enquiry ? enquiryToFormValues(enquiry) : EMPTY_ENQUIRY_FORM);
     setErrors({});
     setTouched({});
+    setProbe({ studentName: '', guardianName: '', phone: '', email: '' });
   }, [isOpen, enquiry]);
+
+  // Duplicate check (create only), refreshed when the person's key fields settle.
+  useEffect(() => {
+    if (!isOpen || enquiry) return;
+    const id = setTimeout(
+      () => setProbe({ studentName: values.studentName.trim(), guardianName: values.guardianName.trim(), phone: values.phone.trim(), email: values.email.trim() }),
+      500,
+    );
+    return () => clearTimeout(id);
+  }, [isOpen, enquiry, values.studentName, values.guardianName, values.phone, values.email]);
+  const dups = useDuplicateCheck(probe, isOpen && !enquiry && (probe.phone.length >= 6 || probe.email.includes('@') || probe.studentName.length >= 3));
 
   const handleBlur = (field: keyof FormErrors) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -86,6 +106,24 @@ export default function EnquiryFormModal({ isOpen, onClose, enquiry, onSubmit, i
       }
     >
       <form id="enquiryForm" onSubmit={handleSubmit} className="space-y-5">
+        {!enquiry && (dups.data?.length ?? 0) > 0 && (
+          <Alert tone="warning" title={t('This person may already be in your enquiries')}>
+            <ul className="mt-1 space-y-1">
+              {dups.data!.slice(0, 5).map((d) => (
+                <li key={d.id} className="text-sm flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{d.studentName}</span>
+                  <span>{d.phone}</span>
+                  {d.stage && <span className="text-xs">({d.stage.name})</span>}
+                  {onOpenExisting && (
+                    <button type="button" className="text-xs font-semibold text-primary-700 dark:text-primary-300 underline" onClick={() => onOpenExisting(d.id)}>
+                      {t('Open it')}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Alert>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label={t('Student name')}
@@ -143,21 +181,37 @@ export default function EnquiryFormModal({ isOpen, onClose, enquiry, onSubmit, i
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select
-            label={t('Status')}
-            value={values.status}
-            onChange={(e) => setValues((p) => ({ ...p, status: e.target.value as EnquiryFormValues['status'] }))}
-            options={STATUS_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))}
+            label={t('Stage')}
+            value={values.stageId || stages[0]?.id || ''}
+            onChange={(e) => setValues((p) => ({ ...p, stageId: e.target.value }))}
+            options={stages.map((s) => ({ value: s.id, label: stageLabel(s, lang) }))}
           />
           <Select
-            label={t('Assign to')}
+            label={t('Owner')}
             value={values.assignedToUserId}
             onChange={(e) => setValues((p) => ({ ...p, assignedToUserId: e.target.value }))}
             options={assigneeOptions}
           />
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-4">
+          <Input
+            label={t('Next step')}
+            value={values.nextStep}
+            maxLength={300}
+            placeholder={t('e.g. Call father about the campus visit')}
+            onChange={(e) => setValues((p) => ({ ...p, nextStep: e.target.value }))}
+          />
+          <Select
+            label={t('Priority')}
+            value={values.priority}
+            onChange={(e) => setValues((p) => ({ ...p, priority: e.target.value as Priority }))}
+            options={PRIORITY_OPTIONS.map((o) => ({ value: o.value, label: t(o.label) }))}
+          />
+        </div>
+
         <Input
-          label={t('Follow-up date & time')}
+          label={t('Next step due')}
           type="datetime-local"
           value={values.followUpAt}
           onChange={(e) => setValues((p) => ({ ...p, followUpAt: e.target.value }))}

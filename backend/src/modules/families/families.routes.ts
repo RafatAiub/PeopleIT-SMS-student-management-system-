@@ -59,6 +59,8 @@ familiesRouter.post('/payments/:id/demo-confirm', requireRole(UserRole.GUARDIAN)
 familiesRouter.post('/', STAFF, validate({ body: CreateFamilyDto }), c.create);
 familiesRouter.get('/:id', READ, id, c.get);
 familiesRouter.put('/:id', STAFF, id, validate({ body: UpdateFamilyDto }), c.update);
+// T5: delete = move to the trash (members stay attached; restorable for 30 days).
+familiesRouter.delete('/:id', ADMIN_ONLY, id, c.remove);
 familiesRouter.post('/:id/members', STAFF, id, validate({ body: AddMembersDto }), c.addMembers);
 familiesRouter.delete('/:id/students/:memberId', STAFF, validate({ params: MemberParamDto }), c.removeStudent);
 familiesRouter.delete('/:id/guardians/:memberId', STAFF, validate({ params: MemberParamDto }), c.removeGuardian);

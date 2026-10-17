@@ -11,6 +11,8 @@ import { PageHeader } from '../../components/ui/Display';
 import { ErrorState } from '../../components/ui/Feedback';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { Badge } from '../../components/ui/Badge';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 interface GuardianInfo {
   relationship: string;
@@ -116,8 +118,8 @@ const OnlineRegistrations = () => {
     if (!rejectTarget) return;
     setRejecting(true);
     try {
-      await apiClient.delete(`/students/${rejectTarget.id}`);
-      toast.success('Application rejected');
+      const res = await apiClient.delete(`/students/${rejectTarget.id}`);
+      showUndoToast(translate('Application rejected (moved to trash)'), res.data, () => fetchPending());
       setRejectTarget(null);
       fetchPending();
     } catch (error: any) {
@@ -343,7 +345,7 @@ const OnlineRegistrations = () => {
       <ConfirmModal
         isOpen={!!rejectTarget}
         title="Reject this application?"
-        message={`This permanently removes ${rejectTarget?.firstName} ${rejectTarget?.lastName}'s application. This cannot be undone.`}
+        message={`${rejectTarget?.firstName} ${rejectTarget?.lastName}'s application moves to the trash. You can restore it within 30 days.`}
         confirmLabel="Reject"
         variant="danger"
         isLoading={rejecting}

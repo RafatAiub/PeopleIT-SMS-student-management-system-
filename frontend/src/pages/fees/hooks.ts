@@ -89,6 +89,22 @@ export function useCreateInvoice() {
   });
 }
 
+/** T5: unpaid/cancelled invoices only (the API refuses paid ones); returns the trash entry for Undo. */
+export function useDeleteInvoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (invoiceId: string) => (await apiClient.delete(`/fees/invoices/${invoiceId}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [FEES_INVOICES_KEY] });
+    },
+  });
+}
+
+/** Invoices that may go to the trash: unpaid, overdue or cancelled with nothing paid. */
+export function canTrashInvoice(inv: { status: string; paidAmount: number | string; payments?: unknown[] }): boolean {
+  return ['UNPAID', 'OVERDUE', 'CANCELLED'].includes(inv.status) && Number(inv.paidAmount) === 0 && !(inv.payments && inv.payments.length);
+}
+
 export interface RecordPaymentPayload {
   invoiceId: string;
   amount: number;

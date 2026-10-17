@@ -67,6 +67,8 @@ import emailAdminRouter from './modules/email/email.admin.routes';
 import { donationsRouter } from './modules/donations/donations.routes';
 import { characterRouter } from './modules/character/character.routes';
 import { familiesRouter, familyGatewayRouter } from './modules/families/families.routes';
+import { crmRouter } from './modules/crm/crm.routes';
+import { trashRouter } from './modules/trash/trash.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -343,6 +345,10 @@ app.use('/api/v1/donations', donationsRouter);
 app.use('/api/v1/character', characterRouter);
 // T3 family profile (every school).
 app.use('/api/v1/families', familiesRouter);
+// T4 admissions CRM extras (every school): stages, tasks, timeline, contacts, merge, report.
+app.use('/api/v1/crm', crmRouter);
+// T5 trash & restore (every school): recycle bin, restore, permanent delete.
+app.use('/api/v1/trash', trashRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/authorized-emails', authorizedEmailRouter);
 app.use('/api/v1/leads', leadRouter);

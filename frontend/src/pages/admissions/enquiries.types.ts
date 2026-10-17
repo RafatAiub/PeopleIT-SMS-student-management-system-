@@ -76,6 +76,32 @@ export interface Enquiry {
   convertedStudent: ConvertedStudentRef | null;
   createdAt: string;
   updatedAt: string;
+  // ── T4 CRM extras ──
+  stageId?: string | null;
+  stage?: StageRef | null;
+  nextStep?: string | null;
+  priority?: Priority;
+  lostReason?: string | null;
+  stageChangedAt?: string | null;
+  wonAt?: string | null;
+  _count?: { tasks: number };
+}
+
+export type Priority = 'LOW' | 'NORMAL' | 'HIGH';
+export const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
+  { value: 'HIGH', label: 'High' },
+  { value: 'NORMAL', label: 'Normal' },
+  { value: 'LOW', label: 'Low' },
+];
+
+export interface StageRef {
+  id: string;
+  name: string;
+  nameBn: string | null;
+  color: string;
+  order: number;
+  isWon: boolean;
+  isLost: boolean;
 }
 
 export interface BoardColumn {
@@ -120,6 +146,10 @@ export interface EnquiryFormValues {
   assignedToUserId: string;
   /** `datetime-local` input value ('' = no follow-up date). */
   followUpAt: string;
+  /** T4: pipeline stage ('' = derive from status). */
+  stageId: string;
+  nextStep: string;
+  priority: Priority;
 }
 
 export const EMPTY_ENQUIRY_FORM: EnquiryFormValues = {
@@ -133,6 +163,9 @@ export const EMPTY_ENQUIRY_FORM: EnquiryFormValues = {
   notes: '',
   assignedToUserId: '',
   followUpAt: '',
+  stageId: '',
+  nextStep: '',
+  priority: 'NORMAL',
 };
 
 /** Wire shape sent to POST/PUT /enquiries. */
@@ -147,6 +180,9 @@ export interface EnquiryPayload {
   notes: string | null;
   assignedToUserId: string | null;
   followUpAt: string | null;
+  stageId?: string | null;
+  nextStep: string | null;
+  priority: Priority;
 }
 
 /** ISO -> value for <input type="datetime-local"> in the browser's local time. */
@@ -176,6 +212,9 @@ export function toEnquiryPayload(values: EnquiryFormValues): EnquiryPayload {
     notes: values.notes.trim() || null,
     assignedToUserId: values.assignedToUserId || null,
     followUpAt: fromLocalInput(values.followUpAt),
+    ...(values.stageId ? { stageId: values.stageId } : {}),
+    nextStep: values.nextStep.trim() || null,
+    priority: values.priority,
   };
 }
 
@@ -191,12 +230,16 @@ export function enquiryToFormValues(enquiry: Enquiry): EnquiryFormValues {
     notes: enquiry.notes ?? '',
     assignedToUserId: enquiry.assignedToUserId ?? '',
     followUpAt: toLocalInput(enquiry.followUpAt),
+    stageId: enquiry.stageId ?? '',
+    nextStep: enquiry.nextStep ?? '',
+    priority: enquiry.priority ?? 'NORMAL',
   };
 }
 
-export function isFollowUpOverdue(enquiry: Pick<Enquiry, 'followUpAt' | 'status'>, now = Date.now()): boolean {
+export function isFollowUpOverdue(enquiry: Pick<Enquiry, 'followUpAt' | 'status'> & { stage?: StageRef | null }, now = Date.now()): boolean {
   if (!enquiry.followUpAt) return false;
   if (CLOSED_STATUSES.includes(enquiry.status)) return false;
+  if (enquiry.stage && (enquiry.stage.isWon || enquiry.stage.isLost)) return false;
   return new Date(enquiry.followUpAt).getTime() < now;
 }
 

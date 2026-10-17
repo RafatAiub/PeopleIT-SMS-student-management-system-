@@ -35,7 +35,7 @@ const paged = (res: Response, r: { items: unknown[]; total: number }, req: Reque
 export const listFunds = wrap(async (req, res) => successResponse(res, await svc.listFunds(ctxOf(req))));
 export const createFund = wrap(async (req, res) => successResponse(res, await svc.createFund(ctxOf(req), req.body), 'Fund created', 201));
 export const updateFund = wrap(async (req, res) => successResponse(res, await svc.updateFund(ctxOf(req), req.params.id, req.body), 'Fund saved'));
-export const deleteFund = wrap(async (req, res) => successResponse(res, await svc.deleteFund(ctxOf(req), req.params.id), 'Fund deleted'));
+export const deleteFund = wrap(async (req, res) => successResponse(res, await svc.deleteFund(ctxOf(req), req.params.id), 'Fund moved to trash'));
 
 // Donors
 export const listDonors = wrap(async (req, res) => paged(res, await svc.listDonors(ctxOf(req), q(req)), req));
@@ -48,7 +48,7 @@ export const deleteDonor = wrap(async (req, res) => successResponse(res, await s
 export const listCampaigns = wrap(async (req, res) => successResponse(res, await svc.listCampaigns(ctxOf(req))));
 export const createCampaign = wrap(async (req, res) => successResponse(res, await svc.createCampaign(ctxOf(req), req.body), 'Campaign created', 201));
 export const updateCampaign = wrap(async (req, res) => successResponse(res, await svc.updateCampaign(ctxOf(req), req.params.id, req.body), 'Campaign saved'));
-export const deleteCampaign = wrap(async (req, res) => successResponse(res, await svc.deleteCampaign(ctxOf(req), req.params.id), 'Campaign deleted'));
+export const deleteCampaign = wrap(async (req, res) => successResponse(res, await svc.deleteCampaign(ctxOf(req), req.params.id), 'Campaign moved to trash'));
 
 // Donation records
 export const listDonations = wrap(async (req, res) => {

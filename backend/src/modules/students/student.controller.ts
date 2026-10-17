@@ -83,8 +83,8 @@ export async function deleteStudent(
   next: NextFunction,
 ): Promise<void> {
   try {
-    await studentService.deleteStudent(req.tenantId!, req.params.id);
-    successResponse(res, null, 'Student deleted successfully');
+    const trash = await studentService.deleteStudent(req.tenantId!, req.params.id, { userId: req.user?.sub, role: req.user?.role });
+    successResponse(res, { trash }, 'Student moved to trash');
   } catch (error) {
     next(error);
   }

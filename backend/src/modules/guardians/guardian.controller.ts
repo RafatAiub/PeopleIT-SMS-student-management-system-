@@ -36,8 +36,8 @@ export async function updateGuardian(req: Request, res: Response, next: NextFunc
 
 export async function deleteGuardian(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await guardianService.deleteGuardian(req.tenantId!, req.params.id);
-    successResponse(res, null, 'Guardian deleted successfully');
+    const trash = await guardianService.deleteGuardian(req.tenantId!, req.params.id, { userId: req.user?.sub, role: req.user?.role });
+    successResponse(res, { trash }, 'Guardian moved to trash');
   } catch (error) { next(error); }
 }
 

@@ -82,7 +82,9 @@ export const eventApi = {
     return data.data;
   },
 
-  remove: async (id: string): Promise<void> => {
-    await apiClient.delete(`/events/${id}`);
+  /** T5: moves the event to the trash; the response carries the trash entry (for Undo). */
+  remove: async (id: string): Promise<unknown> => {
+    const { data } = await apiClient.delete(`/events/${id}`);
+    return data;
   },
 };

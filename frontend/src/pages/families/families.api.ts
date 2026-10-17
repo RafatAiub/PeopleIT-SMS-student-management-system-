@@ -158,6 +158,8 @@ export const useRemoveStudent = () => useInvalidating((v: { id: string; studentI
 export const useRemoveGuardian = () => useInvalidating((v: { id: string; guardianId: string }) => send('delete', `/families/${v.id}/guardians/${v.guardianId}`));
 export const useMergeFamily = () => useInvalidating((v: { id: string; otherFamilyId: string }) => send('post', `/families/${v.id}/merge`, { otherFamilyId: v.otherFamilyId }));
 export const useAddNote = () => useInvalidating((v: { id: string; body: string }) => send('post', `/families/${v.id}/notes`, { body: v.body }));
+// T5: delete = move to the trash (ADMIN); the response carries the trash entry for Undo.
+export const useDeleteFamily = () => useInvalidating((id: string) => send('delete', `/families/${id}`));
 export const useDeleteNote = () => useInvalidating((v: { id: string; noteId: string }) => send('delete', `/families/${v.id}/notes/${v.noteId}`));
 export const useSiblingConcession = () =>
   useInvalidating((v: { id: string; concessionId: string; studentIds: string[] }) => send('post', `/families/${v.id}/sibling-concession`, { concessionId: v.concessionId, studentIds: v.studentIds }) as Promise<{ applied: number }>);

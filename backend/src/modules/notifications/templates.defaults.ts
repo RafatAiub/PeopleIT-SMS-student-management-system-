@@ -602,6 +602,31 @@ export const DEFAULT_TEMPLATES: Record<string, DefaultTemplate> = {
       '{{institutionName}}',
     ].join('\n'),
   },
+  // ── CRM_TASK_DIGEST (T4) — bilingual (English, then Bangla) ─────────────
+  'CRM_TASK_DIGEST:IN_APP': {
+    subject: 'Admissions: {{total}} follow-ups due / ভর্তি: {{total}}টি ফলো-আপ বাকি',
+    body: 'Overdue {{overdue}}, due today {{dueToday}}, enquiry next steps {{followUps}}. মেয়াদোত্তীর্ণ {{overdue}}, আজ {{dueToday}}, এনকোয়ারির পরবর্তী ধাপ {{followUps}}।',
+  },
+  'CRM_TASK_DIGEST:EMAIL': {
+    subject: 'Your admissions follow-ups for {{date}} / আজকের ভর্তি ফলো-আপ — {{institutionName}}',
+    body: [
+      'Hello,',
+      '',
+      'Here is what needs your attention today:',
+      '',
+      '  Overdue tasks      : {{overdue}}',
+      '  Tasks due today    : {{dueToday}}',
+      '  Enquiry next steps : {{followUps}}',
+      '',
+      '{{list}}',
+      '',
+      'আজ আপনার যা করণীয়: মেয়াদোত্তীর্ণ কাজ {{overdue}}টি, আজকের কাজ {{dueToday}}টি, এনকোয়ারির পরবর্তী ধাপ {{followUps}}টি।',
+      '',
+      'Open Admissions → My tasks in the portal. / পোর্টালে ভর্তি → আমার কাজ খুলুন।',
+      '',
+      '{{institutionName}}',
+    ].join('\n'),
+  },
 };
 
 export function defaultTemplateKey(type: NotificationType, channel: string): string {

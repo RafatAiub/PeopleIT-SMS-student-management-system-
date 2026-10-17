@@ -14,6 +14,8 @@ import { ErrorState } from '../../components/ui/Feedback';
 import { StudentEditDrawer } from './StudentEditDrawer';
 import { ClassMeta } from './studentFormUtils';
 import { useOpenFamily } from '../families/useOpenFamily';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Active' },
@@ -95,8 +97,8 @@ const StudentListStaff = () => {
     if (!studentToDelete) return;
     setDeletingStudent(true);
     try {
-      await apiClient.delete(`/students/${studentToDelete.id}`);
-      toast.success('Student deleted successfully');
+      const res = await apiClient.delete(`/students/${studentToDelete.id}`);
+      showUndoToast(translate('Student moved to trash'), res.data, () => fetchStudents());
       setStudentToDelete(null);
       fetchStudents();
     } catch (error: any) {
@@ -244,7 +246,7 @@ const StudentListStaff = () => {
       <ConfirmModal
         isOpen={!!studentToDelete}
         title="Delete student"
-        message={`Are you sure you want to delete ${studentToDelete?.firstName} ${studentToDelete?.lastName}? This cannot be undone.`}
+        message={`Move ${studentToDelete?.firstName} ${studentToDelete?.lastName} to the trash? You can restore them within 30 days.`}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deletingStudent}

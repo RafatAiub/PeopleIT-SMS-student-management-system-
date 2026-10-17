@@ -9,6 +9,7 @@ import {
   useSaveCampaign, useSaveDonor, useSaveFund, type Campaign, type Donor, type Fund, type FundType,
 } from '../donations.api';
 import { FundTypeBadge, GoalBar, Money, toDateInput, useBi } from '../shared';
+import { showUndoToast } from '@/components/common/undoToast';
 
 function confirmDelete(message: string): boolean {
   return window.confirm(message);
@@ -84,7 +85,7 @@ export const FundsTab: React.FC = () => {
                 <div className="flex gap-1">
                   <Button size="icon-sm" variant="ghost" aria-label={t('Edit')} onClick={() => setEditing(f)}><Edit3 className="w-4 h-4" /></Button>
                   <Button size="icon-sm" variant="ghost" aria-label={t('Delete')} onClick={() => confirmDelete(t('Delete this fund?')) && del.mutate(f.id, {
-                    onSuccess: () => toast.success(t('Fund deleted')),
+                    onSuccess: (res) => showUndoToast(t('Fund moved to trash'), res, () => q.refetch()),
                     onError: (err) => toast.error(apiErrorMessage(err, t('Could not delete'))),
                   })}><Trash2 className="w-4 h-4" /></Button>
                 </div>
@@ -295,7 +296,7 @@ export const CampaignsTab: React.FC = () => {
                   {c.isPublic && <Badge variant="info"><Globe className="w-3 h-3" aria-hidden /> {t('On website')}</Badge>}
                   <Button size="icon-sm" variant="ghost" aria-label={t('Edit')} onClick={() => setEditing(c)}><Edit3 className="w-4 h-4" /></Button>
                   <Button size="icon-sm" variant="ghost" aria-label={t('Delete')} onClick={() => confirmDelete(t('Delete this campaign? Its donations are kept.')) && del.mutate(c.id, {
-                    onSuccess: () => toast.success(t('Campaign deleted')),
+                    onSuccess: (res) => showUndoToast(t('Campaign moved to trash'), res, () => q.refetch()),
                     onError: (err) => toast.error(apiErrorMessage(err, t('Could not delete'))),
                   })}><Trash2 className="w-4 h-4" /></Button>
                 </div>

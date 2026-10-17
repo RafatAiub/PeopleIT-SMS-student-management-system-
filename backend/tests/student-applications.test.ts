@@ -186,8 +186,11 @@ describe('Online Registrations (Student Applications)', () => {
         .set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
 
+      // T5: a rejected application goes to the trash (restorable for 30 days);
+      // the daily purge deletes it permanently, guardian link included.
       const student = await prisma.student.findUnique({ where: { id: pendingId } });
-      expect(student).toBeNull();
+      expect(student?.deletedAt).toBeTruthy();
+      expect(res.body.data.trash.trashEntryId).toBeTruthy();
     });
   });
 });

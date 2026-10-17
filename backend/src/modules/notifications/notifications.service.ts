@@ -71,6 +71,8 @@ export const DEFAULT_CHANNELS: Record<NotificationType, NotificationChannel[]> =
   // T2 character: badge awarded (guardians + student). No SMS: awards can be
   // bulk (a whole class) and are good news, not urgent.
   BADGE_AWARDED: ['IN_APP', 'EMAIL'],
+  // T4 CRM: one digest per staff member per day; staff only, so no SMS.
+  CRM_TASK_DIGEST: ['IN_APP', 'EMAIL'],
 };
 
 /**

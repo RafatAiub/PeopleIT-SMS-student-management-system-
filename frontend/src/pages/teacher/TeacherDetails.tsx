@@ -6,6 +6,8 @@ import { useTableParams } from '../../hooks/useTableParams';
 import { DataTable, Column, RowAction } from '../../components/DataTable/DataTable';
 import { Drawer, Button, Input, PageHeader, ErrorState } from '../../components/ui';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 interface TeacherRow {
   id: string;
@@ -73,8 +75,8 @@ const TeacherDetails = () => {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/users/${id}`),
-    onSuccess: () => {
-      toast.success('Teacher deleted successfully');
+    onSuccess: (res) => {
+      showUndoToast(translate('Teacher moved to trash'), res.data, () => invalidate());
       setDeleteTarget(null);
       invalidate();
     },
@@ -295,7 +297,7 @@ const TeacherDetails = () => {
       <ConfirmModal
         isOpen={!!deleteTarget}
         title="Delete this teacher?"
-        message={`This permanently removes ${deleteTarget?.firstName} ${deleteTarget?.lastName}'s account. This cannot be undone.`}
+        message={`${deleteTarget?.firstName} ${deleteTarget?.lastName}'s account moves to the trash and their login stops. You can restore it within 30 days.`}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}

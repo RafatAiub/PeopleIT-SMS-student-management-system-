@@ -160,6 +160,15 @@ model Institution {
   familyNotes     FamilyNote[]
   familyPayments  FamilyPayment[]
 
+  // ── T4: Admissions CRM extras ────────────────────────────────────────
+  crmStages     CrmStage[]
+  crmTasks      CrmTask[]
+  crmActivities CrmActivity[]
+  crmContacts   CrmContact[]
+
+  // ── T5: Trash & restore ──────────────────────────────────────────────
+  trashEntries TrashEntry[]
+
   // ── Website v3 — DSHE profile fields (Track B1) ─────────────────────
   // Additive nullable columns directly on Institution rather than a new
   // SiteProfile model: these are singular (one-per-institution) facts,
@@ -727,6 +736,14 @@ model User {
   createdReportSchedules          ReportSchedule[]
   // T1: donor profiles linked to this user (e.g. a guardian who also gives)
   donorProfiles                   Donor[]
+  // T4: CRM tasks assigned to this user
+  assignedCrmTasks                CrmTask[]               @relation("CrmTaskAssignee")
+  ownedCrmContacts                CrmContact[]            @relation("CrmContactOwner")
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([institutionId])
   @@index([branchId])
@@ -898,6 +915,11 @@ model Student {
   // T3: family membership (at most one family)
   familyMember          FamilyStudent?
 
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
+
   @@index([institutionId])
   @@index([branchId])
   @@index([studentId])
@@ -947,6 +969,11 @@ model Guardian {
   lastName  String
   phone     String
   email     String?
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([userId])
   @@index([institutionId])
@@ -1024,6 +1051,11 @@ model Invoice {
   feePaymentTransactions FeePaymentTransaction[]
   // T3: share of a family (pay-all) payment
   familyAllocations      FamilyPaymentAllocation[]
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([institutionId])
   @@index([studentId])
@@ -1331,6 +1363,11 @@ model Notice {
   sectionId     String?
   section       Section?    @relation(fields: [sectionId], references: [id])
   scheduledAt   DateTime?
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([institutionId])
   @@index([classId])
@@ -1851,6 +1888,11 @@ model Event {
   createdByUserId String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([institutionId, startDate])
   @@index([academicYearId])
@@ -2377,10 +2419,34 @@ model AdmissionEnquiry {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
+  // ── T4 CRM extras (additive; see the T4 section at the end) ──────────
+  // Configurable pipeline stage. `status` stays the legacy coarse state and
+  // is always kept equal to stage.status, so old APIs and reports still work.
+  stageId        String?
+  stage          CrmStage?     @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  // Next step text; its due date is the existing followUpAt column.
+  nextStep       String?
+  // LOW | NORMAL | HIGH
+  priority       String        @default("NORMAL")
+  lostReason     String?
+  stageChangedAt DateTime?
+  // First time the enquiry reached a won stage (average days to admit).
+  wonAt          DateTime?
+  tasks          CrmTask[]
+  activities     CrmActivity[]
+  contacts       CrmContact[]
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
+
   @@index([institutionId])
   @@index([status])
   @@index([assignedToUserId])
   @@index([convertedStudentId])
+  @@index([institutionId, stageId])
+  @@index([institutionId, followUpAt])
 }
 
 // ── Custom Fields ────────────────────────────────────────────────────
@@ -2897,6 +2963,11 @@ model SitePage {
   updatedAt          DateTime          @updatedAt
   versions           SitePageVersion[]
 
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
+
   @@unique([siteId, slug])
   // One template page per collection per site (NULLs do not collide).
   @@unique([siteId, collectionKey])
@@ -2979,6 +3050,11 @@ model SitePost {
   tags          String[]
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@unique([siteId, slug])
   @@index([institutionId])
@@ -3608,6 +3684,11 @@ model DonationFund {
   recurring     RecurringDonation[]
   disbursements DonationDisbursement[]
 
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
+
   @@index([institutionId, active])
 }
 
@@ -3629,6 +3710,8 @@ model Donor {
   updatedAt     DateTime            @updatedAt
   donations     Donation[]
   recurring     RecurringDonation[]
+  // T4: CRM contacts linked to this donor
+  crmContacts   CrmContact[]
 
   @@index([institutionId])
   @@index([institutionId, phone])
@@ -3654,6 +3737,11 @@ model DonationCampaign {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   donations     Donation[]
+
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
 
   @@index([institutionId])
   @@index([fundId])
@@ -3991,6 +4079,11 @@ model Family {
   notes             FamilyNote[]
   payments          FamilyPayment[]
 
+  // T5 trash: set while the row is in the recycle bin (hidden everywhere by
+  // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
+  deletedAt       DateTime?
+  deletedByUserId String?
+
   @@index([institutionId, name])
 }
 
@@ -4085,4 +4178,161 @@ model FamilyPaymentAllocation {
 
   @@unique([familyPaymentId, invoiceId])
   @@index([invoiceId])
+}
+
+// =============================================================================
+// === TRACK T4: Admissions CRM extras (no module switch; every school) ===
+// Builds on AdmissionEnquiry. CrmStage is a per-institution configurable
+// pipeline; each stage maps to one legacy EnquiryStatus (`status`) so the old
+// status APIs, funnel and filters keep working. The T4 migration seeds the
+// six default stages for every institution and backfills enquiry.stageId
+// from enquiry.status. CrmTask = follow-up work (optionally on an enquiry);
+// CrmActivity = append-only timeline per enquiry; CrmContact = people who
+// are not applicants (volunteers, donors, general enquirers).
+// Every row is tenant-scoped by institutionId.
+// =============================================================================
+
+model CrmStage {
+  id            String             @id @default(cuid())
+  institutionId String
+  institution   Institution        @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  nameBn        String?
+  // Hex colour, e.g. #3b82f6
+  color         String             @default("#64748b")
+  order         Int
+  isWon         Boolean            @default(false)
+  isLost        Boolean            @default(false)
+  // Legacy status this stage counts as (won → ENROLLED, lost → LOST).
+  status        EnquiryStatus
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  enquiries     AdmissionEnquiry[]
+
+  @@index([institutionId, order])
+}
+
+model CrmTask {
+  id             String            @id @default(cuid())
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  enquiryId      String?
+  enquiry        AdmissionEnquiry? @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  title          String
+  notes          String?           @db.Text
+  dueAt          DateTime?
+  assigneeUserId String?
+  assignee       User?             @relation("CrmTaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  done           Boolean           @default(false)
+  doneAt         DateTime?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([institutionId, assigneeUserId, done, dueAt])
+  @@index([enquiryId])
+}
+
+// Append-only. type: CREATED | STAGE_CHANGE | NOTE | CALL | SMS | EMAIL |
+// MEETING | ASSIGNED | NEXT_STEP | TASK_CREATED | TASK_DONE | TASK_REOPENED |
+// CONVERTED | MERGED | UPDATED
+model CrmActivity {
+  id            String           @id @default(cuid())
+  institutionId String
+  institution   Institution      @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  enquiryId     String
+  enquiry       AdmissionEnquiry @relation(fields: [enquiryId], references: [id], onDelete: Cascade)
+  type          String
+  body          String?          @db.Text
+  // e.g. { fromStageId, toStageId, fromName, toName } or a merge snapshot
+  metadata      Json?
+  actorUserId   String?
+  actorName     String?
+  createdAt     DateTime         @default(now())
+
+  @@index([enquiryId, createdAt])
+  @@index([institutionId, type])
+}
+
+enum CrmContactType {
+  ENQUIRER
+  VOLUNTEER
+  DONOR
+  OTHER
+}
+
+model CrmContact {
+  id            String            @id @default(cuid())
+  institutionId String
+  institution   Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  type          CrmContactType    @default(OTHER)
+  name          String
+  phone         String?
+  email         String?
+  address       String?
+  organisation  String?
+  tags          String[]          @default([])
+  notes         String?           @db.Text
+  ownerUserId   String?
+  owner         User?             @relation("CrmContactOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  // Optional links: the enquiry they came from, the donor profile (T1).
+  enquiryId     String?
+  enquiry       AdmissionEnquiry? @relation(fields: [enquiryId], references: [id], onDelete: SetNull)
+  donorId       String?
+  donor         Donor?            @relation(fields: [donorId], references: [id], onDelete: SetNull)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([institutionId, type])
+  @@index([institutionId, phone])
+  @@index([donorId])
+  @@index([enquiryId])
+}
+
+// =============================================================================
+// === TRACK T5: Trash & restore (no module switch; every school) ===
+// Soft delete: the twelve trash-able models carry deletedAt/deletedByUserId.
+// One TrashEntry per trashed row indexes the bin (list by type, who, when,
+// days left) and keeps what restore needs (original slug/email, linked rows
+// trashed together). A daily job permanently deletes entries whose purgeAfter
+// has passed (30 days). Every row is tenant-scoped by institutionId.
+// =============================================================================
+
+enum TrashEntityType {
+  STUDENT
+  GUARDIAN
+  USER
+  INVOICE
+  NOTICE
+  EVENT
+  ENQUIRY
+  SITE_PAGE
+  SITE_POST
+  DONATION_FUND
+  DONATION_CAMPAIGN
+  FAMILY
+}
+
+model TrashEntry {
+  id              String          @id @default(cuid())
+  institutionId   String
+  institution     Institution     @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  entityType      TrashEntityType
+  entityId        String
+  // Display name at delete time, e.g. "Ayesha Karim (STU-0012)".
+  label           String
+  deletedByUserId String?
+  deletedByName   String?
+  deletedAt       DateTime        @default(now())
+  // deletedAt + 30 days; the daily purge job deletes permanently after this.
+  purgeAfter      DateTime
+  // Why the last automatic purge could not delete it (linked records).
+  purgeError      String?
+  // Restore data: original unique values, linked rows trashed together.
+  metadata        Json?
+
+  @@unique([entityType, entityId])
+  @@index([institutionId, deletedAt])
+  @@index([institutionId, entityType])
+  @@index([purgeAfter])
 }

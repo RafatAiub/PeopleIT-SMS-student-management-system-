@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { notifySafe } from '../notifications/notifications.service';
 import type { CreateEventDtoType, UpdateEventDtoType, EventQueryDtoType } from './event.dto';
+import { moveToTrash } from '../trash/trash.service';
 
 // Which event audience each role belongs to. Admins see every event.
 const ROLE_AUDIENCE: Partial<Record<UserRole, EventAudience>> = {
@@ -171,11 +172,12 @@ export async function updateEvent(institutionId: string, id: string, data: Updat
   return event;
 }
 
-export async function deleteEvent(institutionId: string, id: string) {
+export async function deleteEvent(institutionId: string, id: string, actor: { userId?: string | null; role?: string } = {}) {
   const existing = await eventRepository.findEventById(institutionId, id);
   if (!existing) {
     throw new NotFoundError(`Event with ID '${id}' not found`);
   }
-  await eventRepository.deleteEvent(institutionId, id);
-  logger.info('Event deleted', { eventId: id, institutionId });
+  const entry = await moveToTrash({ institutionId, userId: actor.userId ?? null, role: actor.role }, 'EVENT', id);
+  logger.info('Event moved to trash', { eventId: id, institutionId });
+  return entry;
 }

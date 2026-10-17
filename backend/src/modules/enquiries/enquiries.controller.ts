@@ -19,6 +19,8 @@ const wrap =
     }
   };
 
+const actor = (req: Request) => ({ userId: req.user?.sub ?? null });
+
 function tenant(req: Request): string {
   if (!req.tenantId) throw new ValidationError('Select an institution first');
   return req.tenantId;
@@ -26,7 +28,7 @@ function tenant(req: Request): string {
 
 export const list = wrap(async (req, res) => {
   const query = req.query as never as { page: number; pageSize: number };
-  const { items, total } = await service.listEnquiries(tenant(req), query as never);
+  const { items, total } = await service.listEnquiries(tenant(req), query as never, actor(req));
   paginatedResponse(res, items, total, query.page, query.pageSize);
 });
 
@@ -47,27 +49,27 @@ export const get = wrap(async (req, res) => {
 });
 
 export const create = wrap(async (req, res) => {
-  successResponse(res, await service.createEnquiry(tenant(req), req.body), 'Enquiry created', 201);
+  successResponse(res, await service.createEnquiry(tenant(req), req.body, actor(req)), 'Enquiry created', 201);
 });
 
 export const update = wrap(async (req, res) => {
-  successResponse(res, await service.updateEnquiry(tenant(req), req.params.id, req.body), 'Enquiry updated');
+  successResponse(res, await service.updateEnquiry(tenant(req), req.params.id, req.body, actor(req)), 'Enquiry updated');
 });
 
 export const updateStatus = wrap(async (req, res) => {
   const { status, note } = req.body as { status: string; note?: string };
-  successResponse(res, await service.updateStatus(tenant(req), req.params.id, status, note), 'Status updated');
+  successResponse(res, await service.updateStatus(tenant(req), req.params.id, status, note, actor(req)), 'Status updated');
 });
 
 export const remove = wrap(async (req, res) => {
-  await service.deleteEnquiry(tenant(req), req.params.id);
-  successResponse(res, null, 'Enquiry deleted');
+  const trash = await service.deleteEnquiry(tenant(req), req.params.id, { userId: req.user?.sub ?? null, role: req.user?.role });
+  successResponse(res, { trash }, 'Enquiry moved to trash');
 });
 
 export const convert = wrap(async (req, res) => {
   successResponse(
     res,
-    await service.convertToApplication(tenant(req), req.params.id, req.body),
+    await service.convertToApplication(tenant(req), req.params.id, req.body, actor(req)),
     'Enquiry converted to an online application',
     201,
   );

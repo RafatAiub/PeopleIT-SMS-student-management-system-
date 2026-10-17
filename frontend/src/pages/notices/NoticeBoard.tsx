@@ -267,7 +267,7 @@ const NoticeBoard = () => {
       <ConfirmModal
         isOpen={!!noticeToDelete}
         title="Delete notice"
-        message={noticeToDelete ? `Are you sure you want to delete "${noticeToDelete.title}"? This cannot be undone.` : ''}
+        message={noticeToDelete ? `Move "${noticeToDelete.title}" to the trash? You can restore it within 30 days.` : ''}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}

@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger';
 import { paginatedResponse, successResponse } from '../../utils/response';
 import * as svc from './families.service';
 import * as pay from './families.payments';
+import { moveToTrash } from '../trash/trash.service';
 
 // =============================================================================
 // Family profile (T3) controllers — thin: parse, call the service, respond.
@@ -35,6 +36,11 @@ export const update = wrap(async (req, res) => successResponse(res, await svc.up
 export const addMembers = wrap(async (req, res) => successResponse(res, await svc.addMembers(ctxOf(req), req.params.id, req.body), 'Members added'));
 export const removeStudent = wrap(async (req, res) => successResponse(res, await svc.removeStudent(ctxOf(req), req.params.id, req.params.memberId), 'Student ungrouped'));
 export const removeGuardian = wrap(async (req, res) => successResponse(res, await svc.removeGuardian(ctxOf(req), req.params.id, req.params.memberId), 'Guardian removed'));
+export const remove = wrap(async (req, res) => {
+  const ctx = ctxOf(req);
+  const trash = await moveToTrash({ institutionId: ctx.institutionId, userId: ctx.userId, role: ctx.role }, 'FAMILY', req.params.id);
+  successResponse(res, { trash }, 'Family moved to trash');
+});
 export const merge = wrap(async (req, res) => successResponse(res, await svc.mergeFamilies(ctxOf(req), req.params.id, req.body.otherFamilyId), 'Families merged'));
 
 export const addNote = wrap(async (req, res) => successResponse(res, await svc.addNote(ctxOf(req), req.params.id, req.body.body), 'Note added', 201));

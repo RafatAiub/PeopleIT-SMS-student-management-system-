@@ -14,6 +14,8 @@ import { startReportScheduleJob, stopReportScheduleJob } from './modules/reports
 import { startDataExportJob, stopDataExportJob } from './modules/data-export/dataExport.scheduler';
 import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.scheduler';
 import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules/email/scheduler';
+import { startCrmDigestJob, stopCrmDigestJob } from './modules/crm/crm.scheduler';
+import { startTrashPurgeJob, stopTrashPurgeJob } from './modules/trash/trash.scheduler';
 
 const server = http.createServer(app);
 
@@ -47,6 +49,10 @@ function startSchedulers() {
   startDomainCheckJob();
   // Retries P1/P2 emails deferred by the daily Brevo budget once it resets at UTC midnight.
   startEmailDeferredRetryJob();
+  // T4: daily 07:00 (Dhaka) digest of each staff member's due/overdue CRM tasks.
+  startCrmDigestJob();
+  // T5: daily permanent delete of trash items older than 30 days (audit-logged).
+  startTrashPurgeJob();
 }
 
 const PORT = env.PORT || 3001;
@@ -123,6 +129,8 @@ async function gracefulShutdown(signal: string) {
   stopDataExportJob();
   stopDomainCheckJob();
   stopEmailDeferredRetryJob();
+  stopCrmDigestJob();
+  stopTrashPurgeJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

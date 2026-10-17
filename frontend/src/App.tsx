@@ -102,6 +102,8 @@ const StudentProfile = lazyWithRetry(() => import('./pages/students/profile/Stud
 const DemoCheckout = lazyWithRetry(() => import('./pages/fees/DemoCheckout'));
 const CampaignsPage = lazyWithRetry(() => import('./pages/communication/campaigns/CampaignsPage'));
 const EnquiriesPage = lazyWithRetry(() => import('./pages/admissions/EnquiriesPage'));
+const MyCrmTasksPage = lazyWithRetry(() => import('./pages/admissions/MyTasksPage'));
+const TrashPage = lazyWithRetry(() => import('./pages/settings/trash/TrashPage'));
 const CustomFieldsSettings = lazyWithRetry(() => import('./pages/settings/custom-fields/CustomFieldsSettings'));
 const GradingScales = lazyWithRetry(() => import('./pages/grading/GradingScales'));
 const Promotion = lazyWithRetry(() => import('./pages/promotion/Promotion'));
@@ -538,6 +540,23 @@ const App = () => {
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
             <DashboardLayout>
               <EnquiriesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        {/* T4: admissions follow-up tasks for any staff owner (the daily digest links here). */}
+        <Route path="/admissions/tasks" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'TEACHER', 'MANAGEMENT', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER']}>
+            <DashboardLayout>
+              <MyCrmTasksPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* T5: recycle bin (restore within 30 days, permanent delete) */}
+        <Route path="/settings/trash" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <TrashPage />
             </DashboardLayout>
           </ProtectedRoute>
         } />

@@ -131,8 +131,8 @@ export class UserController {
 
   static async deleteUser(req: Request, res: Response, next: NextFunction) {
     try {
-      await UserService.deleteUser(req.tenantId!, req.params.id);
-      return successResponse(res, null, 'User deleted successfully');
+      const trash = await UserService.deleteUser(req.tenantId!, req.params.id, { userId: req.user?.sub, role: req.user?.role });
+      return successResponse(res, { trash }, 'User moved to trash');
     } catch (error) {
       next(error);
     }

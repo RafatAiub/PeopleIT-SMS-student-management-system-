@@ -222,7 +222,7 @@ export default function Users() {
       <ConfirmModal
         isOpen={!!userToDelete}
         title="Delete user"
-        message={`Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName}? This cannot be undone.`}
+        message={`Move ${userToDelete?.firstName} ${userToDelete?.lastName} to the trash? Their login stops at once; you can restore it within 30 days.`}
         confirmLabel="Delete"
         variant="danger"
         isLoading={deleteMutation.isPending}

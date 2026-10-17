@@ -8,6 +8,7 @@ import type {
   GuardianQueryDtoType,
   LinkGuardianDtoType,
 } from './guardian.dto';
+import { moveToTrash } from '../trash/trash.service';
 
 // =============================================================================
 // Guardian Service — Business logic
@@ -43,13 +44,15 @@ export async function updateGuardian(
   return guardianRepository.update(institutionId, id, data);
 }
 
-export async function deleteGuardian(institutionId: string, id: string) {
+export async function deleteGuardian(institutionId: string, id: string, actor: { userId?: string | null; role?: string } = {}) {
   const existing = await guardianRepository.findById(institutionId, id);
   if (!existing) {
     throw new NotFoundError(`Guardian with ID '${id}' not found`);
   }
-  await guardianRepository.remove(institutionId, id);
-  logger.info('Guardian deleted', { guardianId: id, institutionId });
+  // T5: to the trash (their portal login is paused until restored).
+  const entry = await moveToTrash({ institutionId, userId: actor.userId ?? null, role: actor.role }, 'GUARDIAN', id);
+  logger.info('Guardian moved to trash', { guardianId: id, institutionId });
+  return entry;
 }
 
 export async function linkGuardianToStudent(

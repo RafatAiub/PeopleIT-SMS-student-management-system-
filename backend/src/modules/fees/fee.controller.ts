@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { FeeService } from './fee.service';
+import { moveToTrash } from '../trash/trash.service';
 import { successResponse, paginatedResponse } from '../../utils/response';
 import * as onlinePayments from './online/onlinePayment.service';
 import { getPaymentReceipt } from './receipts/receipt.service';
@@ -55,6 +56,15 @@ export class FeeController {
     try {
       const invoice = await FeeService.createInvoice(req.tenantId!, req.body);
       return successResponse(res, invoice, 'Invoice created successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteInvoice(req: Request, res: Response, next: NextFunction) {
+    try {
+      const trash = await moveToTrash({ institutionId: req.tenantId!, userId: req.user?.sub ?? null, role: req.user?.role }, 'INVOICE', req.params.id);
+      return successResponse(res, { trash }, 'Invoice moved to trash');
     } catch (error) {
       next(error);
     }

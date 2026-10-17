@@ -4,6 +4,7 @@
 
 import { Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { moveToTrash } from '../trash/trash.service';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../utils/AppError';
 import {
   FormField,
@@ -194,8 +195,9 @@ export async function updatePost(ctx: SitesCtx, id: string, data: UpdatePostDtoT
 
 export async function deletePost(ctx: SitesCtx, id: string) {
   const post = await postOrThrow(ctx, id);
-  await prisma.sitePost.delete({ where: { id: post.id } });
-  return { id: post.id };
+  // T5: to the trash; its link is freed (slug renamed) until it is restored.
+  const trash = await moveToTrash(ctx, 'SITE_POST', post.id);
+  return { id: post.id, trash };
 }
 
 // ── Forms ───────────────────────────────────────────────────────────────────

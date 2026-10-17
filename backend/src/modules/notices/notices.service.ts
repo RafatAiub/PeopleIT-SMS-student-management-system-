@@ -7,6 +7,7 @@ import type {
   UpdateNoticeDtoType,
   NoticeQueryDtoType,
 } from './notices.dto';
+import { moveToTrash } from '../trash/trash.service';
 
 /** Roles that manage notices — they always see every notice, scheduled or targeted. */
 const STAFF_ROLES = new Set(['SUPER_ADMIN', 'ADMIN', 'TEACHER']);
@@ -123,11 +124,12 @@ export async function listNotices(institutionId: string, query: NoticeQueryDtoTy
   return noticesRepository.findAll(institutionId, query, await visibilityFor(institutionId, viewer));
 }
 
-export async function deleteNotice(institutionId: string, id: string) {
+export async function deleteNotice(institutionId: string, id: string, actor: { userId?: string | null; role?: string } = {}) {
   const existing = await noticesRepository.findById(institutionId, id);
   if (!existing) {
     throw new NotFoundError(`Notice with ID '${id}' not found`);
   }
-  await noticesRepository.remove(institutionId, id);
-  logger.info('Notice deleted', { noticeId: id, institutionId });
+  const entry = await moveToTrash({ institutionId, userId: actor.userId ?? null, role: actor.role }, 'NOTICE', id);
+  logger.info('Notice moved to trash', { noticeId: id, institutionId });
+  return entry;
 }

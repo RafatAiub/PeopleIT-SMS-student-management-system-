@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { env } from './env';
+import { softDeleteMiddleware } from './softDelete';
 
 // =============================================================================
 // Prisma Singleton — Connection pooling, query logging in dev only
@@ -23,6 +24,14 @@ export const prisma =
 
 if (env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
+}
+
+// T5: hide trashed rows from every read (see softDelete.ts). Registered once
+// even when the dev server reuses the global client across reloads.
+const registered = globalThis as unknown as { __softDeleteRegistered?: boolean };
+if (!registered.__softDeleteRegistered) {
+  prisma.$use(softDeleteMiddleware);
+  registered.__softDeleteRegistered = true;
 }
 
 // Attach query timing logger in development

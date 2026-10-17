@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import apiClient from '@/api/client';
 import type { Notice, NoticeAudience, NoticePayload } from './notices.types';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 export const NOTICES_KEY = 'notices';
 
@@ -75,9 +77,9 @@ export function useDeleteNotice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/notices/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: [NOTICES_KEY] });
-      toast.success('Notice deleted successfully.');
+      showUndoToast(translate('Notice moved to trash'), res, () => qc.invalidateQueries({ queryKey: [NOTICES_KEY] }));
     },
     onError: (error: any) => toast.error(errorMessage(error, 'Failed to delete notice.')),
   });

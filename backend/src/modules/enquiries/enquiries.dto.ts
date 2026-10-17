@@ -27,9 +27,17 @@ export const CreateEnquiryDto = z.object({
   notes: optionalText(5000),
   assignedToUserId: z.preprocess(emptyToNull, z.string().min(1).optional().nullable()),
   followUpAt: z.preprocess(emptyToNull, z.coerce.date().optional().nullable()),
+  // ── T4 CRM extras (all optional; old clients never send them) ─────────
+  /** Pipeline stage; when given it wins over `status` (status follows the stage). */
+  stageId: z.preprocess(emptyToNull, z.string().min(1).max(60).optional().nullable()),
+  /** Next step text; its due date is followUpAt. */
+  nextStep: optionalText(300),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH']).optional(),
+  lostReason: optionalText(300),
 });
 
-export const UpdateEnquiryDto = CreateEnquiryDto.partial();
+// `status` has a default on create; on update it must stay undefined unless sent.
+export const UpdateEnquiryDto = CreateEnquiryDto.extend({ status: EnquiryStatusEnum.optional() }).partial();
 
 export const UpdateEnquiryStatusDto = z.object({
   status: EnquiryStatusEnum,
@@ -46,6 +54,14 @@ export const EnquiryQueryDto = z.object({
   search: z.string().trim().max(100).optional(),
   /** "due" = follow-up date today or earlier and not closed. */
   followUp: z.enum(['due', 'upcoming']).optional(),
+  // ── T4 quick filters ──────────────────────────────────────────────────
+  stageId: z.string().min(1).max(60).optional(),
+  classInterested: z.string().trim().max(100).optional(),
+  priority: z.enum(['LOW', 'NORMAL', 'HIGH']).optional(),
+  /** Next step overdue (before today) or due today (Asia/Dhaka), open enquiries only. */
+  due: z.enum(['overdue', 'today']).optional(),
+  /** Only enquiries owned by the signed-in user. */
+  mine: z.enum(['true', 'false']).optional(),
 });
 
 export const BoardQueryDto = z.object({

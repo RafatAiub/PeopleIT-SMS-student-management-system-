@@ -5,6 +5,7 @@ import { studentDetailSelect } from './student.repository';
 import { NotFoundError, ConflictError, ValidationError } from '../../utils/AppError';
 import { logger } from '../../utils/logger';
 import { prisma } from '../../config/prisma';
+import { moveToTrash } from '../trash/trash.service';
 import { env } from '../../config/env';
 import { BulkImportRowDto } from './student.dto';
 import { resolveStudentCustomFields } from '../custom-fields/customFields.service';
@@ -244,23 +245,17 @@ export async function updateMe(institutionId: string, userId: string, data: Self
   return updated;
 }
 
-export async function deleteStudent(institutionId: string, id: string) {
+export async function deleteStudent(institutionId: string, id: string, actor: { userId?: string | null; role?: string } = {}) {
   const existing = await studentRepository.findById(institutionId, id);
   if (!existing) {
     throw new NotFoundError(`Student with ID '${id}' not found`);
   }
-
-  // Guardian links (and any documents) reference this student with no
-  // cascade configured at the DB level — deleting the Student directly would
-  // hit a foreign key violation the moment a guardian is linked, which the
-  // Admission form and Online Registrations can both now do. Clear them
-  // first, in the same transaction, so the delete always succeeds.
-  await prisma.$transaction([
-    prisma.guardianStudent.deleteMany({ where: { studentId: id } }),
-    prisma.studentDocument.deleteMany({ where: { studentId: id, institutionId } }),
-    prisma.student.deleteMany({ where: { id, institutionId } }),
-  ]);
-  logger.info('Student deleted', { studentId: id, institutionId });
+  // T5: moves to the trash (restorable for 30 days). The permanent delete
+  // (trash purge) removes guardian links, documents and academic records,
+  // and refuses while fee records exist.
+  const entry = await moveToTrash({ institutionId, userId: actor.userId ?? null, role: actor.role }, 'STUDENT', id);
+  logger.info('Student moved to trash', { studentId: id, institutionId });
+  return entry;
 }
 
 export interface BulkImportError {

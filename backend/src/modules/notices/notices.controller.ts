@@ -72,8 +72,8 @@ export async function deleteNotice(
   next: NextFunction,
 ): Promise<void> {
   try {
-    await noticesService.deleteNotice(req.tenantId!, req.params.id);
-    successResponse(res, null, 'Notice deleted successfully');
+    const trash = await noticesService.deleteNotice(req.tenantId!, req.params.id, { userId: req.user?.sub, role: req.user?.role });
+    successResponse(res, { trash }, 'Notice moved to trash');
   } catch (error) {
     next(error);
   }

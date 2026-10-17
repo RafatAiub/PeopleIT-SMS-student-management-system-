@@ -206,6 +206,10 @@ export const NOTIFICATION_TYPE_GROUPS: NotificationTypeGroup[] = [
     label: 'Character & badges',
     types: [{ type: 'BADGE_AWARDED', label: 'Badge awarded' }],
   },
+  {
+    label: 'Admissions CRM',
+    types: [{ type: 'CRM_TASK_DIGEST', label: 'Daily task digest' }],
+  },
 ];
 
 export interface NotificationPreferenceRow {

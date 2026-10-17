@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { eventApi, type EventFilters, type EventInput } from '@/api/event.api';
 import toast from 'react-hot-toast';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 export const EVENTS_KEY = 'events';
 const SESSION_YEARS_KEY = 'session-years'; // event counts shown on the Session Year page
@@ -57,10 +59,13 @@ export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => eventApi.remove(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [EVENTS_KEY] });
-      qc.invalidateQueries({ queryKey: [SESSION_YEARS_KEY] });
-      toast.success('Event deleted.');
+    onSuccess: (res) => {
+      const refresh = () => {
+        qc.invalidateQueries({ queryKey: [EVENTS_KEY] });
+        qc.invalidateQueries({ queryKey: [SESSION_YEARS_KEY] });
+      };
+      refresh();
+      showUndoToast(translate('Event moved to trash'), res, refresh);
     },
     onError: (error: any) => {
       toast.error(errorMessage(error, 'Failed to delete event.'));

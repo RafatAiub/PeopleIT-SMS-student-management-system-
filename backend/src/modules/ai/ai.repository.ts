@@ -176,6 +176,7 @@ export async function admissionsByYearAndClass(institutionId: string) {
     SELECT "classId", EXTRACT(YEAR FROM "admissionDate")::int AS year, COUNT(*)::int AS count
     FROM "Student"
     WHERE "institutionId" = ${institutionId}
+      AND "deletedAt" IS NULL -- T5: raw SQL bypasses the soft-delete layer
     GROUP BY "classId", EXTRACT(YEAR FROM "admissionDate")
     ORDER BY year ASC
   `);

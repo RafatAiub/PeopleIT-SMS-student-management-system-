@@ -13,6 +13,8 @@ import type {
   BoardColumn,
 } from './enquiries.types';
 import { toConvertPayload, toEnquiryPayload } from './enquiries.types';
+import { showUndoToast } from '@/components/common/undoToast';
+import { translate } from '@/i18n';
 
 // =============================================================================
 // Admission Enquiries — React Query data layer for /enquiries (SUPER_ADMIN,
@@ -179,9 +181,13 @@ export function useDeleteEnquiry() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClient.delete(`/enquiries/${id}`),
-    onSuccess: () => {
+    onSuccess: (res) => {
       invalidateAll(qc);
-      toast.success('Enquiry deleted.');
+      qc.invalidateQueries({ queryKey: ['crm'] });
+      showUndoToast(translate('Enquiry moved to trash'), res, () => {
+        invalidateAll(qc);
+        qc.invalidateQueries({ queryKey: ['crm'] });
+      });
     },
     onError: (error: any) => toast.error(errorMessage(error, 'Failed to delete enquiry.')),
   });
@@ -194,7 +200,7 @@ export interface UpdateStatusVars {
 }
 
 /** Plain mutation — board drag-and-drop applies its own optimistic update
- * around this (see EnquiryBoard.tsx) since it needs to reach into the board
+ * around this (see StageBoard.tsx for the T4 stage board) since it needs to reach into the board
  * query's cache specifically; the drawer/list just call it and wait. */
 export function useUpdateEnquiryStatus() {
   const qc = useQueryClient();

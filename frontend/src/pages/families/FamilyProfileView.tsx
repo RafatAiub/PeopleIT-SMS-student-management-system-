@@ -8,9 +8,12 @@ import { Avatar, Badge, Button, Card, CardHeader, Input, Modal, Select, Textarea
 import { formatCurrency, formatDate, formatNumber, useLocale, useT } from '@/i18n';
 import {
   apiErrorMessage, useAddMembers, useAddNote, useDeleteNote, useFamilySearch, useMergeFamily, useOfflinePayment, usePayOnline, useRemoveGuardian,
-  useRemoveStudent, useSiblingConcession, useUpdateFamily, type FamilyChild, type FamilyProfile,
+  useDeleteFamily, useRemoveStudent, useSiblingConcession, useUpdateFamily, type FamilyChild, type FamilyProfile,
 } from './families.api';
 import { familyHeadline, previewOldestFirst, sumAmounts } from './family.logic';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { showUndoToast } from '@/components/common/undoToast';
+import { useAuthStore } from '@/store/authStore';
 import { BadgeIconTile } from '../character/shared';
 
 // =============================================================================
@@ -242,6 +245,12 @@ export const FamilyProfileView: React.FC<{ profile: FamilyProfile }> = ({ profil
   const nameOf = (studentId: string) => { const c = p.children.find((x) => x.id === studentId); return c ? c.firstName : ''; };
   const err = (fallback: string) => (e: unknown) => toast.error(apiErrorMessage(e, t(fallback)));
 
+  const deleteFamily = useDeleteFamily();
+  const role = useAuthStore((s) => s.user?.role);
+  const canDelete = role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const navigate = useNavigate();
+  const [confirmDelete, setConfirmDelete] = React.useState(false);
+
   const rename = () => {
     const name = window.prompt(t('Family name'), p.family.name)?.trim();
     if (name && name !== p.family.name) update.mutate({ id: p.family.id, body: { name } }, { onSuccess: () => toast.success(t('Family saved')), onError: err('Could not save') });
@@ -249,6 +258,25 @@ export const FamilyProfileView: React.FC<{ profile: FamilyProfile }> = ({ profil
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        isOpen={confirmDelete}
+        title={t('Delete family')}
+        message={t('Move "{name}" to the trash? Its children and guardians are not deleted, and you can restore it for 30 days.', { name: p.family.name })}
+        confirmLabel={t('Delete')}
+        variant="danger"
+        isLoading={deleteFamily.isPending}
+        onConfirm={() =>
+          deleteFamily.mutate(p.family.id, {
+            onSuccess: (res) => {
+              setConfirmDelete(false);
+              showUndoToast(t('Family moved to trash'), res, () => navigate(`/families/${p.family.id}`));
+              navigate('/families');
+            },
+            onError: err('Could not delete'),
+          })
+        }
+        onCancel={() => setConfirmDelete(false)}
+      />
       <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <span className="w-12 h-12 rounded-full bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-300 inline-flex items-center justify-center shrink-0" aria-hidden><Users className="w-6 h-6" /></span>
@@ -256,6 +284,7 @@ export const FamilyProfileView: React.FC<{ profile: FamilyProfile }> = ({ profil
             <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate flex items-center gap-2">
               {p.family.name}
               {p.permissions.canEdit && <Button size="icon-sm" variant="ghost" aria-label={t('Rename family')} onClick={rename}><Edit3 className="w-4 h-4" /></Button>}
+              {canDelete && <Button size="icon-sm" variant="ghost" aria-label={t('Delete family')} onClick={() => setConfirmDelete(true)}><Trash2 className="w-4 h-4" /></Button>}
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">{lang === 'bn' ? `${formatNumber(p.children.length)} সন্তান · ${formatNumber(p.guardians.length)} অভিভাবক` : familyHeadline(p.children.length, p.guardians.length)}</p>
           </div>

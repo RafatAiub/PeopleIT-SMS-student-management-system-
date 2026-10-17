@@ -57,7 +57,7 @@ export const getPage = wrap(async (req, res) => successResponse(res, await sites
 export const updatePage = wrap(async (req, res) =>
   successResponse(res, await sites.updatePage(ctxOf(req), req.params.id, req.body), 'Page saved'),
 );
-export const deletePage = wrap(async (req, res) => successResponse(res, await sites.deletePage(ctxOf(req), req.params.id), 'Page deleted'));
+export const deletePage = wrap(async (req, res) => successResponse(res, await sites.deletePage(ctxOf(req), req.params.id), 'Page moved to trash'));
 export const publishPage = wrap(async (req, res) =>
   successResponse(res, await sites.publishPage(ctxOf(req), req.params.id, req.body?.note), 'Page published'),
 );
@@ -81,7 +81,7 @@ export const getPost = wrap(async (req, res) => successResponse(res, await conte
 export const updatePost = wrap(async (req, res) =>
   successResponse(res, await content.updatePost(ctxOf(req), req.params.id, req.body), 'Post saved'),
 );
-export const deletePost = wrap(async (req, res) => successResponse(res, await content.deletePost(ctxOf(req), req.params.id), 'Post deleted'));
+export const deletePost = wrap(async (req, res) => successResponse(res, await content.deletePost(ctxOf(req), req.params.id), 'Post moved to trash'));
 
 // ── Admin: forms ────────────────────────────────────────────────────────────
 

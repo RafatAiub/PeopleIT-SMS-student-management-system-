@@ -1,5 +1,6 @@
 import { DonationFundType, DonationMethod, DonationStatus, EmailPriority, Prisma, UsageMetric } from '@prisma/client';
 import { prisma } from '../../config/prisma';
+import { moveToTrash } from '../trash/trash.service';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../../utils/AppError';
@@ -228,8 +229,9 @@ export async function deleteFund(ctx: DonationCtx, id: string) {
     prisma.donationDisbursement.count({ where: { fundId: id } }),
   ]);
   if (d + c + r + o > 0) throw new ConflictError('This fund has donations, campaigns, pledges or payouts. Switch it off (inactive) instead of deleting it.');
-  await prisma.donationFund.delete({ where: { id } });
-  return { id };
+  // T5: to the trash (restorable for 30 days).
+  const trash = await moveToTrash(ctx, 'DONATION_FUND', id);
+  return { id, trash };
 }
 
 // ── Donors ───────────────────────────────────────────────────────────────────
@@ -411,8 +413,9 @@ export async function updateCampaign(ctx: DonationCtx, id: string, data: UpdateC
 
 export async function deleteCampaign(ctx: DonationCtx, id: string) {
   await campaignOrThrow(ctx.institutionId, id);
-  await prisma.donationCampaign.delete({ where: { id } });
-  return { id };
+  // T5: to the trash; its donations keep pointing at it (money records stay).
+  const trash = await moveToTrash(ctx, 'DONATION_CAMPAIGN', id);
+  return { id, trash };
 }
 
 // ── Donations ────────────────────────────────────────────────────────────────
