@@ -5,6 +5,20 @@
 # Database migrations are NOT run on deploy (Render's free plan has no
 # pre-deploy step, and schema changes should be applied deliberately):
 #   cd backend && npx prisma migrate deploy
+#
+# ── P0: dev must never touch production's data or jobs ─────────────────────
+# This blueprint is the DEV service. It must get its OWN DATABASE_URL and its
+# OWN REDIS_URL (a separate database and Redis, not copies of production's).
+# Until it has them, BACKGROUND_JOBS=false + QUEUE_PREFIX=dev below stop it
+# from running workers/schedulers or consuming production's BullMQ jobs
+# (production uses the default prefix "bull").
+#
+# ── Production (`main` service, configured in the Render dashboard) ─────────
+# Needs a PAID always-on instance: the free plan sleeps after inactivity, and
+# while asleep no BullMQ worker (email/SMS notifications, fee reminders, the
+# daily subscription scan) or in-process scheduler runs. Production keeps
+# BACKGROUND_JOBS=true and QUEUE_PREFIX unset (= "bull") and must set
+# FEE_DEMO_PAYMENTS_ENABLED=false (the default under NODE_ENV=production).
 
 services:
   # ── Backend API (Express + Prisma) ──────────────────────────────────────
@@ -42,6 +56,7 @@ services:
       # The frontend URL below (CORS + email links), e.g. https://peoplenit-sms-dev.onrender.com
       - key: FRONTEND_URL
         sync: false
+      # P0: must be the DEV database — never production's DATABASE_URL.
       - key: DATABASE_URL
         sync: false
       # Copy both JWT secrets from the existing `main` Render service. With no
@@ -63,9 +78,18 @@ services:
         sync: false
       - key: QR_SECRET
         generateValue: true
-      # Required at startup — copy it from the existing `main` service.
+      # Required at startup. P0: give dev its OWN Redis — do not copy the `main`
+      # service's REDIS_URL. (QUEUE_PREFIX=dev below is the safety net if it
+      # ever does share one.)
       - key: REDIS_URL
         sync: false
+      # P0: no workers or schedulers on dev — they would otherwise run against
+      # whatever DB/Redis this service points at.
+      - key: BACKGROUND_JOBS
+        value: "false"
+      # P0: dev's BullMQ keys live under "dev:*", never production's "bull:*".
+      - key: QUEUE_PREFIX
+        value: dev
       - key: EMAIL_ENABLED
         value: "false"
       - key: SMS_ENABLED

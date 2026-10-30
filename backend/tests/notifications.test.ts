@@ -450,14 +450,16 @@ describe('Notifications', () => {
       ),
     });
 
-    it('delivers email through jsonTransport while EMAIL_ENABLED is false', async () => {
+    it('records demo-mode email (no Brevo/SMTP configured) honestly as SKIPPED, not SENT', async () => {
       await deliverNotification(emailJob('email-1'));
 
       const delivery = await prisma.notificationDelivery.findUniqueOrThrow({
         where: { dedupeKey: emailJob('email-1').dedupeKey },
       });
-      expect(delivery.status).toBe('SENT');
-      expect(delivery.providerRef).toBeTruthy();
+      // P0: nothing was transmitted, so the delivery log must not say SENT.
+      expect(delivery.status).toBe('SKIPPED');
+      expect(delivery.error).toMatch(/demo/i);
+      expect(delivery.providerRef).toBeTruthy(); // the EmailLog row id
       // Addressed to the real mailbox, not the user id.
       expect(delivery.recipient).toContain('@');
       // Email delivery must not create an in-app row.

@@ -99,6 +99,13 @@ export function getRedis(): Redis {
   return appClient;
 }
 
+// ── BullMQ key prefix ───────────────────────────────────────────────────
+// P0: every `new Queue(...)` and `new Worker(...)` MUST pass
+// `prefix: BULL_PREFIX`. A Worker only sees jobs under its own prefix, so a
+// dev service with QUEUE_PREFIX=dev can never steal production's ("bull")
+// email/SMS/reminder jobs even if it is pointed at the same Redis.
+export const BULL_PREFIX = env.QUEUE_PREFIX;
+
 // ── BullMQ: one shared connection for every Queue ────────────────────────
 // Producers only issue short commands, so sharing one connection across all
 // queues is the documented BullMQ pattern and keeps the socket count low

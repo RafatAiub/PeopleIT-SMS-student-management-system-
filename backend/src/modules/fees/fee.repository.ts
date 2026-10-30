@@ -1,6 +1,16 @@
 import { prisma } from '../../config/prisma';
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { BadRequestError, NotFoundError } from '../../utils/AppError';
+
+/** The Invoice columns read under a row lock (raw query → Decimal-ish values). */
+export interface LockedInvoice {
+  id: string;
+  status: string;
+  totalAmount: Prisma.Decimal | string | number;
+  paidAmount: Prisma.Decimal | string | number;
+  dueAmount: Prisma.Decimal | string | number;
+}
 
 export class FeeRepository {
   static async createCategory(tenantId: string, data: {
@@ -304,13 +314,15 @@ export class FeeRepository {
     }
   ) {
     return prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.findFirst({
-        where: { id: invoiceId, institutionId: tenantId },
-      });
-
+      // P0 cash race: lock the invoice row for the life of this transaction
+      // and validate against the locked, current numbers. Two cashiers posting
+      // at the same moment now serialise here — the second one sees the first
+      // one's payment and is rejected instead of overpaying the invoice.
+      const invoice = await FeeRepository.lockInvoiceForUpdate(tx, tenantId, invoiceId);
       if (!invoice) {
-        throw new Error('Invoice not found');
+        throw new NotFoundError('Invoice not found');
       }
+      FeeRepository.assertPaymentFits(invoice, paymentData.amount);
 
       const payment = await tx.payment.create({
         data: {
@@ -329,6 +341,45 @@ export class FeeRepository {
 
       return payment;
     });
+  }
+
+  /**
+   * `SELECT … FOR UPDATE` on one tenant-scoped, non-deleted Invoice row. Must
+   * be called inside a transaction; the lock is held until it commits or
+   * rolls back. Returns null when the invoice doesn't exist for this tenant.
+   */
+  static async lockInvoiceForUpdate(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    invoiceId: string,
+  ): Promise<LockedInvoice | null> {
+    const rows = await tx.$queryRaw<LockedInvoice[]>`
+      SELECT "id", "status", "totalAmount", "paidAmount", "dueAmount"
+      FROM "Invoice"
+      WHERE "id" = ${invoiceId} AND "institutionId" = ${tenantId} AND "deletedAt" IS NULL
+      FOR UPDATE`;
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Validates a manual (cash/bank) payment against the LOCKED invoice row.
+   * Throws BadRequestError for a settled/cancelled invoice or an amount above
+   * what is still due (computed from total − paid, the source of truth).
+   */
+  static assertPaymentFits(invoice: LockedInvoice, amount: number) {
+    if (invoice.status === 'CANCELLED') {
+      throw new BadRequestError('Invoice is cancelled');
+    }
+    const due = Decimal.sub(new Decimal(invoice.totalAmount), new Decimal(invoice.paidAmount));
+    if (invoice.status === 'PAID' || due.lte(0)) {
+      throw new BadRequestError('Invoice is already fully paid');
+    }
+    if (!(amount > 0)) {
+      throw new BadRequestError('Payment amount must be greater than zero');
+    }
+    if (new Decimal(amount).gt(due)) {
+      throw new BadRequestError('Payment amount exceeds invoice due amount');
+    }
   }
 
   /**

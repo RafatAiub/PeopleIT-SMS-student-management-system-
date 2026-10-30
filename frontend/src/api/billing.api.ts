@@ -71,6 +71,8 @@ export interface MySubscription extends Subscription {
   daysRemaining: number;
   bannerLevel: BannerLevel;
   isPaywalled: boolean;
+  /** P0: server-enforced level. RESTRICTED = read-only (writes get 402 SUBSCRIPTION_INACTIVE). GRACE is ACTIVE. */
+  accessLevel?: 'ACTIVE' | 'RESTRICTED' | 'DISABLED';
   pendingPaymentRequest: PendingPaymentRequest | null;
 }
 

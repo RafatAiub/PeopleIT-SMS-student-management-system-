@@ -13,11 +13,23 @@ export interface SendResult {
   /** Provider-side message id, when the channel returns one. */
   providerRef?: string;
   error?: string;
+  /**
+   * P0: set when nothing was transmitted for a reason retrying cannot fix
+   * (demo mode, suppressed address, invalid number, budget deferral). The
+   * worker records the delivery as SKIPPED with this reason — never SENT.
+   */
+  skipped?: string;
 }
 
 export interface SendContext {
   institutionId: string;
   templateKey: string;
+  /**
+   * The NotificationDelivery dedupe key (institution + type + user + channel +
+   * contextId). Unique per event, stable across retries of the same job —
+   * exactly the right grain for a provider-side idempotency key.
+   */
+  dedupeKey?: string;
   /** Deep-link payload persisted on the in-app record. */
   data?: Record<string, unknown>;
 }

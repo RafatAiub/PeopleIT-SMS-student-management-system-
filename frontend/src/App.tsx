@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { SupportBanner } from './components/common/SupportBanner';
 import { SubscriptionBanner } from './components/common/SubscriptionBanner';
+import { SubscriptionInactiveNotice } from './components/common/SubscriptionInactiveNotice';
 import { CommandPalette } from './components/Layout/CommandPalette';
 import { useMySubscription } from './hooks/useBilling';
 import apiClient from './api/client';
@@ -237,8 +238,16 @@ const ProtectedRoute = ({ children, allowedRoles, module }: { children: React.Re
   // undefined/loading, so a slow/failed fetch never blocks navigation.
   // Exact string match on pathname (not startsWith) — only these two
   // literal billing paths are exempt from the redirect.
+  // P0: only a RESTRICTED (expired/cancelled) subscription redirects — GRACE
+  // keeps full access (the banner still warns). Falls back to the effective
+  // status for an older API without `accessLevel`.
   const BILLING_ALLOWED_PATHS = ['/billing', '/billing/checkout-result'];
-  if (user?.role === 'ADMIN' && subscription?.isPaywalled && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
+  const isRestricted = subscription
+    ? subscription.accessLevel
+      ? subscription.accessLevel === 'RESTRICTED'
+      : subscription.status === 'EXPIRED' || subscription.status === 'CANCELLED'
+    : false;
+  if (user?.role === 'ADMIN' && isRestricted && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
     return <Navigate to="/billing" replace />;
   }
 
@@ -371,6 +380,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         <SupportBanner />
         <SubscriptionBanner />
+        <SubscriptionInactiveNotice />
         <Header />
 
         {/* Main Content */}

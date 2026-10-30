@@ -3138,4 +3138,14 @@ export const bn: Record<string, string> = {
   'Website page': 'ওয়েবসাইটের পেজ',
   'Website post': 'ওয়েবসাইটের পোস্ট',
   '{n} items will be deleted for good. This cannot be undone. Items linked to fee or payroll records are kept.': '{n}টি আইটেম চিরতরে মুছে যাবে। এটি ফেরানো যাবে না। বেতন বা ফি রেকর্ডের সাথে যুক্ত আইটেম রেখে দেওয়া হবে।',
+
+  // ── P0: subscription read-only notice + overpayment flag ──
+  'School account inactive — please contact the school.': 'স্কুলের অ্যাকাউন্ট নিষ্ক্রিয় — অনুগ্রহ করে স্কুলে যোগাযোগ করুন।',
+  'Subscription expired — pay to continue. The account is read-only until it is renewed.': 'সাবস্ক্রিপশনের মেয়াদ শেষ — চালিয়ে যেতে পেমেন্ট করুন। নবায়ন না হওয়া পর্যন্ত অ্যাকাউন্টটি শুধু দেখা যাবে।',
+  'Subscription expired — pay to continue. You can still view data, but changes are blocked until you renew.': 'সাবস্ক্রিপশনের মেয়াদ শেষ — চালিয়ে যেতে পেমেন্ট করুন। তথ্য দেখা যাবে, তবে নবায়ন না করা পর্যন্ত কোনো পরিবর্তন করা যাবে না।',
+  'Subscription expired — the school account is read-only. Please ask your school admin to renew.': 'সাবস্ক্রিপশনের মেয়াদ শেষ — স্কুলের অ্যাকাউন্টটি এখন শুধু দেখা যাবে। নবায়নের জন্য স্কুলের অ্যাডমিনকে বলুন।',
+  'Pay now': 'এখনই পেমেন্ট করুন',
+  'Overpaid — refund due': 'অতিরিক্ত পেমেন্ট — ফেরত দিতে হবে',
+  'Overpayment': 'অতিরিক্ত পেমেন্ট',
+  'Some online payments were more than the invoice still owed. The invoice is marked paid and the extra amount is shown as "Overpaid — refund due". Refund or adjust it by hand.': 'কিছু অনলাইন পেমেন্ট ইনভয়েসের বাকি টাকার চেয়ে বেশি হয়েছে। ইনভয়েসটি পরিশোধিত হিসেবে চিহ্নিত, আর বাড়তি টাকা "অতিরিক্ত পেমেন্ট — ফেরত দিতে হবে" হিসেবে দেখানো হয়েছে। হাতে ফেরত দিন বা সমন্বয় করুন।',
 };

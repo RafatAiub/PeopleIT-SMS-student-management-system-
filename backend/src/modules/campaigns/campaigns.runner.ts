@@ -46,6 +46,8 @@ interface SendOutcome {
   providerRef?: string;
   notificationId?: string;
   error?: string;
+  /** Nothing transmitted on purpose (gateway disabled) — recorded SKIPPED, not SENT/FAILED. */
+  skipped?: boolean;
 }
 
 async function transmit(
@@ -58,8 +60,12 @@ async function transmit(
 ): Promise<SendOutcome> {
   try {
     if (channel === 'SMS') {
+      // P0: provider errors and invalid numbers are FAILED; a disabled
+      // gateway is SKIPPED — never counted as delivered.
       const result = await sendSms(to.address, body);
-      return result.success ? { ok: true, providerRef: result.message.slice(0, 190) } : { ok: false, error: result.message };
+      if (result.status === 'SENT') return { ok: true, providerRef: result.message.slice(0, 190) };
+      if (result.status === 'SKIPPED') return { ok: false, skipped: true, error: result.message };
+      return { ok: false, error: result.message };
     }
     if (channel === 'EMAIL') {
       // Owner decision §3: campaigns are the one place List-Unsubscribe (RFC
@@ -87,7 +93,9 @@ async function transmit(
         listUnsubscribe: { url: unsubUrl },
       });
       if (result.status === 'SENT') return { ok: true, providerRef: result.logId };
-      return { ok: false, error: result.error ?? result.status };
+      if (result.status === 'FAILED') return { ok: false, error: result.error ?? result.status };
+      // SKIPPED (demo) / SUPPRESSED / DEFERRED (budget): nothing went out now.
+      return { ok: false, skipped: true, error: `${result.status}: ${result.error ?? 'not transmitted'}` };
     }
     const created = await prisma.notification.create({
       data: {
@@ -178,7 +186,10 @@ async function processRecipient(params: {
 
   await prisma.notificationDelivery.update({
     where: { id: delivery.id },
-    data: { status: 'FAILED', error: (outcome.error ?? 'unknown error').slice(0, 2000) },
+    data: {
+      status: outcome.skipped ? 'SKIPPED' : 'FAILED',
+      error: (outcome.error ?? 'unknown error').slice(0, 2000),
+    },
   });
   return false;
 }

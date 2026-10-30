@@ -1,7 +1,6 @@
 import { DonationFundType, DonationMethod, DonationStatus, EmailPriority, Prisma, UsageMetric } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 import { moveToTrash } from '../trash/trash.service';
-import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../../utils/AppError';
 import { sendSms } from '../../utils/sms.service';
@@ -813,9 +812,15 @@ export async function sendDueReminders(ctx: DonationCtx, ids?: string[], now: Da
           p.donor.phone,
           `Reminder: your monthly donation of Tk ${amount.toFixed(0)} (${p.fund.name}) is due ${dueDate}. JazakAllah khair. - ${branding.name}`,
         );
-        if (r.success) {
+        // P0: only a provider-accepted SMS counts (and is billed); a disabled
+        // gateway is reported the same way as email demo mode (SKIPPED).
+        if (r.status === 'SENT') {
           channels.push('sms');
-          if (env.SMS_ENABLED) smsSent++;
+          smsSent++;
+        } else if (r.status === 'SKIPPED') {
+          channels.push('sms');
+        } else {
+          logger.warn('Donation reminder SMS failed', { pledgeId: p.id, error: r.message });
         }
       }
     }

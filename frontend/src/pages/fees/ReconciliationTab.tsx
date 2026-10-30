@@ -14,6 +14,7 @@ const FLAG_LABEL: Record<ReconciliationFlag, string> = {
   SUCCESS_WITHOUT_PAYMENT: 'Success, no payment',
   PAYMENT_WITHOUT_SUCCESS: 'Payment, not success',
   STALE_PENDING: 'Stuck > 24h',
+  OVERPAID: 'Overpaid — refund due',
 };
 
 const STATUS_VARIANT: Record<FeeTxnStatus, 'success' | 'danger' | 'warning' | 'neutral' | 'info'> = {
@@ -108,11 +109,15 @@ export const ReconciliationTab: React.FC = () => {
         ) : (
           <div className="flex flex-wrap gap-1">
             {r.flags.map((f) => (
-              <Badge key={f} variant="danger">{t(FLAG_LABEL[f])}</Badge>
+              <Badge key={f} variant="danger">
+                {t(FLAG_LABEL[f])}
+                {f === 'OVERPAID' && r.overpaidAmount ? ` (${formatCurrency(r.overpaidAmount)})` : ''}
+              </Badge>
             ))}
           </div>
         ),
-      exportValue: (r) => r.flags.map((f) => FLAG_LABEL[f]).join('; '),
+      exportValue: (r) =>
+        r.flags.map((f) => (f === 'OVERPAID' && r.overpaidAmount ? `${FLAG_LABEL[f]} (${r.overpaidAmount})` : FLAG_LABEL[f])).join('; '),
     },
     { key: 'initiatedBy', header: t('Initiated by'), hideOnMobile: true, defaultHidden: true, render: (r) => r.initiatedBy ?? '—' },
   ];
@@ -139,6 +144,7 @@ export const ReconciliationTab: React.FC = () => {
           'Receipt no.': r.payment?.receiptNo ?? '',
           'Payment amount': r.payment?.amount ?? '',
           Issues: r.flags.map((f) => FLAG_LABEL[f]).join('; '),
+          'Overpaid (refund due)': r.overpaidAmount ?? 0,
           'Initiated by': r.initiatedBy ?? '',
         })),
       );
@@ -167,6 +173,12 @@ export const ReconciliationTab: React.FC = () => {
       {(summary?.demoCount ?? 0) > 0 && (
         <Alert tone="warning" title={t('Demo mode')}>
           {t('Some transactions were made in demo mode (gateway API key not configured). They were simulated and no money was charged, but they did mark invoices as paid.')}
+        </Alert>
+      )}
+
+      {(summary?.overpaidOnPage ?? 0) > 0 && (
+        <Alert tone="danger" title={t('Overpayment')}>
+          {t('Some online payments were more than the invoice still owed. The invoice is marked paid and the extra amount is shown as "Overpaid — refund due". Refund or adjust it by hand.')}
         </Alert>
       )}
 

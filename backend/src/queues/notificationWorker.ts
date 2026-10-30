@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { logger } from '../utils/logger';
-import { createBullWorkerConnection } from '../config/redis';
+import { BULL_PREFIX, createBullWorkerConnection } from '../config/redis';
 import { NotificationJobData } from './notificationQueue';
 import * as notificationRepository from '../modules/notifications/notifications.repository';
 import { renderTemplate } from '../modules/notifications/renderer';
@@ -105,12 +105,27 @@ export async function deliverNotification(data: NotificationJobData): Promise<vo
     institutionId: data.institutionId,
     templateKey: data.type,
     data: data.data,
+    dedupeKey: data.dedupeKey,
   });
 
   if (!result.ok) {
     // Thrown so BullMQ applies the queue's retry/backoff policy. The final
     // failure is persisted by the 'failed' handler below.
     throw new Error(result.error || `${data.channel} delivery failed`);
+  }
+
+  // P0: demo mode / suppressed / deferred / invalid number — nothing went out,
+  // and retrying won't change that. Record the real outcome, never SENT.
+  if (result.skipped) {
+    await notificationRepository.markDeliverySkipped(delivery.id, result.skipped, result.providerRef);
+    logger.info('Notification not transmitted (recorded SKIPPED)', {
+      institutionId: data.institutionId,
+      channel: data.channel,
+      type: data.type,
+      dedupeKey: data.dedupeKey,
+      reason: result.skipped,
+    });
+    return;
   }
 
   await notificationRepository.markDeliverySent(
@@ -150,7 +165,7 @@ export const notificationWorker = new Worker<NotificationJobData>(
       throw error;
     }
   },
-  { connection: createBullWorkerConnection('notifications') },
+  { connection: createBullWorkerConnection('notifications'), prefix: BULL_PREFIX },
 );
 
 notificationWorker.on('completed', (job) => {

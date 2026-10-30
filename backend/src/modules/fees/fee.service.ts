@@ -8,9 +8,8 @@ import { getActiveConcessionRulesSafe } from './concessions/concession.service';
 import { NotFoundError, BadRequestError, ConflictError } from '../../utils/AppError';
 import * as studentRepository from '../students/student.repository';
 import * as guardianRepository from '../guardians/guardian.repository';
-import { feeReminderQueue } from '../../queues/reminderQueue';
+import { scheduleFeeDueReminders } from '../../queues/reminderQueue';
 import { notifySafe } from '../notifications/notifications.service';
-import { logger } from '../../utils/logger';
 import { UserRole } from '@prisma/client';
 
 export type RequestingUser = { sub: string; role: string };
@@ -185,31 +184,21 @@ export class FeeService {
       }
     }
 
-    // Schedule a fee-due SMS reminder for the due date itself — BullMQ's
-    // delay does the scheduling, no cron/scanner needed. Not awaited: a slow
-    // or unreachable Redis must never delay or fail invoice creation. Wrapped
-    // in try/catch too, since a synchronous throw from `.add()` would
-    // otherwise bypass the `.catch()` entirely.
-    const delayMs = new Date(data.dueDate).getTime() - Date.now();
-    try {
-      feeReminderQueue
-        .add(
-          'fee-due',
-          {
-            type: 'fee-due',
-            institutionId: tenantId,
-            studentId: data.studentId,
-            invoiceNo,
-            dueAmount: totalAmount,
-            dueDate: data.dueDate,
-          },
-          { delay: Math.max(delayMs, 0) },
-        )
-        .catch((err) => {
-          logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
-        });
-    } catch (err: any) {
-      logger.error('Failed to schedule fee-due reminder', { error: err.message, invoiceNo });
+    // Schedule a fee-due reminder for the due date itself (BullMQ delay).
+    // Never blocks or fails invoice creation; the worker skips the reminder
+    // if the invoice is paid, cancelled or deleted by then. Same helper as
+    // bulk invoicing, so both paths behave identically.
+    if (invoice) {
+      scheduleFeeDueReminders([
+        {
+          institutionId: tenantId,
+          invoiceId: invoice.id,
+          studentId: data.studentId,
+          invoiceNo,
+          dueAmount: totalAmount,
+          dueDate: data.dueDate,
+        },
+      ]);
     }
 
     // Tell the student an invoice exists — addressed to the student's own
@@ -336,6 +325,11 @@ export class FeeService {
       throw new BadRequestError('Payment amount exceeds invoice due amount');
     }
 
+    // The checks above are a fast path on a possibly-stale read. P0: the
+    // AUTHORITATIVE check runs again inside FeeRepository.recordPayment's
+    // transaction, against the invoice row locked with SELECT … FOR UPDATE —
+    // so two simultaneous cash entries can never overpay an invoice.
+    //
     // Wave C: every payment gets a tenant-prefixed receipt number
     // (RCP-<TAG>-YYYY-NNNNNN), retried on a unique collision.
     const payment = await withReceiptNumber(tenantId, (receiptNo) =>

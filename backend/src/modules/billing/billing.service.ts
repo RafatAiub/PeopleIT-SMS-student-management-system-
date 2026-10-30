@@ -7,6 +7,7 @@ import { NotFoundError, ConflictError, BadRequestError } from '../../utils/AppEr
 import * as billingRepository from './billing.repository';
 import { SslCommerzClient } from './gateways/sslcommerz.client';
 import { computeEffectiveSubscriptionState } from './subscriptionLifecycle';
+import { getAccessLevel } from './accessLevel';
 import {
   emitSubscriptionNotification,
   formatCycle,
@@ -102,6 +103,10 @@ export async function getMySubscription(tenantId: string) {
     daysRemaining: effective.daysRemaining,
     bannerLevel: effective.bannerLevel,
     isPaywalled: effective.isPaywalled,
+    // P0: the server-enforced level (tenant.middleware.ts). GRACE is ACTIVE —
+    // only RESTRICTED (expired/cancelled) blocks writes with 402. Reaching
+    // this route at all means the institution is switched on.
+    accessLevel: getAccessLevel({ isActive: true }, subscription),
     pendingPaymentRequest,
   };
 }

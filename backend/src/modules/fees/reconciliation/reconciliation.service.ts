@@ -12,17 +12,43 @@ export const ReconciliationQueryDto = z.object({
 });
 export type ReconciliationQuery = z.infer<typeof ReconciliationQueryDto>;
 
-export type ReconciliationFlag = 'AMOUNT_MISMATCH' | 'SUCCESS_WITHOUT_PAYMENT' | 'PAYMENT_WITHOUT_SUCCESS' | 'STALE_PENDING';
+export type ReconciliationFlag =
+  | 'AMOUNT_MISMATCH'
+  | 'SUCCESS_WITHOUT_PAYMENT'
+  | 'PAYMENT_WITHOUT_SUCCESS'
+  | 'STALE_PENDING'
+  | 'OVERPAID';
 
 const STALE_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * P0: machine-readable overpayment tag stored in Payment.notes by
+ * creditTransaction() (no schema change). The invoice is capped at PAID; the
+ * excess was really charged and needs a manual refund or adjustment.
+ */
+export function overpaymentMarker(excess: number): string {
+  return `[OVERPAYMENT ${excess.toFixed(2)}]`;
+}
+
+/** The excess recorded by overpaymentMarker(), or 0. */
+export function parseOverpayment(notes: string | null | undefined): number {
+  const m = /\[OVERPAYMENT (\d+(?:\.\d+)?)\]/.exec(notes ?? '');
+  return m ? Number(m[1]) : 0;
+}
+
 /** Pure: reconciliation flags for one transaction row. */
 export function reconciliationFlags(
-  row: { status: FeeTxnStatus | string; amount: number; createdAt: Date; payment: { amount: number } | null },
+  row: {
+    status: FeeTxnStatus | string;
+    amount: number;
+    createdAt: Date;
+    payment: { amount: number; notes?: string | null } | null;
+  },
   now: Date = new Date(),
 ): ReconciliationFlag[] {
   const flags: ReconciliationFlag[] = [];
   if (row.payment && Math.abs(row.payment.amount - row.amount) >= 0.01) flags.push('AMOUNT_MISMATCH');
+  if (row.payment && parseOverpayment(row.payment.notes) > 0) flags.push('OVERPAID');
   if (row.status === 'SUCCESS' && !row.payment) flags.push('SUCCESS_WITHOUT_PAYMENT');
   if (row.status !== 'SUCCESS' && row.payment) flags.push('PAYMENT_WITHOUT_SUCCESS');
   if ((row.status === 'INITIATED' || row.status === 'PENDING') && now.getTime() - row.createdAt.getTime() > STALE_MS) {
@@ -59,7 +85,7 @@ export async function listReconciliation(tenantId: string, q: ReconciliationQuer
       include: {
         invoice: { select: { id: true, invoiceNo: true, status: true } },
         student: { select: { id: true, firstName: true, lastName: true, studentId: true } },
-        payment: { select: { id: true, amount: true, receiptNo: true, paidAt: true, method: true } },
+        payment: { select: { id: true, amount: true, receiptNo: true, paidAt: true, method: true, notes: true } },
         initiatedBy: { select: { firstName: true, lastName: true, role: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -79,7 +105,9 @@ export async function listReconciliation(tenantId: string, q: ReconciliationQuer
   const items = rows.map((r) => {
     const payment = r.payment ? { ...r.payment, amount: Number(r.payment.amount) } : null;
     const amount = Number(r.amount);
+    const overpaidAmount = parseOverpayment(r.payment?.notes);
     return {
+      overpaidAmount,
       id: r.id,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
@@ -108,6 +136,7 @@ export async function listReconciliation(tenantId: string, q: ReconciliationQuer
     cancelledCount: 0,
     demoCount: 0,
     issuesOnPage: items.filter((i) => i.flags.length > 0).length,
+    overpaidOnPage: items.filter((i) => i.overpaidAmount > 0).length,
   };
   for (const g of byStatus) {
     const count = typeof g._count === 'object' && g._count ? (g._count as { _all?: number })._all ?? 0 : 0;

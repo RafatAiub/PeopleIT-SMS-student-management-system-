@@ -16,6 +16,9 @@ import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.s
 import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules/email/scheduler';
 import { startCrmDigestJob, stopCrmDigestJob } from './modules/crm/crm.scheduler';
 import { startTrashPurgeJob, stopTrashPurgeJob } from './modules/trash/trash.scheduler';
+import { describeGatewayModes } from './modules/fees/gateways/config';
+import { currentTransportMode } from './modules/email/transport';
+import { isSmsConfigured } from './utils/sms.service';
 
 const server = http.createServer(app);
 
@@ -85,8 +88,21 @@ async function startServer() {
       logger.info(`Health check endpoint: ${env.APP_URL}/health`);
     });
 
+    // P0: say plainly which money paths are real.
+    logger.info(describeGatewayModes());
+    logger.info(
+      `Platform billing (SSLCommerz): ${env.SSLCOMMERZ_ENABLED ? 'ENABLED' : 'DISABLED'}; ` +
+        `email transport: ${currentTransportMode()}; SMS: ${isSmsConfigured() ? 'LIVE (Greenweb)' : 'DISABLED (SKIPPED)'}; ` +
+        `queue prefix: "${env.QUEUE_PREFIX}"`,
+    );
+
     if (!env.BACKGROUND_JOBS) {
-      logger.warn('BACKGROUND_JOBS=false: schedulers and queue workers are not running (API only).');
+      logger.warn(
+        'BACKGROUND_JOBS=false: schedulers and queue workers are NOT running (API only). ' +
+          `Notification email/SMS jobs and fee reminders enqueued by this process stay in queue prefix "${env.QUEUE_PREFIX}" ` +
+          'until a service with BACKGROUND_JOBS=true and the SAME QUEUE_PREFIX/REDIS_URL runs. ' +
+          'Auth mail (password reset, 2FA, verification) does not use the queue and is still sent directly.',
+      );
       return;
     }
 

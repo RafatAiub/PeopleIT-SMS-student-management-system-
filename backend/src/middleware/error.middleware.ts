@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { AppError, ValidationError, LockedError, AuthRequirementError, ModuleDisabledError } from '../utils/AppError';
 import { errorResponse } from '../utils/response';
+import { SubscriptionInactiveError } from '../modules/billing/accessLevel';
 import { logger } from '../utils/logger';
 import { env } from '../config/env';
 
@@ -71,6 +72,17 @@ export function globalErrorHandler(
         code: err.code,
         module: err.module,
         errors: { code: err.code, module: err.module },
+      });
+    }
+
+    // P0: expired subscription — same top-level `code` contract as above.
+    if (err instanceof SubscriptionInactiveError) {
+      return res.status(err.statusCode).json({
+        success: false,
+        message: err.message,
+        code: err.code,
+        accessLevel: err.accessLevel,
+        errors: { code: err.code, accessLevel: err.accessLevel },
       });
     }
 

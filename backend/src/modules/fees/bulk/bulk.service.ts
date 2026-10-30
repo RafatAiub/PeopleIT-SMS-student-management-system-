@@ -5,6 +5,7 @@ import { getInvoiceTenantTag } from '../../../utils/invoiceNumber';
 import { logger } from '../../../utils/logger';
 import { BadRequestError, NotFoundError } from '../../../utils/AppError';
 import { notifySafe } from '../../notifications/notifications.service';
+import { scheduleFeeDueReminders } from '../../../queues/reminderQueue';
 import { FeeRepository } from '../fee.repository';
 import { applyConcessions, fromPaisa, toPaisa, type ConcessionRule } from '../concessions/concession.calc';
 import { getActiveConcessionRulesSafe } from '../concessions/concession.service';
@@ -311,6 +312,18 @@ export async function generateBulkInvoices(tenantId: string, userId: string, dto
     where: { id: batch.id },
     data: { invoiceCount: createdCount, totalAmount: new Prisma.Decimal(fromPaisa(totalPaisa)), status },
   });
+
+  // P0: bulk invoices get the same due-date reminder as single ones.
+  scheduleFeeDueReminders(
+    created.map((inv) => ({
+      institutionId: tenantId,
+      invoiceId: inv.id,
+      studentId: inv.studentId,
+      invoiceNo: inv.invoiceNo,
+      dueAmount: inv.total,
+      dueDate,
+    })),
+  );
 
   for (const inv of created) {
     const s = studentById.get(inv.studentId);

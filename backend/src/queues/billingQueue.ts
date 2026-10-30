@@ -1,10 +1,11 @@
 import { Queue } from 'bullmq';
-import { getBullQueueConnection } from '../config/redis';
+import { BULL_PREFIX, getBullQueueConnection } from '../config/redis';
 
 // BullMQ Queue for the daily subscription lifecycle scan (trial/grace/expiry
 // transitions). Shares the one queue-producer connection (see config/redis.ts).
 export const billingQueue = new Queue('subscriptionBilling', {
   connection: getBullQueueConnection(),
+  prefix: BULL_PREFIX,
 });
 
 /**

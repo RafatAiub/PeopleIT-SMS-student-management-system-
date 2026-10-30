@@ -164,6 +164,14 @@ export async function markDeliverySent(id: string, providerRef?: string, notific
   });
 }
 
+/** P0: the channel ran but transmitted nothing (demo, suppressed, deferred, invalid number). */
+export async function markDeliverySkipped(id: string, reason: string, providerRef?: string) {
+  return prisma.notificationDelivery.update({
+    where: { id },
+    data: { status: 'SKIPPED', providerRef: providerRef ?? null, error: reason.slice(0, 2000) },
+  });
+}
+
 export async function markDeliveryFailed(id: string, error: string) {
   return prisma.notificationDelivery.update({
     where: { id },

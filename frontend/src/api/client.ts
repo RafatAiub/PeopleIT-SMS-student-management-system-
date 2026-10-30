@@ -2,6 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 import { selectedBranchFor } from '@/store/branchStore';
 import toast from 'react-hot-toast';
+import { translate } from '@/i18n';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api/v1',
@@ -19,6 +20,11 @@ const IDEMPOTENT_RETRY_METHODS = ['get', 'put', 'patch', 'delete'];
 const COLD_START_MAX_RETRIES = 2;
 const COLD_START_RETRY_DELAY_MS = 5000;
 const COLD_START_TOAST_ID = 'cold-start-retry';
+
+/** P0: 402 body `code` sent by the server when a school's subscription has expired. */
+export const SUBSCRIPTION_INACTIVE_CODE = 'SUBSCRIPTION_INACTIVE';
+/** Window event fired on such a 402 — SubscriptionInactiveNotice listens for it. */
+export const SUBSCRIPTION_INACTIVE_EVENT = 'peoplenit:subscription-inactive';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -161,6 +167,23 @@ apiClient.interceptors.response.use(
         }
         return Promise.reject(refreshError);
       }
+    }
+
+    // P0: the school's subscription expired — the server made it read-only.
+    // Show the persistent banner (SubscriptionInactiveNotice) and a toast.
+    if (error.response?.status === 402 && error.response?.data?.code === SUBSCRIPTION_INACTIVE_CODE) {
+      const role = useAuthStore.getState().user?.role;
+      const isFamily = role === 'STUDENT' || role === 'GUARDIAN';
+      window.dispatchEvent(new CustomEvent(SUBSCRIPTION_INACTIVE_EVENT));
+      toast.error(
+        translate(
+          isFamily
+            ? 'School account inactive — please contact the school.'
+            : 'Subscription expired — pay to continue. The account is read-only until it is renewed.',
+        ),
+        { id: 'api-402' },
+      );
+      return Promise.reject(error);
     }
 
     if (error.response?.status === 403) {

@@ -9,6 +9,8 @@ export const SubscriptionBanner: React.FC = () => {
   const { data: subscription } = useMySubscription();
 
   if (user?.role !== 'ADMIN' || !subscription || subscription.bannerLevel === 'none') return null;
+  // P0: an expired (read-only) account is shown by SubscriptionInactiveNotice.
+  if (subscription.accessLevel === 'RESTRICTED') return null;
 
   const isGrace = subscription.bannerLevel === 'grace';
   const days = subscription.daysRemaining;

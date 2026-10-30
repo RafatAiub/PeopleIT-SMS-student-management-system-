@@ -15,8 +15,8 @@ import { clearDeferred, stashDeferred } from './deferredStore';
 //   - daily budget / priority (P0 always, P1/P2 share the non-reserved pool)
 //   - transport selection (Brevo API / SMTP / demo) via transport.ts
 //   - EmailLog on every attempt (queued -> sent/failed/skipped/suppressed/deferred)
-//   - idempotency (idempotencyKey unique on EmailLog — a repeat is a no-op,
-//     not a second send)
+//   - idempotency (idempotencyKey unique on EmailLog — a repeat with the SAME
+//     caller-supplied key is a no-op, not a second send; no key = always send)
 // =============================================================================
 
 export interface SendEmailInput {
@@ -34,7 +34,10 @@ export interface SendEmailInput {
   /** Per-school reply-to (falls back to EMAIL_REPLY_TO / no reply-to). */
   replyTo?: string;
   tags?: string[];
-  /** Stable across retries of the "same" logical send — dedupes at the EmailLog level. Auto-derived when omitted. */
+  /**
+   * Stable across retries of the "same" logical send — dedupes at the EmailLog
+   * level. When omitted, every call is treated as a new send (unique key).
+   */
   idempotencyKey?: string;
   attachments?: Attachment[];
   /** RFC 8058 List-Unsubscribe — campaigns only. */
@@ -55,11 +58,15 @@ function parseFrom(): Address {
   return { email: env.EMAIL_FROM.trim() };
 }
 
-function defaultIdempotencyKey(input: SendEmailInput): string {
-  return crypto
-    .createHash('sha256')
-    .update([input.template, normalizeEmail(input.to), input.subject].join('|'))
-    .digest('hex');
+/**
+ * P0: a send WITHOUT an explicit idempotencyKey is always a new, distinct
+ * send. The old default hashed template + recipient + subject, which made the
+ * second password reset / 2FA code / verification / admin test email to the
+ * same address a silent "SENT" no-op. Callers that need replay-dedupe (a queue
+ * job that may run twice) must pass a key built from their own event id.
+ */
+export function defaultIdempotencyKey(input: Pick<SendEmailInput, 'template'>): string {
+  return `once:${input.template}:${crypto.randomUUID()}`;
 }
 
 /**

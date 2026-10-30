@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { EmailPriority } from '@prisma/client';
 import { sendEmail } from '../modules/email/sender';
 
@@ -30,14 +31,21 @@ export interface DirectMail {
  * intentional local-dev behaviour, not an error.
  */
 export async function sendDirectMail(mail: DirectMail): Promise<void> {
+  const template = mail.template ?? 'direct-mail';
   const result = await sendEmail({
     to: mail.to,
     subject: mail.subject,
     text: mail.text,
     html: mail.html ?? `<pre>${mail.text}</pre>`,
-    template: mail.template ?? 'direct-mail',
+    template,
     priority: mail.priority ?? EmailPriority.P0_SECURITY,
     institutionId: mail.institutionId ?? null,
+    // P0: every direct (auth) mail is its own send. A second password reset,
+    // 2FA code or verification email to the same address must go out — never
+    // be deduped against the first. Sent synchronously, never via the queue,
+    // so it works with BACKGROUND_JOBS=false too. Budget (P0 reserve) and
+    // suppression checks inside sendEmail() still apply.
+    idempotencyKey: `direct:${template}:${randomUUID()}`,
   });
 
   if (result.status === 'SKIPPED') return;

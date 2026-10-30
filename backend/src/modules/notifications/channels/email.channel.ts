@@ -1,5 +1,6 @@
+import { randomUUID } from 'crypto';
 import { EmailPriority, NotificationChannel } from '@prisma/client';
-import { sendEmail } from '../../email/sender';
+import { sendEmail, type SendEmailResult } from '../../email/sender';
 import { buildEmailLayout } from '../../email/layout';
 import { renderPlainBodyToHtml } from '../../email/components';
 import { findInstitutionBranding } from '../notifications.repository';
@@ -32,8 +33,8 @@ export const emailChannel: NotificationChannelAdapter = {
   channel: NotificationChannel.EMAIL,
 
   // Always true: sender.sendEmail() itself records an honest SKIPPED
-  // EmailLog row when no transport is configured (demo mode) — the adapter
-  // does not need to pre-guess that here.
+  // EmailLog row when no transport is configured (demo mode), and
+  // toSendResult() below turns that into a SKIPPED delivery row.
   isConfigured() {
     return true;
   },
@@ -69,22 +70,52 @@ export const emailChannel: NotificationChannelAdapter = {
       institutionId: ctx.institutionId,
       fromName: branding.name,
       replyTo: branding.contactEmail ?? undefined,
-      // Keyed on the same dedupe unit the notification worker already claims
-      // (delivery row) — one NotificationDelivery -> one EmailLog attempt.
-      idempotencyKey: `notify:${ctx.institutionId}:${ctx.templateKey}:${to.userId}:${to.email}`,
+      idempotencyKey: emailIdempotencyKey(ctx, to.email),
     });
 
-    if (result.status === 'SENT') return { ok: true, providerRef: result.logId };
-    if (result.status === 'SKIPPED' || result.status === 'SUPPRESSED' || result.status === 'DEFERRED') {
-      // Not retryable by the notification worker's backoff (demo mode /
-      // suppressed address / budget exhausted are not transient provider
-      // errors) — report success so the delivery is marked SENT rather than
-      // endlessly retried; the EmailLog row is still the honest record.
-      return { ok: true, providerRef: result.logId };
-    }
-    return { ok: false, error: result.error ?? 'email send failed' };
+    return toSendResult(result);
   },
 };
+
+/**
+ * P0: one EmailLog per notification EVENT. The key is the NotificationDelivery
+ * dedupe key (which already carries institution, type, user, channel and the
+ * event's contextId — invoice id, payment id, …) plus the address, so:
+ *   - a retry of the SAME job lands on the same EmailLog row (no double send);
+ *   - a second invoice / payment / reminder for the same user gets its own key.
+ * The previous key had no event id, so each user only ever received the first
+ * INVOICE_ISSUED / PAYMENT_RECEIVED / FEE_REMINDER email.
+ */
+export function emailIdempotencyKey(ctx: SendContext, email: string): string {
+  if (ctx.dedupeKey) return `notify:${ctx.dedupeKey}:${email.trim().toLowerCase()}`;
+  // No dedupe key (direct adapter use): never collapse distinct sends.
+  return `notify:${ctx.institutionId}:${ctx.templateKey}:${randomUUID()}`;
+}
+
+/**
+ * Maps the sender's outcome to the worker's contract. SKIPPED / SUPPRESSED /
+ * DEFERRED are not transient provider errors, so they must not be retried —
+ * but they are not "sent" either: the delivery is recorded SKIPPED with the
+ * real reason (the EmailLog row keeps the detailed status).
+ */
+export function toSendResult(result: SendEmailResult): SendResult {
+  switch (result.status) {
+    case 'SENT':
+      return { ok: true, providerRef: result.logId };
+    case 'SKIPPED':
+      return { ok: true, providerRef: result.logId, skipped: 'SKIPPED: email demo mode, nothing transmitted (no BREVO_API_KEY / SMTP configured)' };
+    case 'SUPPRESSED':
+      return { ok: true, providerRef: result.logId, skipped: `SUPPRESSED: ${result.error ?? 'address is on the suppression list'}` };
+    case 'DEFERRED':
+      return {
+        ok: true,
+        providerRef: result.logId,
+        skipped: `DEFERRED: daily email budget spent; EmailLog ${result.logId} will be retried by the email scheduler`,
+      };
+    default:
+      return { ok: false, error: result.error ?? 'email send failed' };
+  }
+}
 
 /** Exposed for tests, which flip env between cases. Re-exported for callers that imported this name from here previously. */
 export { resetTransport as resetEmailTransport } from '../../email/transport';

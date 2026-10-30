@@ -235,7 +235,12 @@ export interface BulkResult {
   totalAmount: number;
 }
 
-export type ReconciliationFlag = 'AMOUNT_MISMATCH' | 'SUCCESS_WITHOUT_PAYMENT' | 'PAYMENT_WITHOUT_SUCCESS' | 'STALE_PENDING';
+export type ReconciliationFlag =
+  | 'AMOUNT_MISMATCH'
+  | 'SUCCESS_WITHOUT_PAYMENT'
+  | 'PAYMENT_WITHOUT_SUCCESS'
+  | 'STALE_PENDING'
+  | 'OVERPAID';
 
 export interface ReconciliationRow {
   id: string;
@@ -251,9 +256,11 @@ export interface ReconciliationRow {
   gatewayValId: string | null;
   invoice: { id: string; invoiceNo: string; status: string };
   student: { id: string; firstName: string; lastName: string; studentId: string } | null;
-  payment: { id: string; amount: number; receiptNo: string | null; paidAt: string; method: string } | null;
+  payment: { id: string; amount: number; receiptNo: string | null; paidAt: string; method: string; notes?: string | null } | null;
   initiatedBy: string | null;
   flags: ReconciliationFlag[];
+  /** Charged above what the invoice still owed; the invoice is capped at PAID. Needs a manual refund/adjustment. */
+  overpaidAmount?: number;
 }
 
 export interface ReconciliationSummary {
@@ -265,4 +272,5 @@ export interface ReconciliationSummary {
   cancelledCount: number;
   demoCount: number;
   issuesOnPage: number;
+  overpaidOnPage?: number;
 }

@@ -112,6 +112,15 @@ const envSchema = z.object({
     .string()
     .transform((v) => v !== 'false')
     .default('true'),
+  // P0: BullMQ key prefix for every Queue AND Worker. Default "bull" is
+  // BullMQ's own default, so existing production jobs keep being processed.
+  // A dev/staging service that shares a Redis must use a different prefix
+  // (e.g. "dev") so it can never consume production's jobs, and vice versa.
+  QUEUE_PREFIX: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]+$/, 'QUEUE_PREFIX may only contain letters, digits, _ and -')
+    .default('bull'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().optional(),
@@ -180,12 +189,14 @@ const envSchema = z.object({
 
   // Same fail-fast contract as the gateway above: a half-configured mail
   // transport must crash at boot, not at the first invoice email in production.
-  if (data.EMAIL_ENABLED) {
+  // P0: Brevo's HTTP API takes priority over SMTP (see email/transport.ts), so
+  // with BREVO_API_KEY set the SMTP_* trio is not needed at all.
+  if (data.EMAIL_ENABLED && !data.BREVO_API_KEY?.trim()) {
     for (const key of ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'] as const) {
       if (!data[key]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `${key} is required when EMAIL_ENABLED=true`,
+          message: `${key} is required when EMAIL_ENABLED=true and BREVO_API_KEY is not set`,
           path: [key],
         });
       }

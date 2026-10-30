@@ -7,6 +7,7 @@ import { notifySafe } from '../../notifications/notifications.service';
 import * as studentRepository from '../../students/student.repository';
 import { FeeRepository } from '../fee.repository';
 import { withReceiptNumber } from '../receipts/receiptNumber';
+import { overpaymentMarker } from '../reconciliation/reconciliation.service';
 import { isGatewayLive, getSslCommerzConfig, isDemoPaymentsAllowed } from '../gateways/config';
 import { SslCommerzFeeAdapter } from '../gateways/sslcommerz.adapter';
 import { BkashFeeAdapter } from '../gateways/bkash.adapter';
@@ -324,19 +325,10 @@ export async function creditTransaction(
   }
 
   const amount = Number(txn.amount);
-  if (amount > Number(txn.invoice.dueAmount) + 0.001) {
-    // Money was really taken — record it, but flag it for reconciliation.
-    logger.warn('Online fee payment exceeds the invoice due amount at credit time (possible double payment)', {
-      txnId: txn.id,
-      invoiceId: txn.invoiceId,
-      amount,
-      dueAmount: Number(txn.invoice.dueAmount),
-    });
-  }
-
   const recordedBy = txn.initiatedByUserId ?? txn.invoice.student?.userId ?? 'SYSTEM';
 
   let payment: { id: string; receiptNo: string | null } | null = null;
+  let excess = 0;
   try {
     payment = await withReceiptNumber(txn.institutionId, (receiptNo) =>
       prisma.$transaction(async (tx) => {
@@ -352,6 +344,22 @@ export async function creditTransaction(
         // Lost the race to a concurrent callback for the same transaction.
         if (claim.count !== 1) return null;
 
+        // P0: decide the overpayment against the LOCKED current invoice (a
+        // cash payment or another gateway may have landed since checkout).
+        // The money was really taken, so the Payment row always records the
+        // full amount — but the invoice is credited at most up to what is
+        // due (capped at PAID) and the excess is flagged for reconciliation.
+        const locked = await FeeRepository.lockInvoiceForUpdate(tx, txn.institutionId, txn.invoiceId);
+        const due = locked && locked.status !== 'CANCELLED'
+          ? Math.max(Number(locked.totalAmount) - Number(locked.paidAmount), 0)
+          : 0;
+        const applied = Math.min(amount, due);
+        excess = Math.round((amount - applied) * 100) / 100;
+
+        const baseNote = txn.isDemo
+          ? `DEMO MODE — simulated ${GATEWAY_LABEL[txn.gateway as FeeGatewayName]} payment, no money was charged (${txn.gatewayTransactionId})`
+          : `Online payment via ${GATEWAY_LABEL[txn.gateway as FeeGatewayName]} (${txn.gatewayTransactionId})`;
+
         const created = await tx.payment.create({
           data: {
             invoiceId: txn.invoiceId,
@@ -361,14 +369,14 @@ export async function creditTransaction(
             recordedBy,
             status: 'COMPLETED',
             receiptNo,
-            notes: txn.isDemo
-              ? `DEMO MODE — simulated ${GATEWAY_LABEL[txn.gateway as FeeGatewayName]} payment, no money was charged (${txn.gatewayTransactionId})`
-              : `Online payment via ${GATEWAY_LABEL[txn.gateway as FeeGatewayName]} (${txn.gatewayTransactionId})`,
+            notes: excess > 0 ? `${baseNote} ${overpaymentMarker(excess)}` : baseNote,
           },
           select: { id: true, receiptNo: true },
         });
 
-        await FeeRepository.applyPaymentToInvoice(tx, txn.invoiceId, amount);
+        if (applied > 0) {
+          await FeeRepository.applyPaymentToInvoice(tx, txn.invoiceId, applied);
+        }
         await tx.feePaymentTransaction.update({ where: { id: txn.id }, data: { paymentId: created.id } });
         return created;
       }),
@@ -393,6 +401,16 @@ export async function creditTransaction(
     gateway: txn.gateway,
     isDemo: txn.isDemo,
   });
+  if (excess > 0) {
+    logger.error('OVERPAYMENT: online fee payment exceeded the invoice due amount — excess needs a manual refund/adjustment', {
+      institutionId: txn.institutionId,
+      txnId: txn.id,
+      paymentId: payment.id,
+      invoiceId: txn.invoiceId,
+      amount,
+      excess,
+    });
+  }
 
   // Same PAYMENT_RECEIVED path as offline payments; contextId = payment id so
   // a duplicate callback can never send a second receipt.

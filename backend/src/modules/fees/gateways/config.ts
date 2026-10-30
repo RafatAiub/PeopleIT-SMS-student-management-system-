@@ -104,9 +104,35 @@ export function isDemoPaymentsAllowed(): boolean {
   const flag = (process.env.FEE_DEMO_PAYMENTS_ENABLED ?? '').trim().toLowerCase();
   if (flag === 'true') return true;
   if (flag === 'false') return false;
-  // Unset: allowed everywhere except production, where a simulated "success"
-  // would mark real invoices paid. Production must opt in explicitly.
+  // Unset (or any other value): allowed everywhere except production, where a
+  // simulated "success" would mark real invoices paid. Production must opt in
+  // explicitly with FEE_DEMO_PAYMENTS_ENABLED=true.
   return process.env.NODE_ENV !== 'production';
+}
+
+/**
+ * P0: one human-readable line for the startup log, e.g.
+ *   "Fee payment gateways — SSLCommerz: LIVE (https://securepay.sslcommerz.com), bKash: DEMO, Nagad: OFF; demo payments: DISABLED"
+ * LIVE = real credentials; DEMO = no credentials and demo checkout allowed;
+ * OFF = no credentials and demo disallowed (the gateway cannot be used).
+ * Never prints a credential — only the base URL host.
+ */
+export function describeGatewayModes(): string {
+  const demo = isDemoPaymentsAllowed();
+  const host = (url: string | undefined) => {
+    try {
+      return url ? new URL(url).host : '';
+    } catch {
+      return '';
+    }
+  };
+  const one = (label: string, live: boolean, baseUrl?: string) =>
+    `${label}: ${live ? `LIVE${baseUrl ? ` (${host(baseUrl)})` : ''}` : demo ? 'DEMO' : 'OFF'}`;
+  return [
+    one('SSLCommerz', isGatewayLive('SSLCOMMERZ'), getSslCommerzConfig()?.baseUrl),
+    one('bKash', isGatewayLive('BKASH'), getBkashConfig()?.baseUrl),
+    one('Nagad', isGatewayLive('NAGAD'), getNagadConfig()?.baseUrl),
+  ].join(', ') + `; demo payments: ${demo ? 'ENABLED (simulated payments mark invoices paid!)' : 'DISABLED'}`;
 }
 
 export const GATEWAY_TIMEOUT_MS = 20_000;
