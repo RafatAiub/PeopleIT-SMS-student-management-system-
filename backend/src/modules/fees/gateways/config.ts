@@ -66,6 +66,31 @@ export function getBkashConfig(): BkashConfig | null {
   };
 }
 
+/**
+ * P1 platform billing: PeopleNIT's OWN bKash merchant (schools pay their
+ * monthly bill into it). Reads PLATFORM_BKASH_APP_KEY / _APP_SECRET /
+ * _USERNAME / _PASSWORD / _BASE_URL; when none of the PLATFORM_ keys is set it
+ * falls back to the shared BKASH_* merchant (today that is PeopleNIT's too).
+ */
+export function getPlatformBkashConfig(): BkashConfig | null {
+  const anyPlatformKey = ['PLATFORM_BKASH_APP_KEY', 'PLATFORM_BKASH_APP_SECRET', 'PLATFORM_BKASH_USERNAME', 'PLATFORM_BKASH_PASSWORD'].some(
+    (k) => clean(process.env[k]) !== undefined,
+  );
+  if (!anyPlatformKey) return getBkashConfig();
+  const appKey = clean(process.env.PLATFORM_BKASH_APP_KEY);
+  const appSecret = clean(process.env.PLATFORM_BKASH_APP_SECRET);
+  const username = clean(process.env.PLATFORM_BKASH_USERNAME);
+  const password = clean(process.env.PLATFORM_BKASH_PASSWORD);
+  if (!appKey || !appSecret || !username || !password) return null;
+  return {
+    appKey,
+    appSecret,
+    username,
+    password,
+    baseUrl: (clean(process.env.PLATFORM_BKASH_BASE_URL) ?? clean(process.env.BKASH_BASE_URL) ?? 'https://tokenized.sandbox.bka.sh/v1.2.0-beta').replace(/\/+$/, ''),
+  };
+}
+
 export function getNagadConfig(): NagadConfig | null {
   const merchantId = clean(process.env.NAGAD_MERCHANT_ID);
   const nagadPublicKey = clean(process.env.NAGAD_PUBLIC_KEY) ?? clean(process.env.NAGAD_MERCHANT_PUBLIC_KEY);

@@ -62,7 +62,8 @@ export class AuthRequirementError extends AppError {
     | 'EMAIL_NOT_VERIFIED'
     | 'ACCOUNT_PENDING_APPROVAL'
     | 'ACCOUNT_REJECTED'
-    | 'ACCOUNT_SUSPENDED';
+    | 'ACCOUNT_SUSPENDED'
+    | 'FEE_RESTRICTED'; // P4: student/guardian portal sign-in blocked for unpaid fees
   public readonly details?: Record<string, unknown>;
 
   constructor(

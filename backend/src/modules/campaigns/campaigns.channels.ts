@@ -1,5 +1,6 @@
 import { CampaignChannel } from '@prisma/client';
 import { env } from '../../config/env';
+import { isSmsConfigured } from '../../utils/sms.service';
 
 // =============================================================================
 // Which campaign channels can really transmit in this deployment.
@@ -17,8 +18,8 @@ export interface ChannelConfig {
 
 export function channelConfig(): ChannelConfig {
   return {
-    // Greenweb gateway — see utils/sms.service.ts.
-    SMS: env.SMS_ENABLED && !!env.GREENWEB_API_TOKEN,
+    // P5: any configured provider (Greenweb / BulkSMSBD / SSL Wireless) — see utils/sms.service.ts.
+    SMS: isSmsConfigured(),
     // Real SMTP only; the jsonTransport fallback renders but never delivers.
     EMAIL: env.EMAIL_ENABLED && !!env.SMTP_HOST,
     // In-app writes a Notification row — needs no provider.

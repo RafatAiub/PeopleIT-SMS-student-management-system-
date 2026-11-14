@@ -185,7 +185,11 @@ export class FeeRepository {
       },
       include: {
         items: true,
-        payments: true,
+        // P2: reversed payments carry their reversal (reason, date).
+        payments: { include: { reversal: { select: { reason: true, createdAt: true, appliedAmount: true } } }, orderBy: { paidAt: 'asc' } },
+        // P2: billing month + late fines (STOP = future fines waived).
+        feePeriod: { select: { period: true, kind: true } },
+        fines: { select: { id: true, fineKey: true, amount: true, waivedAmount: true, waivedAt: true, waiveReason: true, invoiceItemId: true, createdAt: true } },
         student: {
           select: {
             id: true,
@@ -284,6 +288,7 @@ export class FeeRepository {
           dueDate: true,
           status: true,
           createdAt: true,
+          feePeriod: { select: { period: true } }, // P2: billing month label
           student: {
             select: {
               firstName: true,

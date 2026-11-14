@@ -43,13 +43,13 @@ export interface ReportCardCharacter {
 }
 
 /**
- * The PDF uses the built-in Helvetica/Times fonts, which have no Bengali
- * glyphs, so Bangla text would print as boxes. Text is printed only when it
- * is plain Latin; otherwise the reader is pointed to the portal.
+ * Text the PDF can print: Latin plus (since P3, via the shared letterhead's
+ * Bangla font shim in utils/pdfFonts.ts) Bengali. Other scripts (e.g. Arabic)
+ * have no glyphs, so the reader is pointed to the portal instead.
  */
 export function pdfSafeText(text: string | null | undefined): string | null {
   if (!text) return null;
-  return /^[\x20-\x7E\u00A0-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\n\r\t]*$/.test(text) ? text : null;
+  return /^[\x20-\x7E\u00A0-\u00FF\u0980-\u09FF\u200C\u200D\u2013\u2014\u2018\u2019\u201C\u201D\n\r\t]*$/.test(text) ? text : null;
 }
 
 /** Draws the "CHARACTER (AKHLAQ)" section; returns nothing, advances doc.y. */
@@ -76,7 +76,9 @@ function drawCharacterSection(doc: PDFKit.PDFDocument, ch: ReportCardCharacter, 
     const x = startX + col * colW;
     const y = gridTop + row * rowH;
     if (row > 0 && col === 0) doc.moveTo(startX, y).lineTo(startX + contentWidth, y).lineWidth(0.5).strokeColor(BORDER).stroke();
-    doc.font('Helvetica').fontSize(8.5).fillColor(INK).text(pdfSafeText(t.name) ?? 'Trait', x + 8, y + 3, { width: colW * 0.65 });
+    // P3: Bangla trait name printed alongside the English one.
+    const traitName = [...new Set([pdfSafeText(t.name), pdfSafeText(t.nameBn)].filter(Boolean))].join(' / ') || 'Trait';
+    doc.font('Helvetica').fontSize(8.5).fillColor(INK).text(traitName, x + 8, y + 3, { width: colW * 0.65, height: rowH - 2, ellipsis: true, lineBreak: false });
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text(`${t.score} / ${t.max}`, x + colW * 0.65, y + 3, { width: colW * 0.35 - 10, align: 'right' });
   });
   if (cols > 1) doc.moveTo(startX + colW, gridTop).lineTo(startX + colW, gridTop + rows * rowH).lineWidth(0.5).strokeColor(BORDER).stroke();

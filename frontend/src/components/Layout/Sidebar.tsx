@@ -84,6 +84,7 @@ const SUPER_ADMIN_NAV_ENTRIES: NavEntry[] = [
       { to: '/super-admin/audit-logs', label: 'Audit Logs' },
       { to: '/super-admin/system-health', label: 'System Health' },
       { to: '/super-admin/email', label: 'Email Delivery' },
+      { to: '/super-admin/sms', label: 'SMS & Credits' },
       { to: '/super-admin/support', label: 'Support Tickets' },
       { to: '/super-admin/usage', label: 'Usage & Costs' },
     ],
@@ -243,7 +244,11 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/fees/assign-classes', label: 'Assign Fees Classes', roles: ['SUPER_ADMIN', 'ADMIN'] },
       // Invoices & Payments: Admin Full, Accountant R/W, Student/Guardian Pay Own Only
       { to: '/fees', label: 'Fees Paid', roles: ['ADMIN', 'ACCOUNTANT', 'STUDENT', 'GUARDIAN'] },
+      { to: '/fees/collect', label: 'Collect fee', roles: ['ADMIN', 'ACCOUNTANT'] }, // P2 counter
       { to: '/fees/transactions', label: 'Fees Transactions Logs', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'] },
+      // P4: paid/unpaid grid, defaulters + reminders, restricted students; fee reports with export
+      { to: '/fees/dues', label: 'Dues', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT'] },
+      { to: '/fees/reports', label: 'Fee Reports', roles: ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT'] },
     ],
   },
   {
@@ -325,6 +330,8 @@ const NAV_ENTRIES: NavEntry[] = [
       { to: '/messages', label: 'Messages', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN'] },
       // Bulk SMS/email/in-app campaigns + message groups (teachers: own sections only, enforced by API)
       { to: '/communication/campaigns', label: 'Campaigns', roles: ['SUPER_ADMIN', 'ADMIN', 'TEACHER'] },
+      // P5: prepaid SMS wallet, packs, SMS log, sender ID
+      { to: '/sms', label: 'SMS Credits', roles: ['ADMIN'] },
       { to: '/support', label: 'Support', roles: ['ADMIN', 'TEACHER', 'ACCOUNTANT', 'LIBRARIAN', 'TRANSPORT_OFFICER', 'STUDENT', 'GUARDIAN', 'MANAGEMENT'] },
       // AI school assistant for guardians (answers from records; open questions go to staff review)
       { to: '/ai/assistant', label: 'School Assistant', roles: ['GUARDIAN'] },

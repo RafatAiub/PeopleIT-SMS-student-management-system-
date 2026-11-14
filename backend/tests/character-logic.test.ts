@@ -109,6 +109,8 @@ describe('T2 character logic', () => {
     expect(parseScoreCell(' 4 ')).toBe(4);
     expect(Number.isNaN(parseScoreCell('x') as number)).toBe(true);
     expect(pdfSafeText('Very polite')).toBe('Very polite');
-    expect(pdfSafeText('খুব ভদ্র')).toBeNull();
+    // P3: the PDF now embeds a Bangla font, so Bengali prints; other scripts still don't.
+    expect(pdfSafeText('খুব ভদ্র')).toBe('খুব ভদ্র');
+    expect(pdfSafeText('حسن الخلق')).toBeNull();
   });
 });

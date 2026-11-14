@@ -8,7 +8,6 @@ import { sendEmail } from '../email/sender';
 import { donationReceiptEmail, donationReminderEmail } from '../email/templates/donation.templates';
 import { findInstitutionBranding } from '../notifications/notifications.repository';
 import { notifySafe } from '../notifications/notifications.service';
-import { evaluateResourceLimit } from '../saas/entitlements.service';
 import {
   amountInWordsBn,
   amountInWordsEn,
@@ -745,15 +744,9 @@ export async function sendDueReminders(ctx: DonationCtx, ids?: string[], now: Da
     include: { donor: true, fund: { select: { name: true, nameBn: true } } },
   });
   const branding = await findInstitutionBranding(ctx.institutionId);
-  const smsCandidates = pledges.filter((p) => p.remindSms && p.donor.phone && !p.donor.userId).length;
-  let smsAllowed = smsCandidates === 0;
-  if (smsCandidates > 0) {
-    try {
-      smsAllowed = (await evaluateResourceLimit(ctx.institutionId, 'sms_per_month', smsCandidates)).allowed;
-    } catch {
-      smsAllowed = true;
-    }
-  }
+  // P5: the school's SMS credit wallet decides (sms_per_month is now the free
+  // monthly allowance inside it); no credits → SKIPPED INSUFFICIENT_CREDITS.
+  const smsAllowed = true;
 
   const result = { reminded: 0, skipped: 0, items: [] as { id: string; donor: string; channels: string[]; skipped?: string }[] };
   let smsSent = 0;
@@ -811,13 +804,14 @@ export async function sendDueReminders(ctx: DonationCtx, ids?: string[], now: Da
         const r = await sendSms(
           p.donor.phone,
           `Reminder: your monthly donation of Tk ${amount.toFixed(0)} (${p.fund.name}) is due ${dueDate}. JazakAllah khair. - ${branding.name}`,
+          { institutionId: ctx.institutionId, purpose: 'DONATION_REMINDER', sourceRef: p.id },
         );
         // P0: only a provider-accepted SMS counts (and is billed); a disabled
         // gateway is reported the same way as email demo mode (SKIPPED).
         if (r.status === 'SENT') {
           channels.push('sms');
           smsSent++;
-        } else if (r.status === 'SKIPPED') {
+        } else if (r.status === 'SKIPPED' && r.reason !== 'INSUFFICIENT_CREDITS') {
           channels.push('sms');
         } else {
           logger.warn('Donation reminder SMS failed', { pledgeId: p.id, error: r.message });

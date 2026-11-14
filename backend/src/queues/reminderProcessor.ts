@@ -136,12 +136,13 @@ async function sendReminderSms(params: {
 
   const institutionName = await notificationRepository.findInstitutionName(params.institutionId);
   const message = await renderTemplate(params.institutionId, 'FEE_REMINDER', 'SMS', { institutionName, ...params.vars });
-  const result = await sendSms(params.phone, message.body);
+  // P5: guardian reminders are paid from the school's SMS credits.
+  const result = await sendSms(params.phone, message.body, { institutionId: params.institutionId, purpose: 'FEE_REMINDER', sourceRef: params.invoiceId });
 
   if (result.status === 'SENT') {
     await notificationRepository.markDeliverySent(delivery.id, result.message.slice(0, 190));
   } else if (result.status === 'SKIPPED') {
-    await notificationRepository.markDeliverySkipped(delivery.id, `SKIPPED: ${result.message}`);
+    await notificationRepository.markDeliverySkipped(delivery.id, result.reason === 'INSUFFICIENT_CREDITS' ? result.message : `SKIPPED: ${result.message}`);
   } else {
     await notificationRepository.markDeliveryFailed(delivery.id, result.message);
   }

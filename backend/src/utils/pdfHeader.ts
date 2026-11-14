@@ -1,3 +1,5 @@
+import { enableBanglaText } from './pdfFonts';
+
 export interface PdfInstitution {
   name: string;
   logoUrl?: string | null;
@@ -10,7 +12,7 @@ const LOGO_SIZE = 56;
 const NAVY = '#1e3a8a';
 const MUTED = '#64748b';
 
-async function resolveLogoBuffer(logoUrl: string): Promise<Buffer | null> {
+export async function resolveLogoBuffer(logoUrl: string): Promise<Buffer | null> {
   try {
     if (logoUrl.startsWith('data:')) {
       const commaIndex = logoUrl.indexOf(',');
@@ -39,7 +41,7 @@ async function resolveLogoBuffer(logoUrl: string): Promise<Buffer | null> {
 // legacy WebP logo uploaded before institute-logo uploads were switched to
 // PNG), a failed fetch, or malformed data just silently skips the logo
 // rather than crashing the whole document.
-async function drawLogo(doc: PDFKit.PDFDocument, institution: PdfInstitution, x: number, y: number): Promise<number> {
+export async function drawLogo(doc: PDFKit.PDFDocument, institution: PdfInstitution, x: number, y: number): Promise<number> {
   if (!institution.logoUrl) return x;
   const logoBuffer = await resolveLogoBuffer(institution.logoUrl);
   if (!logoBuffer) return x;
@@ -62,6 +64,8 @@ export async function drawInstitutionHeader(
   title: string,
   subtitle: string,
 ): Promise<void> {
+  // P3: Bangla text anywhere in this document now renders (see pdfFonts.ts).
+  enableBanglaText(doc);
   const startX = doc.page.margins.left;
   const startY = doc.y;
   const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
@@ -120,6 +124,7 @@ export async function drawLetterhead(
   badgeText: string,
   subtitle: string,
 ): Promise<void> {
+  enableBanglaText(doc); // P3
   const startX = doc.page.margins.left;
   const startY = doc.y;
   const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;

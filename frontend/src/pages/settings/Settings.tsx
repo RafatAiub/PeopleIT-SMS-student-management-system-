@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2, Mail, Puzzle, Trash2 } from 'lucide-react';
+import { Building, Palette, GraduationCap, ShieldCheck, Bell, Globe2, User, Scale, Gauge, Building2, Mail, Puzzle, Trash2, Receipt } from 'lucide-react';
 import { PageHeader } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { SettingsTabNav, type SettingsNavItem } from './tabs/SettingsTabNav';
@@ -16,9 +16,10 @@ import GradingTab from './tabs/GradingTab';
 import PlanUsageTab from './tabs/PlanUsageTab';
 import BranchesTab from './tabs/BranchesTab';
 import ModulesTab from './tabs/ModulesTab';
+import { FeeSettingsPanel } from '../fees/studentFees/FeeSettingsPanel'; // P2
 import { TrashPanel } from './trash/TrashPage';
 
-type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'email-templates' | 'locale' | 'plan' | 'branches' | 'modules' | 'trash';
+type TabId = 'profile' | 'branding' | 'exams' | 'grading' | 'security' | 'notifications' | 'email-templates' | 'locale' | 'plan' | 'branches' | 'modules' | 'trash' | 'fees';
 
 const Settings = () => {
   const { user } = useAuthStore();
@@ -40,6 +41,7 @@ const Settings = () => {
           ? [
               { id: 'branches', label: 'Branches', icon: <Building2 className="w-5 h-5" /> },
               { id: 'modules', label: 'Modules', icon: <Puzzle className="w-5 h-5" /> },
+              { id: 'fees', label: 'Fees', icon: <Receipt className="w-5 h-5" /> },
               { id: 'plan', label: 'Plan & usage', icon: <Gauge className="w-5 h-5" /> },
               { id: 'trash', label: 'Trash', icon: <Trash2 className="w-5 h-5" /> },
             ]
@@ -88,6 +90,7 @@ const Settings = () => {
             {activeTab === 'branches' && hasTenant && <BranchesTab />}
             {activeTab === 'plan' && hasTenant && <PlanUsageTab />}
             {activeTab === 'modules' && hasTenant && <ModulesTab />}
+            {activeTab === 'fees' && hasTenant && <FeeSettingsPanel canEdit={user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'} />}
             {activeTab === 'trash' && hasTenant && <TrashPanel />}
           </div>
         </div>

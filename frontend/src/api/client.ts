@@ -25,6 +25,14 @@ const COLD_START_TOAST_ID = 'cold-start-retry';
 export const SUBSCRIPTION_INACTIVE_CODE = 'SUBSCRIPTION_INACTIVE';
 /** Window event fired on such a 402 — SubscriptionInactiveNotice listens for it. */
 export const SUBSCRIPTION_INACTIVE_EVENT = 'peoplenit:subscription-inactive';
+/** P1: 402 `code` when the school is DISABLED (only billing + sign-in work). */
+export const ACCOUNT_DISABLED_CODE = 'ACCOUNT_DISABLED';
+/** Window event fired on such a 402 — the platform-billing status refetches and the app shows the disabled screen. */
+export const ACCOUNT_DISABLED_EVENT = 'peoplenit:account-disabled';
+/** P4: 403 `code` when a student/guardian feature is blocked for unpaid fees. */
+export const FEE_RESTRICTED_CODE = 'FEE_RESTRICTED';
+/** Window event fired on such a 403 — FeeRestrictedNotice shows the "Fees due" screen. */
+export const FEE_RESTRICTED_EVENT = 'peoplenit:fee-restricted';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -171,6 +179,13 @@ apiClient.interceptors.response.use(
 
     // P0: the school's subscription expired — the server made it read-only.
     // Show the persistent banner (SubscriptionInactiveNotice) and a toast.
+    // P1: the school is disabled — refetch the billing status so the app
+    // routes every role to the "account disabled" screen (no toast spam).
+    if (error.response?.status === 402 && error.response?.data?.code === ACCOUNT_DISABLED_CODE) {
+      window.dispatchEvent(new CustomEvent(ACCOUNT_DISABLED_EVENT));
+      return Promise.reject(error);
+    }
+
     if (error.response?.status === 402 && error.response?.data?.code === SUBSCRIPTION_INACTIVE_CODE) {
       const role = useAuthStore.getState().user?.role;
       const isFamily = role === 'STUDENT' || role === 'GUARDIAN';
@@ -179,10 +194,26 @@ apiClient.interceptors.response.use(
         translate(
           isFamily
             ? 'School account inactive — please contact the school.'
-            : 'Subscription expired — pay to continue. The account is read-only until it is renewed.',
+            : error.response?.data?.reason === 'PLATFORM_BILLING'
+              ? 'Payment overdue — pay now. The account is read-only until the bill is paid.'
+              : 'Subscription expired — pay to continue. The account is read-only until it is renewed.',
         ),
         { id: 'api-402' },
       );
+      return Promise.reject(error);
+    }
+
+    // P4: fees due — the school restricted this student/guardian feature.
+    // The header also marks blob downloads (report card / ID card PDF).
+    if (error.response?.status === 403 && (error.response?.headers?.['x-fee-restricted'] || error.response?.data?.code === FEE_RESTRICTED_CODE || error.response?.data?.errors?.code === FEE_RESTRICTED_CODE)) {
+      const body = error.response?.data && typeof error.response.data === 'object' && !(error.response.data instanceof Blob) ? error.response.data : null;
+      if (body?.errors?.feature === 'PORTAL_LOGIN') {
+        // Sign-in refused (login page has no layout to show the screen).
+        const phone = body?.errors?.contact?.phone;
+        toast.error(`${translate('Fees due — contact the school office')}${phone ? ` (${phone})` : ''}`, { id: 'fee-restricted', duration: 8000 });
+      } else {
+        window.dispatchEvent(new CustomEvent(FEE_RESTRICTED_EVENT, { detail: body }));
+      }
       return Promise.reject(error);
     }
 

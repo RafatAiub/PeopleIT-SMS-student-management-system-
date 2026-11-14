@@ -62,7 +62,8 @@ async function transmit(
     if (channel === 'SMS') {
       // P0: provider errors and invalid numbers are FAILED; a disabled
       // gateway is SKIPPED — never counted as delivered.
-      const result = await sendSms(to.address, body);
+      // P5: paid from the school's SMS credits; no credits → SKIPPED (INSUFFICIENT_CREDITS).
+      const result = await sendSms(to.address, body, { institutionId, purpose: 'CAMPAIGN', sourceRef: campaign.id });
       if (result.status === 'SENT') return { ok: true, providerRef: result.message.slice(0, 190) };
       if (result.status === 'SKIPPED') return { ok: false, skipped: true, error: result.message };
       return { ok: false, error: result.message };

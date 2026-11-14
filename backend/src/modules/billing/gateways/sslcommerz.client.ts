@@ -31,6 +31,9 @@ export interface InitiateSessionParams {
   ipnUrl: string;
   customerName: string;
   customerEmail: string;
+  /** P1: defaults to 'SMS Subscription'. */
+  productName?: string;
+  customerPhone?: string;
 }
 
 export class SslCommerzClient {
@@ -55,9 +58,9 @@ export class SslCommerzClient {
         cus_add1: 'N/A',
         cus_city: 'Dhaka',
         cus_country: 'Bangladesh',
-        cus_phone: 'N/A',
+        cus_phone: params.customerPhone || 'N/A',
         shipping_method: 'NO',
-        product_name: 'SMS Subscription',
+        product_name: params.productName || 'SMS Subscription',
         product_category: 'Service',
         product_profile: 'general',
       });

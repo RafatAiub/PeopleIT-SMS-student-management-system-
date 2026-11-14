@@ -13,6 +13,9 @@ import { SubscriptionBanner } from './components/common/SubscriptionBanner';
 import { SubscriptionInactiveNotice } from './components/common/SubscriptionInactiveNotice';
 import { CommandPalette } from './components/Layout/CommandPalette';
 import { useMySubscription } from './hooks/useBilling';
+import { usePlatformBillingStatus } from './hooks/usePlatformBilling';
+import { PlatformBillingBanner } from './pages/billing/platform/PlatformBillingBanner';
+import { shouldShowDisabledScreen } from './pages/billing/platform/platformBilling.logic';
 import apiClient from './api/client';
 import { ModuleGate } from './components/common/ModuleGate';
 
@@ -53,6 +56,12 @@ const AttendanceMonthly = lazyWithRetry(() => import('./pages/attendance/Attenda
 const AttendanceReport = lazyWithRetry(() => import('./pages/attendance/AttendanceReport'));
 const AssignFeesClasses = lazyWithRetry(() => import('./pages/fees/AssignFeesClasses'));
 const FeesTransactionLogs = lazyWithRetry(() => import('./pages/fees/FeesTransactionLogs'));
+// P4 dues dashboard, fee reports, dues restrictions
+const DuesPage = lazyWithRetry(() => import('./pages/fees/dues/DuesPage'));
+const DuesSettingsPage = lazyWithRetry(() => import('./pages/fees/dues/DuesSettingsPage'));
+const FeeReportsPage = lazyWithRetry(() => import('./pages/fees/dues/FeeReportsPage'));
+const FeeRestrictedNotice = lazyWithRetry(() => import('./pages/fees/dues/FeeRestrictedNotice'));
+const CollectFeePage = lazyWithRetry(() => import('./pages/fees/collect/CollectFeePage')); // P2
 const CustomNotifications = lazyWithRetry(() => import('./pages/communication/CustomNotifications'));
 const SystemUpdate = lazyWithRetry(() => import('./pages/settings/SystemUpdate'));
 const AddBulkData = lazyWithRetry(() => import('./pages/students/AddBulkData'));
@@ -152,13 +161,23 @@ const IdCardDesigner = lazyWithRetry(() => import('./pages/idcards/IdCardDesigne
 const IdCardGenerate = lazyWithRetry(() => import('./pages/idcards/IdCardGenerate'));
 const MyIdCard = lazyWithRetry(() => import('./pages/idcards/MyIdCard'));
 const VerifyIdCard = lazyWithRetry(() => import('./pages/idcards/VerifyIdCard'));
-const SubscriptionOverview = lazyWithRetry(() => import('./pages/billing/SubscriptionOverview'));
 const CheckoutResult = lazyWithRetry(() => import('./pages/billing/CheckoutResult'));
 const PaymentReceipt = lazyWithRetry(() => import('./pages/billing/PaymentReceipt'));
+// P1 platform billing (monthly PeopleNIT bill)
+const BillingHome = lazyWithRetry(() => import('./pages/billing/BillingHome'));
+const PlatformDemoCheckout = lazyWithRetry(() => import('./pages/billing/platform/PlatformDemoCheckout'));
+const PayLinkRedirect = lazyWithRetry(() => import('./pages/billing/platform/PayLinkRedirect'));
+const InvoicePrintView = lazyWithRetry(() => import('./pages/billing/platform/InvoicePrintView'));
+const AccountDisabled = lazyWithRetry(() => import('./pages/billing/platform/AccountDisabled'));
 // T1 donations (module islamic.donations)
 const DonationsPage = lazyWithRetry(() => import('./pages/donations/DonationsPage'));
 const DonationReceipt = lazyWithRetry(() => import('./pages/donations/DonationReceipt'));
 const MyDonations = lazyWithRetry(() => import('./pages/donations/MyDonations'));
+// P5 SMS credits
+const SmsCreditsPage = lazyWithRetry(() => import('./pages/sms/SmsCreditsPage'));
+const SmsDemoCheckout = lazyWithRetry(() => import('./pages/sms/SmsDemoCheckout'));
+const SmsReceipt = lazyWithRetry(() => import('./pages/sms/SmsReceipt'));
+const SuperAdminSmsPage = lazyWithRetry(() => import('./pages/sms/SuperAdminSmsPage'));
 // T2 character (module islamic.character)
 const CharacterPage = lazyWithRetry(() => import('./pages/character/CharacterPage'));
 const MyCharacter = lazyWithRetry(() => import('./pages/character/MyCharacter'));
@@ -190,6 +209,8 @@ const ProtectedRoute = ({ children, allowedRoles, module }: { children: React.Re
   // a network request for non-ADMIN roles; `data` is simply `undefined`
   // until then, which the paywall check below treats as "not paywalled".
   const { data: subscription } = useMySubscription();
+  // P1: platform billing status (every school role) — DISABLED gate below.
+  const { data: platformStatus } = usePlatformBillingStatus();
 
   // The auth store hydrates from sessionStorage asynchronously — on a hard
   // refresh, isAuthenticated is briefly false before hydration completes.
@@ -225,6 +246,7 @@ const ProtectedRoute = ({ children, allowedRoles, module }: { children: React.Re
       '/super-admin/applications',
       '/super-admin/authorized-emails',
       '/super-admin/leads',
+      '/super-admin/sms',
     ];
     if (!allowedSuperAdminPaths.some((path) => location.pathname === path || location.pathname.startsWith(path))) {
       return <Navigate to="/" replace />;
@@ -247,7 +269,13 @@ const ProtectedRoute = ({ children, allowedRoles, module }: { children: React.Re
       ? subscription.accessLevel === 'RESTRICTED'
       : subscription.status === 'EXPIRED' || subscription.status === 'CANCELLED'
     : false;
-  if (user?.role === 'ADMIN' && isRestricted && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
+  // P1: a DISABLED school (unpaid platform bill, or switched off) — every
+  // role goes to the "account disabled" screen; ADMIN may still open Billing.
+  // Support sessions opened by a super admin are never redirected.
+  if (!supportSession && shouldShowDisabledScreen(platformStatus?.accessLevel, user?.role, location.pathname)) {
+    return <Navigate to="/account-disabled" replace />;
+  }
+  if (user?.role === 'ADMIN' && isRestricted && !platformStatus?.hasProfile && !BILLING_ALLOWED_PATHS.includes(location.pathname)) {
     return <Navigate to="/billing" replace />;
   }
 
@@ -381,6 +409,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
         <SupportBanner />
         <SubscriptionBanner />
         <SubscriptionInactiveNotice />
+        <PlatformBillingBanner />
+        <React.Suspense fallback={null}><FeeRestrictedNotice /></React.Suspense>
         <Header />
 
         {/* Main Content */}
@@ -941,6 +971,38 @@ const App = () => {
           </ProtectedRoute>
         } />
 
+        {/* P2: collect-fee counter */}
+        <Route path="/fees/collect" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
+            <DashboardLayout>
+              <CollectFeePage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* P4: Fees → Dues / Reports / Dues restrictions */}
+        <Route path="/fees/dues" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <DuesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/fees/dues/settings" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}>
+            <DashboardLayout>
+              <DuesSettingsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/fees/reports" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT', 'MANAGEMENT']}>
+            <DashboardLayout>
+              <FeeReportsPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
         <Route path="/fees/transactions" element={
           <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT']}>
             <DashboardLayout>
@@ -1332,8 +1394,43 @@ const App = () => {
         <Route path="/billing" element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <DashboardLayout>
-              <SubscriptionOverview />
+              <BillingHome />
             </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* P1 platform billing: demo checkout, SMS/email pay links, print view, disabled screen */}
+        <Route path="/billing/demo-checkout" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <PlatformDemoCheckout />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/billing/pay/:token" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <PayLinkRedirect />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/billing/invoices/:id/print" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout>
+              <InvoicePrintView />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/billing/invoices/:id/print" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout>
+              <InvoicePrintView admin />
+            </DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/account-disabled" element={
+          <ProtectedRoute>
+            <AccountDisabled />
           </ProtectedRoute>
         } />
 
@@ -1435,6 +1532,33 @@ const App = () => {
             <DashboardLayout>
               <DesignSystem />
             </DashboardLayout>
+          </ProtectedRoute>
+        } />
+
+        {/* P5 SMS credits — school ADMIN + super-admin */}
+        <Route path="/sms" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout><SmsCreditsPage /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/sms/demo-checkout" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout><SmsDemoCheckout /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/sms/receipt/:id" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <DashboardLayout><SmsReceipt /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/sms" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout><SuperAdminSmsPage /></DashboardLayout>
+          </ProtectedRoute>
+        } />
+        <Route path="/super-admin/sms/receipt/:id" element={
+          <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+            <DashboardLayout><SmsReceipt admin /></DashboardLayout>
           </ProtectedRoute>
         } />
 

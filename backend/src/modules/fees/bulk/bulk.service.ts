@@ -182,7 +182,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error('redis timeout')), ms))]);
 }
 
-async function allocateInvoiceNumbers(tenantId: string, count: number, forceDb = false): Promise<string[]> {
+export async function allocateInvoiceNumbers(tenantId: string, count: number, forceDb = false): Promise<string[]> {
   const year = new Date().getFullYear();
   const tag = await getInvoiceTenantTag(tenantId);
   const prefix = `INV-${tag}-${year}-`;
@@ -209,7 +209,7 @@ async function allocateInvoiceNumbers(tenantId: string, count: number, forceDb =
   return Array.from({ length: count }, (_, i) => fmt(last + 1 + i));
 }
 
-function isInvoiceNoCollision(error: unknown) {
+export function isInvoiceNoCollision(error: unknown) {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') return false;
   const target = (error.meta as { target?: unknown } | undefined)?.target;
   return (Array.isArray(target) ? target.join(',') : String(target ?? '')).includes('invoiceNo');

@@ -19,6 +19,7 @@ import {
   StudentIdParamDto,
 } from './results.dto';
 import * as resultsController from './results.controller';
+import { requireFeeClearance } from '../fee-dues/restriction.middleware'; // P4
 
 const router = Router();
 
@@ -37,7 +38,7 @@ router.delete('/results-list/:id', STAFF_ROLES, validate({ params: ResultIdParam
 router.get('/marksheet', STAFF_ROLES, validate({ query: MarksheetQueryDto }), resultsController.getMarksheet);
 // STUDENT/GUARDIAN "my results" — ownership-scoped in the service. Must be
 // declared before the exam wildcard routes below (:id).
-router.get('/me', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), resultsController.getMyResults);
+router.get('/me', requireRole(UserRole.STUDENT, UserRole.GUARDIAN), requireFeeClearance('RESULTS'), resultsController.getMyResults);
 
 // Merit list + class analytics — staff, same audience as the marksheet.
 // Static paths, must stay above the `/:id` exam wildcard below.
@@ -53,11 +54,12 @@ const STUDENT_RECORD_ROLES = requireRole(
   UserRole.STUDENT,
   UserRole.GUARDIAN,
 );
-router.get('/transcript/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), resultsController.getTranscript);
-router.get('/progress/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), resultsController.getProgress);
+router.get('/transcript/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), requireFeeClearance('RESULTS'), resultsController.getTranscript);
+router.get('/progress/:studentId', STUDENT_RECORD_ROLES, validate({ params: StudentIdParamDto }), requireFeeClearance('RESULTS'), resultsController.getProgress);
 router.get(
   '/:studentId/report-card',
   requireRole(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER, UserRole.STUDENT, UserRole.GUARDIAN),
+  requireFeeClearance('RESULTS'), // P4: no report card while fees are due (students/guardians only)
   resultsController.getReportCard,
 );
 

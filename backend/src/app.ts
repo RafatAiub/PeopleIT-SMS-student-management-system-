@@ -43,6 +43,7 @@ import notificationsRouter from './modules/notifications/notifications.routes';
 import idCardRouter from './modules/idcards/idcard.routes';
 import idCardPublicRouter from './modules/idcards/idcard.public.routes';
 import { tenantBillingRouter, superAdminBillingRouter, gatewayBillingRouter } from './modules/billing/billing.routes';
+import { tenantPlatformBillingRouter, adminPlatformBillingRouter, platformGatewayRouter } from './modules/platformBilling/platformBilling.routes';
 import { feeGatewayRouter } from './modules/fees/online/feeGateway.routes';
 import { campaignsRouter, messageGroupsRouter } from './modules/campaigns/campaigns.routes';
 import { enquiriesRouter, admissionsPublicRouter } from './modules/enquiries/enquiries.routes';
@@ -69,6 +70,8 @@ import { characterRouter } from './modules/character/character.routes';
 import { familiesRouter, familyGatewayRouter } from './modules/families/families.routes';
 import { crmRouter } from './modules/crm/crm.routes';
 import { trashRouter } from './modules/trash/trash.routes';
+import { feeDuesRouter } from './modules/fee-dues/dues.routes'; // P4
+import { smsCreditsRouter, smsCreditsAdminRouter, smsCreditsGatewayRouter, smsDlrRouter } from './modules/sms-credits/smsCredits.routes';
 import { errorTrackingHandler } from './config/errorTracking';
 
 const app = express();
@@ -110,7 +113,13 @@ app.use(
     // Origin header (e.g. sandbox.sslcommerz.com) by design and must not be
     // subject to the frontend origin allow-list, or every payment callback
     // gets silently blocked before it reaches the controller.
-    if (req.path.startsWith('/api/v1/billing/gateway/') || req.path.startsWith('/api/v1/fees/gateway/')) {
+    if (
+      req.path.startsWith('/api/v1/billing/gateway/') ||
+      req.path.startsWith('/api/v1/fees/gateway/') ||
+      // P5: SMS credit pack payment callbacks + provider delivery reports
+      req.path.startsWith('/api/v1/sms-credits/gateway/') ||
+      req.path.startsWith('/api/v1/sms-credits/dlr/')
+    ) {
       callback(null, { origin: true, credentials: false });
       return;
     }
@@ -168,7 +177,9 @@ const globalLimiter = rateLimit({
     req.originalUrl.startsWith('/api/v1/fees/gateway/') ||
     req.originalUrl.startsWith('/api/v1/public/sites/pay/') ||
     req.originalUrl.startsWith('/api/v1/email/webhooks/') ||
-    req.originalUrl.startsWith('/api/v1/email/unsubscribe'),
+    req.originalUrl.startsWith('/api/v1/email/unsubscribe') ||
+    req.originalUrl.startsWith('/api/v1/sms-credits/gateway/') ||
+    req.originalUrl.startsWith('/api/v1/sms-credits/dlr/'),
 });
 app.use('/api/', globalLimiter);
 
@@ -349,6 +360,13 @@ app.use('/api/v1/families', familiesRouter);
 app.use('/api/v1/crm', crmRouter);
 // T5 trash & restore (every school): recycle bin, restore, permanent delete.
 app.use('/api/v1/trash', trashRouter);
+// P4 dues dashboard, defaulter reminders, fee reports, non-payment restrictions.
+app.use('/api/v1/fee-dues', feeDuesRouter);
+// P5 SMS credits: public callbacks/DLR first, then super-admin, then the school's own routes.
+app.use('/api/v1/sms-credits/gateway', smsCreditsGatewayRouter);
+app.use('/api/v1/sms-credits/dlr', smsDlrRouter);
+app.use('/api/v1/sms-credits/admin', smsCreditsAdminRouter);
+app.use('/api/v1/sms-credits', smsCreditsRouter);
 app.use('/api/v1/institution-applications', institutionApplicationRouter);
 app.use('/api/v1/authorized-emails', authorizedEmailRouter);
 app.use('/api/v1/leads', leadRouter);
@@ -371,6 +389,12 @@ app.use('/api/v1/id-cards', idCardRouter);
 // so SSLCommerz's success/fail/cancel/ipn callbacks (which cannot carry our
 // JWT) never hit the authenticate/setTenant chain applied below.
 app.use('/api/v1/billing/gateway', gatewayBillingRouter);
+// P1 platform billing (monthly invoices to schools). Public gateway callbacks
+// first, then super-admin, then the school's own routes — all under
+// /api/v1/billing so RESTRICTED/DISABLED schools can always reach them.
+app.use('/api/v1/billing/platform-gateway', platformGatewayRouter);
+app.use('/api/v1/billing/platform-admin', adminPlatformBillingRouter);
+app.use('/api/v1/billing/platform', tenantPlatformBillingRouter);
 app.use('/api/v1/billing/super-admin', superAdminBillingRouter);
 app.use('/api/v1/billing', tenantBillingRouter);
 

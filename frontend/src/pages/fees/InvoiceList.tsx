@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, FileText, Layers, BadgePercent, Scale, Users, CalendarClock } from 'lucide-react';
+import { Plus, FileText, Layers, BadgePercent, Scale, Users, CalendarClock, Wallet, CalendarPlus, UserCog } from 'lucide-react';
 import { PageHeader, Button, Tabs, TabPanel } from '../../components/ui';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { useAuthStore } from '../../store/authStore';
@@ -18,8 +18,11 @@ import { InvoiceDetailDrawer } from './InvoiceDetailDrawer';
 import { PaymentReturnBanner } from './PaymentReturnBanner';
 import { PrintInvoiceModal, PrintReceiptModal } from './PrintDocuments';
 import type { InvoiceListItem, Payment } from './types';
+import { useT } from '../../i18n';
+import { FeeProfilesTab } from './studentFees/FeeProfilesTab';
+import { GenerateMonthlyModal } from './studentFees/GenerateMonthlyModal';
 
-type TabId = 'invoices' | 'categories' | 'concessions' | 'reconciliation';
+type TabId = 'invoices' | 'categories' | 'concessions' | 'profiles' | 'reconciliation';
 
 // Fees & Billing — staff/accountant view. Students/guardians are routed to
 // MyInvoices.tsx instead (see FeesRoute in App.tsx). SUPER_ADMIN can see this
@@ -33,6 +36,9 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
   const isAdmin = user?.role === 'ADMIN';
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const t = useT();
+  const navigate = useNavigate();
+  const [monthlyOpen, setMonthlyOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [overdueConfirm, setOverdueConfirm] = useState(false);
@@ -69,6 +75,12 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
         actions={
           canManage && activeTab === 'invoices' ? (
             <div className="flex flex-wrap gap-2">
+              <Button leftIcon={<Wallet className="w-4 h-4" />} onClick={() => navigate('/fees/collect')}>
+                {t('Collect fee')}
+              </Button>
+              <Button variant="outline" leftIcon={<CalendarPlus className="w-4 h-4" />} onClick={() => setMonthlyOpen(true)}>
+                {t('Generate monthly')}
+              </Button>
               {isAdmin && (
                 <Button variant="ghost" leftIcon={<CalendarClock className="w-4 h-4" />} onClick={() => setOverdueConfirm(true)}>
                   Mark overdue
@@ -77,7 +89,7 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
               <Button variant="outline" leftIcon={<Users className="w-4 h-4" />} onClick={() => setBulkOpen(true)}>
                 Bulk generate
               </Button>
-              <Button leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateModalOpen(true)}>
+              <Button variant="outline" leftIcon={<Plus className="w-4 h-4" />} onClick={() => setCreateModalOpen(true)}>
                 Create invoice
               </Button>
             </div>
@@ -103,6 +115,7 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
           { id: 'invoices', label: 'Invoices', icon: <FileText /> },
           { id: 'categories', label: 'Fee categories', icon: <Layers /> },
           { id: 'concessions', label: 'Concessions', icon: <BadgePercent /> },
+          { id: 'profiles', label: t('Custom fees'), icon: <UserCog /> },
           { id: 'reconciliation', label: 'Reconciliation', icon: <Scale /> },
         ]}
         value={activeTab}
@@ -126,6 +139,10 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
         {activeTab === 'concessions' && <ConcessionsTab canManage={isAdmin} />}
       </TabPanel>
 
+      <TabPanel id="profiles" value={activeTab}>
+        {activeTab === 'profiles' && <FeeProfilesTab canEdit={canManage} />}
+      </TabPanel>
+
       <TabPanel id="reconciliation" value={activeTab}>
         {activeTab === 'reconciliation' && <ReconciliationTab />}
       </TabPanel>
@@ -138,6 +155,8 @@ const InvoiceList: React.FC<{ initialTab?: TabId }> = ({ initialTab = 'invoices'
           canAssignConcession={isAdmin}
         />
       )}
+
+      {canManage && <GenerateMonthlyModal isOpen={monthlyOpen} onClose={() => setMonthlyOpen(false)} />}
 
       {canManage && (
         <BulkInvoiceWizard isOpen={bulkOpen} onClose={() => setBulkOpen(false)} categories={categoriesData?.data ?? []} />

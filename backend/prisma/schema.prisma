@@ -168,6 +168,21 @@ model Institution {
 
   // ── T5: Trash & restore ──────────────────────────────────────────────
   trashEntries TrashEntry[]
+  // P2: student fees
+  p2FeeSettings  StudentFeeSettings?
+  lateFineRules  LateFineRule[]
+  feeRefunds     FeeRefund[]
+  feeAdjustments FeeAdjustment[]
+  p4DuesSettings      FeeDuesSettings? // P4
+  p4StudentFeeStatus  StudentFeeStatus[] // P4
+  p4DuesReminderLogs  FeeDuesReminderLog[] // P4
+
+  // ── P1: Platform billing (PeopleNIT bills the school monthly) ────────
+  platformBillingProfile       InstitutionBillingProfile?
+  platformInvoices             PlatformInvoice[]
+  platformPayments             PlatformPayment[]
+  platformCollectionActivities PlatformCollectionActivity[]
+  platformReminderLogs         PlatformReminderLog[]
 
   // ── Website v3 — DSHE profile fields (Track B1) ─────────────────────
   // Additive nullable columns directly on Institution rather than a new
@@ -195,6 +210,11 @@ model Institution {
   siteAlbums             SiteAlbum[]
   siteDownloads          SiteDownload[]
   siteAdmissionCirculars SiteAdmissionCircular[]
+  smsWallet              SmsWallet? // P5
+  smsCreditLedger        SmsCreditLedger[] // P5
+  smsMessages            SmsMessage[] // P5
+  smsSenderIdRequests    SmsSenderIdRequest[] // P5
+  smsCreditPurchases     SmsCreditPurchase[] // P5
 }
 
 // ── Institution Applications (public self-service onboarding) ─────────
@@ -304,6 +324,7 @@ enum SubscriptionPaymentStatus {
 
 enum PaymentGateway {
   SSLCOMMERZ
+  BKASH // P1: platform billing via bKash tokenized checkout
 }
 
 model Plan {
@@ -389,6 +410,9 @@ model SubscriptionPayment {
   updatedAt             DateTime                  @updatedAt
 
   @@unique([gatewayTransactionId])
+  // P1: a gateway val_id can credit ONE payment only (replay protection at
+  // the database level; NULLs are not compared, so unpaid rows are fine).
+  @@unique([gatewayValId])
   @@index([institutionId])
   @@index([subscriptionId])
   @@index([status])
@@ -914,6 +938,10 @@ model Student {
   characterPointEntries CharacterPointEntry[]
   // T3: family membership (at most one family)
   familyMember          FamilyStudent?
+  // P2: custom fee rates
+  feeProfiles           StudentFeeProfile[]
+  p4FeeStatus           StudentFeeStatus? // P4
+  p4DuesReminderLogs    FeeDuesReminderLog[] // P4
 
   // T5 trash: set while the row is in the recycle bin (hidden everywhere by
   // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
@@ -1027,6 +1055,8 @@ model FeeCategory {
   classFees     ClassFee[]
   concessions   Concession[]
   feeSchedules  FeeSchedule[]
+  feeProfiles   StudentFeeProfile[] // P2
+  lateFineRules LateFineRule[] // P2
 
   @@index([institutionId])
 }
@@ -1051,6 +1081,9 @@ model Invoice {
   feePaymentTransactions FeePaymentTransaction[]
   // T3: share of a family (pay-all) payment
   familyAllocations      FamilyPaymentAllocation[]
+  // P2: billing month + late fines
+  feePeriod              InvoicePeriod?
+  fines                  InvoiceFine[]
 
   // T5 trash: set while the row is in the recycle bin (hidden everywhere by
   // the soft-delete layer in src/config/softDelete.ts; purged after 30 days).
@@ -1095,6 +1128,8 @@ model Payment {
   feePaymentTransaction FeePaymentTransaction?
   // T3: set when this payment came from a family (pay-all) payment
   familyAllocation      FamilyPaymentAllocation?
+  // P2: set when the payment was reversed
+  reversal              PaymentReversal?
 
   @@index([invoiceId])
 }
@@ -4335,4 +4370,749 @@ model TrashEntry {
   @@index([institutionId, deletedAt])
   @@index([institutionId, entityType])
   @@index([purgeAfter])
+}
+
+// =============================================================================
+// === TRACK P1: Platform billing (PeopleNIT bills each school monthly) ===
+// Bangladesh only, BDT. A school with an InstitutionBillingProfile is billed
+// by monthly PlatformInvoice rows and governed by them (plus the owner's
+// access override); a school WITHOUT a profile keeps the legacy
+// Plan/Subscription behaviour. Plan/PlanFeature entitlements are untouched.
+// Money is Decimal(12,2) and computed in paisa (integers) in code.
+// Users referenced here (actor, assignee) are plain ids, no FK, so deleting
+// a staff account never touches billing history.
+// =============================================================================
+
+enum PlatformPricingModel {
+  FLAT
+  PER_STUDENT
+}
+
+enum PlatformDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum PlatformFirstMonthMode {
+  PRORATE // first invoice covers the remaining days of the start month
+  FREE // first month is free
+  FULL // first month billed in full
+}
+
+enum PlatformAccessLevel {
+  ACTIVE
+  RESTRICTED
+  DISABLED
+}
+
+enum PlatformInvoiceStatus {
+  DUE
+  PARTIAL
+  PAID
+  OVERDUE
+  WAIVED
+  CANCELLED
+}
+
+enum PlatformPaymentMethod {
+  SSLCOMMERZ
+  BKASH
+  CASH
+  BANK_TRANSFER
+  BKASH_PERSONAL
+  NAGAD_PERSONAL
+  OTHER
+}
+
+enum PlatformPaymentStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum PlatformActivityType {
+  CALL
+  NOTE
+  PROMISE_TO_PAY
+  PAYMENT // written automatically when a payment is credited
+  ACCESS_CHANGE // written automatically on override changes / lifts
+}
+
+enum PlatformCallOutcome {
+  REACHED
+  NO_ANSWER
+  PROMISED
+  REFUSED
+  WRONG_NUMBER
+}
+
+enum PlatformReminderKind {
+  UPCOMING // daily from the 1st until the day before the due day
+  FINAL // on the due day
+  OVERDUE // the day after the due day, then every 3 days
+  RECEIPT // payment confirmation
+}
+
+enum PlatformReminderChannel {
+  SMS
+  EMAIL
+}
+
+enum PlatformReminderResult {
+  SENT
+  SKIPPED
+  FAILED
+}
+
+model InstitutionBillingProfile {
+  id             String                @id @default(cuid())
+  institutionId  String                @unique
+  institution    Institution           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  // false = billing paused: no new invoices, no reminders, no auto-restrict.
+  isActive       Boolean               @default(true)
+  pricingModel   PlatformPricingModel
+  flatAmount     Decimal?              @db.Decimal(12, 2)
+  perStudentRate Decimal?              @db.Decimal(12, 2)
+  minimumCharge  Decimal               @default(0) @db.Decimal(12, 2)
+  discountType   PlatformDiscountType?
+  discountValue  Decimal?              @db.Decimal(12, 2)
+  discountNote   String?
+
+  dueDay            Int                    @default(10) // 1..28
+  billingStartMonth String // YYYY-MM, first billed month
+  // Day the service started (for PRORATE). Null = the 1st of billingStartMonth.
+  serviceStartDate  DateTime?              @db.Date
+  firstMonthMode    PlatformFirstMonthMode @default(PRORATE)
+  freeMonths        Int                    @default(0) // first N billed months are free
+
+  remindSms             Boolean @default(true)
+  remindEmail           Boolean @default(true)
+  // Language of the SMS reminder ("bn" | "en"); email is always bilingual.
+  smsLanguage           String  @default("bn")
+  // null = off (default). N = auto-RESTRICT once an invoice is N days overdue.
+  autoRestrictAfterDays Int?
+  // Null = defaults (institution phone + ADMIN users' phones/emails).
+  billingPhone          String?
+  billingEmail          String?
+
+  // Owner override of the computed access level.
+  accessOverride  PlatformAccessLevel?
+  overrideReason  String?              @db.Text
+  // true = keep the override even after every overdue invoice is paid.
+  overrideKeep    Boolean              @default(false)
+  overrideSetAt   DateTime?
+  overrideSetById String?
+
+  // Collections board state (the latest follow-up plan).
+  collectionAssigneeId String?
+  nextFollowUpAt       DateTime?
+
+  notes       String?  @db.Text
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([collectionAssigneeId])
+}
+
+model PlatformInvoice {
+  id            String                @id @default(cuid())
+  institutionId String
+  institution   Institution           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceNumber String                @unique // PNB-YYYYMM-NNNN
+  period        String // YYYY-MM (Asia/Dhaka)
+  periodStart   DateTime
+  periodEnd     DateTime
+  issueDate     DateTime              @default(now())
+  dueDate       DateTime // start of the due day, Asia/Dhaka
+  // Snapshot used for PER_STUDENT pricing (active, non-trashed students).
+  studentCount  Int?
+  pricingModel  PlatformPricingModel
+  rate          Decimal?              @db.Decimal(12, 2) // per-student rate or flat amount
+  // [{ code, description, quantity, unitPrice, amount }]; negative amounts are discounts
+  lines         Json
+  subtotal      Decimal               @db.Decimal(12, 2)
+  discount      Decimal               @default(0) @db.Decimal(12, 2)
+  total         Decimal               @db.Decimal(12, 2)
+  paidAmount    Decimal               @default(0) @db.Decimal(12, 2)
+  waivedAmount  Decimal               @default(0) @db.Decimal(12, 2)
+  status        PlatformInvoiceStatus @default(DUE)
+  statusReason  String?               @db.Text // waive / cancel reason
+  generatedBy   String                @default("SCHEDULER") // SCHEDULER | MANUAL
+  createdById   String?
+  paidAt        DateTime?
+  overdueAt     DateTime?
+  waivedAt      DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  allocations  PlatformPaymentAllocation[]
+  reminderLogs PlatformReminderLog[]
+  activities   PlatformCollectionActivity[]
+
+  @@unique([institutionId, period])
+  @@index([status, dueDate])
+  @@index([period])
+}
+
+model PlatformPayment {
+  id                   String                @id @default(cuid())
+  institutionId        String
+  institution          Institution           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  receiptNumber        String?               @unique // PNR-YYYYMM-NNNN, set when SUCCESS
+  method               PlatformPaymentMethod
+  status               PlatformPaymentStatus @default(INITIATED)
+  amount               Decimal               @db.Decimal(12, 2)
+  currency             String                @default("BDT")
+  // Online: our merchant transaction id / the gateway's payment id / the
+  // gateway's final unique reference (SSLCommerz val_id, bKash trxID).
+  gatewayTransactionId String?               @unique
+  gatewayPaymentId     String?
+  gatewayValId         String?               @unique
+  isDemo               Boolean               @default(false)
+  // Manual payments: reference number (bank slip, bKash trx id, ...).
+  reference            String?
+  note                 String?               @db.Text
+  paidAt               DateTime?
+  initiatedByUserId    String?
+  recordedByUserId     String?
+  rawResponse          Json?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  allocations PlatformPaymentAllocation[]
+
+  @@index([institutionId, status])
+  @@index([gatewayPaymentId])
+  @@index([paidAt])
+}
+
+// Which invoice(s) a payment covers ("pay all" covers several).
+model PlatformPaymentAllocation {
+  id            String          @id @default(cuid())
+  paymentId     String
+  payment       PlatformPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId     String
+  invoice       PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount        Decimal         @db.Decimal(12, 2) // planned (= due at checkout)
+  appliedAmount Decimal         @default(0) @db.Decimal(12, 2) // credited to the invoice
+  createdAt     DateTime        @default(now())
+
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+}
+
+model PlatformCollectionActivity {
+  id             String               @id @default(cuid())
+  institutionId  String
+  institution    Institution          @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceId      String?
+  invoice        PlatformInvoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  type           PlatformActivityType
+  callOutcome    PlatformCallOutcome?
+  body           String?              @db.Text
+  promiseDate    DateTime?
+  nextFollowUpAt DateTime?
+  assigneeUserId String?
+  metadata       Json?
+  actorUserId    String?
+  actorName      String?
+  createdAt      DateTime             @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([type])
+}
+
+model PlatformReminderLog {
+  id               String                  @id @default(cuid())
+  institutionId    String
+  institution      Institution             @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceId        String?
+  invoice          PlatformInvoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  kind             PlatformReminderKind
+  channel          PlatformReminderChannel
+  recipient        String // masked phone / masked email
+  result           PlatformReminderResult
+  providerResponse String?                 @db.Text
+  // Asia/Dhaka day (YYYY-MM-DD). dedupeKey makes one day's send idempotent
+  // across restarts and instances.
+  dayKey           String
+  dedupeKey        String                  @unique
+  createdAt        DateTime                @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([invoiceId])
+}
+
+// ── P2 Student fees ──
+// =============================================================================
+// === TRACK P2: Student fee profile, monthly auto-invoices, collect-fee
+// counter, refunds/reversals, late fine ===
+// Every row is tenant-scoped by institutionId. Money is Decimal(12,2) and is
+// computed in paisa (integers) in code. Users referenced here (actors) are
+// plain ids, so deleting a staff account never touches fee history.
+// =============================================================================
+
+// One row per school: Settings → Fees (monthly auto-invoices).
+model StudentFeeSettings {
+  id                 String      @id @default(cuid())
+  institutionId      String      @unique
+  institution        Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  // Generate each active student's monthly invoice on day N (Asia/Dhaka).
+  autoGenerate       Boolean     @default(false)
+  generateDay        Int         @default(1)
+  dueDay             Int         @default(10)
+  // Fee categories billed monthly. Empty = every active category whose
+  // frequency is MONTHLY.
+  monthlyCategoryIds String[]    @default([])
+  // SEPARATE (default): old unpaid invoices stay as they are.
+  // ARREARS_LINE: fully-unpaid older monthly invoices are carried forward as
+  // lines on the new invoice (the old one is CANCELLED with a note).
+  arrearsMode        String      @default("SEPARATE")
+  // Fine/arrears lines need a fee category; created on first use.
+  fineCategoryId     String?
+  lastAutoPeriod     String? // YYYY-MM of the last scheduled run
+  lastAutoRunAt      DateTime?
+  lastRunSummary     Json?
+  updatedByUserId    String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+}
+
+// A custom fee for ONE student (orphan / sibling / scholarship rate). Rows
+// are never edited in place: a change ends the old row and adds a new one,
+// so the history is kept. feeCategoryId null = the student's whole monthly
+// fee (spread over the monthly categories).
+model StudentFeeProfile {
+  id               String       @id @default(cuid())
+  institutionId    String
+  studentId        String
+  student          Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  feeCategoryId    String?
+  feeCategory      FeeCategory? @relation(fields: [feeCategoryId], references: [id], onDelete: Cascade)
+  // MONTHLY: monthlyAmount each month. YEARLY: yearlyAmount per 12 months,
+  // spread (total/12, the 12th month absorbs rounding) or billed once.
+  kind             String       @default("MONTHLY")
+  monthlyAmount    Decimal?     @db.Decimal(12, 2)
+  yearlyAmount     Decimal?     @db.Decimal(12, 2)
+  yearlyMode       String       @default("SPREAD") // SPREAD | ONE_TIME
+  effectiveFrom    String // YYYY-MM (inclusive)
+  effectiveTo      String? // YYYY-MM (inclusive), null = open-ended
+  reason           String
+  createdByUserId  String?
+  // Set when staff remove the profile (kept for history).
+  endedAt          DateTime?
+  endedByUserId    String?
+  endReason        String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([institutionId, studentId])
+  @@index([studentId, feeCategoryId])
+}
+
+// Which billing month an invoice is for. activeKey = "<studentId>|<YYYY-MM>|<kind>"
+// while the invoice holds the month; it is cleared when staff cancel the
+// invoice so the month can be generated again. Unique → a month can never
+// be billed twice, even by two runs at once.
+model InvoicePeriod {
+  id            String   @id @default(cuid())
+  institutionId String
+  invoiceId     String   @unique
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  studentId     String
+  period        String // YYYY-MM
+  kind          String   @default("MONTHLY")
+  activeKey     String?  @unique
+  source        String   @default("AUTO") // AUTO (scheduled) | MANUAL (Generate now)
+  createdAt     DateTime @default(now())
+
+  @@index([institutionId, period])
+  @@index([studentId, period])
+}
+
+// Late fine rule. feeCategoryId null = school-wide; a category rule wins for
+// invoices that bill that category.
+model LateFineRule {
+  id            String       @id @default(cuid())
+  institutionId String
+  institution   Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  feeCategoryId String?
+  feeCategory   FeeCategory? @relation(fields: [feeCategoryId], references: [id], onDelete: Cascade)
+  type          String       @default("FLAT") // FLAT | PERCENT (of the due)
+  value         Decimal      @db.Decimal(12, 2)
+  graceDays     Int          @default(0) // applies once the invoice is this many days past due
+  recurrence    String       @default("ONCE") // ONCE | MONTHLY
+  maxAmount     Decimal?     @db.Decimal(12, 2) // cap on total fines per invoice
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([institutionId])
+}
+
+// One fine charged on an invoice. fineKey = "ONCE" or "M<n>" (n-th month);
+// "STOP" marks an invoice whose future fines were waived. Unique per invoice
+// per key → the overdue job can run any number of times.
+model InvoiceFine {
+  id             String    @id @default(cuid())
+  institutionId  String
+  invoiceId      String
+  invoice        Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  fineKey        String
+  ruleId         String?
+  invoiceItemId  String?
+  amount         Decimal   @db.Decimal(12, 2)
+  waivedAmount   Decimal   @default(0) @db.Decimal(12, 2)
+  waivedAt       DateTime?
+  waivedByUserId String?
+  waiveReason    String?
+  createdAt      DateTime  @default(now())
+
+  @@unique([invoiceId, fineKey])
+  @@index([institutionId, createdAt])
+}
+
+// A reversed payment (ADMIN, with reason). The Payment row is kept with
+// status REVERSED; the invoice's paid/due are recalculated.
+model PaymentReversal {
+  id               String   @id @default(cuid())
+  institutionId    String
+  paymentId        String   @unique
+  payment          Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId        String
+  studentId        String
+  amount           Decimal  @db.Decimal(12, 2) // the payment amount
+  appliedAmount    Decimal  @db.Decimal(12, 2) // what had been credited to the invoice
+  reason           String
+  reversedByUserId String
+  createdAt        DateTime @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([invoiceId])
+}
+
+// Money handed back (cash/bank/bKash…) for an overpayment or a reversed
+// payment. Online-gateway refunds are recorded here only — the refund itself
+// is done in the merchant panel.
+model FeeRefund {
+  id               String      @id @default(cuid())
+  institutionId    String
+  institution      Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  studentId        String
+  invoiceId        String?
+  paymentId        String?
+  source           String // OVERPAYMENT | REVERSAL
+  amount           Decimal     @db.Decimal(12, 2)
+  method           String
+  reference        String?
+  reason           String
+  recordedByUserId String
+  createdAt        DateTime    @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([paymentId])
+  @@index([studentId])
+}
+
+// History of money adjustments on an invoice: CANCEL, COUNTER_DISCOUNT,
+// FINE_WAIVER.
+model FeeAdjustment {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  invoiceId     String
+  studentId     String
+  kind          String
+  amount        Decimal     @default(0) @db.Decimal(12, 2)
+  reason        String
+  actorUserId   String
+  createdAt     DateTime    @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([invoiceId])
+}
+
+// ── P4 Dues & restrictions ──
+// =============================================================================
+// === TRACK P4: dues dashboard, defaulter reminders, fee reports, student
+// restrictions for non-payment. Reads the fee tables (Invoice/Payment/…) and
+// adds only these three tables. Tenant-scoped by institutionId.
+// =============================================================================
+
+// One row per school: Settings → Fees → Dues restrictions + reminder template.
+// No row = restrictions off and the built-in reminder template.
+model FeeDuesSettings {
+  id                  String      @id @default(cuid())
+  institutionId       String      @unique
+  institution         Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  restrictionsEnabled Boolean     @default(false)
+  // Thresholds — a student is restricted when ANY set threshold is met.
+  minMonthsDue        Int? // dues in at least N months
+  minAmountDue        Decimal?    @db.Decimal(12, 2) // dues of at least ৳Y
+  overdueDays         Int? // some invoice overdue by more than N days
+  // What is blocked for a restricted student (and their guardians).
+  blockResults        Boolean     @default(true)
+  blockAdmitCard      Boolean     @default(true)
+  blockIdCard         Boolean     @default(true)
+  blockPortalLogin    Boolean     @default(false)
+  blockOnlineExam     Boolean     @default(true)
+  // Extra line shown on the "Fees due" screen (e.g. office hours).
+  restrictionMessage  String?
+  // Defaulter reminder template ({student} {months} {amount} {school}).
+  smsTemplate         String?     @db.Text
+  emailSubject        String?
+  emailTemplate       String?     @db.Text
+  updatedByUserId     String?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+// Cached dues figures per student (refreshed when the student's invoices
+// change, before every check that finds it stale, and nightly) plus the
+// staff overrides. Thresholds are applied at check time, so changing the
+// settings never needs a recompute.
+model StudentFeeStatus {
+  id              String      @id @default(cuid())
+  institutionId   String
+  institution     Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  studentId       String      @unique
+  student         Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  monthsDue       Int         @default(0)
+  amountDue       Decimal     @default(0) @db.Decimal(12, 2)
+  oldestDueDate   DateTime?
+  lastPaymentAt   DateTime?
+  computedAt      DateTime    @default(now())
+  // Staff override: BLOCKED | UNBLOCKED | null (automatic).
+  manualState     String?
+  manualReason    String?
+  manualByUserId  String?
+  manualAt        DateTime?
+  // Exempt students are never restricted (scholarship, staff child, …).
+  exempt          Boolean     @default(false)
+  exemptReason    String?
+  exemptByUserId  String?
+  exemptAt        DateTime?
+  lastRemindedAt  DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([institutionId, amountDue])
+  @@index([institutionId, manualState])
+}
+
+// One row per defaulter reminder sent (SMS or email) — "last reminded".
+model FeeDuesReminderLog {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  batchId       String
+  channel       String // SMS | EMAIL
+  recipient     String // masked phone / email
+  status        String // SENT | SKIPPED | FAILED
+  detail        String?     @db.Text
+  segments      Int?
+  monthsDue     Int         @default(0)
+  amountDue     Decimal     @default(0) @db.Decimal(12, 2)
+  message       String      @db.Text
+  sentByUserId  String
+  createdAt     DateTime    @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([studentId, createdAt])
+  @@index([batchId])
+}
+
+// ── P5 SMS credits ──
+// Prepaid SMS wallet per school, provider log with delivery status, masked
+// sender IDs, and credit packs bought from PeopleNIT. Units are SMS segments
+// (one 160-char GSM / 70-char Bangla part = 1 unit).
+enum SmsMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+// SCHOOL = paid from the school's wallet; PLATFORM = PeopleNIT's own balance.
+enum SmsBillingKind {
+  SCHOOL
+  PLATFORM
+}
+
+enum SmsLedgerType {
+  PURCHASE
+  DEDUCT
+  REFUND
+  ADJUST
+  BONUS
+}
+
+enum SmsSenderIdStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+}
+
+enum SmsPurchaseMethod {
+  SSLCOMMERZ
+  BKASH
+  MANUAL
+}
+
+enum SmsPurchaseStatus {
+  INITIATED
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+model SmsWallet {
+  id                    String      @id @default(cuid())
+  institutionId         String      @unique
+  institution           Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  // Paid units left. Never negative (enforced in code under a row lock + CHECK).
+  balance               Int         @default(0)
+  totalPurchased        Int         @default(0)
+  totalUsed             Int         @default(0)
+  // Free monthly allowance (plan feature sms_per_month) consumed this month.
+  freeMonth             String? // YYYY-MM, Asia/Dhaka
+  freeUsed              Int         @default(0)
+  lowBalanceThreshold   Int         @default(100)
+  lowBalanceAlertedAt   DateTime?
+  insufficientAlertedAt DateTime?
+  // Approved masking sender ID (null = provider's non-masking default).
+  senderId              String?
+  // Provider the mask is registered with (null = use it on any provider).
+  senderIdProvider      String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model SmsCreditLedger {
+  id            String        @id @default(cuid())
+  institutionId String
+  institution   Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  type          SmsLedgerType
+  // Signed change to the paid balance (+ purchase/refund/bonus, - deduct).
+  units         Int
+  // Units taken from (DEDUCT) or returned to (REFUND) the free allowance.
+  freeUnits     Int           @default(0)
+  balanceAfter  Int
+  reason        String?       @db.Text
+  smsMessageId  String?
+  purchaseId    String?
+  actorUserId   String?
+  createdAt     DateTime      @default(now())
+
+  @@index([institutionId, createdAt])
+  @@index([type, createdAt])
+  @@index([smsMessageId])
+}
+
+model SmsMessage {
+  id                String           @id @default(cuid())
+  institutionId     String?
+  institution       Institution?     @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  to                String // 8801XXXXXXXXX (or the raw input when invalid)
+  body              String?          @db.Text
+  segments          Int              @default(1)
+  encoding          String           @default("GSM") // GSM | UNICODE
+  billing           SmsBillingKind   @default(SCHOOL)
+  purpose           String? // FEE_REMINDER, CAMPAIGN, ATTENDANCE, PLATFORM_BILLING, ...
+  sourceRef         String?
+  provider          String? // GREENWEB | BULKSMSBD | SSLWIRELESS
+  providerMessageId String?
+  senderId          String?
+  status            SmsMessageStatus @default(QUEUED)
+  costUnits         Int              @default(0) // paid units deducted
+  freeUnits         Int              @default(0) // free-allowance units used
+  refundedAt        DateTime?
+  error             String?          @db.Text
+  // [{ provider, ok, error }] — one entry per provider tried (failover trail)
+  attempts          Json?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  statusCheckedAt   DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([institutionId, createdAt])
+  @@index([status, sentAt])
+  @@index([provider, providerMessageId])
+  @@index([createdAt])
+}
+
+model SmsSenderIdRequest {
+  id             String            @id @default(cuid())
+  institutionId  String
+  institution    Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  requested      String // what the school asked for (≤ 11 chars)
+  approvedValue  String? // what the operator approved (may differ in case/spelling)
+  provider       String? // provider the mask was registered with
+  status         SmsSenderIdStatus @default(REQUESTED)
+  note           String?           @db.Text // school's note (organisation name, documents sent…)
+  reviewNote     String?           @db.Text // super-admin's approval / rejection reason
+  requestedById  String?
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([status, createdAt])
+  @@index([institutionId, createdAt])
+}
+
+model SmsCreditPack {
+  id        String              @id @default(cuid())
+  name      String
+  nameBn    String?
+  units     Int
+  priceBdt  Decimal             @db.Decimal(12, 2)
+  isActive  Boolean             @default(true)
+  sortOrder Int                 @default(0)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  purchases SmsCreditPurchase[]
+
+  @@index([isActive, sortOrder])
+}
+
+model SmsCreditPurchase {
+  id                   String            @id @default(cuid())
+  institutionId        String
+  institution          Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  packId               String?
+  pack                 SmsCreditPack?    @relation(fields: [packId], references: [id], onDelete: SetNull)
+  units                Int
+  amount               Decimal           @db.Decimal(12, 2)
+  currency             String            @default("BDT")
+  method               SmsPurchaseMethod
+  status               SmsPurchaseStatus @default(INITIATED)
+  receiptNumber        String?           @unique // SCR-YYYYMM-NNNN, set on SUCCESS
+  gatewayTransactionId String?           @unique
+  gatewayPaymentId     String?
+  gatewayValId         String?           @unique
+  isDemo               Boolean           @default(false)
+  reference            String? // manual: bank slip / bKash trx id
+  note                 String?           @db.Text
+  paidAt               DateTime?
+  initiatedByUserId    String?
+  recordedByUserId     String?
+  rawResponse          Json?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([institutionId, status])
+  @@index([gatewayPaymentId])
+  @@index([status, paidAt])
 }

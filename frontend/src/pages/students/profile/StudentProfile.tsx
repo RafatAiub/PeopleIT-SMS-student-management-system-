@@ -20,6 +20,7 @@ import { ProfileExtras, type StudentExtras } from './ProfileExtras';
 import ProgressReport from '../../results/ProgressReport';
 import { useModuleEnabled } from '../../../hooks/useModules';
 import StudentCharacterTab from '../../character/StudentCharacterTab';
+import { StudentFeeProfilePanel } from '../../fees/studentFees/StudentFeeProfilePanel'; // P2
 import { OpenFamilyButton } from '../../families/useOpenFamily';
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -208,7 +209,10 @@ const StudentProfile: React.FC = () => {
       </TabPanel>
       {canViewFees && (
         <TabPanel id="fees" value={tab} idPrefix="student-profile">
-          <FeesTab studentId={student.id} />
+          <div className="space-y-5">
+            <StudentFeeProfilePanel studentId={student.id} canEdit={role === 'ADMIN' || role === 'ACCOUNTANT'} />
+            <FeesTab studentId={student.id} />
+          </div>
         </TabPanel>
       )}
       <TabPanel id="documents" value={tab} idPrefix="student-profile">

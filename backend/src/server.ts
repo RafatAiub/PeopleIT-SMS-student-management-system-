@@ -1,3 +1,4 @@
+import './config/blockProdDotenv'; // must stay first: runs before @prisma/client loads
 import { initErrorTracking } from './config/errorTracking';
 initErrorTracking();
 import http from 'http';
@@ -16,9 +17,12 @@ import { startDomainCheckJob, stopDomainCheckJob } from './modules/sites/sites.s
 import { startEmailDeferredRetryJob, stopEmailDeferredRetryJob } from './modules/email/scheduler';
 import { startCrmDigestJob, stopCrmDigestJob } from './modules/crm/crm.scheduler';
 import { startTrashPurgeJob, stopTrashPurgeJob } from './modules/trash/trash.scheduler';
+import { startFeeDuesRefreshJob, stopFeeDuesRefreshJob } from './modules/fee-dues/dues.scheduler'; // P4
+import { startPlatformBillingJob, stopPlatformBillingJob } from './modules/platformBilling/platformBilling.scheduler';
 import { describeGatewayModes } from './modules/fees/gateways/config';
 import { currentTransportMode } from './modules/email/transport';
-import { isSmsConfigured } from './utils/sms.service';
+import { describeSmsMode } from './utils/sms.service';
+import { startSmsStatusPollJob, stopSmsStatusPollJob } from './modules/sms-credits/smsCredits.scheduler';
 
 const server = http.createServer(app);
 
@@ -56,6 +60,13 @@ function startSchedulers() {
   startCrmDigestJob();
   // T5: daily permanent delete of trash items older than 30 days (audit-logged).
   startTrashPurgeJob();
+  // P4: nightly refresh of cached student dues (restriction checks), ~02:00 Dhaka.
+  startFeeDuesRefreshJob();
+  // P1: platform billing — monthly invoices on the 1st (Dhaka), overdue
+  // marking, and 09:00 reminders to schools via PeopleNIT's SMS/email.
+  startPlatformBillingJob();
+  // P5: every 15 min, poll SMS delivery status from providers that have a status API.
+  startSmsStatusPollJob();
 }
 
 const PORT = env.PORT || 3001;
@@ -92,7 +103,7 @@ async function startServer() {
     logger.info(describeGatewayModes());
     logger.info(
       `Platform billing (SSLCommerz): ${env.SSLCOMMERZ_ENABLED ? 'ENABLED' : 'DISABLED'}; ` +
-        `email transport: ${currentTransportMode()}; SMS: ${isSmsConfigured() ? 'LIVE (Greenweb)' : 'DISABLED (SKIPPED)'}; ` +
+        `email transport: ${currentTransportMode()}; SMS: ${describeSmsMode()};` +
         `queue prefix: "${env.QUEUE_PREFIX}"`,
     );
 
@@ -147,6 +158,9 @@ async function gracefulShutdown(signal: string) {
   stopEmailDeferredRetryJob();
   stopCrmDigestJob();
   stopTrashPurgeJob();
+  stopFeeDuesRefreshJob();
+  stopPlatformBillingJob();
+  stopSmsStatusPollJob();
 
   // Stop HTTP server from accepting new requests
   server.close(async () => {

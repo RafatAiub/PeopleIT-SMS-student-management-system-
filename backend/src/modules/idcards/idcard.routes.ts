@@ -13,6 +13,7 @@ import {
   IdParamDto,
 } from './idcard.dto';
 import * as idCardController from './idcard.controller';
+import { requireFeeClearance } from '../fee-dues/restriction.middleware'; // P4
 
 const READ_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.TEACHER];
 const WRITE_ROLES = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
@@ -73,8 +74,9 @@ router.post(
 router.get('/', requireRole(...READ_ROLES), validate({ query: IdCardQueryDto }), idCardController.listCards);
 
 // Self-service — any authenticated role, scoped server-side to req.user.sub.
-router.get('/me', idCardController.getMyCard);
-router.get('/me/pdf', idCardController.getMyCardPdf);
+// P4: a STUDENT with unpaid fees (school setting) can't view/download their card.
+router.get('/me', requireFeeClearance('ID_CARD', { roles: ['STUDENT'] }), idCardController.getMyCard);
+router.get('/me/pdf', requireFeeClearance('ID_CARD', { roles: ['STUDENT'] }), idCardController.getMyCardPdf);
 
 router.get(
   '/:id',

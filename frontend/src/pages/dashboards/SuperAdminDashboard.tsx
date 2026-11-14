@@ -13,6 +13,7 @@ import {
   Button, Modal, Input, PageHeader, StatCard, Badge, ErrorState,
 } from '../../components/ui';
 import { DataTable, type Column, type RowAction } from '../../components/DataTable/DataTable';
+import { BillingProfileModal } from '../superadmin/billing/PlatformBillingModals';
 import { formatDate, useT } from '../../i18n';
 
 interface Institution {
@@ -73,6 +74,8 @@ export const SuperAdminDashboard: React.FC = () => {
 
   const [statusTarget, setStatusTarget] = useState<Institution | null>(null);
   const [statusToggling, setStatusToggling] = useState(false);
+  // P1: per-school monthly billing profile (flat / per student, due day, reminders).
+  const [billingTarget, setBillingTarget] = useState<Institution | null>(null);
 
   const validateEditForm = (data: typeof editFormData) => {
     const errors: Record<string, string> = {};
@@ -263,6 +266,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const rowActions: RowAction<Institution>[] = [
     { label: 'Details', icon: 'view', onClick: (inst) => { setSelectedInst(inst); setIsDetailsModalOpen(true); } },
     { label: 'Edit Profile', icon: 'edit', onClick: handleOpenEditModal },
+    { label: t('Billing'), onClick: (inst) => setBillingTarget(inst) },
     { label: 'Support Access', onClick: (inst) => navigate('/super-admin/support-access', { state: { institutionId: inst.id, institution: inst } }) },
     { label: 'Delete', icon: 'delete', variant: 'danger', onClick: (inst) => { setDeleteTarget(inst); setDeleteConfirmText(''); } },
   ];
@@ -345,6 +349,9 @@ export const SuperAdminDashboard: React.FC = () => {
       </div>
 
       <RegistrationWizard isOpen={isWizardOpen} onClose={() => setIsWizardOpen(false)} onSuccess={() => fetchData()} />
+      {billingTarget && (
+        <BillingProfileModal isOpen institutionId={billingTarget.id} institutionName={billingTarget.name} onClose={() => setBillingTarget(null)} />
+      )}
 
       {isDetailsModalOpen && selectedInst && (
         <Modal isOpen onClose={() => setIsDetailsModalOpen(false)} className="max-w-lg space-y-6">

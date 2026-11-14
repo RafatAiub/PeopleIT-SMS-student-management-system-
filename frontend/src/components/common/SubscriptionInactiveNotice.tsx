@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Lock, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useMySubscription } from '@/hooks/useBilling';
+import { usePlatformBillingStatus } from '@/hooks/usePlatformBilling';
 import { useT } from '@/i18n';
 import { SUBSCRIPTION_INACTIVE_EVENT } from '@/api/client';
 
@@ -19,6 +20,8 @@ export const SubscriptionInactiveNotice: React.FC = () => {
   const t = useT();
   const { user, supportSession } = useAuthStore();
   const { data: subscription } = useMySubscription();
+  // P1: platform-billed schools are covered by PlatformBillingBanner / the disabled screen.
+  const { data: platform } = usePlatformBillingStatus();
   const [flagged, setFlagged] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -32,7 +35,7 @@ export const SubscriptionInactiveNotice: React.FC = () => {
   }, []);
 
   const restricted = flagged || subscription?.accessLevel === 'RESTRICTED';
-  if (!user || user.role === 'SUPER_ADMIN' || supportSession || !restricted || dismissed) return null;
+  if (!user || user.role === 'SUPER_ADMIN' || supportSession || !restricted || dismissed || platform?.hasProfile || platform?.accessLevel === 'DISABLED') return null;
 
   const isAdmin = user.role === 'ADMIN';
   const isFamily = user.role === 'STUDENT' || user.role === 'GUARDIAN';

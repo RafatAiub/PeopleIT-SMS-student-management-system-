@@ -6,6 +6,7 @@ import * as onlinePayments from './online/onlinePayment.service';
 import { getPaymentReceipt } from './receipts/receipt.service';
 import * as bulkService from './bulk/bulk.service';
 import { markOverdueInvoices } from './overdue/overdue.service';
+import { applyLateFinesForTenant } from './student-fees/studentFees.fines';
 import { listReconciliation, type ReconciliationQuery } from './reconciliation/reconciliation.service';
 import { emitPaymentReceivedWebhook } from '../webhooks/webhooks.hooks';
 
@@ -201,7 +202,9 @@ export class FeeController {
   static async markOverdue(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await markOverdueInvoices({ institutionId: req.tenantId! });
-      return successResponse(res, result, `${result.updated} invoice(s) marked overdue`);
+      // P2: the same button also adds any late fines now due (idempotent).
+      const fines = await applyLateFinesForTenant(req.tenantId!);
+      return successResponse(res, { ...result, finesAdded: fines.added, fineAmount: fines.amount }, `${result.updated} invoice(s) marked overdue`);
     } catch (error) {
       next(error);
     }

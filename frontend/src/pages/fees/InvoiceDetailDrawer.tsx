@@ -2,13 +2,15 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { DollarSign, Printer, Receipt, Trash2 } from 'lucide-react';
-import { Drawer, Button, Skeleton, SkeletonText, ErrorState, DescriptionList } from '../../components/ui';
+import { Badge, Drawer, Button, Skeleton, SkeletonText, ErrorState, DescriptionList } from '../../components/ui';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { showUndoToast } from '../../components/common/undoToast';
-import { formatCurrency, formatDate, useT } from '../../i18n';
+import { formatCurrency, formatDate, useLocale, useT } from '../../i18n';
 import { FEES_INVOICES_KEY, canTrashInvoice, useDeleteInvoice, useInvoiceDetail } from './hooks';
 import type { InvoiceListItem, Payment } from './types';
+import { InvoiceAdjustments } from './studentFees/InvoiceAdjustments';
+import { monthLabel } from './studentFees/studentFees.logic';
 
 const METHOD_LABEL: Record<string, string> = {
   CASH: 'Cash',
@@ -37,6 +39,7 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
 }) => {
   const { data: invoice, isLoading, isError, refetch } = useInvoiceDetail(invoiceId);
   const t = useT();
+  const { lang } = useLocale();
   const qc = useQueryClient();
   const del = useDeleteInvoice();
   const [confirmDelete, setConfirmDelete] = React.useState(false);
@@ -60,6 +63,7 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
                 { label: 'Student ID', value: invoice.student?.studentId ?? '—' },
                 { label: 'Issue date', value: formatDate(invoice.createdAt) },
                 { label: 'Due date', value: formatDate(invoice.dueDate) },
+                ...(invoice.feePeriod?.period ? [{ label: t('Month'), value: monthLabel(invoice.feePeriod.period, lang) }] : []),
               ]}
             />
             <StatusBadge status={invoice.status} />
@@ -99,11 +103,15 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
                 {invoice.payments.map((p) => (
                   <div key={p.id} className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
                     <div className="min-w-0">
-                      <p className="font-medium text-slate-900 dark:text-white tabular-nums">{formatCurrency(p.amount)}</p>
+                      <p className={`font-medium tabular-nums ${p.status === 'REVERSED' ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                        {formatCurrency(p.amount)}
+                        {p.status === 'REVERSED' && <Badge variant="danger" className="ml-2 no-underline">{t('Reversed')}</Badge>}
+                      </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {METHOD_LABEL[p.method] || p.method} &middot; {formatDate(p.paidAt ?? p.createdAt ?? '')}
                         {p.receiptNo ? ` · ${p.receiptNo}` : ''}
                         {p.transactionRef ? ` · Ref: ${p.transactionRef}` : ''}
+                        {p.reversal ? ` · ${t('Reversed')}: ${p.reversal.reason}` : ''}
                       </p>
                     </div>
                     <Button
@@ -127,6 +135,8 @@ export const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
               <p className="text-sm text-slate-700 dark:text-slate-300">{invoice.notes}</p>
             </div>
           )}
+
+          {canRecordPayment && <InvoiceAdjustments invoice={invoice} />}
 
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
             <Button variant="secondary" size="sm" leftIcon={<Printer className="w-3.5 h-3.5" />} onClick={onPrintInvoice}>

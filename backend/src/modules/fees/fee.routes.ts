@@ -18,6 +18,7 @@ import {
   PaymentIdParamSchema,
 } from './fee.dto';
 import concessionRouter from './concessions/concession.routes';
+import studentFeesRouter from './student-fees/studentFees.routes';
 import { BulkInvoiceDto, ListBatchesQueryDto } from './bulk/bulk.dto';
 import { ReconciliationQueryDto } from './reconciliation/reconciliation.service';
 
@@ -58,6 +59,10 @@ router.delete(
 
 // -- Wave C: concessions (sub-router inherits auth/tenant/audit above) --
 router.use('/concessions', concessionRouter);
+
+// -- P2: student fee profile, monthly invoices, counter, cancel/reverse/
+// refund, late fines (literal paths only; inherits auth/tenant/audit) --
+router.use(studentFeesRouter);
 
 // -- Wave C: bulk invoicing, overdue sweep, batches --
 // Registered before '/invoices/:id' so these literal paths are never

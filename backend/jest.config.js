@@ -18,6 +18,7 @@ module.exports = {
   forceExit: true,
   // These tests hit a real Postgres via Prisma (no mocking) — see
   // tests/helpers/fixtures.ts. Point DATABASE_URL at a disposable test
-  // database before running `npm test`; never point it at production data.
-  setupFiles: ['dotenv/config'],
+  // database before running `npm test`. tests/setup/env.ts makes sure
+  // backend/.env (PRODUCTION) is never loaded, not even by Prisma.
+  setupFiles: ['<rootDir>/tests/setup/env.ts'],
 };

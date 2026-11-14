@@ -27,6 +27,8 @@ export interface InvoiceListItem {
   status: InvoiceStatus;
   createdAt: string;
   student?: StudentRef;
+  /** P2: billing month (YYYY-MM) for monthly invoices. */
+  feePeriod?: { period: string; kind?: string } | null;
 }
 
 export interface InvoiceItem {
@@ -52,12 +54,16 @@ export interface Payment {
   paidAt?: string;
   /** Wave C: tenant-prefixed receipt number (null on payments recorded before it existed). */
   receiptNo?: string | null;
+  /** P2: set when the payment was reversed (status REVERSED). */
+  reversal?: { reason: string; createdAt: string; appliedAmount: number | string } | null;
 }
 
 export interface InvoiceDetail extends InvoiceListItem {
   items: InvoiceItem[];
   payments: Payment[];
   notes?: string | null;
+  /** P2: late fines on this invoice ("STOP" = future fines waived). */
+  fines?: { id: string; fineKey: string; amount: number | string; waivedAmount: number | string; waivedAt?: string | null; waiveReason?: string | null }[];
 }
 
 export interface InvoiceSummary {

@@ -10,7 +10,9 @@ import { prisma } from '../config/prisma';
 import { UnauthorizedError, ForbiddenError } from '../utils/AppError';
 import { logger } from '../utils/logger';
 import { computeEffectiveSubscriptionState, applyHardSuspend } from '../modules/billing/subscriptionLifecycle';
-import { getAccessLevel, isWriteAllowedWhileRestricted, SubscriptionInactiveError } from '../modules/billing/accessLevel';
+import { getAccessLevel, isRequestAllowedAt, SubscriptionInactiveError, type AccessReason } from '../modules/billing/accessLevel';
+import { getPlatformAccessState, type PlatformAccessState } from '../modules/platformBilling/platformBilling.access';
+import { isMissingSchemaError } from '../utils/schemaMissing';
 
 /**
  * Extracts institutionId from the JWT payload set by authenticate middleware.
@@ -50,39 +52,51 @@ export async function setTenant(req: Request, _res: Response, next: NextFunction
       },
     });
 
-    if (!institution || !institution.isActive) {
+    if (!institution) {
       throw new ForbiddenError('This institution has been suspended by the platform administrator');
     }
 
     const now = new Date();
-    if (institution.subscription) {
+
+    // P1: platform billing (per-school profile + monthly invoices + owner
+    // override). Cached briefly — see platformBilling.access.ts. If the P1
+    // migration is not applied yet, fall back to the legacy regime.
+    let platform: PlatformAccessState | null = null;
+    try {
+      platform = await getPlatformAccessState(institutionId, now);
+    } catch (error) {
+      if (!isMissingSchemaError(error)) throw error;
+    }
+
+    // Legacy post-grace hard-suspend — only for schools still on the legacy
+    // Plan/Subscription regime (a billing profile replaces it). The school is
+    // then DISABLED below, which still lets it sign in and pay.
+    let isActive = institution.isActive;
+    if (isActive && institution.subscription && !platform?.hasProfile) {
       const effective = computeEffectiveSubscriptionState(institution.subscription, now);
       if (effective.requiresHardSuspend) {
         await applyHardSuspend(institutionId, institution.subscription.id);
-        throw new ForbiddenError('This institution has been suspended by the platform administrator');
+        isActive = false;
       }
     }
 
-    // P0: server-side paywall. An expired (lapsed trial / post-grace) or
-    // cancelled subscription makes the school read-only: writes get 402
-    // SUBSCRIPTION_INACTIVE, except billing/checkout and auth so the school
-    // can still pay and sign in/out. SUPER_ADMIN (incl. support sessions
-    // opened by a super admin) is never blocked. GRACE stays fully usable.
-    const accessLevel = getAccessLevel(institution, institution.subscription, now);
+    // P0/P1: server-side access enforcement (accessLevel.ts decides).
+    //   RESTRICTED → read-only (writes 402 SUBSCRIPTION_INACTIVE), billing/auth exempt
+    //   DISABLED   → everything 402 ACCOUNT_DISABLED except billing/auth
+    // SUPER_ADMIN (incl. support sessions opened by a super admin) is never blocked.
+    const accessLevel = getAccessLevel({ isActive }, institution.subscription, now, platform);
     const isPlatformStaff = req.user.role === 'SUPER_ADMIN' || !!req.user.originalSuperAdminId;
-    if (
-      accessLevel === 'RESTRICTED' &&
-      !isPlatformStaff &&
-      !isWriteAllowedWhileRestricted(req.method, req.originalUrl || req.url)
-    ) {
-      logger.warn('Write blocked: subscription inactive (402)', {
+    if (!isPlatformStaff && !isRequestAllowedAt(accessLevel, req.method, req.originalUrl || req.url)) {
+      const reason: AccessReason = !isActive ? 'SUSPENDED' : platform?.hasProfile ? 'PLATFORM_BILLING' : 'SUBSCRIPTION';
+      logger.warn(`Request blocked: school access ${accessLevel} (402)`, {
         institutionId,
         userId: req.user.sub,
         role: req.user.role,
         method: req.method,
         path: req.originalUrl,
+        reason,
       });
-      throw new SubscriptionInactiveError(accessLevel);
+      throw new SubscriptionInactiveError(accessLevel, undefined, reason);
     }
 
     req.tenantId = institutionId;

@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { env } from '../../config/env';
 import type { CanvasElementType } from './idcard.dto';
+import { enableBanglaText } from '../../utils/pdfFonts';
 
 // =============================================================================
 // ID Card PDF Renderer — pdfkit + qrcode
@@ -390,6 +391,7 @@ export async function renderIdCardPdf(card: IdCardPdfData): Promise<Buffer> {
   const heightPt = template.heightMm * MM_TO_PT;
 
   const doc = new PDFDocument({ size: [widthPt, heightPt], margin: 0 });
+  enableBanglaText(doc); // P3: Bangla names/labels print instead of boxes
   const chunks: Buffer[] = [];
   doc.on('data', (chunk) => chunks.push(chunk));
   const finished = new Promise<Buffer>((resolve, reject) => {

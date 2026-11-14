@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useMySubscription } from '@/hooks/useBilling';
+import { usePlatformBillingStatus } from '@/hooks/usePlatformBilling';
 
 export const SubscriptionBanner: React.FC = () => {
   const { user } = useAuthStore();
   const { data: subscription } = useMySubscription();
+  // P1: a school on monthly platform billing gets PlatformBillingBanner instead.
+  const { data: platform } = usePlatformBillingStatus();
 
-  if (user?.role !== 'ADMIN' || !subscription || subscription.bannerLevel === 'none') return null;
+  if (user?.role !== 'ADMIN' || !subscription || subscription.bannerLevel === 'none' || platform?.hasProfile) return null;
   // P0: an expired (read-only) account is shown by SubscriptionInactiveNotice.
   if (subscription.accessLevel === 'RESTRICTED') return null;
 

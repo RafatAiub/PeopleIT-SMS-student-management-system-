@@ -8,6 +8,8 @@ import * as billingRepository from './billing.repository';
 import { SslCommerzClient } from './gateways/sslcommerz.client';
 import { computeEffectiveSubscriptionState } from './subscriptionLifecycle';
 import { getAccessLevel } from './accessLevel';
+import { verifySslCommerzSignature } from '../fees/gateways/verify';
+import { getPlatformAccessState } from '../platformBilling/platformBilling.access';
 import {
   emitSubscriptionNotification,
   formatCycle,
@@ -106,7 +108,7 @@ export async function getMySubscription(tenantId: string) {
     // P0: the server-enforced level (tenant.middleware.ts). GRACE is ACTIVE —
     // only RESTRICTED (expired/cancelled) blocks writes with 402. Reaching
     // this route at all means the institution is switched on.
-    accessLevel: getAccessLevel({ isActive: true }, subscription),
+    accessLevel: getAccessLevel({ isActive: true }, subscription, new Date(), await getPlatformAccessState(tenantId).catch(() => null)),
     pendingPaymentRequest,
   };
 }
@@ -289,85 +291,119 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
   let creditedPeriodEnd: Date | null = null;
   let didCredit = false;
 
-  await prisma.$transaction(async (tx) => {
-    const updateResult = await tx.subscriptionPayment.updateMany({
-      where: { id: payment.id, status: { not: 'SUCCESS' } },
-      data: {
-        status: 'SUCCESS',
-        gatewayValId: valId,
-        rawGatewayResponse: validation.raw as any,
-      },
-    });
-
-    // Lost the race to a concurrent IPN/redirect delivery for the same
-    // payment — it's already been credited, do not extend the period twice.
-    if (updateResult.count !== 1) {
-      return;
-    }
-
-    const subscription = await tx.subscription.findUnique({ where: { id: payment.subscriptionId } });
-    if (!subscription) {
-      logger.error('Subscription payment credited but its Subscription row is missing', {
-        paymentId: payment.id,
-        subscriptionId: payment.subscriptionId,
-      });
-      return;
-    }
-
-    const { currentPeriodStart, currentPeriodEnd } = computeExtendedPeriod(subscription, payment.billingCycle);
-    creditedPeriodEnd = currentPeriodEnd;
-    didCredit = true;
-
-    await tx.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        status: 'ACTIVE',
-        planId: payment.planPrice?.planId ?? subscription.planId,
-        billingCycle: payment.billingCycle,
-        currentPeriodStart,
-        currentPeriodEnd,
-        graceEndsAt: null,
-      },
-    });
-
-    // Supersede every other still-open payment attempt for this institution.
-    // Without this, paying via a fresh checkout leaves a super-admin-generated
-    // INITIATED row behind, so getMySubscription keeps returning a
-    // pendingPaymentRequest and the "Payment requested by PeopleIT" banner
-    // lingers until the 24h stale sweep.
-    await tx.subscriptionPayment.updateMany({
-      where: {
-        institutionId: payment.institutionId,
-        status: { in: ['INITIATED', 'PENDING'] },
-        id: { not: payment.id },
-      },
-      data: { status: 'CANCELLED' },
-    });
-
-    if (systemActorId) {
-      await tx.auditLog.create({
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updateResult = await tx.subscriptionPayment.updateMany({
+        where: { id: payment.id, status: { not: 'SUCCESS' } },
         data: {
-          institutionId: payment.institutionId,
-          userId: systemActorId,
-          action: 'SUBSCRIPTION_PAYMENT_SUCCESS',
-          resource: 'Subscription',
-          resourceId: subscription.id,
-          metadata: {
-            tranId: payment.gatewayTransactionId,
-            valId,
-            amount: Number(payment.amount),
-            currency: payment.currency,
-            billingCycle: payment.billingCycle,
-          },
+          status: 'SUCCESS',
+          gatewayValId: valId,
+          rawGatewayResponse: validation.raw as any,
         },
       });
-    } else {
-      logger.warn('Skipped SUBSCRIPTION_PAYMENT_SUCCESS audit log: no actor and no SUPER_ADMIN user exists', {
-        institutionId: payment.institutionId,
-        paymentId: payment.id,
+
+      // Lost the race to a concurrent IPN/redirect delivery for the same
+      // payment — it's already been credited, do not extend the period twice.
+      if (updateResult.count !== 1) {
+        return;
+      }
+
+      const subscription = await tx.subscription.findUnique({ where: { id: payment.subscriptionId } });
+      if (!subscription) {
+        logger.error('Subscription payment credited but its Subscription row is missing', {
+          paymentId: payment.id,
+          subscriptionId: payment.subscriptionId,
+        });
+        return;
+      }
+
+      const { currentPeriodStart, currentPeriodEnd } = computeExtendedPeriod(subscription, payment.billingCycle);
+      creditedPeriodEnd = currentPeriodEnd;
+      didCredit = true;
+
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: 'ACTIVE',
+          planId: payment.planPrice?.planId ?? subscription.planId,
+          billingCycle: payment.billingCycle,
+          currentPeriodStart,
+          currentPeriodEnd,
+          graceEndsAt: null,
+        },
       });
+
+      // Supersede every other still-open payment attempt for this institution.
+      // Without this, paying via a fresh checkout leaves a super-admin-generated
+      // INITIATED row behind, so getMySubscription keeps returning a
+      // pendingPaymentRequest and the "Payment requested by PeopleIT" banner
+      // lingers until the 24h stale sweep.
+      await tx.subscriptionPayment.updateMany({
+        where: {
+          institutionId: payment.institutionId,
+          status: { in: ['INITIATED', 'PENDING'] },
+          id: { not: payment.id },
+        },
+        data: { status: 'CANCELLED' },
+      });
+
+      if (systemActorId) {
+        await tx.auditLog.create({
+          data: {
+            institutionId: payment.institutionId,
+            userId: systemActorId,
+            action: 'SUBSCRIPTION_PAYMENT_SUCCESS',
+            resource: 'Subscription',
+            resourceId: subscription.id,
+            metadata: {
+              tranId: payment.gatewayTransactionId,
+              valId,
+              amount: Number(payment.amount),
+              currency: payment.currency,
+              billingCycle: payment.billingCycle,
+            },
+          },
+        });
+      } else {
+        logger.warn('Skipped SUBSCRIPTION_PAYMENT_SUCCESS audit log: no actor and no SUPER_ADMIN user exists', {
+          institutionId: payment.institutionId,
+          paymentId: payment.id,
+        });
+      }
+
+      // P1: a paid school that was AUTO-suspended after its grace window ends
+      // (applyHardSuspend) is switched back on by its own payment. A school the
+      // platform team suspended by hand stays off — only the latest suspension
+      // event decides.
+      const institution = await tx.institution.findUnique({ where: { id: payment.institutionId }, select: { isActive: true } });
+      if (institution && !institution.isActive) {
+        const lastSuspension = await tx.auditLog.findFirst({
+          where: {
+            institutionId: payment.institutionId,
+            OR: [
+              { action: 'AUTO_SUSPEND' },
+              { action: 'SUBSCRIPTION_MANUAL_OVERRIDE' },
+              { action: 'UPDATE', resource: 'InstitutionStatus' },
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { action: true },
+        });
+        if (lastSuspension?.action === 'AUTO_SUSPEND') {
+          await tx.institution.update({ where: { id: payment.institutionId }, data: { isActive: true } });
+          logger.info('Auto-suspended institution reactivated by its subscription payment', { institutionId: payment.institutionId });
+        }
+      }
+    });
+  } catch (error) {
+    // P1: gatewayValId is unique — a replayed val_id that slipped past the
+    // pre-check above (a concurrent duplicate) is rejected by the database.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      logger.error('SSLCommerz val_id replay blocked by unique constraint', { paymentId: payment.id, valId });
+      return;
     }
-  });
+    throw error;
+  }
 
   logger.info('Subscription payment credited', {
     paymentId: payment.id,
@@ -393,12 +429,27 @@ async function creditPayment(payment: PaymentWithRelations, valId: string | null
   }
 }
 
+/** true only when the payload carries a verify_sign that does NOT match. */
+export function hasBadSslCommerzSignature(payload: Record<string, unknown>): boolean {
+  const password = env.SSLCOMMERZ_STORE_PASSWORD;
+  if (!password) return false;
+  return verifySslCommerzSignature(payload, password) === false;
+}
+
 export async function handleIpn(payload: Record<string, unknown>): Promise<void> {
   const tranId = payload?.tran_id as string | undefined;
   const valId = payload?.val_id as string | undefined;
 
   if (!tranId) {
     logger.warn('Billing IPN received without tran_id', { payload });
+    return;
+  }
+
+  // P1: SSLCommerz signs every IPN (verify_sign over verify_key). A payload
+  // whose signature does not match is forged or corrupted — ignore it. A
+  // payload without a signature is still checked with the validation API.
+  if (hasBadSslCommerzSignature(payload)) {
+    logger.error('Billing IPN signature mismatch — ignored', { tranId });
     return;
   }
 
@@ -421,6 +472,11 @@ export async function handleRedirect(
   payload: Record<string, unknown>,
 ): Promise<string> {
   const tranId = payload?.tran_id as string | undefined;
+
+  if (kind === 'success' && tranId && hasBadSslCommerzSignature(payload)) {
+    logger.error('Billing success redirect signature mismatch — not crediting', { tranId });
+    return `${env.FRONTEND_URL}/billing/checkout-result?status=fail`;
+  }
 
   if (kind === 'success' && tranId) {
     const payment = await billingRepository.findPaymentByGatewayTransactionId(tranId);

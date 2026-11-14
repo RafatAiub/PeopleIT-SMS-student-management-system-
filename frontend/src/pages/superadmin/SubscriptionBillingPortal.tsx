@@ -5,10 +5,15 @@ import { PageHeader } from '@/components/ui/Display';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 import PlansTab from './billing/PlansTab';
 import SubscriptionsTab from './billing/SubscriptionsTab';
+import PlatformInvoicesTab from './billing/PlatformInvoicesTab';
+import CollectionsTab from './billing/CollectionsTab';
+import { useT } from '@/i18n';
 
 // Analytics is the only tab that pulls in `recharts` (~heavy). Lazy-load it so
 // that dependency lands in its own async chunk, fetched only when the tab opens.
 const AnalyticsTab = React.lazy(() => import('./billing/AnalyticsTab'));
+// P1: monthly platform billing dashboard (also recharts → lazy).
+const PlatformDashboardTab = React.lazy(() => import('./billing/PlatformDashboardTab'));
 
 // Matches AnalyticsTab's own loading skeleton — shown while its async chunk loads.
 const AnalyticsTabFallback: React.FC = () => (
@@ -35,14 +40,22 @@ const AnalyticsTabFallback: React.FC = () => (
 // not as a separate top-level "Payments" tab — see the final report.
 // =============================================================================
 
+// P1: the first three tabs are monthly platform billing (per-school profile,
+// invoices, collections). Plans/Subscriptions/Analytics are the legacy
+// plan-based regime, still used by schools without a billing profile.
 const TABS = [
+  { id: 'monthly', label: 'Monthly billing' },
+  { id: 'invoices', label: 'Invoices' },
+  { id: 'collections', label: 'Collections' },
   { id: 'plans', label: 'Plans' },
   { id: 'subscriptions', label: 'Subscriptions' },
   { id: 'analytics', label: 'Analytics' },
 ];
 
 const SubscriptionBillingPortal: React.FC = () => {
-  const [tab, setTab] = useState<string>('subscriptions');
+  const t = useT();
+  const [tab, setTab] = useState<string>('monthly');
+  const [openSchoolId, setOpenSchoolId] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
 
@@ -65,12 +78,28 @@ const SubscriptionBillingPortal: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       <PageHeader
-        title="Subscription billing"
-        description="Plans, pricing, and every institution's billing status across the platform."
+        title={t('Billing')}
+        description={t("Monthly bills to schools, collections, and the legacy plans.")}
       />
 
-      <Tabs tabs={TABS} value={tab} onChange={setTab} variant="pills" label="Billing sections" idPrefix="billing" />
+      <Tabs tabs={TABS.map((x) => ({ ...x, label: t(x.label) }))} value={tab} onChange={setTab} variant="pills" label="Billing sections" idPrefix="billing" />
 
+      <TabPanel id="monthly" value={tab} idPrefix="billing">
+        <React.Suspense fallback={<AnalyticsTabFallback />}>
+          <PlatformDashboardTab
+            onOpenSchool={(id) => {
+              setOpenSchoolId(id);
+              setTab('collections');
+            }}
+          />
+        </React.Suspense>
+      </TabPanel>
+      <TabPanel id="invoices" value={tab} idPrefix="billing">
+        <PlatformInvoicesTab />
+      </TabPanel>
+      <TabPanel id="collections" value={tab} idPrefix="billing">
+        <CollectionsTab openSchoolId={openSchoolId} onOpenSchool={setOpenSchoolId} />
+      </TabPanel>
       <TabPanel id="plans" value={tab} idPrefix="billing">
         <PlansTab plans={plans} loading={plansLoading} onRefresh={fetchPlans} />
       </TabPanel>

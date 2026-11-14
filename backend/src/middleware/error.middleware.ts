@@ -82,7 +82,8 @@ export function globalErrorHandler(
         message: err.message,
         code: err.code,
         accessLevel: err.accessLevel,
-        errors: { code: err.code, accessLevel: err.accessLevel },
+        reason: err.reason,
+        errors: { code: err.code, accessLevel: err.accessLevel, reason: err.reason },
       });
     }
 

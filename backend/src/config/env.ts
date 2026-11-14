@@ -1,3 +1,4 @@
+import './blockProdDotenv';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -92,6 +93,21 @@ const envSchema = z.object({
   // intended provider. Gated behind SMS_ENABLED, same as Twilio above.
   GREENWEB_API_TOKEN: z.string().optional(),
   GREENWEB_BASE_URL: z.string().url().default('https://api.greenweb.com.bd/api.php'),
+  // P5 provider layer + SMS credits. Declared here only so the SKIP_DOTENV
+  // guard covers them; the code reads them from process.env at call time.
+  SMS_PROVIDER_PRIMARY: z.string().optional(),
+  SMS_PROVIDER_FALLBACK: z.string().optional(),
+  BULKSMSBD_API_KEY: z.string().optional(),
+  BULKSMSBD_SENDER_ID: z.string().optional(),
+  BULKSMSBD_BASE_URL: z.string().optional(),
+  SSLWIRELESS_API_TOKEN: z.string().optional(),
+  SSLWIRELESS_SID: z.string().optional(),
+  SSLWIRELESS_BASE_URL: z.string().optional(),
+  SMS_CREDITS_ENFORCED: z.string().optional(),
+  SMS_WELCOME_CREDITS: z.string().optional(),
+  SMS_DLR_TOKEN: z.string().optional(),
+  SMS_STATUS_POLL: z.string().optional(),
+  SMS_REFUND_ON_DLR_FAILURE: z.string().optional(),
 
   // Email — Brevo (transactional HTTP API preferred) or SMTP relay via
   // nodemailer, selected at send time by utils/mailer.ts:
@@ -229,7 +245,11 @@ const envSchema = z.object({
 });
 
 // Validate at module load time — throws on startup if env is invalid
-const parseResult = envSchema.safeParse(process.env);
+// An empty value counts as unset, so defaults apply (blockProdDotenv claims
+// names as '' to keep Prisma from filling them from backend/.env).
+const parseResult = envSchema.safeParse(
+  Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== '')),
+);
 
 if (!parseResult.success) {
   console.error('❌ Invalid environment variables:');

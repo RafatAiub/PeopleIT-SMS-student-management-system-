@@ -26,6 +26,7 @@ import type { LoginDtoType, RefreshDtoType, VerifyTwoFactorDtoType } from './aut
 import type { JwtPayload } from '../../middleware/auth.middleware';
 import { recordSessionMeta } from './sessions.service';
 import type { SessionContext } from './sessions.logic';
+import { assertPortalLoginAllowed } from '../fee-dues/restriction.middleware'; // P4
 
 // =============================================================================
 // Auth Service — Login, Refresh, Logout
@@ -147,9 +148,9 @@ export async function login(dto: LoginDtoType, ctx?: SessionContext): Promise<Lo
     if (!institution) {
       throw new NotFoundError('Institution not found');
     }
-    if (!institution.isActive) {
-      throw new ForbiddenError('Institution account is suspended');
-    }
+    // P1: a switched-off (DISABLED) school can still sign in — the tenant
+    // middleware then allows only the billing pages and auth, so the school
+    // admin can pay and reactivate the account. Nothing else is reachable.
   }
 
   // One lookup either way. When a code was supplied it narrows the query, so a
@@ -205,6 +206,8 @@ export async function login(dto: LoginDtoType, ctx?: SessionContext): Promise<Lo
   // Password was correct — from here the account definitely exists, so the
   // remaining checks can be specific without leaking anything new.
   assertAccountUsable(user);
+  // P4: school may pause student/guardian portal sign-in for unpaid fees (403 FEE_RESTRICTED). Staff never.
+  await assertPortalLoginAllowed(user);
 
   // Successful login — clear any accrued failed-attempt state.
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
@@ -546,6 +549,8 @@ export async function refreshToken(dto: RefreshDtoType, ctx?: SessionContext): P
   if (!stored.user.isActive) {
     throw new ForbiddenError('Account has been deactivated');
   }
+  // P4: an open student/guardian session ends at the next refresh once sign-in is blocked for fees.
+  await assertPortalLoginAllowed(stored.user);
 
   // Rotate refresh token (revoke old, issue new)
   const newRefreshToken = generateRefreshToken();
